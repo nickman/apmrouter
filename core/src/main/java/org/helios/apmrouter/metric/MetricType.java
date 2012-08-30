@@ -3,10 +3,10 @@
  */
 package org.helios.apmrouter.metric;
 
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-
-import org.helios.apmrouter.util.Environment;
+import java.util.zip.GZIPOutputStream;
 
 /**
  * <p>Title: MetricType</p>
@@ -78,6 +78,27 @@ public enum MetricType {
 			metricBuffer.rewind();
 			return new long[]{metricBuffer.order(ByteOrder.LITTLE_ENDIAN).getLong()};
 		}		
+	}
+	
+	/**
+	 * Compresses a value payload byte array in a metric in accordance with the {@link MetricType#isCompress()} option
+	 * @param payload The byte array to compress
+	 * @return The compressed payload
+	 */
+	public static byte[] compress(byte[] payload) {
+		if(!compress) return payload;
+		if(payload==null) return new byte[]{};
+		ByteArrayOutputStream baos = null;
+		GZIPOutputStream gzos = null;
+		try {
+			baos = new ByteArrayOutputStream(payload.length); 
+			gzos =  new GZIPOutputStream(baos);
+			gzos.write(payload);			
+			gzos.close();
+			return baos.toByteArray();
+		} catch (Exception e) {
+			return payload;
+		} 
 	}
 	
 	/**
