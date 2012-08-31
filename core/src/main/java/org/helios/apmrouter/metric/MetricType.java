@@ -51,6 +51,14 @@ public enum MetricType {
 	private static boolean compress = false;
 	
 	/**
+	 * Determines if this metric type is long based
+	 * @return true if this metric type is long based, false otherwise
+	 */
+	public boolean isLong() {
+		return ordinal() <= DELTA.ordinal();
+	}
+	
+	/**
 	 * Decodes the passed ordinal to a MetricType.
 	 * Throws a runtime exception if the ordinal is invalud
 	 * @param ordinal The ordinal to decode

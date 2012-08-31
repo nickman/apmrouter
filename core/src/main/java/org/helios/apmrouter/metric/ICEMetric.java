@@ -46,12 +46,8 @@ public class ICEMetric {
 
 	/** The token substitution ID of the metric */
 	protected long id = -1;
-	/** The timestamp of this metric */
-	protected long time;
-	/** The value of this metric */
-	protected ByteBuffer value;
-	/** The long value of this metric as an optimization of long type metrics */
-	protected long longValue = 0;
+	/** The value for this metric */
+	protected ICEMetricValue value;
 	
 	// ===================================================================
 	// 	Contants
@@ -94,7 +90,6 @@ public class ICEMetric {
 		this.namespace = namespace;		
 		this.type = type;
 		this.flat = flat;
-		this.time = SystemClock.time(); 
 	}
 	
 	
@@ -149,12 +144,13 @@ public class ICEMetric {
 	}
 	
 	/**
-	 * Returns the metric timestamp
+	 * Returns the metric timestamp or -1 if no timestamp has been set
 	 * @return the time
 	 */
 	public long getTime() {
-		return time;
+		return value==null ? -1L : value.time;
 	}
+	
 	/**
 	 * Returns the metric type
 	 * @return the type
