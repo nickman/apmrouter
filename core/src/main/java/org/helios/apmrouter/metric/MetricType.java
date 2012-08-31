@@ -6,7 +6,12 @@ package org.helios.apmrouter.metric;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.zip.GZIPOutputStream;
+import static org.helios.apmrouter.util.Methods.nvl;
+
 
 /**
  * <p>Title: MetricType</p>
@@ -29,10 +34,59 @@ public enum MetricType {
 	/** A catch call metric type in the form of a byte array for everything else */
 	BLOB;
 	
+	/** Map of MetricTypes keyed by the ordinal */
+	public static final Map<Integer, MetricType> ORD2ENUM;
+	
+	static {
+		Map<Integer, MetricType> tmp = new HashMap<Integer, MetricType>(MetricType.values().length);
+		for(MetricType mt: MetricType.values()) {
+			tmp.put(mt.ordinal(), mt);
+		}
+		ORD2ENUM = Collections.unmodifiableMap(tmp);
+	}
+	
 	/** Indicates if direct byte buffers should be used */
 	private static boolean direct = false;
 	/** Indicates if byte buffers should compressed for non-numeric types */
 	private static boolean compress = false;
+	
+	/**
+	 * Decodes the passed ordinal to a MetricType.
+	 * Throws a runtime exception if the ordinal is invalud
+	 * @param ordinal The ordinal to decode
+	 * @return the decoded MetricType
+	 */
+	public static MetricType valueOf(int ordinal) {
+		MetricType mt = ORD2ENUM.get(ordinal);
+		if(mt==null) throw new IllegalArgumentException("The passed ordinal [" + ordinal + "] is not a valid MetricType ordinal", new Throwable());
+		return mt;
+	}
+	
+	/**
+	 * Decodes the passed ordinal to a MetricType.
+	 * Throws a runtime exception if the ordinal is invalud
+	 * @param ordinal The ordinal to decode
+	 * @return the decoded MetricType
+	 */
+	public static MetricType valueOf(byte ordinal) {
+		int ord = ordinal;
+		return valueOf(ord);
+	}
+	
+	/**
+	 * Decodes the passed name to a MetricType.
+	 * Throws a runtime exception if the ordinal is invalud
+	 * @param name The metric type name to decode. Trimmed and uppercased.
+	 * @return the decoded MetricType
+	 */
+	public static MetricType valueOfName(CharSequence name) {
+		String n = nvl(name, "MetricType Name").toString().trim().toUpperCase();
+		try {
+			return MetricType.valueOf(n);
+		} catch (Exception e) {
+			throw new IllegalArgumentException("The passed name [" + name + "] is not a valid MetricType name", new Throwable());
+		}
+	}
 	
 	/**
 	 * <p>Title: LongMDA</p>
