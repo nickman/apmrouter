@@ -10,7 +10,7 @@ import org.helios.apmrouter.util.SystemClock;
 
 /**
  * <p>Title: ICEMetricValue</p>
- * <p>Description: The container object for a metric instance's value</p> 
+ * <p>Description: The container object for a metricId instance's value</p> 
  * <p>Company: ICE Futures US</p>
  * @author Whitehead (nicholas.whitehead@theice.com)
  * @version $LastChangedRevision$
@@ -18,21 +18,21 @@ import org.helios.apmrouter.util.SystemClock;
  */
 
 public class ICEMetricValue {
-	/** The timestamp of this metric */
+	/** The timestamp of this metricId */
 	protected final long time;
-	/** The value of this metric */
+	/** The value of this metricId */
 	protected ByteBuffer value;
-	/** The long value of this metric as an optimization of long type metrics */
+	/** The long value of this metricId as an optimization of long type metrics */
 	protected long longValue = 0;
-	/** The metric type */
+	/** The metricId type */
 	protected final MetricType type;
 	
 	/**
 	 * Creates a new ICEMetricValue
-	 * @param type The metric type
-	 * @param longValue The value of this metric as a long
+	 * @param type The metricId type
+	 * @param longValue The value of this metricId as a long
 	 */
-	private ICEMetricValue(MetricType type, long longValue) {
+	ICEMetricValue(MetricType type, long longValue) {
 		this.time = SystemClock.time();
 		this.type = type;
 		this.longValue = longValue;
@@ -40,20 +40,20 @@ public class ICEMetricValue {
 	
 	/**
 	 * Creates a new ICEMetricValue
-	 * @param type The metric type
-	 * @param value The value of this metric
+	 * @param type The metricId type
+	 * @param value The value of this metricId in bytes
 	 */
-	private ICEMetricValue(MetricType type, Object value) {
+	ICEMetricValue(MetricType type, ByteBuffer value) {
 		this.time = SystemClock.time();
 		this.type = type;
-		// SET VALUE
+		this.value = value;
 	}
 	
 	
 
 
 	/**
-	 * The timestamp of this metric as a UTC long
+	 * The timestamp of this metricId as a UTC long
 	 * @return the time
 	 */
 	public long getTime() {
@@ -61,7 +61,7 @@ public class ICEMetricValue {
 	}
 	
 	/**
-	 * The timestamp of this metric as a java date
+	 * The timestamp of this metricId as a java date
 	 * @return the date
 	 */
 	public Date getDate() {
@@ -70,10 +70,10 @@ public class ICEMetricValue {
 	
 
 	/**
-	 * Returns the value of this metric
+	 * Returns the value of this metricId
 	 * @return the value
 	 */
-	public Object getValue() {
+	public ByteBuffer getValue() {
 		return value;
 	}
 
@@ -87,6 +87,7 @@ public class ICEMetricValue {
 	}
 
 	/**
+	 * Returns the type of this metric
 	 * @return the type
 	 */
 	public MetricType getType() {

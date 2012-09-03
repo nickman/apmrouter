@@ -22,16 +22,57 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.metric;
+package test.org.helios.apmrouter.metric;
+
+import static org.junit.Assert.*;
+
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 /**
- * <p>Title: BlobValueEncoding</p>
- * <p>Description: Enumerates the types that can be encoded/decoded to/from a metric's ByteBuffer.</p> 
+ * <p>Title: ChronicleCatalogTestCase</p>
+ * <p>Description: Test cases for metric creation in the chronicle</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.metric.BlobValueEncoding</code></p>
+ * <p><code>test.org.helios.apmrouter.metric.ChronicleCatalogTestCase</code></p>
  */
 
-public enum BlobValueEncoding {
+public class ChronicleCatalogTestCase {
+
+	/**
+	 * @throws java.lang.Exception
+	 */
+	@BeforeClass
+	public static void setUpBeforeClass() throws Exception {
+	}
+
+	/**
+	 * @throws java.lang.Exception
+	 */
+	@AfterClass
+	public static void tearDownAfterClass() throws Exception {
+	}
+
+	/**
+	 * @throws java.lang.Exception
+	 */
+	@Before
+	public void setUp() throws Exception {
+	}
+
+	/**
+	 * @throws java.lang.Exception
+	 */
+	@After
+	public void tearDown() throws Exception {
+	}
+
+	@Test
+	public void test() {
+		fail("Not yet implemented");
+	}
 
 }

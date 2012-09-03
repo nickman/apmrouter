@@ -1,402 +1,296 @@
 /**
- * ICE Futures, US
+ * Helios, OpenSource Monitoring
+ * Brought to you by the Helios Development Group
+ *
+ * Copyright 2007, Helios Development Group and individual contributors
+ * as indicated by the @author tags. See the copyright.txt file in the
+ * distribution for a full listing of individual contributors.
+ *
+ * This is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2.1 of
+ * the License, or (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this software; if not, write to the Free
+ * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
+ *
  */
 package org.helios.apmrouter.metric;
 
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Date;
 
+import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
+import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.util.StringHelper;
-import org.helios.apmrouter.util.SystemClock;
-
-import static org.helios.apmrouter.util.Methods.nvl;
 
 
 /**
  * <p>Title: ICEMetric</p>
- * <p>Description: Base generic metric</p> 
- * <p>Company: ICE Futures US</p>
- * @author Whitehead (nicholas.whitehead@theice.com)
- * @version $LastChangedRevision$
+ * <p>Description: The public metricId implementation. ICEMetric wraps one {@link IDelegateMetric} and one {link ICEMetricValue}. One instance is created per trace operation.</p> 
+ * <p>Company: Helios Development Group LLC</p>
+ * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.metric.ICEMetric</code></p>
  */
 
-public class ICEMetric {
-	// ===================================================================
-	// 	These attributes are FINAL.
-	// ===================================================================
-	/** The host name */
-	protected final String host;
-	/** The agent name */
-	protected final String agent;
-	/** The metric namespace */
-	protected final String[] namespace;
-	/** The metric name */
-	protected final String name;
-	/** The metric type */
-	protected final MetricType type;
-	/** Indicates if this is a flat or mapped metric name */
-	protected final boolean flat;
-	
-	
-	// ===================================================================
-	// 	These attributes can be modified through the UPDATER.
-	// ===================================================================
-
-	/** The token substitution ID of the metric */
-	protected long id = -1;
-	/** The value for this metric */
-	protected ICEMetricValue value;
-	
-	// ===================================================================
-	// 	Contants
-	// ===================================================================
+public class ICEMetric implements IMetric {
+	/** The value for this metricId */
+	protected final ICEMetricValue value;
+	/** The metricId name that this instance represents*/
+	protected final IDelegateMetric metricId;
 	
 	/** The namespace delimiter */
-	public static final String NSDELIM = "/";
+	static final String NSDELIM = "/";
 	/** The name delimiter */
-	public static final String NADELIM = ":";
+	static final String NADELIM = ":";
 	/** The timestamp start delimiter */
-	public static final String TS_S_DELIM = "[";
+	static final String TS_S_DELIM = "[";
 	/** The timestamp end delimiter */
-	public static final String TS_E_DELIM = "]";
+	static final String TS_E_DELIM = "]";
 	/** The value delimiter */
-	public static final String VDELIM = "/";
+	static final String VDELIM = "/";
 	/** The mapped namespace pair delimiter */
-	public static final String MDELIM = "=";
+	static final String MDELIM = "=";
 
-	/** The format for rendering a transmittable metric */
-	public static final String TX_FORMAT = TS_S_DELIM + "%s" + TS_E_DELIM + "%s" + NSDELIM + "%s%s" + VDELIM + "%s" ;
-	/** The format for rendering the fully qualified metric name */
-	public static final String FQN_FORMAT = "%s" + NSDELIM + "%s%s" + NADELIM + "%s" ;
-
+	/** The format for rendering a transmittable metricId */
+	static final String TX_FORMAT = TS_S_DELIM + "%s" + TS_E_DELIM + "%s" + NSDELIM + "%s%s" + VDELIM + "%s" ;
+	/** The format for rendering the fully qualified metricId name */
+	static final String FQN_FORMAT = "%s" + NSDELIM + "%s%s" + NADELIM + "%s" ;
 
 	
-	
-	
-
 	/**
 	 * Creates a new ICEMetric
-	 * @param type The metric type
-	 * @param name The metric name
-	 * @param flat Indicates if the metric namespace is flat or mapped
-	 * @param namespace The namespace
+	 * @param value The value for this metricId
+	 * @param metricId The metricId identifier
 	 */
-	private ICEMetric(MetricType type, String name, boolean flat, String... namespace) {
-		this.name = name;
-		this.host = AgentIdentity.ID.getHostName();
-		this.agent = AgentIdentity.ID.getAgentName();
-		this.namespace = namespace;		
-		this.type = type;
-		this.flat = flat;
+	private ICEMetric(ICEMetricValue value, IDelegateMetric metric) {
+		this.value = value;
+		this.metricId = metric;
 	}
 	
-	
+	/**
+	 * Creates a new ICEMetric
+	 * @param value The metric value
+	 * @param host The host name
+	 * @param agent The agent name 
+	 * @param name The metric name
+	 * @param type The metric type
+	 * @param namespace An optional array of namespace entries
+	 * @return an ICEMetric
+	 * @throws RuntimeException Thrown if any of the initial metricId parameters are invalid
+	 */
+	public static ICEMetric trace(Object value, String host, String agent, CharSequence name, MetricType type, CharSequence...namespace) {
+		try {
+			return new ICEMetric(
+				type.write(value), 
+				ICEMetricCatalog.getInstance().get(host, agent, name, type, namespace)
+			);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to create ICEMetricBuilder", e);
+		}
+	}
 	
 	/**
-	 * Returns the host name that this metric originated from
-	 * @return the host name that this metric originated from
+	 * Creates a new ICEMetric
+	 * @param value The metric value
+	 * @param host The host name
+	 * @param agent The agent name 
+	 * @param name The metric name
+	 * @param type The metric type
+	 * @param namespace An optional array of namespace entries
+	 * @return an ICEMetric
+	 * @throws RuntimeException Thrown if any of the initial metricId parameters are invalid
 	 */
+	public static ICEMetric trace(Number value, String host, String agent, CharSequence name, MetricType type, CharSequence...namespace) {
+		try {
+			return new ICEMetric(
+				new ICEMetricValue(type, value.longValue()),
+				ICEMetricCatalog.getInstance().get(host, agent, name, type, namespace)
+			);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to create ICEMetricBuilder", e);
+		}
+	}
+	
+	/**
+	 * Creates a new ICEMetric
+	 * @param value The metric value
+	 * @param host The host name
+	 * @param agent The agent name 
+	 * @param name The metric name
+	 * @param type The metric type
+	 * @param namespace An optional array of namespace entries
+	 * @return an ICEMetric
+	 * @throws RuntimeException Thrown if any of the initial metricId parameters are invalid
+	 */
+	public static ICEMetric trace(long value, String host, String agent, CharSequence name, MetricType type, CharSequence...namespace) {
+		try {
+			return new ICEMetric(
+				new ICEMetricValue(type, value),
+				ICEMetricCatalog.getInstance().get(host, agent, name, type, namespace)
+			);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to create ICEMetricBuilder", e);
+		}
+	}
+	
+
+
+	/**
+	 * Returns the value object for this metricId
+	 * @return the value
+	 */
+	ICEMetricValue getICEMetricValue() {
+		return value;
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getHost()
+	 */
+	@Override
 	public String getHost() {
-		return host;
+		return metricId.getHost();
 	}
 
 	/**
-	 * The name of the agent that this metric originated from
-	 * @return the name of the agent that this metric originated from
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getAgent()
 	 */
+	@Override
 	public String getAgent() {
-		return agent;
+		return metricId.getAgent();
 	}
 	
 	/**
-	 * Indicates if the metric namespace is flat or mapped
-	 * @return true if the metric namespace is flat, false if it is mapped
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#isFlat()
 	 */
+	@Override
 	public boolean isFlat() {
-		return flat;
+		return metricId.isFlat();
 	}
 	
 	/**
-	 * Indicates if the metric namespace is flat or mapped
-	 * @return true if the metric namespace is mapped, false if it is flat
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#isMapped()
 	 */
+	@Override
 	public boolean isMapped() {
-		return !flat;
+		return metricId.isMapped();
 	}
 	
 
 	/**
-	 * The namespace of the metric
-	 * @return the namespace
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getNamespace()
 	 */
+	@Override
 	public String[] getNamespace() {
-		return namespace;
+		return metricId.getNamespace();
 	}
 	
 	/**
-	 * Returns the metric name
-	 * @return the name
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getName()
 	 */
+	@Override
 	public String getName() {
-		return name;
+		return metricId.getName();
 	}
 	
 	/**
-	 * Returns the metric timestamp or -1 if no timestamp has been set
-	 * @return the time
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getTime()
 	 */
+	@Override
 	public long getTime() {
-		return value==null ? -1L : value.time;
+		return value.getTime();
 	}
 	
 	/**
-	 * Returns the metric type
-	 * @return the type
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getType()
 	 */
+	@Override
 	public MetricType getType() {
-		return type;
+		return metricId.getType();
 	}
 
 	
 	/**
-	 * Returns the fully qualified metric name
-	 * @return the fully qualified metric name
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getFQN()
 	 */
+	@Override
 	public String getFQN() {
-		return String.format(FQN_FORMAT, host, agent, getNamespaceF(), name );
+		return String.format(FQN_FORMAT, getHost(), getAgent(), getNamespaceF(), getName());
 	}
 	
 	/**
-	 * Returns the concatenated namespace
-	 * @return the concatenated namespace
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getNamespaceF()
 	 */
+	@Override
 	public String getNamespaceF() {
-		if(namespace.length==0) return "";
-		return StringHelper.fastConcatAndDelim(NSDELIM, namespace);
+		String[] ns = getNamespace();
+		if(ns.length==0) return "";
+		return StringHelper.fastConcatAndDelim(NSDELIM, ns);
+
 	}
 	
 	/**
-	 * Returns the namespace element at the provided index
-	 * @param index The namespace index
-	 * @return a namespace element
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getNamespace(int)
 	 */
+	@Override
 	public String getNamespace(int index) {
-		return namespace[index];
+		return getNamespace()[index];
 	}
 	
 	/**
-	 * Returns the number of elements in the namespace
-	 * @return the number of elements in the namespace
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getNamespaceSize()
 	 */
-	public int getNameSpaceSize() {
-		return namespace.length;
+	@Override
+	public int getNamespaceSize() {
+		return getNamespace().length;
 	}
 	
 	/**
-	 * Creates a new initial ICEMetricBuilder
-	 * @param name The metric name
-	 * @param type The metric type
-	 * @param namespace An optional array of namespace entries
-	 * @return an ICEMetricBuilder
-	 * @throws RuntimeException Thrown if any of the initial metric parameters are invalid
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getDate()
 	 */
-	public static ICEMetricBuilder builder(CharSequence name, MetricType type, String...namespace) {
-		try {
-			return new ICEMetricBuilder(AgentIdentity.ID.getHostName(), AgentIdentity.ID.getAgentName(), nvl(name, "Metric Name").toString(), type, namespace);
-		} catch (Exception e) {
-			throw new RuntimeException("Failed to create ICEMetricBuilder", e);
-		}
+	@Override
+	public Date getDate() {
+		return value.getDate();
 	}
 	
+
 	/**
-	 * Creates a new initial ICEMetricBuilder
-	 * @param name The metric name
-	 * @param type The metric type name
-	 * @param namespace An optional array of namespace entries
-	 * @return an ICEMetricBuilder
-	 * @throws RuntimeException Thrown if any of the initial metric parameters are invalid
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getValue()
 	 */
-	public static ICEMetricBuilder builder(CharSequence name, CharSequence type, String...namespace) {
-		try {
-			return new ICEMetricBuilder(AgentIdentity.ID.getHostName(), AgentIdentity.ID.getAgentName(), nvl(name, "Metric Name").toString(), MetricType.valueOfName(type), namespace);
-		} catch (Exception e) {
-			throw new RuntimeException("Failed to create ICEMetricBuilder", e);
-		}
+	@Override
+	public Object getValue() {
+		return value.getValue();
 	}
-	
+
 	/**
-	 * Creates a new initial ICEMetricBuilder
-	 * @param name The metric name
-	 * @param type The metric type ordinal
-	 * @param namespace An optional array of namespace entries
-	 * @return an ICEMetricBuilder
-	 * @throws RuntimeException Thrown if any of the initial metric parameters are invalid
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getLongValue()
 	 */
-	public static ICEMetricBuilder builder(CharSequence name, int type, String...namespace) {
-		try {
-			return new ICEMetricBuilder(AgentIdentity.ID.getHostName(), AgentIdentity.ID.getAgentName(), nvl(name, "Metric Name").toString(), MetricType.valueOf(type), namespace);
-		} catch (Exception e) {
-			throw new RuntimeException("Failed to create ICEMetricBuilder", e);
-		}
+	@Override
+	public long getLongValue() {
+		return value.getLongValue();
 	}
-	
-	
-
-	
-	/**
-	 * <p>Title: ICEMetricBuilder</p>
-	 * <p>Description: A builder factory for ICEMetrics</p> 
-	 * <p>Company: ICE Futures US</p>
-	 * @author Whitehead (nicholas.whitehead@theice.com)
-	 * @version $LastChangedRevision$
-	 * <p><code>org.helios.apmrouter.metric.ICEMetric.ICEMetricBuilder</code></p>
-	 */
-	public static class ICEMetricBuilder {
-		/** The host name */
-		protected final String host;
-		/** The agent name */
-		protected final String agent;
-		/** The metric namespace */
-		protected final List<String> namespace = new ArrayList<String>();
-		/** The metric name */
-		protected final String name;
-		/** The metric type */
-		protected final MetricType type;
-		/** Indicates if this is a flat or mapped metric name */
-		protected Boolean flat = null;
-		
-		/**
-		 * Creates a new initial ICEMetricBuilder
-		 * @param host The host name
-		 * @param agent The agent name
-		 * @param name The metric name
-		 * @param type The metric type
-		 * @param namespace An optional array of namespace entries
-		 * @throws Exception Thrown if any of the initial metric parameters are invalid
-		 */
-		private ICEMetricBuilder(String host, String agent, String name, MetricType type, String...namespace) throws Exception {
-			this.host = nvl(host, "Host Name");
-			this.agent = nvl(agent, "Agent Name");
-			this.name = nvl(name, "Metric Name");
-			this.type = nvl(type, "Metric Type");
-			if(namespace!=null && namespace.length>0) {
-				for(String ns: namespace) {
-					addNamespace(ns);
-				}
-			}
-		}
-		
-		/**
-		 * Adds a namespace to the metric
-		 * Throws a runtime exception if any of the namespaces are invalid
-		 * @param namespace An array of namespaces to add
-		 * @return this builder
-		 */
-		public ICEMetricBuilder ns(String...namespace) {
-			try {
-				if(namespace!=null && namespace.length>0) {
-					for(String ns: namespace) {
-						addNamespace(ns);
-					}
-				}
-				return this;
-			} catch (Exception e) {
-				throw new RuntimeException("Namespace element was invalid", e);
-			}
-		}
-		
-		/**
-		 * Adds a new mapped namespace
-		 * Throws a runtime exception if the namespaces are invalid
-		 * @param key The mapped namespace key
-		 * @param value The mapped namespace key
-		 * @return this builder
-		 */
-		public ICEMetricBuilder mns(String key, String value) {
-			try {
-				nvl(key, "Namespace Key");
-				nvl(value, "Namespace Value");
-				addNamespace(new StringBuilder(key).append(MDELIM).append(value).toString());
-				return this;
-			} catch (Exception e) {
-				throw new RuntimeException("Mapped Namespace element was invalid", e);
-			}			
-		}
-		
-		/**
-		 * Processes a namespace addition.
-		 * If the passed ns is null or empty, it is ignored.
-		 * If the ns is flat, but the builder has already marked the metric as mapped, the entry will be merged by removing the MDELIM.
-		 * If the ns is mapped, but the builder has already marked the metric as flat, an exception is thrown.
-		 * @param ns The namespace to add
-		 * @throws Exception Thrown if the namespace is not null or empty, but is somehow invalid
-		 */
-		private void addNamespace(String ns) throws Exception {
-			if(ns==null) return;
-			ns = ns.trim();
-			if(ns.isEmpty()) return;
-			if(ns.indexOf(" ")!=-1) ns = ns.replace(" ", "");
-			int mindex = ns.indexOf(MDELIM);
-			boolean _flat = mindex==-1;
-			if(flat!=null) {
-				// The metric flattness has already been assigned
-				if(_flat != flat) {
-					// This namespace entry has a different flatness from the metric
-					if(flat) {
-						// Merge mapped to flat
-						ns = merge(ns, mindex);
-					} else {
-						// Exception: Metric is mapped but namespace entry was flat
-						throw new Exception("The supplied namespace [" + ns + "] is flat but being added to a metric name which is mapped " + namespace.toString(), new Throwable());
-					}
-				}
-			} else {
-				// Flatness of the metric was not already set, so set it
-				flat = _flat;				
-			}
-			// Validate the key/value pair if the type is mapped
-			if(!_flat) validateMapped(ns, mindex);
-			// Add the namespace
-			namespace.add(ns);
-		}
-		
-		/**
-		 * Merges a mapped namespace entry into a flat namespace.
-		 * If either the key or the value are empty, throws an exceptiom
-		 * @param ns The namespace to merge
-		 * @param index The index of the MDELIM
-		 * @return the merged namespace
-		 */
-		private String merge(String ns, int index) {			
-			return new StringBuilder(ns.substring(0, index)).append(ns.substring(index-1)).toString();
-		}
-
-		/**
-		 * Validates a mapped namespace entry 
-		 * If either the key or the value are empty, throws an exceptiom
-		 * @param ns The namespace to validate
-		 * @param index The index of the MDELIM
-		 * @throws Exception  Thrown if the key or the value is empty
-		 */
-		private void validateMapped(String ns, int index) throws Exception {
-			if(ns.substring(0, index).isEmpty() || ns.substring(index-1).isEmpty()) {
-				throw new Exception("Mapped namespace entry [" + ns + "] had empty key or value", new Throwable());			}
-		}
-		
-		
-//		String a = "foo=bar";
-//		int index = a.indexOf("=");
-//		a1 = a.substring(0, index);
-//		a2 = a.substring(index+1);
-//		println "[${a1}]/[${a2}]";
-		
-		
-	}
-
-
-
 
 
 }

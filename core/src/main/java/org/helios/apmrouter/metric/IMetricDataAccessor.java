@@ -3,11 +3,10 @@
  */
 package org.helios.apmrouter.metric;
 
-import java.nio.ByteBuffer;
 
 /**
  * <p>Title: IMetricDataAccessor</p>
- * <p>Description: Defines an accessor class that knows how to read and write a specific data type to a metric's byte buffer </p> 
+ * <p>Description: Defines an accessor class that knows how to read and write a specific data type to a metricId's byte buffer </p> 
  * <p>Company: ICE Futures US</p>
  * @author Whitehead (nicholas.whitehead@theice.com)
  * @version $LastChangedRevision$
@@ -16,23 +15,23 @@ import java.nio.ByteBuffer;
 
 interface IMetricDataAccessor<T extends Object> {
 	/**
-	 * Writes the passed value to a newly allocated byte buffer
+	 * Writes the passed value to a newly allocated {@link ICEMetricValue}
 	 * @param value The value to write
-	 * @return The created and loaded byte buffer
+	 * @return The created {@link ICEMetricValue}
 	 */
-	public ByteBuffer write(T value);
+	public ICEMetricValue write(T value);
 	
 	/**
-	 * Writes the passed value to a newly allocated byte buffer
+	 * Writes the passed value to a newly allocated {@link ICEMetricValue}
 	 * @param value The value to write
-	 * @return The created and loaded byte buffer
+	 * @return The created {@link ICEMetricValue}
 	 */
-	public ByteBuffer writeObject(Object value);
+	public ICEMetricValue writeObject(Object value);
 	
 	/**
-	 * Reads the value from the passed byte buffer
-	 * @param metricBuffer The metric's byte buffer to read the value from
+	 * Reads the value from the passed {@link ICEMetricValue}
+	 * @param metricValue The metric's {@link ICEMetricValue} instance to read the value from
 	 * @return The read value
 	 */
-	public T read(ByteBuffer metricBuffer);
+	public T read(ICEMetricValue metricValue);
 }
