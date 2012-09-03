@@ -24,7 +24,7 @@
  */
 package test.org.helios.apmrouter.metric;
 
-import junit.framework.Assert;
+import org.junit.Assert;
 
 import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.metric.ICEMetric;
@@ -46,6 +46,8 @@ public class MetricConstructionTestCase {
 	protected String defaultHost = AgentIdentity.ID.getHostName();
 	/** The default agent */
 	protected String defaultAgent = AgentIdentity.ID.getAgentName();
+	/** The fqn prefix */
+	String fqnPrefix = defaultHost + "/" + defaultAgent;
 	/** The default tracer */
 	protected ITracer tracer = TracerFactory.getTracer();
 
@@ -65,14 +67,21 @@ public class MetricConstructionTestCase {
 		Assert.assertEquals("The agent name was not [" + defaultAgent + "]", defaultAgent, tracer.getAgent());
 	}
 	
+	/**
+	 * Tests the basic representation of metric name construction with no namespace
+	 */
 	@Test
 	public void testNoNamespaceNames() {
 		ICEMetric metric = tracer.trace(0, "Venus", MetricType.LONG);
 		Assert.assertNotNull("The metric was null", metric);
 		Assert.assertEquals("The host name was not [" + defaultHost + "]", defaultHost, metric.getHost());
 		Assert.assertEquals("The agent name was not [" + defaultAgent + "]", defaultAgent, metric.getAgent());
-		log(metric.getFQN());
-		
+		String fqn = fqnPrefix + ":" + "Venus";
+		Assert.assertEquals("The fqn was not [" + fqn + "]", fqn, metric.getFQN());
+		Assert.assertArrayEquals("The namespace was not [" + "]", new String[]{}, metric.getNamespace());
+		Assert.assertEquals("The namespaceF was not [" + "]", "", metric.getNamespaceF());
+		Assert.assertEquals("The name was not [Venus]", "Venus", metric.getName());	
+		log(metric);
 	}
 
 }
