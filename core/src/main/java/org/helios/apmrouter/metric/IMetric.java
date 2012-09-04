@@ -25,6 +25,7 @@
 package org.helios.apmrouter.metric;
 
 import java.util.Date;
+import java.util.Map;
 
 /**
  * <p>Title: IMetric</p>
@@ -102,6 +103,21 @@ public interface IMetric {
 	 * @return a namespace element
 	 */
 	public abstract String getNamespace(int index);
+	
+	/**
+	 * Returns the namespace element at the provided index.
+	 * Throws a RuntimeException if the metric is not mapped
+	 * @param index The namespace index
+	 * @return a namespace element
+	 */
+	public abstract String getNamespace(CharSequence index);
+	
+	/**
+	 * Returns the namespace as a map.
+	 * Throws a RuntimeException if the metric is not mapped
+	 * @return a map representing the mapped namespace of this metric
+	 */
+	public abstract Map<String, String> getNamespaceMap();
 
 	/**
 	 * Returns the number of elements in the namespace

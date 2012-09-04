@@ -24,7 +24,12 @@
  */
 package org.helios.apmrouter.metric;
 
+import static org.helios.apmrouter.util.Methods.nvl;
+
+import java.util.Collections;
 import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
@@ -254,6 +259,45 @@ public class ICEMetric implements IMetric {
 	public String getNamespace(int index) {
 		return getNamespace()[index];
 	}
+	
+	/**
+	 * Returns the namespace element at the provided index.
+	 * Throws a RuntimeException if the metric is not mapped
+	 * @param index The namespace index
+	 * @return a namespace element
+	 */
+	public String getNamespace(CharSequence index) {
+		if(metricId.isFlat()) throw new RuntimeException("Requesting named index namespace on non-mapped metric [" + getFQN() + "]", new Throwable());
+		String[] ns = metricId.getNamespace();
+		if(ns==null || ns.length<1) throw new RuntimeException("Requesting named index namespace on zero sized namespace in metric [" + getFQN() + "]", new Throwable());
+		String key = nvl(index, "Mapped Namespace Index").toString().trim();
+		
+		for(String s: ns) {
+			int eq = s.indexOf('=');
+			if(key.equals(s.substring(0, eq))) {
+				return s.substring(eq+1);
+			}
+		}
+		return null;		
+	}
+	
+	/**
+	 * Returns the namespace as a map.
+	 * Throws a RuntimeException if the metric is not mapped
+	 * @return a map representing the mapped namespace of this metric
+	 */
+	public Map<String, String> getNamespaceMap() {
+		if(metricId.isFlat()) throw new RuntimeException("Requesting named index namespace on non-mapped metric [" + getFQN() + "]", new Throwable());
+		String[] ns = metricId.getNamespace();
+		if(ns==null || ns.length<1) return Collections.emptyMap();
+		Map<String, String> map = new LinkedHashMap<String, String>(ns.length);
+		for(String s: ns) {
+			int eq = s.indexOf('=');
+			map.put(s.substring(0, eq), s.substring(eq+1));
+		}		
+		return map;
+	}
+	
 	
 	/**
 	 * {@inheritDoc}
