@@ -70,10 +70,10 @@ public class IndexedChronicle extends AbstractChronicle {
         long indexSize = indexChannel.size() >>> indexBitSize();
         if (indexSize > 0) {
             while (--indexSize > 0 && getIndexData(indexSize) == 0) ;
-            System.out.println(basePath + ", size=" + indexSize);
+            //System.out.println(basePath + ", size=" + indexSize);
             size = indexSize;
         } else {
-            System.out.println(basePath + " created.");
+            //System.out.println(basePath + " created.");
         }
     }
 
