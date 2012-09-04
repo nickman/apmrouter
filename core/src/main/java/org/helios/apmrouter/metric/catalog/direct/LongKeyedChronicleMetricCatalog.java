@@ -95,7 +95,7 @@ public class LongKeyedChronicleMetricCatalog extends AbstractMetricCatalog<Long,
 	@Override
 	public void dispose() {
 		chron.clear();
-		namecache.clear();	
+		super.dispose();
 	}
 	
 	

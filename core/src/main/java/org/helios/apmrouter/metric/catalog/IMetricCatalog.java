@@ -68,7 +68,8 @@ public interface IMetricCatalog {
 			CharSequence... namespace);
 
 	/**
-	 * Retrieves the named IDelegateMetric, creating it if it not in the catalog
+	 * Retrieves the named IDelegateMetric, creating it if it not in the catalog.
+	 * Implementations of this method should throw an assertion exception if the retrieved delegate metric FQN does not match the key correlated FQN and assertions are enabled. This indicates a catalog hashing collision. 
 	 * @param host The host name
 	 * @param agent The agent name
 	 * @param name The metric name
@@ -81,6 +82,7 @@ public interface IMetricCatalog {
 
 	/**
 	 * Retrieves the named IDelegateMetric, creating it if it not in the catalog
+	 * Implementations of this method should throw an assertion exception if the retrieved delegate metric FQN does not match the key correlated FQN and assertions are enabled. This indicates a catalog hashing collision.
 	 * @param host The host name
 	 * @param agent The agent name
 	 * @param name The metric name
@@ -93,6 +95,7 @@ public interface IMetricCatalog {
 	
 	/**
 	 * Returns the delta for the passed value and metricId key
+	 * Implementations of this method should throw an assertion exception if the retrieved delegate metric FQN does not match the key correlated FQN and assertions are enabled. This indicates a catalog hashing collision.
 	 * @param value The long value to get the delta for
 	 * @param host The host name
  	 * @param agent The agent name

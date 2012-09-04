@@ -98,6 +98,6 @@ public class StringKeyedChronicleMetricCatalog extends AbstractMetricCatalog<Str
 	@Override
 	public void dispose() {
 		chron.clear();
-		namecache.clear();	
+		super.dispose();
 	}
 }

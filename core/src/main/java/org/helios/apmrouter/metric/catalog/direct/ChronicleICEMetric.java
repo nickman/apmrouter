@@ -31,9 +31,11 @@ import java.util.Arrays;
 import java.util.List;
 
 
+import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.metric.catalog.direct.chronicle.ChronicleController;
+import org.helios.apmrouter.util.StringHelper;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 
@@ -184,7 +186,7 @@ public class ChronicleICEMetric implements IDelegateMetric {
 //			}
 			
 			Excerpt<IndexedChronicle> ex = ChronicleController.getInstance().createExcerpt();
-			ex.startExcerpt(exSize+10);
+			ex.startExcerpt(exSize+20);
 			ex.writeInt(type.ordinal());
 			ex.writeInt(ns.size());
 			nameOffsets[FLAT_POS] = ex.position();
@@ -274,6 +276,24 @@ public class ChronicleICEMetric implements IDelegateMetric {
 		}
 		return ns;
 	}
+	
+	/**
+	 * {@inheritDoc} 
+	 * @see org.helios.apmrouter.metric.catalog.IDelegateMetric#getNamespaceF()
+	 */
+	public String getNamespaceF() {
+		String[] ns = getNamespace();
+		if(ns.length==0) return "";
+		return StringHelper.fastConcatAndDelim(IMetric.NSDELIM, ns);
+	}
+	
+	/**
+	 * {@inheritDoc} 
+	 * @see org.helios.apmrouter.metric.catalog.IDelegateMetric#getFQN()
+	 */
+	public String getFQN() {
+		return String.format(FQN_FORMAT, getHost(), getAgent(), getNamespaceF(), getName());
+	}	
 
 	/**
 	 * {@inheritDoc}
@@ -281,7 +301,7 @@ public class ChronicleICEMetric implements IDelegateMetric {
 	 */
 	@Override
 	public boolean isFlat() {
-		return excerpt.readByte(FLAT_POS)==1;
+		return excerpt.readByte(nameOffsets[FLAT_POS])==1;
 	}
 	
 	/**
@@ -290,7 +310,7 @@ public class ChronicleICEMetric implements IDelegateMetric {
 	 */
 	@Override
 	public boolean isMapped() {
-		return excerpt.readByte(FLAT_POS)==0;
+		return excerpt.readByte(nameOffsets[FLAT_POS])==0;
 	}
 	
 	public static void main(String[] args) {

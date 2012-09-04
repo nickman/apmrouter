@@ -138,7 +138,7 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 				}
 			}
 		}
-		sb.append(NSDELIM).append(nvl(name, "Metric Name"));
+		sb.append(NADELIM).append(nvl(name, "Metric Name"));
 		return sb.toString();
 	}
 
@@ -158,7 +158,8 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 					idm = create(key, host, agent, name, type, namespace);					
 				}
 			}
-		}
+		}		
+		assert fqn.equals(idm.getFQN());
 		return idm;
 	}
 
@@ -179,6 +180,18 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 	public IDelegateMetric get(String host, String agent, CharSequence name, String type, CharSequence... namespace) {
 		return get(host, agent, name, MetricType.valueOfName(type), namespace);
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#dispose()
+	 * <p><b>DO NOT CALL THIS METHOD UNLESS YOU KNOW WHAT YOU'RE DOING.</b>
+	 */
+	@Override
+	public void dispose() {
+		namecache.clear();
+		deltacache.clear();
+	}
+	
 	
 	/**
 	 * Calculates a low collision hash code for the passed string

@@ -128,7 +128,7 @@ public class ChronicleController {
 		initDirect = "true".equalsIgnoreCase(System.getProperty(CHRONICLE_DIRECT_PROP, DEFAULT_CHRONICLE_DIRECT).trim());
 		chronicle.useUnsafe(initDirect);
 		
-		log("Initialized chronicle [" + chronicle.name() + "] on path [" + chroniclePath + "] with size [" + chronicle.size() + "]  Direct:" + initDirect);
+		//log("Initialized chronicle [" + chronicle.name() + "] on path [" + chroniclePath + "] with size [" + chronicle.size() + "]  Direct:" + initDirect);
 	}
 	
 	

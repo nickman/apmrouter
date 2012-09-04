@@ -50,23 +50,6 @@ public class ICEMetric implements IMetric {
 	/** The metricId name that this instance represents*/
 	protected final IDelegateMetric metricId;
 	
-	/** The namespace delimiter */
-	public static final String NSDELIM = "/";
-	/** The name delimiter */
-	public static final String NADELIM = ":";
-	/** The timestamp start delimiter */
-	public static final String TS_S_DELIM = "[";
-	/** The timestamp end delimiter */
-	public static final String TS_E_DELIM = "]";
-	/** The value delimiter */
-	public static final String VDELIM = "/";
-	/** The mapped namespace pair delimiter */
-	public static final String MDELIM = "=";
-
-	/** The format for rendering a transmittable metricId */
-	static final String TX_FORMAT = TS_S_DELIM + "%s" + TS_E_DELIM + "%s" + NSDELIM + "%s%s" + VDELIM + "%s" ;
-	/** The format for rendering the fully qualified metricId name */
-	static final String FQN_FORMAT = "%s" + NSDELIM + "%s%s" + NADELIM + "%s" ;
 
 	
 	/**

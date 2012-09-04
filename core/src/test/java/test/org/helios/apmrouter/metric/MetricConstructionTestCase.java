@@ -35,7 +35,10 @@ import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.TracerFactory;
 import org.helios.apmrouter.util.StringHelper;
 import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 
 /**
  * <p>Title: MetricConstructionTestCase</p>
@@ -54,6 +57,23 @@ public class MetricConstructionTestCase {
 	String fqnPrefix = defaultHost + "/" + defaultAgent;
 	/** The default tracer */
 	protected ITracer tracer = TracerFactory.getTracer();
+	/** The currently executing test name */
+	@Rule public final TestName name = new TestName();
+
+	/**
+	 * Prints the name of the current catalog and the current test
+	 */
+	@Before
+	public void printTestName() {
+		String scn = "<None>";
+		String cn = ICEMetricCatalog.getInstance().getCatalogClassName();
+		if(cn!=null) {
+			String[] frags = cn.split("\\.");
+			scn = frags[frags.length-1];
+		}
+		
+		log("[" + scn  + "]-->" + name.getMethodName());
+	}
 	
 	/** The metric catalog impl classes to test */
 	protected static final String[] METRIC_CAT_CLASSES = new String[]{
@@ -111,16 +131,7 @@ public class MetricConstructionTestCase {
 	public void testNoNamespaceNames() {
 		final String name = "Venus";
 		final String[] ns = new String[]{};
-		ICEMetric metric = tracer.trace(0, name, MetricType.LONG);
-		Assert.assertNotNull("The metric was null", metric);
-		Assert.assertEquals("The host name was not [" + defaultHost + "]", defaultHost, metric.getHost());
-		Assert.assertEquals("The agent name was not [" + defaultAgent + "]", defaultAgent, metric.getAgent());
-		String fqn = fqnPrefix + concats(ns) + ICEMetric.NADELIM + name;
-		Assert.assertEquals("The fqn was not [" + fqn + "]", fqn, metric.getFQN());
-		Assert.assertArrayEquals("The namespace was not [" + "]", ns, metric.getNamespace());
-		Assert.assertEquals("The namespaceF was not [" + "]", "", metric.getNamespaceF());
-		Assert.assertEquals("The name was not [" + name + "]", name, metric.getName());	
-		//log(metric);
+		testNamespaceNames(name, ns);
 	}
 	
 	/**
@@ -130,26 +141,76 @@ public class MetricConstructionTestCase {
 	public void testOneNamespaceNames() {
 		final String name = "Moon1";
 		final String[] ns = new String[]{"Venus"};
-		ICEMetric metric = tracer.trace(0, name, MetricType.LONG, ns);
-		//log(metric.getFQN());
-		Assert.assertNotNull("The metric was null", metric);
-		Assert.assertEquals("The host name was not [" + defaultHost + "]", defaultHost, metric.getHost());
-		Assert.assertEquals("The agent name was not [" + defaultAgent + "]", defaultAgent, metric.getAgent());
-		String fqn = fqnPrefix + concats(ns) + ICEMetric.NADELIM + name;
-		Assert.assertEquals("The fqn was not [" + fqn + "]", fqn, metric.getFQN());
-		Assert.assertArrayEquals("The namespace was not " + Arrays.toString(ns), ns, metric.getNamespace());
-		Assert.assertEquals("The namespaceF was not [" + ICEMetric.NSDELIM + ns[0] + "]", ICEMetric.NSDELIM + ns[0], metric.getNamespaceF());
-		Assert.assertEquals("The namespace[0] was not [" + ns[0] + "]", ns[0], metric.getNamespace(0));
-		Assert.assertEquals("The name was not [" + name + "]", name, metric.getName());			
+		testNamespaceNames(name, ns);
 	}
 	
 	/**
-	 * Tests the basic representation of metric name construction with one namespace
+	 * Tests the basic representation of metric name construction with two namespaces
 	 */
 	@Test
 	public void testTwoNamespaceNames() {
 		final String name = "Coordinate";
 		final String[] ns = new String[]{"SolarSystem", "Venus"};
+		testNamespaceNames(name, ns);
+	}
+	
+	/**
+	 * Tests the basic representation of metric name construction with ten namespaces.
+	 * Random words courtesy of <a href="http://watchout4snakes.com/creativitytools/randomword/randomwordplus.aspx">Random Word Generator</a>
+	 */
+	@Test
+	public void testTenNamespaceNames() {
+		final String name = "Exchequer";
+		final String[] ns = new String[]{
+				"Tutelage", "Coquette", "Logrolling", "Swimsuit", "Patrolman",
+				"Industrialization", "Medulla", "Nighthawk", "Cabelgram", "Espresso"			
+		};
+		testNamespaceNames(name, ns);
+	}
+	
+	/**
+	 * Tests the basic representation of metric name construction with thirty namespaces.
+	 * Random words courtesy of <a href="http://watchout4snakes.com/creativitytools/randomword/randomwordplus.aspx">Random Word Generator</a>
+	 */
+	@Test
+	public void testThirtyNamespaceNames() {
+		final String name = "Exchequer";
+		final String[] ns = new String[]{
+				"Tutelage", "Coquette", "Logrolling", "Swimsuit", "Patrolman",
+				"Industrialization", "Medulla", "Nighthawk", "Cabelgram", "Espresso",
+				"TutelageX", "CoquetteX", "LogrollingX", "SwimsuitX", "PatrolmanX",
+				"IndustrializationX", "MedullaX", "NighthawkX", "CabelgramX", "EspressoX",
+				"TutelageY", "CoquetteY", "LogrollingY", "SwimsuitY", "PatrolmanY",
+				"IndustrializationY", "MedullaY", "NighthawkY", "CabelgramY", "EspressoY"							
+				
+		};
+		testNamespaceNames(name, ns);
+	}
+	
+	/**
+	 * Tests the basic representation of metric name construction with twenty mapped namespaces.
+	 * Random words courtesy of <a href="http://watchout4snakes.com/creativitytools/randomword/randomwordplus.aspx">Random Word Generator</a>
+	 */
+	@Test
+	public void testTwentyNamespaceMappedNames() {
+		final String name = "Exchequer";
+		final String[] ns = new String[]{
+				"A=Tutelage", "B=Coquette", "C=Logrolling", "D=Swimsuit", "F=Patrolman",
+				"G=Industrialization", "H=Medulla", "I=Nighthawk", "J=Cabelgram", "K=Espresso",
+				"L=TutelageX", "M=CoquetteX", "N=LogrollingX", "O=SwimsuitX", "P=PatrolmanX",
+				"Q=IndustrializationX", "R=MedullaX", "S=NighthawkX", "T=CabelgramX", "U=EspressoX"							
+		};
+		testNamespaceNames(name, ns);
+	}
+	
+	
+	
+	/**
+	 * Template method for testing namespace and FQN construction
+	 * @param name The metric name
+	 * @param ns The metric namespace
+	 */
+	protected void testNamespaceNames(final String name, final String[] ns) {
 		ICEMetric metric = tracer.trace(0, name, MetricType.LONG, ns);
 		//log(metric.getFQN());
 		Assert.assertNotNull("The metric was null", metric);
@@ -164,8 +225,27 @@ public class MetricConstructionTestCase {
 		for(int i = 0; i < ns.length; i++) {
 			Assert.assertEquals("The namespace[" + i + "] was not [" + ns[i] + "]", ns[i], metric.getNamespace(i));
 		}
-		Assert.assertEquals("The name was not [" + name + "]", name, metric.getName());			
+		Assert.assertEquals("The name was not [" + name + "]", name, metric.getName());
+		if(ns.length>0) {
+			boolean flat = ns[0].indexOf('=')==-1;
+			Assert.assertEquals("The metric was flattness not [" + flat + "]", flat, metric.isFlat());
+			Assert.assertEquals("The metric was mapness not [" + !flat + "]", !flat, metric.isMapped());
+			if(flat) {
+				for(String s: metric.getNamespace()) {
+					Assert.assertEquals("The namespace [" + s + "] was not supposed to contain a \"=\"", -1, s.indexOf('='));
+				}
+			} else {
+				for(String s: metric.getNamespace()) {
+					Assert.assertNotSame("The namespace [" + s + "] was supposed to contain a \"=\"", -1, s.indexOf('='));
+				}
+			}
+		} else {
+			Assert.assertEquals("The metric was flattness not [true]", true, metric.isFlat());
+			Assert.assertEquals("The metric was mapness not [false]", false, metric.isMapped());
+		}
 	}
+	
+	
 	
 	
 	
@@ -180,6 +260,9 @@ public class MetricConstructionTestCase {
 			resetCatalog(metCat);
 			testNoNamespaceNames();
 			testOneNamespaceNames();
+			testTenNamespaceNames();
+			testThirtyNamespaceNames();
+			testTwentyNamespaceMappedNames();
 		}
 	}
 

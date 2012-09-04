@@ -24,17 +24,22 @@
  */
 package org.helios.apmrouter.metric.catalog;
 
+import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
 
 /**
  * <p>Title: IDelegateMetric</p>
- * <p>Description: </p> 
+ * <p>Description: Represents a created and cached metric identifier</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.metric.IDelegateMetric</code></p>
  */
 
 public interface IDelegateMetric {
+	
+	/** The format for rendering the fully qualified metricId name */
+	static final String FQN_FORMAT = "%s" + IMetric.NSDELIM + "%s%s" + IMetric.NADELIM + "%s" ;
+
 
 	/**
 	 * Returns the host name that this metricId originated from
@@ -59,6 +64,19 @@ public interface IDelegateMetric {
 	 * @return the namespace
 	 */
 	public abstract String[] getNamespace();
+	
+	/**
+	 * Returns the fully qualified metric name
+	 * @return the fully qualified metric name
+	 */
+	public abstract String getFQN();
+	
+
+	/**
+	 * Returns the concatenated namespace
+	 * @return the concatenated namespace
+	 */
+	public abstract String getNamespaceF();	
 
 	/**
 	 * Indicates if the metricId namespace is flat or mapped

@@ -29,8 +29,10 @@ import static org.helios.apmrouter.util.Methods.nvl;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
+import org.helios.apmrouter.util.StringHelper;
 
 /**
  * <p>Title: HeapICEMetric</p>
@@ -80,7 +82,7 @@ public class HeapICEMetric implements IDelegateMetric {
 	 */
 	private boolean processNamespace(final List<String> ns, CharSequence...namespace) {
 		Boolean f = null;
-		if(namespace==null || namespace.length<1) return false;
+		if(namespace==null || namespace.length<1) return true;
 		int index = 0;
 		for(CharSequence nms: namespace) {
 			if(nms==null) continue;
@@ -141,6 +143,23 @@ public class HeapICEMetric implements IDelegateMetric {
 		return ns;
 	}	
 	
+	/**
+	 * {@inheritDoc} 
+	 * @see org.helios.apmrouter.metric.catalog.IDelegateMetric#getNamespaceF()
+	 */
+	public String getNamespaceF() {
+		String[] ns = getNamespace();
+		if(ns.length==0) return "";
+		return StringHelper.fastConcatAndDelim(IMetric.NSDELIM, ns);
+	}
+	
+	/**
+	 * {@inheritDoc} 
+	 * @see org.helios.apmrouter.metric.catalog.IDelegateMetric#getFQN()
+	 */
+	public String getFQN() {
+		return String.format(FQN_FORMAT, getHost(), getAgent(), getNamespaceF(), getName());
+	}	
 	
 	
 	

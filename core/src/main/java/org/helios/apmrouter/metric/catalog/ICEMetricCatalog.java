@@ -155,6 +155,14 @@ public class ICEMetricCatalog implements IMetricCatalog {
 	}
 	
 	/**
+	 * Returns the class name of the current catalog in use
+	 * @return the class name of the current catalog in use
+	 */
+	public String getCatalogClassName() {
+		return (instance!=null && instance.actualCatalog!=null) ? instance.actualCatalog.getClass().getName() : null;
+	}
+	
+	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#dispose()
 	 * <p><b>No Op</b>
