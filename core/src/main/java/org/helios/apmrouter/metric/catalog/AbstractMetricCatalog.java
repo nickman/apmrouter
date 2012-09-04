@@ -71,7 +71,7 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 	public Long getDelta(long value, String host, String agent, CharSequence name, CharSequence... namespace) {
 		K key = createKey(getFQN(host, agent, name, namespace));
 		Long state = deltacache.put(key, value);
-		if(state==null) return null;
+		if(state==null || value < state) return null;		
 		return value-state;
 	}
 	

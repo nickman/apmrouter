@@ -48,73 +48,7 @@ import org.junit.rules.TestName;
  * <p><code>test.org.helios.apmrouter.metric.MetricConstructionTestCase</code></p>
  */
 
-public class MetricConstructionTestCase {
-	/** The default host */
-	protected String defaultHost = AgentIdentity.ID.getHostName();
-	/** The default agent */
-	protected String defaultAgent = AgentIdentity.ID.getAgentName();
-	/** The fqn prefix */
-	String fqnPrefix = defaultHost + "/" + defaultAgent;
-	/** The default tracer */
-	protected ITracer tracer = TracerFactory.getTracer();
-	/** The currently executing test name */
-	@Rule public final TestName name = new TestName();
-
-	/**
-	 * Prints the name of the current catalog and the current test
-	 */
-	@Before
-	public void printTestName() {
-		String scn = "<None>";
-		String cn = ICEMetricCatalog.getInstance().getCatalogClassName();
-		if(cn!=null) {
-			String[] frags = cn.split("\\.");
-			scn = frags[frags.length-1];
-		}
-		
-		log("[" + scn  + "]-->" + name.getMethodName());
-	}
-	
-	/** The metric catalog impl classes to test */
-	protected static final String[] METRIC_CAT_CLASSES = new String[]{
-		"org.helios.apmrouter.metric.catalog.heap.StringKeyedHeapMetricCatalog", 
-		"org.helios.apmrouter.metric.catalog.heap.LongKeyedHeapMetricCatalog",
-		"org.helios.apmrouter.metric.catalog.direct.StringKeyedChronicleMetricCatalog",
-		"org.helios.apmrouter.metric.catalog.direct.LongKeyedChronicleMetricCatalog"
-	};
-	
-	/** The reflection invoked method to reset the metric catalog */
-	protected volatile Method catalogResetMethod = null;
-	/**
-	 * Resets the metric catalog
-	 * @param newClassName The new metric catalog impl class name
-	 * @throws Exception Thrown on any exception
-	 */
-	protected void resetCatalog(String newClassName) throws Exception {
-		// reset(String newClassName)
-		if(catalogResetMethod==null) {
-			catalogResetMethod = ICEMetricCatalog.class.getDeclaredMethod("reset", String.class);
-			catalogResetMethod.setAccessible(true);
-		}
-		catalogResetMethod.invoke(null, newClassName);
-	}
-	
-	/**
-	 * Concats namespace names 
- 	 * @param names The names to concat
-	 * @return the concated names
-	 */
-	public static String concats(String...names) {
-		return StringHelper.fastConcatAndDelim("/", names);
-	}
-
-	private static void log(Object obj) {
-		System.out.println(obj);
-	}
-	private static void loge(Object obj) {
-		System.err.println(obj);
-	}
-	
+public class MetricConstructionTestCase extends BaseTestCase {
 	/**
 	 * Tests the default host and agent name
 	 */

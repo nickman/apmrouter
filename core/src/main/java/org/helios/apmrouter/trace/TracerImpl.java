@@ -91,7 +91,7 @@ public class TracerImpl implements ITracer {
 				if(type.equals(MetricType.DELTA)) {
 					Long delta = ICEMetricCatalog.getInstance().getDelta(coerce(value), host, agent, name, namespace);
 					if(delta==null) return null;
-					metric = ICEMetric.trace(value, host, agent, name, type, namespace);
+					metric = ICEMetric.trace(delta.longValue(), host, agent, name, type, namespace);
 				} else {
 					metric = ICEMetric.trace(coerce(value), host, agent, name, type, namespace);
 				}

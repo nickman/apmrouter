@@ -25,14 +25,14 @@
 package org.helios.apmrouter.util;
 
 import java.lang.management.ManagementFactory;
+import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-
-import org.apache.camel.util.CollectionHelper;
 
 /**
  * <p>Title: SystemClock</p>
@@ -108,6 +108,162 @@ public enum SystemClock {
 		return ElapsedTime.newInstance(true, System.nanoTime());
 	}
 	
+	/**
+	 * <p>Title: AggregatedElapsedTime</p>
+	 * <p>Description: An aggregate for multiple {@link ElapsedTime}s</p> 
+	 * <p>Company: ICE Futures US</p>
+	 * @author Whitehead (nicholas.whitehead@theice.com)
+	 * @version $LastChangedRevision$
+	 * <p><code>org.helios.apmrouter.util.SystemClock.AggregatedElapsedTime</code></p>
+	 */
+	public static class AggregatedElapsedTime {
+		/** The maximum elapsed time of the aggregate in ns. */
+		public final long maxElapsedNs;
+		/** The minimum elapsed time of the aggregate in ns. */
+		public final long minElapsedNs;
+		/** The average elapsed time of the aggregate in ns. */
+		public final long avgElapsedNs;
+		/** The maximum elapsed time of the aggregate in ms. */
+		public final long maxElapsedMs;
+		/** The minimum elapsed time of the aggregate in Ms. */
+		public final long minElapsedMs;
+		/** The average elapsed time of the aggregate in Ms. */
+		public final long avgElapsedMs;
+		
+		/**
+		 * Creates a new AggregatedElapsedTime
+		 * @param maxElapsedNs The maximum elapsed time of the aggregate in ns.
+		 * @param minElapsedNs The minimum elapsed time of the aggregate in ns.
+		 * @param avgElapsedNs The average elapsed time of the aggregate in ns.
+		 */
+		private AggregatedElapsedTime(long maxElapsedNs, long minElapsedNs, long avgElapsedNs) {
+			this.maxElapsedNs = maxElapsedNs;
+			this.minElapsedNs = minElapsedNs;
+			this.avgElapsedNs = avgElapsedNs;
+			maxElapsedMs = TimeUnit.MILLISECONDS.convert(this.maxElapsedNs, TimeUnit.NANOSECONDS);
+			minElapsedMs = TimeUnit.MILLISECONDS.convert(this.minElapsedNs, TimeUnit.NANOSECONDS);
+			avgElapsedMs = TimeUnit.MILLISECONDS.convert(this.avgElapsedNs, TimeUnit.NANOSECONDS);
+		}
+		
+		/**
+		 * Aggregates a collection of {@link ElapsedTime}s 
+		 * @param times The times to aggregate
+		 * @return the aggregated elapsed time
+		 */
+		public static AggregatedElapsedTime aggregate(Collection<ElapsedTime> times) {
+			return aggregate(times.toArray(new ElapsedTime[0]));
+		}
+		
+
+		/**
+		 * Aggregates an array of {@link ElapsedTime}s 
+		 * @param times The times to aggregate
+		 * @return the aggregated elapsed time
+		 */
+		public static AggregatedElapsedTime aggregate(ElapsedTime...times) {
+			if(times==null || times.length<1) throw new IllegalArgumentException("Must pass at least 1 ElapsedTime to aggregate", new Throwable());
+			long max = Long.MIN_VALUE;
+			long min = Long.MAX_VALUE;
+			BigDecimal total = new BigDecimal(0);
+			long avg = 0;
+			int cnt = times.length;
+			for(ElapsedTime et: times) {
+				total.add(BigDecimal.valueOf(et.elapsedNs));
+				if(et.elapsedNs>max) max = et.elapsedNs;
+				if(et.elapsedNs<min) min = et.elapsedNs;
+			}
+			avg = total.divide(BigDecimal.valueOf(cnt)).longValue();
+			return new AggregatedElapsedTime(max, min, avg);
+		}
+
+		/**
+		 * {@inheritDoc} 
+		 * @see java.lang.Object#toString()
+		 */
+		@Override
+		public String toString() {
+			StringBuilder builder = new StringBuilder();
+			builder.append("AggregatedElapsedTime [maxElapsedNs=");
+			builder.append(maxElapsedNs);
+			builder.append(", minElapsedNs=");
+			builder.append(minElapsedNs);
+			builder.append(", avgElapsedNs=");
+			builder.append(avgElapsedNs);
+			builder.append(", maxElapsedMs=");
+			builder.append(maxElapsedMs);
+			builder.append(", minElapsedMs=");
+			builder.append(minElapsedMs);
+			builder.append(", avgElapsedMs=");
+			builder.append(avgElapsedMs);
+			builder.append("]");
+			return builder.toString();
+		}
+		
+		/**
+		 * Returns the average elapsed time in ms. for the passed number of events
+		 * @param cnt The number of events
+		 * @return The average elapsed time in ms.
+		 */
+		public long avgMs(double cnt) {
+			return _avg(avgElapsedMs, cnt);
+		}
+		
+		/**
+		 * Returns the maximum elapsed time in ms. for the passed number of events
+		 * @param cnt The number of events
+		 * @return The maximum elapsed time in ms.
+		 */
+		public long maxMs(double cnt) {
+			return _avg(maxElapsedMs, cnt);
+		}
+		
+		/**
+		 * Returns the minimum elapsed time in ms. for the passed number of events
+		 * @param cnt The number of events
+		 * @return The minimum elapsed time in ms.
+		 */
+		public long minMs(double cnt) {
+			return _avg(minElapsedMs, cnt);
+		}
+		
+		/**
+		 * Returns the average elapsed time in ns. for the passed number of events
+		 * @param cnt The number of events
+		 * @return The average elapsed time in ns.
+		 */
+		public long avgNs(double cnt) {
+			return _avg(avgElapsedNs, cnt);
+		}
+		
+		/**
+		 * Returns the maximum elapsed time in ns. for the passed number of events
+		 * @param cnt The number of events
+		 * @return The maximum elapsed time in ns.
+		 */
+		public long maxNs(double cnt) {
+			return _avg(maxElapsedNs, cnt);
+		}
+		
+		/**
+		 * Returns the minimum elapsed time in ns. for the passed number of events
+		 * @param cnt The number of events
+		 * @return The minimum elapsed time in ns.
+		 */
+		public long minNs(double cnt) {
+			return _avg(minElapsedNs, cnt);
+		}
+		
+		
+		
+		private long _avg(double time, double cnt) {
+			if(time==0 || cnt==0 ) return 0L;
+			double d = time/cnt;
+			return (long)d;
+		}
+		
+		
+	}
+	
 	
 	/**
 	 * <p>Title: ElapsedTime</p>
@@ -131,6 +287,7 @@ public enum SystemClock {
 		static ElapsedTime newInstance(boolean lap, long endTime) {
 			return new ElapsedTime(lap, endTime);
 		}
+		
 		
 		
 		/** Some extended time unit entries */
