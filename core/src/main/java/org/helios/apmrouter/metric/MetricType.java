@@ -15,7 +15,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.zip.GZIPOutputStream;
 
-import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.util.IO;
 
 

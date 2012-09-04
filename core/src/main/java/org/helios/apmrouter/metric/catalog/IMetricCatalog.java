@@ -102,5 +102,11 @@ public interface IMetricCatalog {
 	 */
 	public Long getDelta(long value, String host, String agent, CharSequence name, CharSequence... namespace);
 	
+	/**
+	 * <p>Testing hook for disposing a switched catalog.
+	 * <p><b>DO NOT CALL THIS METHOD UNLESS YOU KNOW WHAT YOU'RE DOING.</b>
+	 */
+	public void dispose();
+	
 
 }

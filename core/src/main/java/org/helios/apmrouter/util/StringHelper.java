@@ -144,20 +144,17 @@ public class StringHelper {
 	/**
 	 * Accepts an array of strings and returns the array flattened into a single string, optionally delimeted.
 	 * @param skipBlanks If true, blank or null items in the passed array will be skipped.
-	 * @param delimeter The delimeter to insert between each item.
+	 * @param delimiter The delimeter to insert between each item.
 	 * @param args The string array to flatten
 	 * @return the flattened string
 	 */
-	public static String fastConcatAndDelim(boolean skipBlanks, String delimeter, String...args) {
+	public static String fastConcatAndDelim(boolean skipBlanks, String delimiter, String...args) {
 		StringBuilder buff = getStringBuilder();
 		if(args!=null && args.length > 0) {
 			for(String s: args) {
 				if(!skipBlanks || (s!=null && s.length()>0)) {
-					buff.append(s).append(delimeter);
+					buff.append(delimiter).append(s);
 				}
-			}
-			if(buff.length()>0) {
-				buff.deleteCharAt(buff.length()-1);
 			}
 		}
 		return buff.toString();

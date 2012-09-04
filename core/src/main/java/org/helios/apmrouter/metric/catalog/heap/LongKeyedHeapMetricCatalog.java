@@ -68,5 +68,15 @@ public class LongKeyedHeapMetricCatalog extends AbstractMetricCatalog<Long, IDel
 		namecache.put(key, metric);
 		return metric;
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#dispose()
+	 * <p><b>DO NOT CALL THIS METHOD UNLESS YOU KNOW WHAT YOU'RE DOING.</b>
+	 */
+	@Override
+	public void dispose() {
+		namecache.clear();	
+	}
 
 }

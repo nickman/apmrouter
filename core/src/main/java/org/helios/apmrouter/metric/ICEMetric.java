@@ -46,17 +46,17 @@ public class ICEMetric implements IMetric {
 	protected final IDelegateMetric metricId;
 	
 	/** The namespace delimiter */
-	static final String NSDELIM = "/";
+	public static final String NSDELIM = "/";
 	/** The name delimiter */
-	static final String NADELIM = ":";
+	public static final String NADELIM = ":";
 	/** The timestamp start delimiter */
-	static final String TS_S_DELIM = "[";
+	public static final String TS_S_DELIM = "[";
 	/** The timestamp end delimiter */
-	static final String TS_E_DELIM = "]";
+	public static final String TS_E_DELIM = "]";
 	/** The value delimiter */
-	static final String VDELIM = "/";
+	public static final String VDELIM = "/";
 	/** The mapped namespace pair delimiter */
-	static final String MDELIM = "=";
+	public static final String MDELIM = "=";
 
 	/** The format for rendering a transmittable metricId */
 	static final String TX_FORMAT = TS_S_DELIM + "%s" + TS_E_DELIM + "%s" + NSDELIM + "%s%s" + VDELIM + "%s" ;
@@ -280,6 +280,9 @@ public class ICEMetric implements IMetric {
 	 */
 	@Override
 	public Object getValue() {
+		if(metricId.getType().isLong()) {
+			return getLongValue();
+		}
 		return value.getValue();
 	}
 
@@ -289,8 +292,29 @@ public class ICEMetric implements IMetric {
 	 */
 	@Override
 	public long getLongValue() {
+		if(!metricId.getType().isLong()) {
+			throw new RuntimeException("The metric [" + getFQN() + "] is not a long type: [" + metricId.getType() + "]", new Throwable());
+		}
 		return value.getLongValue();
 	}
 
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		StringBuilder builder = new StringBuilder();
+		builder.append("ICEMetric [>");
+		builder.append(getType());
+		builder.append("<");
+		builder.append(getFQN());
+		builder.append("[");
+		builder.append(getDate());
+		builder.append("]:");
+		builder.append(getValue());
+		return builder.toString();
+	}
 
+	
 }

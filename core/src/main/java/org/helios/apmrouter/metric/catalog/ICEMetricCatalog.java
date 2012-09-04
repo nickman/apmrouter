@@ -25,6 +25,7 @@
 package org.helios.apmrouter.metric.catalog;
 
 import org.helios.apmrouter.metric.MetricType;
+import static org.helios.apmrouter.util.Methods.nvl;
 
 /**
  * <p>Title: ICEMetricCatalog</p>
@@ -36,7 +37,7 @@ import org.helios.apmrouter.metric.MetricType;
 
 public class ICEMetricCatalog implements IMetricCatalog {
 	/** The singleton instance */
-	private static volatile IMetricCatalog instance = null;
+	private static volatile ICEMetricCatalog instance = null;
 	/** The singleton instance ctor lock */
 	private static final Object lock = new Object();
 	
@@ -46,13 +47,13 @@ public class ICEMetricCatalog implements IMetricCatalog {
 	public static final String DEFAULT_METRIC_FACTORY = "org.helios.apmrouter.metric.catalog.heap.LongKeyedHeapMetricCatalog";
 	
 	/** The delegate concrete catalog implementation, loaded using the class name defined by the system property <b><code>METRIC_FACTORY_PROP</code></b>. */
-	private final IMetricCatalog actualCatalog;
+	private volatile IMetricCatalog actualCatalog;
 	
 	/**
 	 * Acquires the singleton instance
 	 * @return the singleton ICEMetricCatalog 
 	 */
-	public static IMetricCatalog getInstance() {
+	public static ICEMetricCatalog getInstance() {
 		if(instance==null) {
 			synchronized(lock) {
 				if(instance==null) {
@@ -79,6 +80,21 @@ public class ICEMetricCatalog implements IMetricCatalog {
 			}
 		}
 		actualCatalog = tmp;
+	}
+	
+	/**
+	 * Resets the metric catalog delegate. This is a testing hook.
+	 * <p><b>DO NOT CALL THIS METHOD UNLESS YOU KNOW WHAT YOU'RE DOING.</b>
+	 * @param newClassName
+	 */
+	@SuppressWarnings("unused")
+	private static synchronized void reset(String newClassName) {
+		if(instance==null || instance.actualCatalog==null) return;
+		System.setProperty(METRIC_FACTORY_PROP, nvl(newClassName, "ICEMetricCatalog Reset ClassName"));
+		IMetricCatalog toBeDisposed = instance.actualCatalog;
+		instance.actualCatalog = null;
+		instance = null;		
+		toBeDisposed.dispose();
 	}
 
 	/**
@@ -138,6 +154,14 @@ public class ICEMetricCatalog implements IMetricCatalog {
 		return instance.getDelta(value, host, agent, name, namespace);
 	}
 	
-	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#dispose()
+	 * <p><b>No Op</b>
+	 */
+	@Override
+	public void dispose() {
+		
+	}	
 	
 }

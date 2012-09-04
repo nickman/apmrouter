@@ -85,6 +85,18 @@ public class LongKeyedChronicleMetricCatalog extends AbstractMetricCatalog<Long,
 		namecache.put(key, metric.index);
 		return metric;
 	}
+
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#dispose()
+	 * <p><b>DO NOT CALL THIS METHOD UNLESS YOU KNOW WHAT YOU'RE DOING.</b>
+	 */
+	@Override
+	public void dispose() {
+		chron.clear();
+		namecache.clear();	
+	}
 	
 	
 	
