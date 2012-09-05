@@ -44,7 +44,7 @@ public class ICEMetricCatalog implements IMetricCatalog {
 	/** The system property that defines the metric factory name*/
 	public static final String METRIC_FACTORY_PROP = "apmrouter.metric.factory.name";
 	/** The default metric factory name*/
-	public static final String DEFAULT_METRIC_FACTORY = "org.helios.apmrouter.metric.catalog.heap.LongKeyedHeapMetricCatalog";
+	public static final String DEFAULT_METRIC_FACTORY = "org.helios.apmrouter.metric.catalog.heap.StringKeyedHeapMetricCatalog";
 	
 	/** The delegate concrete catalog implementation, loaded using the class name defined by the system property <b><code>METRIC_FACTORY_PROP</code></b>. */
 	private volatile IMetricCatalog actualCatalog;
@@ -95,6 +95,14 @@ public class ICEMetricCatalog implements IMetricCatalog {
 		instance.actualCatalog = null;
 		instance = null;		
 		toBeDisposed.dispose();
+	}
+	
+	/**
+	 * {@inheritDoc} 
+	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#size()
+	 */
+	public int size() {
+		return actualCatalog.size();
 	}
 
 	/**
@@ -149,9 +157,8 @@ public class ICEMetricCatalog implements IMetricCatalog {
 	 * @return the delta value or null if this was the first call for the metric
 	 */
 	@Override
-	public Long getDelta(long value, String host, String agent,
-			CharSequence name, CharSequence... namespace) {
-		return instance.getDelta(value, host, agent, name, namespace);
+	public Long getDelta(long value, String host, String agent, CharSequence name, CharSequence... namespace) {
+		return instance.actualCatalog.getDelta(value, host, agent, name, namespace);
 	}
 	
 	/**

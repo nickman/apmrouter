@@ -44,4 +44,16 @@ public class SimpleMath {
 		double d = (part/total)*100;
 		return (int)d;
 	}
+	
+	/**
+	 * Calculates the average
+	 * @param count The number of instances
+	 * @param total The total
+	 * @return the average
+	 */
+	public static long avg(double count, double total) {
+		if(total==0 || count==0) return 0;
+		double d = total/count;
+		return (long)d;		
+	}
 }

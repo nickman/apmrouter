@@ -6,6 +6,7 @@ package test.org.helios.apmrouter.performance;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 
+import org.helios.apmrouter.util.SimpleMath;
 import org.helios.apmrouter.util.SystemClock.AggregatedElapsedTime;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 
@@ -67,8 +68,16 @@ public class AggregatedThreadBenchmarkResult {
 	/** The max cpu time */
 	public final long maxCpuTime;
 	
+	/** The average cpu time per op */
+	public final long averageCpuTimePerOp;
+	/** The min cpu time per op */
+	public final long minCpuTimePerOp;
+	/** The max cpu time per op */
+	public final long maxCpuTimePerOp;
+	
+	
 	/** The number of long values */
-	public static final long LONG_VALUE_CNT = 21;
+	public static final int LONG_VALUE_CNT = 24;
 	
 	/**
 	 * Creates a new AggregatedThreadBenchmarkResult
@@ -99,7 +108,9 @@ public class AggregatedThreadBenchmarkResult {
 		averageCpuTime = values[index++];
 		minCpuTime = values[index++];
 		maxCpuTime = values[index++];
-		
+		averageCpuTimePerOp = values[index++];
+		minCpuTimePerOp = values[index++];
+		maxCpuTimePerOp = values[index++];
 	}
 	
 	
@@ -109,7 +120,7 @@ public class AggregatedThreadBenchmarkResult {
 	 * @return the aggregate
 	 */
 	public static AggregatedThreadBenchmarkResult aggregate(ThreadBenchmarkResult...results) {
-		long[] args = new long[21];
+		long[] args = new long[LONG_VALUE_CNT];
 		AggregatedElapsedTime aggregatedElapsedTime = AggregatedElapsedTime.aggregate(getElapsedTimes(results));
 		int index = 0;
 		long[] values = getAggregate("AvgPerOpMs", results);
@@ -140,7 +151,10 @@ public class AggregatedThreadBenchmarkResult {
 		args[index++] = values[0];
 		args[index++] = values[1];
 		args[index++] = values[2];
-		
+		final int opCount = results[0].opCount;
+		args[index++] = SimpleMath.avg(opCount, values[0]);
+		args[index++] = SimpleMath.avg(opCount, values[1]);
+		args[index++] = SimpleMath.avg(opCount, values[2]);				
 		return new AggregatedThreadBenchmarkResult(aggregatedElapsedTime, args);
 		
 	}
@@ -198,7 +212,12 @@ public class AggregatedThreadBenchmarkResult {
 			if(value<min) min = value;
 			cnt++;
 		}
-		aggr[0] = (cnt!=0 && total.longValue()>0) ? total.divide(BigDecimal.valueOf(cnt)).longValue() : -1;
+		try {
+			aggr[0] = (cnt!=0 && total.longValue()>0) ? (SimpleMath.avg(cnt, total.longValue()))  : 0;
+		} catch (Exception e) {
+			System.err.println("Failed to compute average for a total of [" + total + "] and count [" + cnt + "]. Stack trace follows:");
+			e.printStackTrace(System.err);
+		}
 		aggr[1] = min==Long.MAX_VALUE ? -1 : min;
 		aggr[2] = max==Long.MIN_VALUE ? -1 : max;
 		return aggr;
@@ -256,6 +275,12 @@ public class AggregatedThreadBenchmarkResult {
 		builder.append(minCpuTime);
 		builder.append("\n\tmaxCpuTime=");
 		builder.append(maxCpuTime);
+		builder.append("\n\taverageCpuTimePerOp=");
+		builder.append(averageCpuTimePerOp);
+		builder.append("\n\tminCpuTimePerOp=");
+		builder.append(minCpuTimePerOp);
+		builder.append("\n\tmaxCpuTimePerOp=");
+		builder.append(maxCpuTimePerOp);
 		builder.append("\n]");
 		return builder.toString();
 	}

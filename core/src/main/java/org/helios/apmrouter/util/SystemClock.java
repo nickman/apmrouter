@@ -168,11 +168,11 @@ public enum SystemClock {
 			long avg = 0;
 			int cnt = times.length;
 			for(ElapsedTime et: times) {
-				total.add(BigDecimal.valueOf(et.elapsedNs));
+				total = total.add(BigDecimal.valueOf(et.elapsedNs));
 				if(et.elapsedNs>max) max = et.elapsedNs;
 				if(et.elapsedNs<min) min = et.elapsedNs;
 			}
-			avg = total.divide(BigDecimal.valueOf(cnt)).longValue();
+			avg = SimpleMath.avg(cnt, total.longValue());
 			return new AggregatedElapsedTime(max, min, avg);
 		}
 

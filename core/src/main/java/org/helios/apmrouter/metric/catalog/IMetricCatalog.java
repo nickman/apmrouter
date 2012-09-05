@@ -106,6 +106,12 @@ public interface IMetricCatalog {
 	public Long getDelta(long value, String host, String agent, CharSequence name, CharSequence... namespace);
 	
 	/**
+	 * Returns the number of entries in the metric catalog
+	 * @return the number of entries in the metric catalog
+	 */
+	public int size();
+	
+	/**
 	 * <p>Testing hook for disposing a switched catalog.
 	 * <p><b>DO NOT CALL THIS METHOD UNLESS YOU KNOW WHAT YOU'RE DOING.</b>
 	 */

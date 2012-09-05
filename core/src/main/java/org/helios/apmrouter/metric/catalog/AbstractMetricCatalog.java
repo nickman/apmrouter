@@ -32,7 +32,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.helios.apmrouter.metric.MetricType;
-import org.helios.apmrouter.metric.catalog.direct.chronicle.ChronicleController;
 
 /**
  * <p>Title: AbstractMetricCatalog</p>
@@ -69,10 +68,23 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 	 * @return the delta value or null if this was the first call for the metric
 	 */
 	public Long getDelta(long value, String host, String agent, CharSequence name, CharSequence... namespace) {
+		return _getDelta(value, host, agent, name, namespace);
+	}
+	
+	protected Long _getDelta(long value, String host, String agent, CharSequence name, CharSequence... namespace) {
 		K key = createKey(getFQN(host, agent, name, namespace));
 		Long state = deltacache.put(key, value);
 		if(state==null || value < state) return null;		
 		return value-state;
+	}
+	
+	
+	/**
+	 * {@inheritDoc} 
+	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#size()
+	 */
+	public int size() {
+		return namecache.size();
 	}
 	
 	/**

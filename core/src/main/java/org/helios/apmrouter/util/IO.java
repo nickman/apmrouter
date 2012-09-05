@@ -27,14 +27,18 @@ package org.helios.apmrouter.util;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 /**
  * <p>Title: IO</p>
@@ -54,45 +58,60 @@ public class IO {
 		if(buff==null) return null;
 		if(buff.capacity()<1) return null;
 		ObjectInputStream ois = null;
+		InputStream channelInputStream = null;
+		GZIPInputStream zipInputStream = null;
+		buff.rewind();
 		try {
-			
-			ois = buff.hasArray() ? new ObjectInputStream(new ByteArrayInputStream(buff.array())) : new ObjectInputStream(Channels.newInputStream(new ReadableByteChannel(){
-				protected boolean open = true;
-				@Override
-				public boolean isOpen() {
-					return open;
-				}
-
-				@Override
-				public void close() throws IOException {
-					open = false;
-				}
-
-				@Override
-				public int read(ByteBuffer dst) throws IOException {
-					
-					try {
-						if(buff.remaining()<1) return -1;
-						int bytes = 0;
-						while(buff.remaining()>0 && dst.position()<dst.limit()) {
-							dst.put(								
-									buff.get()
-							);
-							bytes++;
-						}					
-						return bytes;
-					} catch (Exception e) {
-						e.printStackTrace(System.err);
-						throw new IOException(e);
+			if(buff.hasArray()) {
+				channelInputStream = new ByteArrayInputStream(buff.array());
+			} else {
+				channelInputStream = Channels.newInputStream(new ReadableByteChannel(){
+					protected boolean open = true;
+					@Override
+					public boolean isOpen() {
+						return open;
 					}
-				}
-				
-			}));
+
+					@Override
+					public void close() throws IOException {
+						open = false;
+					}
+
+					@Override
+					public int read(ByteBuffer dst) throws IOException {
+						
+						try {
+							if(buff.remaining()<1) return -1;
+							int bytes = 0;
+							while(buff.remaining()>0 && dst.position()<dst.limit()) {
+								dst.put(								
+										buff.get()
+								);
+								bytes++;
+							}					
+							return bytes;
+						} catch (Exception e) {
+							e.printStackTrace(System.err);
+							throw new IOException(e);
+						}
+					}
+					
+				});
+			}
+			byte c = buff.get();			
+			boolean compressed = c==1;
+			if(compressed) {
+				zipInputStream = new GZIPInputStream(channelInputStream);
+				ois = new ObjectInputStream(zipInputStream);
+			} else {
+				ois = new ObjectInputStream(channelInputStream);
+			}
 			return ois.readObject();
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to Deserialize from ByteBuffer", e);
 		} finally {
 			try { ois.close(); } catch (Exception ex) {};
+			if(zipInputStream!=null) try { zipInputStream.close(); } catch (Exception ex) {};
 		}
 	}
 	
@@ -108,10 +127,11 @@ public class IO {
 	 * Serializes an object to a byte buffer using a default buffer size of 8192
 	 * @param value The object to serialize
 	 * @param direct true to return a direct buffer, false for a heap buffer
+	 * @param compress Indicates if the byte array should be compressed
 	 * @return The buffer containing the serialized object which may be empty if the value was null
 	 */
-	public static ByteBuffer writeToByteBuffer(Object value, boolean direct) {
-		return writeToByteBuffer(value, direct, 8192);
+	public static ByteBuffer writeToByteBuffer(Object value, boolean direct, boolean compress) {
+		return writeToByteBuffer(value, direct, 8192, compress);
 	}
 	
 	
@@ -119,16 +139,19 @@ public class IO {
 	 * Serializes an object to a byte buffer
 	 * @param value The object to serialize
 	 * @param direct true to return a direct buffer, false for a heap buffer
-	 * @param bufferSize The incremental size of the buffers to create while streaming 
+	 * @param bufferSize The incremental size of the buffers to create while streaming
+	 * @param compress Indicates if the byte array should be compressed 
 	 * @return The buffer containing the serialized object which may be empty if the value was null
 	 */
-	public static ByteBuffer writeToByteBuffer(final Object value, final boolean direct, final int bufferSize) {
+	public static ByteBuffer writeToByteBuffer(final Object value, final boolean direct, final int bufferSize, final boolean compress) {
 		if(value==null) return direct ? ByteBuffer.allocateDirect(0) : ByteBuffer.allocate(0);
 		ObjectOutputStream ois = null;
+		OutputStream channelOutputStream = null;
+		GZIPOutputStream zipOutputStream = null;
 		final AtomicLong cntr = new AtomicLong();
 		final ByteBuffer[] buff = new ByteBuffer[]{direct ? ByteBuffer.allocateDirect(bufferSize) : ByteBuffer.allocate(bufferSize)}; 
 		try {
-			ois = new ObjectOutputStream(Channels.newOutputStream(new WritableByteChannel() {
+			channelOutputStream = Channels.newOutputStream(new WritableByteChannel() {
 				protected boolean open = true;				
 				@Override
 				public boolean isOpen() {
@@ -155,16 +178,30 @@ public class IO {
 					cntr.addAndGet(bytesRead);
 					return bytesRead;
 				}
-			}));
+			});
+			buff[0].position(0);
+			if(compress) {
+				buff[0].put((byte)1);
+				zipOutputStream = new GZIPOutputStream(channelOutputStream);
+				ois = new ObjectOutputStream(zipOutputStream);				
+			} else {
+				buff[0].put((byte)0);
+				ois = new ObjectOutputStream(channelOutputStream);											
+			}
+			
+			
 			ois.writeObject(value);
 			ois.flush();
-			log("Total Bytes:" + cntr.get());
+			if(compress) zipOutputStream.finish();
+			
+			//log("Total Bytes:" + cntr.get());
 			buff[0].flip();			
 			return buff[0];
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to write instance of [" + value.getClass().getName() + "]", e);
 		} finally {
 			if(ois!=null) try { ois.close(); } catch (Exception ex) {}
+			if(zipOutputStream!=null) try { zipOutputStream.close(); } catch (Exception ex) {}
 		}		
 	}
 	
@@ -183,7 +220,7 @@ public class IO {
 			byte[] bytes = baos.toByteArray();
 			log("Bytes:" + bytes.length + " Props Size:" + System.getProperties().size());
 			
-			ByteBuffer bb = writeToByteBuffer(System.getProperties(), true);
+			ByteBuffer bb = writeToByteBuffer(System.getProperties(), true, true);
 			//ByteBuffer bb = ByteBuffer.wrap(bytes);
 			//ByteBuffer bb = ByteBuffer.allocateDirect(bytes.length).put(bytes);
 			

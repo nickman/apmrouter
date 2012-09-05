@@ -71,10 +71,28 @@ public class BasePerformanceTestCase extends BaseTestCase {
 	}
 	
 	/**
+	 * Returns the next positive random int
+	 * @return the next positive random int
+	 */
+	public static int nextRandomInt() {
+		return Math.abs(RANDOM.nextInt());
+	}
+	
+	/**
+	 * Returns the next positive random int
+	 * @param upto The upper range of the next random int
+	 * @return the next positive random int
+	 */
+	public static int nextRandomInt(int upto) {
+		return Math.abs(RANDOM.nextInt(upto));
+	}
+	
+	
+	/**
 	 * Generates a random character
 	 * @return a random character
 	 */
-	protected char randomChar() {
+	public static char randomChar() {
 		return WORD_CHARS[Math.abs(RANDOM.nextInt(WORD_CHARS_LENGTH-1))];
 	}
 	
@@ -84,7 +102,7 @@ public class BasePerformanceTestCase extends BaseTestCase {
 	 * @param wordLength The length of ther words to generate
 	 * @return an array of random words
 	 */
-	protected String[] randomWords(int numberOfWords, int wordLength) {
+	public static String[] randomWords(int numberOfWords, int wordLength) {
 		String[] words = new String[numberOfWords];
 		for(int i = 0; i < numberOfWords; i++) {
 			char[] wordChars = new char[wordLength];

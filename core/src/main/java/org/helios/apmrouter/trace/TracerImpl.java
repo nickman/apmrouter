@@ -100,6 +100,7 @@ public class TracerImpl implements ITracer {
 			}
 			return metric;
 		} catch (Throwable t) {
+			t.printStackTrace(System.err);
 			return null;
 		}
 	}
@@ -150,6 +151,7 @@ public class TracerImpl implements ITracer {
 		try {				
 			return ICEMetric.trace(value, host, agent, name, MetricType.LONG, namespace);			
 		} catch (Throwable t) {
+			t.printStackTrace(System.err);
 			return null;
 		}		
 	}
@@ -165,6 +167,7 @@ public class TracerImpl implements ITracer {
 			if(delta==null) return null;			
 			return ICEMetric.trace(delta.longValue(), host, agent, name, MetricType.DELTA, namespace);			
 		} catch (Throwable t) {
+			t.printStackTrace(System.err);
 			return null;
 		}		
 	}
@@ -178,6 +181,7 @@ public class TracerImpl implements ITracer {
 		try {				
 			return ICEMetric.trace(value, host, agent, name, MetricType.STRING, namespace);			
 		} catch (Throwable t) {
+			t.printStackTrace(System.err);
 			return null;
 		}		
 	}
@@ -191,6 +195,7 @@ public class TracerImpl implements ITracer {
 		try {				
 			return ICEMetric.trace(value, host, agent, name, MetricType.ERROR, namespace);			
 		} catch (Throwable t) {
+			t.printStackTrace(System.err);
 			return null;
 		}		
 	}
@@ -204,6 +209,7 @@ public class TracerImpl implements ITracer {
 		try {				
 			return ICEMetric.trace(value, host, agent, name, MetricType.BLOB, namespace);			
 		} catch (Throwable t) {
+			t.printStackTrace(System.err);
 			return null;
 		}		
 	}

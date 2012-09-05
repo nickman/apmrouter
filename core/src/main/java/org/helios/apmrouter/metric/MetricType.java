@@ -13,9 +13,13 @@ import java.nio.ByteOrder;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.GZIPOutputStream;
 
 import org.helios.apmrouter.util.IO;
+
+import test.org.helios.apmrouter.performance.BaseTracingOperations;
 
 
 /**
@@ -247,7 +251,9 @@ public enum MetricType  implements IMetricDataAccessor {
 		 */
 		@Override
 		public ICEMetricValue write(Throwable value) {			
-			return new ICEMetricValue(ERROR, value==null ? NULL_BYTES : allocate(getBytes(value)));
+			Throwable et = new Throwable("Throwable Stub. Type [" + value.getClass().getName() + "] Message [" + value.getMessage() + "]");
+			et.setStackTrace(value.getStackTrace());
+			return new ICEMetricValue(ERROR, value==null ? NULL_BYTES : IO.writeToByteBuffer(et, direct, false));
 		}
 
 		/**
@@ -255,7 +261,7 @@ public enum MetricType  implements IMetricDataAccessor {
 		 * @see org.helios.apmrouter.metric.IMetricDataAccessor#writeObject(java.lang.Object)
 		 */
 		@Override
-		public ICEMetricValue writeObject(Object value) {
+		public ICEMetricValue writeObject(Object value) {			
 			return write((Throwable)value);
 		}
 
@@ -279,6 +285,9 @@ public enum MetricType  implements IMetricDataAccessor {
 			return (Throwable)IO.readFromByteBuffer(buff);
 		}
 		
+//		private final AtomicLong exec = new AtomicLong(0L);
+//		private final AtomicLong alt = new AtomicLong(0L);
+		
 		/**
 		 * Converts the passed throwable to a byte array. If the standard java serialization fails,
 		 * creates a contrived exception using the stack trace as the error message.
@@ -286,14 +295,18 @@ public enum MetricType  implements IMetricDataAccessor {
 		 * @return a byte array
 		 */
 		protected byte[] getBytes(Throwable t) {			
-			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			ByteArrayOutputStream baos = new ByteArrayOutputStream(4096);
 			ObjectOutputStream oos = null;
+			long start = 0L;
+//			boolean trace = exec.incrementAndGet()%1000000==0;
+//			if(trace) start = System.nanoTime();
 			try {
 				oos = new ObjectOutputStream(baos);
 				oos.writeObject(t);
 				oos.flush();
-				baos.flush();
+				//baos.flush();
 			} catch (Exception e) {
+//				alt.incrementAndGet();
 				Throwable et = new Throwable("Non-Serializable Throwable Stub. Type [" + t.getClass().getName() + "] Message [" + t.getMessage() + "]");
 				et.setStackTrace(t.getStackTrace());
 				return getBytes(t);
@@ -301,7 +314,19 @@ public enum MetricType  implements IMetricDataAccessor {
 				try { oos.close(); } catch (Exception ex) {}
 				try { baos.close(); } catch (Exception ex) {}
 			}
-			return baos.toByteArray();
+			byte[]  bytes = baos.toByteArray();
+//			if(trace) {
+//				long elapsed = System.nanoTime()-start;
+//				long execCount = exec.get();
+//				long altCount = alt.get();
+//				if(execCount>BaseTracingOperations.TOTAL_EXEC_COUNT) {
+//					System.err.println("Throwable Ser Elapsed:" + elapsed + " ns.  " + TimeUnit.MILLISECONDS.convert(elapsed, TimeUnit.NANOSECONDS)  + " ms.  Size:" + bytes.length + " Invoke Count:" + execCount + " Overage:" + (execCount-BaseTracingOperations.TOTAL_EXEC_COUNT) + " Alt:" + altCount);
+//				} else {
+//					System.out.println("Throwable Ser Elapsed:" + elapsed + " ns.  " + TimeUnit.MILLISECONDS.convert(elapsed, TimeUnit.NANOSECONDS)  + " ms.  Size:" + bytes.length + " Invoke Count:" + execCount  + " Alt:" + altCount);
+//				}
+//				//new Throwable().printStackTrace(System.err);
+//			}
+			return bytes;
 		}		
 	}
 	
@@ -313,7 +338,7 @@ public enum MetricType  implements IMetricDataAccessor {
 		 */
 		@Override
 		public ICEMetricValue write(Serializable value) {
-			return new ICEMetricValue(BLOB, IO.writeToByteBuffer(value, direct));
+			return new ICEMetricValue(BLOB, IO.writeToByteBuffer(value, direct, compress));
 		}
 
 		/**
@@ -322,7 +347,7 @@ public enum MetricType  implements IMetricDataAccessor {
 		 */
 		@Override
 		public ICEMetricValue writeObject(Object value) {			
-			return new ICEMetricValue(BLOB, IO.writeToByteBuffer(value, direct));
+			return new ICEMetricValue(BLOB, IO.writeToByteBuffer(value, direct, compress));
 		}
 
 		/**
