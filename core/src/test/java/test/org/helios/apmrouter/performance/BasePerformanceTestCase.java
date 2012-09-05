@@ -190,6 +190,15 @@ public class BasePerformanceTestCase extends BaseTestCase {
 		return executorService;
 	}
 	
+	/**
+	 * Returns the exception count for the passed thread pool executor
+	 * @param es The thread pool executor to get the exception count for
+	 * @return the number of exceptions counted
+	 */
+	public int getThreadPoolExceptionCount(ThreadPoolExecutor es) {
+		return ((ExceptionCountingThreadFactory)es.getThreadFactory()).getExceptionCount();
+	}
+	
 	
 	public static void main(String[] args) {
 		BasePerformanceTestCase tc = new BasePerformanceTestCase();

@@ -3,6 +3,8 @@
  */
 package test.org.helios.apmrouter.performance;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 
@@ -23,7 +25,7 @@ public class BenchmarkRunnable implements Callable<ThreadBenchmarkResult> {
 	/** The delegate runnable */
 	private final Runnable runnable;
 	/** The completion latch */
-	private final CountDownLatch completionLatch;
+	private CountDownLatch completionLatch;
 	
 	/**
 	 * Creates a new BenchmarkRunnable
@@ -37,6 +39,34 @@ public class BenchmarkRunnable implements Callable<ThreadBenchmarkResult> {
 		this.completionLatch = completionLatch;
 	}
 
+	/**
+	 * Creates a new collection of BenchmarkRunnable tasks for execution
+	 * @param taskCount The number of tasks which is the expected number of threads that will be executing
+	 * @param opCount The number of profiled operations that will be executed in each thread
+	 * @param runnable The actual runnable task that implements the benchmark
+	 * @return a collection of BenchmarkRunnable tasks 
+	 */
+	public static Collection<BenchmarkRunnable> newTaskCollection(int taskCount, int opCount, Runnable runnable) {
+		Collection<BenchmarkRunnable> tasks = new ArrayList<BenchmarkRunnable>(taskCount);
+		CountDownLatch latch = new CountDownLatch(taskCount);
+		for(int i = 0; i < taskCount; i++) {
+			tasks.add(new BenchmarkRunnable(opCount, runnable, latch));
+		}
+		return tasks;
+	}
+	
+	/**
+	 * Resets the completion latch in each BenchmarkRunnable in the passed collection
+	 * @param tasks a collection of BenchmarkRunnable tasks to reset
+	 * @return the new completion latch for the passed task collection
+	 */
+	public static CountDownLatch reset(final Collection<BenchmarkRunnable> tasks) {
+		CountDownLatch latch = new CountDownLatch(tasks.size());
+		for(BenchmarkRunnable task: tasks) {
+			task.completionLatch = latch;
+		}
+		return latch;
+	}
 
 
 

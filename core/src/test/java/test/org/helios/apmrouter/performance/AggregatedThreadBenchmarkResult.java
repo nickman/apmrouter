@@ -193,14 +193,71 @@ public class AggregatedThreadBenchmarkResult {
 		BigDecimal total = new BigDecimal(0);
 		for(long value: values) {
 			if(value==-1) continue;
-			total.add(BigDecimal.valueOf(value));
+			total = total.add(BigDecimal.valueOf(value));
 			if(value>max) max = value;
 			if(value<min) min = value;
+			cnt++;
 		}
 		aggr[0] = (cnt!=0 && total.longValue()>0) ? total.divide(BigDecimal.valueOf(cnt)).longValue() : -1;
 		aggr[1] = min==Long.MAX_VALUE ? -1 : min;
 		aggr[2] = max==Long.MIN_VALUE ? -1 : max;
 		return aggr;
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		StringBuilder builder = new StringBuilder();
+		builder.append("AggregatedThreadBenchmarkResult [\n\taggregatedElapsedTime=");
+		builder.append(aggregatedElapsedTime);
+		builder.append("\n\taverageAvgPerOpMs=");
+		builder.append(averageAvgPerOpMs);
+		builder.append("\n\taverageMinPerOpMs=");
+		builder.append(averageMinPerOpMs);
+		builder.append("\n\taverageMaxPerOpMs=");
+		builder.append(averageMaxPerOpMs);
+		builder.append("\n\taverageAvgPerOpNs=");
+		builder.append(averageAvgPerOpNs);
+		builder.append("\n\taverageMinPerOpNs=");
+		builder.append(averageMinPerOpNs);
+		builder.append("\n\taverageMaxPerOpNs=");
+		builder.append(averageMaxPerOpNs);
+		builder.append("\n\taverageBlocks=");
+		builder.append(averageBlocks);
+		builder.append("\n\tminBlocks=");
+		builder.append(minBlocks);
+		builder.append("\n\tmaxBlocks=");
+		builder.append(maxBlocks);
+		builder.append("\n\taverageBlockTime=");
+		builder.append(averageBlockTime);
+		builder.append("\n\tminBlockTime=");
+		builder.append(minBlockTime);
+		builder.append("\n\tmaxBlockTime=");
+		builder.append(maxBlockTime);
+		builder.append("\n\taverageWaits=");
+		builder.append(averageWaits);
+		builder.append("\n\tminWaits=");
+		builder.append(minWaits);
+		builder.append("\n\tmaxWaits=");
+		builder.append(maxWaits);
+		builder.append("\n\taverageWaitTime=");
+		builder.append(averageWaitTime);
+		builder.append("\n\tminWaitTime=");
+		builder.append(minWaitTime);
+		builder.append("\n\tmaxWaitTime=");
+		builder.append(maxWaitTime);
+		builder.append("\n\taverageCpuTime=");
+		builder.append(averageCpuTime);
+		builder.append("\n\tminCpuTime=");
+		builder.append(minCpuTime);
+		builder.append("\n\tmaxCpuTime=");
+		builder.append(maxCpuTime);
+		builder.append("\n]");
+		return builder.toString();
 	}
 	
 	
