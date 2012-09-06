@@ -198,6 +198,12 @@ public class UnsafeExcerpt<C extends DirectChronicle> extends AbstractExcerpt<C>
     public void writeLong(int offset, long v) {
         UNSAFE.putLong(start + offset, v);
     }
+    
+    public void writeToken(long token) {
+    	buffer.putLong(0, token);
+    	UNSAFE.putLong(start, token);
+    	
+    }
 
     @Override
     public void writeFloat(float v) {

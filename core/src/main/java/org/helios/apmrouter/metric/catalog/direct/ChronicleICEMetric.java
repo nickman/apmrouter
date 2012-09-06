@@ -109,7 +109,7 @@ public class ChronicleICEMetric implements IDelegateMetric {
 		if(!excerpt.index(index)) throw new IllegalStateException("No metric for index [" + index + "]", new Throwable());
 		nameOffsets = new int[4];
 		excerpt.position(0);
-		excerpt.readLong(); // the token
+		long token = excerpt.readLong(); // the token
 		excerpt.readInt(); // the type
 		namespaceOffsets = new int[excerpt.readInt()];  // offset is the token (8) and the type (4)
 		nameOffsets[FLAT_POS] = excerpt.position();
@@ -325,9 +325,21 @@ public class ChronicleICEMetric implements IDelegateMetric {
 	 */
 	@Override
 	public void setToken(long token) {
-		excerpt.writeLong(0, token);
-		excerpt.skipBytes(excerpt.remaining());		
+		if(!excerpt.index(index)) {
+			throw new IllegalStateException("Failed to set index to [" + index + "]", new Throwable());
+		}
+		excerpt.writeToken(token);
 		excerpt.finish();
+		Excerpt<IndexedChronicle> ex = excerpt.chronicle().createExcerpt();
+		if(!ex.index(index)) {
+			throw new IllegalStateException("Failed to set index to [" + index + "] AFTER token write", new Throwable());
+		}
+
+		long readToken = ex.readLong(0); 
+		if(readToken!=token) {
+			throw new RuntimeException("Failed to validate token update. Set [" + token + "] but read back [" + readToken + "]", new Throwable());
+		}
+		//excerpt.finish();
 	}
 	
 	
@@ -342,7 +354,8 @@ public class ChronicleICEMetric implements IDelegateMetric {
 	
 	public static void main(String[] args) {
 		log("DirectMetric Test");
-		int loopCount = 1000000;
+//		int loopCount = 1000000;
+		int loopCount = 100;
 		for(int i = 0; i < loopCount; i++) {
 			ChronicleICEMetric.newInstance("MyHost" + i, "MyAgent", "metric" + i, MetricType.LONG, (i%2!=0) ? ("ns" + i) : ("ns" + i + "=foobar" + i));
 		}
@@ -368,7 +381,7 @@ public class ChronicleICEMetric implements IDelegateMetric {
 		SystemClock.startTimer();
 		for(int i = 0; i < loopCount; i++) {
 			IDelegateMetric dim = new ChronicleICEMetric(i);
-			dim.setToken(i);
+			dim.setToken(i+1);
 		}
 		et = SystemClock.endTimer();
 		log("Set Token Test complete in " + et);
@@ -381,8 +394,8 @@ public class ChronicleICEMetric implements IDelegateMetric {
 			if(!("MyHost" + i).equals(dim.getHost())) {
 				throw new RuntimeException("Invalid Metric. Got [" + dim.getHost() + "] expected [" + ("MyHost" + i) + "]", new Throwable());
 			}
-			if(i!=dim.getToken()) {
-				throw new RuntimeException("Invalid Token. Got [" + dim.getToken() + "] expected [" + i + "]", new Throwable());
+			if((i+1)!=dim.getToken()) {
+				throw new RuntimeException("Invalid Token. Got [" + dim.getToken() + "] expected [" + (i+1) + "]", new Throwable());
 			}
 			
 		}

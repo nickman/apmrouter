@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.util;
 
+import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
 import java.util.HashMap;
 import java.util.Map;
@@ -154,5 +155,21 @@ public class ResourceHelper {
 		
 		
 	}
+	
+	/**
+	 * Collects the memory usage, optionally calling a gc first
+	 * @param gcFirst If true, gc will called first
+	 * @return an array of heap memory and non-heap memory usages
+	 */
+	public static MemoryUsage[] memoryUsage(boolean gcFirst) {		
+		if(gcFirst) {
+			ManagementFactory.getMemoryMXBean().gc();
+			System.runFinalization();
+			try { Thread.currentThread().join(500); } catch (Exception e) {}
+			ManagementFactory.getMemoryMXBean().gc();
+		}
+		return new MemoryUsage[]{ManagementFactory.getMemoryMXBean().getHeapMemoryUsage(), ManagementFactory.getMemoryMXBean().getNonHeapMemoryUsage()};
+	}
+	
 
 }

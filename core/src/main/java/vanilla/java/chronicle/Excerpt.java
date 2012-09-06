@@ -44,6 +44,8 @@ public interface Excerpt<C extends Chronicle> extends RandomDataInput, RandomDat
      * @return the index of a valid entry or -1 if the index has never been set.
      */
     long index();
+    
+    public void writeToken(long token);
 
     /**
      * Set the position within this except.

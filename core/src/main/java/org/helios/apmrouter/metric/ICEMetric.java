@@ -325,6 +325,16 @@ public class ICEMetric implements IMetric {
 		}
 		return value.getLongValue();
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getToken()
+	 */
+	@Override
+	public long getToken() {
+		return metricId.getToken();
+	}
+	
 
 	/**
 	 * {@inheritDoc}
@@ -343,6 +353,7 @@ public class ICEMetric implements IMetric {
 		builder.append(getValue());
 		return builder.toString();
 	}
+
 
 	
 }

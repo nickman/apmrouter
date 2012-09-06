@@ -37,6 +37,10 @@ public class ByteBufferExcerpt<C extends DirectChronicle> extends AbstractExcerp
     }
 
     // RandomDataInput
+    
+    public void writeToken(long token) {
+    	buffer.putLong(0, token);
+    }
 
     @Override
     public byte readByte() {

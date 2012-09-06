@@ -82,6 +82,8 @@ public abstract class AbstractExcerpt<C extends Chronicle> implements Excerpt<C>
     private boolean readMemoryBarrier() {
         return barrier.get();
     }
+    
+    
 
     @Override
     public void startExcerpt(int capacity) {
