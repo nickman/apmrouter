@@ -95,5 +95,18 @@ public interface IDelegateMetric {
 	 * @return the metric type
 	 */
 	public abstract MetricType getType();
+	
+	/**
+	 * Returns the serialization token for this IMetric
+	 * @return the serialization token for this IMetric or -1 if one has not been assigned
+	 */
+	public abstract long getToken();
+	
+	/**
+	 * Sets the serialization token for this IMetric
+	 * @param token the serialization token for this IMetric
+	 */
+	public abstract void setToken(long token);
+	
 
 }

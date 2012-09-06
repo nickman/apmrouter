@@ -249,12 +249,12 @@ public class ICEMetric implements IMetric {
 	 * @param index The namespace index
 	 * @return a namespace element
 	 */
+	@Override
 	public String getNamespace(CharSequence index) {
 		if(metricId.isFlat()) throw new RuntimeException("Requesting named index namespace on non-mapped metric [" + getFQN() + "]", new Throwable());
 		String[] ns = metricId.getNamespace();
 		if(ns==null || ns.length<1) throw new RuntimeException("Requesting named index namespace on zero sized namespace in metric [" + getFQN() + "]", new Throwable());
-		String key = nvl(index, "Mapped Namespace Index").toString().trim();
-		
+		String key = nvl(index, "Mapped Namespace Index").toString().trim();		
 		for(String s: ns) {
 			int eq = s.indexOf('=');
 			if(key.equals(s.substring(0, eq))) {
@@ -269,6 +269,7 @@ public class ICEMetric implements IMetric {
 	 * Throws a RuntimeException if the metric is not mapped
 	 * @return a map representing the mapped namespace of this metric
 	 */
+	@Override
 	public Map<String, String> getNamespaceMap() {
 		if(metricId.isFlat()) throw new RuntimeException("Requesting named index namespace on non-mapped metric [" + getFQN() + "]", new Throwable());
 		String[] ns = metricId.getNamespace();

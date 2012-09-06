@@ -161,5 +161,11 @@ public interface IMetric {
 	 * @return the long value
 	 */
 	public abstract long getLongValue();
+	
+	/**
+	 * Returns the serialization token for this IMetric
+	 * @return the serialization token for this IMetric or -1 if one has not been assigned
+	 */
+	public abstract long getToken();
 
 }

@@ -97,7 +97,7 @@ public class BaseTracingOperations extends BasePerformanceTestCase {
 		log("Total Profiled Op Count:" + TOTAL_OP_COUNT);
 		log("Total Executed Op Count:" + TOTAL_EXEC_COUNT);
 		MetricType.setDirect(true);
-		MetricType.setCompress(true);
+		MetricType.setCompress(false);
 	}
 	
 	/**
@@ -193,7 +193,7 @@ public class BaseTracingOperations extends BasePerformanceTestCase {
 	/**
 	 * Executes a microbenchmark for tracing throwables
 	 */
-	@Test(timeout=60000)
+	@Test(timeout=120000)
 	public void TraceErrorPerformance() {
 		final ITracer tracer = TracerFactory.getTracer();
 		final Throwable t = new Throwable();

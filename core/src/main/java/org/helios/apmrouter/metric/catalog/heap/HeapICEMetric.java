@@ -55,6 +55,8 @@ public class HeapICEMetric implements IDelegateMetric {
 	protected final MetricType type;
 	/** Indicates if this is a flat or mapped metricId name */
 	protected final boolean flat;
+	/** The serialization token */
+	protected transient long token = -1;
 
 	/**
 	 * Creates a new HeapICEMetric
@@ -225,5 +227,24 @@ public class HeapICEMetric implements IDelegateMetric {
 	public MetricType getType() {
 		return type;
 	}
+	
+	/**
+	 * Returns the serialization token for this IMetric
+	 * @return the serialization token for this IMetric or -1 if one has not been assigned
+	 */	
+	@Override
+	public long getToken() {
+		return token;
+	}
+	
+	/**
+	 * Sets the serialization token for this IMetric
+	 * @param token the serialization token for this IMetric
+	 */
+	@Override
+	public void setToken(long token) {
+		this.token = token;
+	}
+	
 
 }

@@ -108,9 +108,13 @@ public class ChronicleICEMetric implements IDelegateMetric {
 		excerpt = ex;
 		if(!excerpt.index(index)) throw new IllegalStateException("No metric for index [" + index + "]", new Throwable());
 		nameOffsets = new int[4];
-		namespaceOffsets = new int[excerpt.readInt(4)];
+		excerpt.position(0);
+		excerpt.readLong(); // the token
+		excerpt.readInt(); // the type
+		namespaceOffsets = new int[excerpt.readInt()];  // offset is the token (8) and the type (4)
 		nameOffsets[FLAT_POS] = excerpt.position();
-		excerpt.skipBytes(9);  // skip two ints and a byte
+		excerpt.readByte();
+		//excerpt.skipBytes(9);  // skip two ints and a byte
 		nameOffsets[HOST_POS] = excerpt.position();
 		excerpt.skipBytes(excerpt.readInt());
 		nameOffsets[AGENT_POS] = excerpt.position();
@@ -148,7 +152,7 @@ public class ChronicleICEMetric implements IDelegateMetric {
 			nvl(host, "Host Name");
 			nvl(agent, "Agent Name");
 			nvl(agent, "Metric Name");
-			int exSize = 32 + 4 + 4;  // the size of the ordinal int, the ns size int and 8 ints used to track the name lengths & offsets
+			int exSize = 40 + 4 + 4;  // the size of the ordinal int, the ns size int and 8 ints used to track the name lengths & offsets
 			int[] nameOffsets = new int[4];
 			int[] nameLengths = new int[]{0, host.trim().getBytes().length, agent.trim().getBytes().length, name.toString().trim().getBytes().length};
 			int[] namespaceOffsets;
@@ -187,6 +191,8 @@ public class ChronicleICEMetric implements IDelegateMetric {
 			
 			Excerpt<IndexedChronicle> ex = ChronicleController.getInstance().createExcerpt();
 			ex.startExcerpt(exSize+20);
+			ex.position(0);
+			ex.writeLong(-1L); // the initial token
 			ex.writeInt(type.ordinal());
 			ex.writeInt(ns.size());
 			nameOffsets[FLAT_POS] = ex.position();
@@ -259,7 +265,7 @@ public class ChronicleICEMetric implements IDelegateMetric {
 	 */
 	@Override
 	public MetricType getType() {
-		return MetricType.valueOf(excerpt.readInt(0));
+		return MetricType.valueOf(excerpt.readInt(8));
 	}
 	
 	
@@ -305,6 +311,27 @@ public class ChronicleICEMetric implements IDelegateMetric {
 	}
 	
 	/**
+	 * Returns the serialization token for this IMetric
+	 * @return the serialization token for this IMetric or -1 if one has not been assigned
+	 */	
+	@Override
+	public long getToken() {
+		return excerpt.readLong(0);
+	}
+	
+	/**
+	 * Sets the serialization token for this IMetric
+	 * @param token the serialization token for this IMetric
+	 */
+	@Override
+	public void setToken(long token) {
+		excerpt.writeLong(0, token);
+		excerpt.skipBytes(excerpt.remaining());		
+		excerpt.finish();
+	}
+	
+	
+	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.metric.catalog.IDelegateMetric#isMapped()
 	 */
@@ -320,6 +347,7 @@ public class ChronicleICEMetric implements IDelegateMetric {
 			ChronicleICEMetric.newInstance("MyHost" + i, "MyAgent", "metric" + i, MetricType.LONG, (i%2!=0) ? ("ns" + i) : ("ns" + i + "=foobar" + i));
 		}
 		ChronicleController.getInstance().clear();
+		ChronicleController.getInstance().useUnsafe(true);
 		log("Create Warmup complete");
 		SystemClock.startTimer();
 		for(int i = 0; i < loopCount; i++) {
@@ -337,6 +365,15 @@ public class ChronicleICEMetric implements IDelegateMetric {
 		}
 		log("Lookup Warmup complete");
 
+		SystemClock.startTimer();
+		for(int i = 0; i < loopCount; i++) {
+			IDelegateMetric dim = new ChronicleICEMetric(i);
+			dim.setToken(i);
+		}
+		et = SystemClock.endTimer();
+		log("Set Token Test complete in " + et);
+		log("Set Token Average Per:" + et.avgNs(loopCount) + " ns.");
+		
 		
 		SystemClock.startTimer();
 		for(int i = 0; i < loopCount; i++) {
@@ -344,6 +381,10 @@ public class ChronicleICEMetric implements IDelegateMetric {
 			if(!("MyHost" + i).equals(dim.getHost())) {
 				throw new RuntimeException("Invalid Metric. Got [" + dim.getHost() + "] expected [" + ("MyHost" + i) + "]", new Throwable());
 			}
+			if(i!=dim.getToken()) {
+				throw new RuntimeException("Invalid Token. Got [" + dim.getToken() + "] expected [" + i + "]", new Throwable());
+			}
+			
 		}
 		et = SystemClock.endTimer();
 		log("Lookup Test complete in " + et);
