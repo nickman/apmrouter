@@ -35,8 +35,6 @@ import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 
 import sun.misc.Unsafe;
 
-import javax.management.openmbean.*;
-
 /**
  * <p>Title: UnsafeLongArray</p>
  * <p>Description: Utility class for storing long arrays in direct memory with self resizing</p> 
@@ -68,7 +66,7 @@ public class UnsafeLongArray {
     private static final int INSERTION_SORT_THRESHOLD = 47;
     
     /** The default allocation size for UnsafeLongArrays */
-    private static final int DEFAULT_ALLOC = 128;
+    public static final int DEFAULT_ALLOC = 128;
 
     /** The unsafe instance */
     private static final Unsafe unsafe;
@@ -102,19 +100,21 @@ public class UnsafeLongArray {
     }
 
     public static void main(String[] args) {
+    	final long[] TEST_DATA = new long[]{0L, 1L, 2L};
+    	final long REMOVE = 1L;
     	log("Add longs to UnsafeLongArray Test");
-    	UnsafeLongArray ula = new UnsafeLongArray(5, Long.MAX_VALUE);
-    	log("Empty:" + ula);
-    	ula.add(0L, 1L, 2L, 3L, 4L);
-    	log("Full At 5:" + ula);
-    	ula.add(0L, 1L, 2L, 3L, 4L);
-    	log("Full At 10:" + ula);
-    	ula.removeAll(3L);
-    	log("3 removed:" + ula);
-    	log("BinSearch for 3:" + ula.binarySearch(3L));
+    	UnsafeLongArray ula = new UnsafeLongArray(3, Long.MAX_VALUE);
+    	log("Empty:\n\t" + ula.toFullString() + "\n\t" + ula.toString() + "\n\tSize:" + ula.size());
+    	ula.insert(TEST_DATA);
+    	log("Full At 3:\n\t" + ula.toFullString() + "\n\t" + ula.toString() + "\n\tSize:" + ula.size());
+    	ula.insert(TEST_DATA);
+    	log("Full At 6:\n\t" + ula.toFullString() + "\n\t" + ula.toString() + "\n\tSize:" + ula.size());
+    	int removed = ula.removeAll(REMOVE);
+    	log( "" + removed + " removed:\n\t" + ula.toFullString() + "\n\t" + ula.toString() + "\n\tSize:" + ula.size());
+    	log("BinSearch for :" + REMOVE + ":" + ula.binarySearch(REMOVE));
     	log(ula.debugString());
-    	ula.addIfNotExists(2L, 3L, 4L);
-    	log("3 back in once:" + ula);
+    	ula.insertIfNotExists(REMOVE);
+    	log("" + REMOVE + " back in once:\n\t" + ula.toFullString() + "\n\t" + ula.toString() + "\n\tSize:" + ula.size());
     	log(ula.debugString());
     	
     	
@@ -305,13 +305,14 @@ public class UnsafeLongArray {
     		unsafe.putLong(this.address + (i << 3), array[i]);
     	}
     	size = array.length;
-    	sort(this);
+    	//sort(this);
     }
     
     /**
      * {@inheritDoc}
      * @see java.lang.Object#toString()
      */
+    @Override
     public String toString() {
     	if(size==0) return "[]";
     	StringBuilder b = new StringBuilder("[");
@@ -323,6 +324,24 @@ public class UnsafeLongArray {
     	return b.toString();
     }
     
+    /**
+     * Renders in the same format as {@link #toString()} except it includes the entire capacity of the array
+     * @return a {@link #toString()} of the full array
+     */
+    public String toFullString() {
+    	StringBuilder b = new StringBuilder("fc:[");
+    	for(int i = 0; i < capacity; i++) {
+    		if(i==size-1) {
+    			b.append(a(i)).append(" ***end*** ,");
+    		} else {
+    			b.append(a(i)).append(",");
+    		}
+    		
+    	}
+    	b.deleteCharAt(b.length()-1);
+    	b.append("]");
+    	return b.toString();
+    }
 
 
 	/**
@@ -349,14 +368,32 @@ public class UnsafeLongArray {
      * @return this array
      */
     public UnsafeLongArray add(long...values) {
+    	_check();
     	if(values!=null && values.length>0) {
     		for(long v: values) {
     			_add(v);
     		}
     	}
-    	sort(this);
+    	//sort(this);
     	return this;
     }
+    
+    /**
+     * Inserts the passed long values to this array at the location returned from a binary search 
+     * @param values the values to insert
+     * @return this array
+     */
+    public UnsafeLongArray insert(long...values) {
+    	_check();
+    	if(values!=null && values.length>0) {
+    		for(long v: values) {
+    			_insert(v);
+    		}
+    	}
+    	//sort(this);
+    	return this;
+    }
+    
     
     /**
      * Adds the passed long values to this array if they are not present already 
@@ -364,6 +401,7 @@ public class UnsafeLongArray {
      * @return this array
      */
     public UnsafeLongArray addIfNotExists(long...values) {
+    	_check();
     	if(values!=null && values.length>0) {
     		for(long v: values) {
     			if(binarySearch(v)<0) {
@@ -375,6 +413,25 @@ public class UnsafeLongArray {
     	return this;
     }
     
+    /**
+     * Inserts the passed long values to this array if they are not present already 
+     * @param values the values to insert
+     * @return this array
+     */
+    public UnsafeLongArray insertIfNotExists(long...values) {
+    	_check();
+    	if(values!=null && values.length>0) {
+    		for(long v: values) {
+    			if(binarySearch(v)<0) {
+    				_insert(v);
+    			}
+    		}
+    	}
+    	//sort(this);
+    	return this;
+    }
+    
+    
     
     /**
      * Adds the passed long to the array, extending the size of the array if necessary
@@ -383,17 +440,63 @@ public class UnsafeLongArray {
     private void _add(long v) {
     	if(size==capacity) {
     		extend();
-    	}    	    
+    	}
+    	unsafe.putLong(address + (size << 3), v);
+    	size++;    	
+    	//sort(this);
+    }
+    
+    /**
+     * Inserts the passed long to the array, extending the size of the array if necessary
+     * @param v the long to insert
+     */
+    private void _insert(long v) {
+    	if(size==capacity) {
+    		extend();
+    	}
+		int index = binarySearch(v);
+		if(index<0) index = (index*-1)-1;
+		
+		if(size!=0) {
+	    	//if(index!=size-1) {
+		    	long srcOffset = (index << 3); 
+		    	long destOffset = ((index+1) << 3);
+		    	long bytes = (size-index) << 3;
+				unsafe.copyMemory(
+						(address + srcOffset),   	// src: the address of the index where we want to insert
+						(address + destOffset), 	// dest: the address of the slot after the one we want to insert
+						bytes						// bytes: the number of bytes in the entries that need to be shifted down
+				);
+	    	//}
+		} 
+		unsafe.putLong(address + (index << 3), v);
+		size++;
+		log("\n\t--->At Size:" + size + "  Added:" + v +  "  Index:" + index + "  " +  toFullString());
+    }
+    
+    
+    /*
+         	//int ind = binarySearch(v);
     	int index = binarySearch(v);
     	if(index<0) index = (index*-1)-1;
-		unsafe.copyMemory(
-				(address + ((index) << 3)),   	// src: the address of the index where we want to insert
-				(address + ((index+1) << 3)), 	// dest: the address of the slot after the one we want to insert
-				size-index						// bytes: the number of bytes in the entries that need to be shifted down
-		);
-    	unsafe.putLong(address + (size << 3), v);
+    	
+    	if(size!=0) {
+	    	//if(index!=size-1) {
+		    	long srcOffset = (index << 3); 
+		    	long destOffset = ((index+1) << 3);
+		    	long bytes = (size-index) << 3;
+				unsafe.copyMemory(
+						(address + srcOffset),   	// src: the address of the index where we want to insert
+						(address + destOffset), 	// dest: the address of the slot after the one we want to insert
+						bytes						// bytes: the number of bytes in the entries that need to be shifted down
+				);
+	    	//}
+    	} 
+    	unsafe.putLong(address + (index+1 << 3), v);
     	size++;
-    }
+    	if(capacity==10) log("\n\t--->At Size:" + size + "  Added:" + v +  "  Index:" + index + "  " +  toFullString());
+ 
+     */
     
     /**
      * Extends the allocated memory by the configured allocation size.
@@ -407,24 +510,28 @@ public class UnsafeLongArray {
     /**
      * Removes the first instance of each of the passed long values from this array if they are present 
      * @param values the values to remove
-     * @return this array
+     * @return the number of removed values
      */
-    public UnsafeLongArray remove(long...values) {
+    public int remove(long...values) {
+    	_check();
+    	int removed = 0;
     	if(values!=null && values.length>0) {
     		for(long v: values) {
     			_remove(binarySearch(v));
     		}
     	}
     	//sort(this);
-    	return this;
+    	return removed;
     }
     
     /**
      * Removes all instances of each of the passed long values from this array if they are present 
      * @param values the values to remove
-     * @return this array
+     * @return the number of removed items
      */
-    public UnsafeLongArray removeAll(long...values) {
+    public int removeAll(long...values) {
+    	_check();
+    	int _size = size;
     	if(values!=null && values.length>0) {
     		for(long v: values) {
     			boolean rem = true;
@@ -434,16 +541,21 @@ public class UnsafeLongArray {
     		}
     	}
     	//sort(this);
-    	return this;
+    	return _size - size;
     }
     
     
+    /**
+     * Removes the long at the passed index, if the index is <b><code>&gt;=0</code></b>,  by rolling all the values at the next index down by one and decrementing the size
+     * @param index The index to remove thhe value from
+     * @return true if the value was removed, false if no change occured
+     */
     private boolean _remove(int index) {
-    	if(index>=0) {
+    	if(index>=0) {    	
     		unsafe.copyMemory(
     				(address + ((index+1) << 3)),   // the address of the next index 
     				(address + ((index) << 3)), 	// the address of the index to remove
-    				size-index-1					// the number of bytes in the entries that need to be shifted down
+    				(size-index-1) << 3					// the number of bytes in the entries that need to be shifted down
     		);
     		size--;
     		return true;
@@ -542,6 +654,20 @@ public class UnsafeLongArray {
     }
     
     /**
+     * Returns a traditional long array representing the all the allocated slots this array
+     * @return a long array representing the all the allocated slots this array
+     */
+    public long[] getAllocatedArray() {
+    	_check();
+    	long[] arr = new long[capacity];
+    	for(int i = 0; i < capacity; i++) {
+    		arr[i] = unsafe.getLong(this.address + (i << 3));
+    	}
+    	return arr;
+    }
+    
+    
+    /**
      * {@inheritDoc}
      * @see java.lang.Object#clone()
      */
@@ -558,17 +684,26 @@ public class UnsafeLongArray {
 
 
     /**
-     * Returns the number of longs in the array
-     * @return the number of longs in the array
+     * Returns the number of allocated longs in the array
+     * @return the number of allocated longs in the array
      */
     public int size() {
     	_check();
     	return size;
     }
+
+    /**
+     * Returns the total number of allocated slots in the array
+     * @return the total number of allocated slots in the array
+     */    
+    public int capacity() {
+    	_check();
+    	return capacity;    	
+    }
     
     
     /**
-     * Searches this unsafe long array for the specified value using the binary search algorithm based on {@link java.util.Arrays#binarySearch(long[], long). 
+     * Searches this unsafe long array for the specified value using the binary search algorithm based on {@link java.util.Arrays#binarySearch(long[], long)}. 
      * If this unsafe long array contains multiple elements with the specified value, there is no guarantee which one will be found. 
      * @param key the value to be searched for 
      * @return index of the search key, if it is contained in this array; otherwise, <b><code>(-(insertion point) - 1)</code></b>.

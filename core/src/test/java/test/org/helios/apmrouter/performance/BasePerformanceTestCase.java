@@ -121,6 +121,7 @@ public class BasePerformanceTestCase extends BaseTestCase {
 	 */
 	public MemoryUsage[] memoryUsage(boolean gcFirst) {		
 		if(gcFirst) {
+			System.runFinalization();
 			ManagementFactory.getMemoryMXBean().gc();
 			sleep(500);
 			ManagementFactory.getMemoryMXBean().gc();

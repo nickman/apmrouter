@@ -1,0 +1,63 @@
+/**
+ * Helios, OpenSource Monitoring
+ * Brought to you by the Helios Development Group
+ *
+ * Copyright 2007, Helios Development Group and individual contributors
+ * as indicated by the @author tags. See the copyright.txt file in the
+ * distribution for a full listing of individual contributors.
+ *
+ * This is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2.1 of
+ * the License, or (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this software; if not, write to the Free
+ * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
+ *
+ */
+package org.helios.apmrouter.collections;
+
+/**
+ * <p>Title: SortedUnsafeLongArray</p>
+ * <p>Description: An extension of {@link UnsafeLongArray} that keeps the long values sorted in ascending order</p> 
+ * <p>Company: Helios Development Group LLC</p>
+ * @author Whitehead (nwhitehead AT heliosdev DOT org)
+ * <p><code>org.helios.apmrouter.collections.SortedUnsafeLongArray</code></p>
+ */
+
+public class SortedUnsafeLongArray extends UnsafeLongArray {
+
+	/**
+	 * Creates a new SortedUnsafeLongArray
+	 */
+	public SortedUnsafeLongArray() {
+		super();		
+	}
+
+	/**
+	 * Creates a new SortedUnsafeLongArray
+	 * @param initialCapacity The initial capacity
+	 * @param initialValue The default initial value
+	 */
+	public SortedUnsafeLongArray(int initialCapacity, long initialValue) {
+		super(initialCapacity, initialValue);
+		sort(this);
+	}
+
+	/**
+	 * Creates a new SortedUnsafeLongArray containing the contents of the passed array
+	 * @param array The values to load this array with
+	 */
+	public SortedUnsafeLongArray(long[] array) {
+		super(array);
+		sort(this);
+	}
+
+}
