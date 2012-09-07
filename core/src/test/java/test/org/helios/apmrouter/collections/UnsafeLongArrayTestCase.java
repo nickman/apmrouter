@@ -74,6 +74,15 @@ public class UnsafeLongArrayTestCase {
 	protected final Random RANDOM = new Random(System.currentTimeMillis());
 	
 	/**
+	 * Returns the next positive random int
+	 * @param upto The upper range of the next random int
+	 * @return the next positive random int
+	 */
+	public int nextRandomInt(int upto) {
+		return Math.abs(RANDOM.nextInt(upto));
+	}	
+	
+	/**
 	 * Generates a long array of the specified size populated with random longs
 	 * @param size The size of the array
 	 * @param abs If true, the longs will be positive only
@@ -89,6 +98,8 @@ public class UnsafeLongArrayTestCase {
 	
 	/** Auto destroyed test ula */
 	protected UnsafeLongArray ula = null;
+	
+	
 
 	
 	/**
@@ -126,7 +137,7 @@ public class UnsafeLongArrayTestCase {
 		Assert.assertEquals(31, ula.capacity());
 		Assert.assertEquals(0, ula.size());
 		long[] defValues = new long[ula.capacity()];
-		Arrays.fill(defValues, 0);
+		Arrays.fill(defValues, 0L);
 		Assert.assertArrayEquals(defValues, ula.getAllocatedArray());
 		Assert.assertArrayEquals(new long[]{}, ula.getArray());
 	}
@@ -145,11 +156,136 @@ public class UnsafeLongArrayTestCase {
 	}
 	
 	/**
-	 * Tests a series of value add operations
+	 * Tests the roll right operation with no extend required
 	 */
 	@Test
-	public void testAddOperations() {
-		
+	public void testRollRightNoExtend() {
+		int arrSize = 300;
+		for(int indexToInsertAt = 0; indexToInsertAt < arrSize; indexToInsertAt++) { 
+			ula = new UnsafeLongArray(arrSize+1, 0L);
+			Assert.assertEquals(0, ula.size());
+			Assert.assertEquals(arrSize+1, ula.capacity());
+			final long[] ARR_DATA = allocateRandom(arrSize, false);
+			ula.add(ARR_DATA);
+			Assert.assertArrayEquals(ARR_DATA, ula.getArray());
+			long valueToInsert = RANDOM.nextLong();
+//			log("Index:" + indexToInsertAt +   "  Value:" + valueToInsert);
+//			log("BEFORE:" + ula.toFullString());
+			ula.rollRight(indexToInsertAt, valueToInsert);
+//			log("AFTER:" + ula.toFullString());
+//			log("=========================================");
+			Assert.assertEquals(arrSize+1, ula.size());
+			Assert.assertEquals(arrSize+1, ula.capacity());
+			Assert.assertEquals(valueToInsert, ula.get(indexToInsertAt));
+			long[] NEW_ARR_DATA = new long[arrSize+1];
+			System.arraycopy(ARR_DATA, 0, NEW_ARR_DATA, 0, indexToInsertAt);
+			System.arraycopy(ARR_DATA, indexToInsertAt, NEW_ARR_DATA, indexToInsertAt+1, ARR_DATA.length-indexToInsertAt);
+			NEW_ARR_DATA[indexToInsertAt] = valueToInsert;
+			Assert.assertArrayEquals(NEW_ARR_DATA, ula.getArray());
+			ula.destroy();
+		}
 	}
+	
+	/**
+	 * Tests the roll right operation with extend required
+	 */
+	@Test
+	public void testRollRightWithExtend() {
+		int arrSize = 300;
+		int initialSize = 1;
+		int expectedExtends = (arrSize/UnsafeLongArray.DEFAULT_ALLOC)+1;
+		int expectedCapacity = (expectedExtends*UnsafeLongArray.DEFAULT_ALLOC)+1; 		
+		for(int indexToInsertAt = 0; indexToInsertAt < arrSize; indexToInsertAt++) { 
+			ula = new UnsafeLongArray(1, 0L);
+			Assert.assertEquals(0, ula.size());
+			Assert.assertEquals(initialSize, ula.capacity());
+			final long[] ARR_DATA = allocateRandom(arrSize, false);
+			ula.add(ARR_DATA);
+			Assert.assertArrayEquals(ARR_DATA, ula.getArray());
+			long valueToInsert = RANDOM.nextLong();
+			ula.rollRight(indexToInsertAt, valueToInsert);
+			Assert.assertEquals(arrSize+1, ula.size());
+			Assert.assertEquals(valueToInsert, ula.get(indexToInsertAt));
+			long[] NEW_ARR_DATA = new long[arrSize+1];
+			System.arraycopy(ARR_DATA, 0, NEW_ARR_DATA, 0, indexToInsertAt);
+			System.arraycopy(ARR_DATA, indexToInsertAt, NEW_ARR_DATA, indexToInsertAt+1, ARR_DATA.length-indexToInsertAt);
+			NEW_ARR_DATA[indexToInsertAt] = valueToInsert;
+			Assert.assertArrayEquals(NEW_ARR_DATA, ula.getArray());
+			Assert.assertEquals(expectedCapacity, ula.capacity());
+			ula.destroy();
+		}
+	}
+	
+	/**
+	 * <p>Tests the roll right operation with fixed capacity and no extend
+	 * <p><pre>
+           -->  -->  -->  -->  --> Dropped
+    +--+ +--+ +--+ +--+ +--+ +--+               Size:      6     Index:   1
+    |23| |47| |19| |67| |42| |89|               Capacity:  6     Value:   77
+    +--+ +--+ +--+ +--+ +--+ +--+
+
+           ^                   ^
+           |                   |
+           |                   |
+         Index               Dropped
+
+     +--+ +--+ +--+ +--+ +--+ +--+               Size:      6
+     |23| |77| |47| |19| |67| |42|               Capacity:  6
+     +--+ +--+ +--+ +--+ +--+ +--+	 
+     * </pre>
+	 */
+	@Test
+	public void testRollRightFixedCapacityWithNoExtend() {
+		int arrSize = 300;
+		int initialSize = 1;
+		int expectedExtends = (arrSize/UnsafeLongArray.DEFAULT_ALLOC)+1;
+		int expectedCapacity = (expectedExtends*UnsafeLongArray.DEFAULT_ALLOC)+1; 		
+		for(int indexToInsertAt = 0; indexToInsertAt < arrSize; indexToInsertAt++) { 
+			ula = new UnsafeLongArray(1, 0L);
+			Assert.assertEquals(0, ula.size());
+			Assert.assertEquals(initialSize, ula.capacity());
+			final long[] ARR_DATA = allocateRandom(arrSize, false);
+			ula.add(ARR_DATA);
+			Assert.assertArrayEquals(ARR_DATA, ula.getArray());
+			long valueToInsert = RANDOM.nextLong();
+			ula.rollRight(indexToInsertAt, valueToInsert);
+			Assert.assertEquals(arrSize+1, ula.size());
+			Assert.assertEquals(valueToInsert, ula.get(indexToInsertAt));
+			long[] NEW_ARR_DATA = new long[arrSize+1];
+			System.arraycopy(ARR_DATA, 0, NEW_ARR_DATA, 0, indexToInsertAt);
+			System.arraycopy(ARR_DATA, indexToInsertAt, NEW_ARR_DATA, indexToInsertAt+1, ARR_DATA.length-indexToInsertAt);
+			NEW_ARR_DATA[indexToInsertAt] = valueToInsert;
+			Assert.assertArrayEquals(NEW_ARR_DATA, ula.getArray());
+			Assert.assertEquals(expectedCapacity, ula.capacity());
+			ula.destroy();
+		}
+	}
+	
+	
+	/**
+	 * Tests the roll left operation
+	 */
+	@Test
+	public void testRollLeft() {
+		int arrSize = 300;
+		for(int indexToRemove = 0; indexToRemove < arrSize; indexToRemove++) { 
+			ula = new UnsafeLongArray(arrSize+1, 0L);
+			Assert.assertEquals(0, ula.size());
+			Assert.assertEquals(arrSize+1, ula.capacity());
+			final long[] ARR_DATA = allocateRandom(arrSize, false);
+			ula.add(ARR_DATA);
+			Assert.assertArrayEquals(ARR_DATA, ula.getArray());
+			ula.rollLeft(indexToRemove);
+			Assert.assertEquals(arrSize-1, ula.size());
+			Assert.assertEquals(arrSize+1, ula.capacity());			
+			long[] NEW_ARR_DATA = new long[arrSize-1];
+			System.arraycopy(ARR_DATA, 0, NEW_ARR_DATA, 0, indexToRemove);
+			System.arraycopy(ARR_DATA, indexToRemove+1, NEW_ARR_DATA, indexToRemove, ARR_DATA.length-indexToRemove-1);			
+			Assert.assertArrayEquals(NEW_ARR_DATA, ula.getArray());
+			ula.destroy();
+		}
+	}
+	
+	
 
 }

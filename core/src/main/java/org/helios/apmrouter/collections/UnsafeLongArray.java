@@ -26,6 +26,7 @@ package org.helios.apmrouter.collections;
 
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
+import java.nio.BufferOverflowException;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -38,35 +39,25 @@ import sun.misc.Unsafe;
 /**
  * <p>Title: UnsafeLongArray</p>
  * <p>Description: Utility class for storing long arrays in direct memory with self resizing</p> 
+ * <p><b><font color='red'>!!  NOTE !!&nbsp;&nbsp;</font>:&nbsp;&nbsp;</b>This class is disastrously THREAD UNSAFE. Only use with one thread at a time, or used one
+ * of the concurrent/synchronized versions</p>
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.collections.UnsafeLongArray</code></p>
  */
 public class UnsafeLongArray {
-    /**
-     * The maximum number of runs in merge sort.
-     */
+    /** The maximum number of runs in merge sort.*/
     private static final int MAX_RUN_COUNT = 67;
-
-    /**
-     * The maximum length of run in merge sort.
-     */
+    /** The maximum length of run in merge sort. */
     private static final int MAX_RUN_LENGTH = 33;
-
-    /**
-     * If the length of an array to be sorted is less than this
-     * constant, Quicksort is used in preference to merge sort.
-     */
+    /** If the length of an array to be sorted is less than this constant, Quicksort is used in preference to merge sort. */
     private static final int QUICKSORT_THRESHOLD = 286;
-
-    /**
-     * If the length of an array to be sorted is less than this
-     * constant, insertion sort is used in preference to Quicksort.
-     */
-    private static final int INSERTION_SORT_THRESHOLD = 47;
-    
+    /** If the length of an array to be sorted is less than this constant, insertion sort is used in preference to Quicksort. */
+    private static final int INSERTION_SORT_THRESHOLD = 47;    
     /** The default allocation size for UnsafeLongArrays */
     public static final int DEFAULT_ALLOC = 128;
+    /** The default initial allocation value for un-populated slots */
+    public static final int DEFAULT_INIT = 0;
 
     /** The unsafe instance */
     private static final Unsafe unsafe;
@@ -270,26 +261,44 @@ public class UnsafeLongArray {
     }
     
     /**
-     * Creates a new UnsafeLongArray with all entries set to zero
-     * @param initialSize The initial number of longs
+     * Creates a new UnsafeLongArray of the specified initial capacity, with all inital values set to the specified initial value.
+     * The capacity increase size when the array needs to be extended will be the same as the initial capacity
+     * @param initialSize The initial number of slots and the capacity growth increment
      * @param initialValue The value to set in all longs in the array
      */
     public UnsafeLongArray(int initialCapacity, long initialValue)  {
-    	this(initialCapacity);
+    	this(initialCapacity, DEFAULT_ALLOC);
     	for(int i = 0; i < initialCapacity; i++) {
     		unsafe.putLong(this.address + (i << 3), initialValue);
     	}    	
     }
     
     /**
+     * Creates a new UnsafeLongArray of the specified initial capacity, with all inital values set to the specified initial value.
+     * @param initialSize The initial number of slots
+     * @param initialValue The value to set in all longs in the array
+     * @param allocation The number of slots added each time the array needs to be extended
+     */
+    public UnsafeLongArray(int initialCapacity, long initialValue, int allocation)  {
+    	this(initialCapacity, allocation);    	
+    	if(initialValue!=0) {
+	    	for(int i = 0; i < initialCapacity; i++) {
+	    		unsafe.putLong(this.address + (i << 3), initialValue);
+	    	}
+    	}
+    }
+    
+    
+    /**
      * Creates a new un-initialized UnsafeLongArray. All values are garbage. 
      * @param initialCapacity The initial number of longs
+     * @param allocation The number of slots added each time the array needs to be extended
      */
-    private UnsafeLongArray(int initialCapacity)  {
+    private UnsafeLongArray(int initialCapacity, int allocation)  {
         if (initialCapacity < 1) {
             throw new IllegalArgumentException("size must be at least 1 long", new Throwable());
         }
-        allocation = initialCapacity;
+        this.allocation = allocation;
         capacity = initialCapacity;
         this.address = unsafe.allocateMemory(initialCapacity << 3);
         this.size = 0;        
@@ -300,7 +309,7 @@ public class UnsafeLongArray {
      * @param array The array to initialize from
      */
     public UnsafeLongArray(long[] array)  {
-    	this(array.length);
+    	this(array.length, DEFAULT_ALLOC);
     	for(int i = 0; i < array.length; i++) {
     		unsafe.putLong(this.address + (i << 3), array[i]);
     	}
@@ -332,7 +341,7 @@ public class UnsafeLongArray {
     	StringBuilder b = new StringBuilder("fc:[");
     	for(int i = 0; i < capacity; i++) {
     		if(i==size-1) {
-    			b.append(a(i)).append(" ***end*** ,");
+    			b.append(a(i)).append(">><<,");
     		} else {
     			b.append(a(i)).append(",");
     		}
@@ -361,6 +370,133 @@ public class UnsafeLongArray {
 		builder.append("\n]");
 		return builder.toString();
     }
+    
+    /**
+     * <p>Rolls all the entries in the array one slot to the right after the referenced index, 
+     * extending the array capacity if it is full when this method is called. 
+     * Logically, this opens a new slot at the referenced index, and the new slot is set to the passed new value.
+     * Once this method completes, the size of the array will have been incremented by 1.</p>
+     * <p><b>Note:</b> The rolling of the array values is performed by {@link sun.misc.Unsafe#copyMemory(long, long, long)}</p>
+     * @param index The index after which the remaining values are rolled to the right
+     * @param newValue The value to place into the new slot 
+     * @return this array
+     */
+    public UnsafeLongArray rollRight(int index, long newValue) {
+    	_check(); _check(index);
+    	if(size==capacity) extend();    	
+    	int numberOfSlotsToMove = size-index;
+    	long srcOffset = (index << 3); 
+    	long destOffset = ((index) << 3);
+    	long bytes = numberOfSlotsToMove << 3;
+		unsafe.copyMemory(
+				(address + srcOffset),   	// src: the address of the first index we want to roll
+				(address + destOffset), 	// dest: the address of the slot after the one we want to roll
+				bytes						// bytes: the number of bytes in the entries that need to be rolled
+		);
+		a(index, newValue);
+		size++;
+    	return this;
+    }
+    
+    /**
+     * <p>Rolls all the entries in the array one slot to the right after the referenced index, 
+     * optionally extending the array capacity if it is full when this method is called. 
+     * Logically, this opens a new slot at the referenced index, and the new slot is set to the passed new value.
+     * Once this method completes, the size of the array will have been incremented by 1, unless <b><code>fixedSize==true</code></b>
+     * in which case both the size and the capacity will be unchanged.</p>
+     * <p><b>Note:</b> The rolling of the array values is performed by {@link sun.misc.Unsafe#copyMemory(long, long, long)}</p>
+     * <p><b>Example</b> of calling <b><code>rollRight(1, 77, bool)</code></b> on an array of size 6 and capacity of 8</p>
+     * <b>Before Operation</b>
+     * <pre>
+	           -->  -->  -->  -->  -->
+	    +--+ +--+ +--+ +--+ +--+ +--+               Size:      6     Index:   1
+	    |23| |47| |19| |67| |42| |89|               Capacity:  8     Value:   77
+	    +--+ +--+ +--+ +--+ +--+ +--+ +--+ +--+
+	          /^\
+	           |
+	         Index
+      </pre><b>After Operation</b><pre>
+	     +--+ +--+ +--+ +--+ +--+ +--+ +--+          Size:      7
+	     |23| |77| |47| |19| |67| |42| |89|          Capacity:  8
+	     +--+ +--+ +--+ +--+ +--+ +--+ +--+ +--+
+     * </pre>
+     * @param index The index after which the remaining values are rolled to the right
+     * @param newValue The value to place into the new slot 
+     * @param fixedSize If this is true, the capacity of the array will not be extended, so when <b><code>size==capacity</code></b>, 
+     * the right-most value of the array will be dropped, effectively creating a sliding-window when used with <b><code>index==0</code></b>.
+     * If this is false, the behaviour is the default as defined in {@link #rollRight(int, long)}.
+     * @return this array
+     */
+    public UnsafeLongArray rollRight(int index, long newValue, boolean fixedSize) {
+    	_check(); _check(index);
+    	final int numberOfSlotsToMove;
+    	final boolean incrSize;
+    	if(size==capacity) {
+        	if(fixedSize) {
+        		numberOfSlotsToMove = size-index-1;
+        		incrSize=false;
+        	} else {
+        		extend();
+        		numberOfSlotsToMove = size-index;
+        		incrSize=true;
+        	}    	
+        	
+    	} else {
+    		numberOfSlotsToMove = size-index;
+    		incrSize=true;
+    	}
+    	
+    	long srcOffset = (index << 3); 
+    	long destOffset = ((index+1) << 3);
+    	long bytes = numberOfSlotsToMove << 3;
+		unsafe.copyMemory(
+				(address + srcOffset),   	// src: the address of the first index we want to roll
+				(address + destOffset), 	// dest: the address of the slot after the one we want to roll
+				bytes						// bytes: the number of bytes in the entries that need to be rolled
+		);
+		a(index, newValue);
+		if(incrSize) size++;
+    	return this;
+    }
+    
+    
+    /**
+     * Rolls all the entries in the array one slot to the right after the referenced index, 
+     * extending the array capacity if it is full when this method is called. 
+     * Logically, this opens a new slot at the referenced index, and the new slot is initially populated with the assigned initial value.
+     * Once this method completes, the size of the array will have been incremented by 1.
+     * @param index The index after which the remaining values are rolled to the right 
+     * @return this array
+     */
+    protected UnsafeLongArray rollRight(int index) {
+    	return rollRight(index, DEFAULT_INIT);
+    }
+
+    
+    /**
+     * Rolls all the entries in the array one slot to the left after the referenced index
+     * Logically, this removes a new slot at the referenced index.
+     * Once this method completes, the size of the array will have been decremented by 1.
+     * @param index The index after which the remaining values are rolled to the left
+     * @return this array
+     */
+    public UnsafeLongArray rollLeft(int index) {
+    	_check(); _check(index);
+    	int newInd = index+1;
+    	int numberOfSlotsToMove = size-newInd;
+    	long srcOffset = (newInd << 3); 
+    	long destOffset = (index << 3);
+    	long bytes = numberOfSlotsToMove << 3;
+		unsafe.copyMemory(
+				(address + srcOffset),   	// src: the address of the first index we want to roll
+				(address + destOffset), 	// dest: the address of the slot after the one we want to roll
+				bytes						// bytes: the number of bytes in the entries that need to be rolled
+		);
+		size--;
+    	
+    	return this;
+    }
+    
     
     /**
      * Adds the passed long values to this array 
@@ -502,8 +638,17 @@ public class UnsafeLongArray {
      * Extends the allocated memory by the configured allocation size.
      */
     private void extend() {
-    	address = unsafe.reallocateMemory(address, (capacity << 3) + (allocation << 3));
-    	capacity += allocation;
+    	if(capacity==Integer.MAX_VALUE) throw new ArrayOverflowException("Capacity [" + capacity + "] plus allocation [" + allocation + "] is greater than Integer.MAX_VALUE", new Throwable());
+    	long cap = capacity;
+    	long alloc = allocation;
+    	int newAlloc = -1;
+    	if(cap+alloc>Integer.MAX_VALUE) {
+    		newAlloc = Integer.MAX_VALUE-capacity;
+    	} else {
+    		newAlloc = allocation;
+    	}    			
+    	address = unsafe.reallocateMemory(address, (capacity << 3) + (newAlloc << 3));
+    	capacity += newAlloc;
     }
     
     
@@ -571,6 +716,9 @@ public class UnsafeLongArray {
     	return this.address !=0;
     }
     
+    /**
+     * Checks that the array has not been deallocated, throwing a {@link IllegalStateException} if it has.
+     */
     private void _check() {
     	if(!check()) throw new IllegalStateException("This UnsafeLongArray has been deallocated", new Throwable());
     }
@@ -585,7 +733,12 @@ public class UnsafeLongArray {
     	}
     }
     
-    private void _checkRange(int index) {
+    /**
+     * Checks that an index is within the populated slots of this array.
+     * If the check fails, throws a {@link IllegalArgumentException}
+     * @param index The index to check
+     */
+    private void _check(int index) {
     	if(index<0 || index > (size-1)) throw new IllegalArgumentException("The passed index was invalid [" + index + "]. Valid ranges are 0 - " + (size-1), new Throwable());
     }
     
@@ -613,7 +766,7 @@ public class UnsafeLongArray {
      * @return the specified long
      */
     public long get(int index) {
-    	_check(); _checkRange(index);
+    	_check(); _check(index);
     	return unsafe.getLong(this.address + (index << 3));    	
     }
     
@@ -621,10 +774,12 @@ public class UnsafeLongArray {
      * Sets the long value at the specified index
      * @param index The index of the array to set the long at
      * @param value The long to set
+     * @return this array
      */
-    public void set(int index, long value) {
-    	_check(); _checkRange(index);
+    public UnsafeLongArray set(int index, long value) {
+    	_check(); _check(index);
     	unsafe.putLong(this.address + (index << 3), value);
+    	return this;
     }
     
     
@@ -673,7 +828,7 @@ public class UnsafeLongArray {
      */
     public UnsafeLongArray clone() {
     	_check();
-    	UnsafeLongArray cloned = new UnsafeLongArray(size);
+    	UnsafeLongArray cloned = new UnsafeLongArray(size, DEFAULT_ALLOC);
     	for(int i = 0; i < size; i++) {
     		cloned.a(i, a(i));
     	}
@@ -725,6 +880,96 @@ public class UnsafeLongArray {
     	}
     	return -(low + 1);  // key not found.
     }    
+    
+    /**
+     * Sorts the array and returns
+     * @return this array
+     */
+    public UnsafeLongArray sort() {
+    	sort(this);
+    	return this;
+    }
+    
+	/**
+	 * Calculates a low collision hash code for the passed string
+	 * @param s The string to calculate the hash code for
+	 * @return the long hashcode
+	 */
+	public long longHashCode() {
+		_check();
+		long h = 0;        
+    	int off = 0;    	
+    	int hashPrime = hashCode();
+        for (int i = 0; i < size; i++) {
+            h = (31*h + a(off++) + (hashPrime*h));
+        }
+        return h;
+	}
+	
+
+    /**
+     * {@inheritDoc}
+     * @see java.lang.Object#hashCode()
+     */
+    public int hashCode() {
+    	_check();
+        int result = 1;
+        for(int i = 0; i < size; i++) {
+        	long element = a(i);
+            int elementHash = (int)(element ^ (element >>> 32));
+            result = 31 * result + elementHash;
+        }
+        return result;
+    }
+    
+    /**
+     * 
+     * {@inheritDoc}
+     * @see java.lang.Object#equals(java.lang.Object)
+     */
+    public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if (obj == null) {
+			return false;
+		}
+		if (getClass() != obj.getClass()) {
+			return false;
+		}
+		UnsafeLongArray other = (UnsafeLongArray) obj;
+		if (address != other.address) {
+			return false;
+		}
+		return true;
+    	
+    }
+	
+
+	/**
+	 * If the passed object is an {@link UnsafeLongArray} or assignable to it, indicates if the two instances point to the same array (i.e. memory address). 
+	 * @param obj The object to compare to
+	 * @return true if the passed object is an {@link UnsafeLongArray} or assignable to it and they share the same array (memory address).
+	 */
+	public boolean isSameInstance(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if (obj == null) {
+			return false;
+		}
+		if (!getClass().isAssignableFrom(obj.getClass())) {
+			return false;
+		}
+		UnsafeLongArray other = (UnsafeLongArray) obj;
+		if (address != other.address) {
+			return false;
+		}
+		return true;
+	}
+	
+    
+	
     
     /**
      * Sorts the specified range of the array.
@@ -792,10 +1037,10 @@ public class UnsafeLongArray {
         for (int n = 1; (n <<= 1) < count; odd ^= 1);
 
         if (odd == 0) {
-            b = ula; ula = new UnsafeLongArray(b.size());
+            b = ula; ula = new UnsafeLongArray(b.size(), DEFAULT_ALLOC);
             for (int i = left - 1; ++i < right; ula.a(i, b.a(i)));
         } else {
-            b = new UnsafeLongArray(ula.size());
+            b = new UnsafeLongArray(ula.size(), DEFAULT_ALLOC);
         }
 
         // Merging
@@ -821,7 +1066,8 @@ public class UnsafeLongArray {
         }
     }
     
-    /**
+
+	/**
      * Sorts the specified range of the array by Dual-Pivot Quicksort.
      *
      * @param a the array to be sorted
