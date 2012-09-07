@@ -269,7 +269,7 @@ public class UnsafeLongArray {
     public UnsafeLongArray(int initialCapacity, long initialValue)  {
     	this(initialCapacity, DEFAULT_ALLOC);
     	for(int i = 0; i < initialCapacity; i++) {
-    		unsafe.putLong(this.address + (i << 3), initialValue);
+    		a(i, initialValue);
     	}    	
     }
     
@@ -382,20 +382,21 @@ public class UnsafeLongArray {
      * @return this array
      */
     public UnsafeLongArray rollRight(int index, long newValue) {
-    	_check(); _check(index);
-    	if(size==capacity) extend();    	
-    	int numberOfSlotsToMove = size-index;
-    	long srcOffset = (index << 3); 
-    	long destOffset = ((index) << 3);
-    	long bytes = numberOfSlotsToMove << 3;
-		unsafe.copyMemory(
-				(address + srcOffset),   	// src: the address of the first index we want to roll
-				(address + destOffset), 	// dest: the address of the slot after the one we want to roll
-				bytes						// bytes: the number of bytes in the entries that need to be rolled
-		);
-		a(index, newValue);
-		size++;
-    	return this;
+    	return rollRight(index, newValue, false);
+//    	_check(); _check(index);
+//    	if(size==capacity) extend();    	
+//    	int numberOfSlotsToMove = size-index;
+//    	long srcOffset = (index << 3); 
+//    	long destOffset = ((index) << 3);
+//    	long bytes = numberOfSlotsToMove << 3;
+//		unsafe.copyMemory(
+//				(address + srcOffset),   	// src: the address of the first index we want to roll
+//				(address + destOffset), 	// dest: the address of the slot after the one we want to roll
+//				bytes						// bytes: the number of bytes in the entries that need to be rolled
+//		);
+//		a(index, newValue);
+//		size++;
+//    	return this;
     }
     
     /**
@@ -479,6 +480,20 @@ public class UnsafeLongArray {
      * Once this method completes, the size of the array will have been decremented by 1.
      * @param index The index after which the remaining values are rolled to the left
      * @return this array
+	 * <p><b>Before</b><pre>
+	             <--  <--  <--  <--
+	    +--+ +--+ +--+ +--+ +--+ +--+               Size:      6     Index:   1
+	    |23| |47| |19| |67| |42| |89|               Capacity:  6     
+	    +--+ +--+ +--+ +--+ +--+ +--+
+	           ^                                      
+	           |                   
+	         Delete               
+		</pre><b>After</b><pre>
+	     +--+ +--+ +--+ +--+ +--+               Size:      5
+	     |23| |47| |19| |67| |42|               Capacity:  6
+	     +--+ +--+ +--+ +--+ +--+ +--+	 
+	     </pre> 
+
      */
     public UnsafeLongArray rollLeft(int index) {
     	_check(); _check(index);
@@ -499,11 +514,11 @@ public class UnsafeLongArray {
     
     
     /**
-     * Adds the passed long values to this array 
+     * Appends the passed long values to this array 
      * @param values the values to add
      * @return this array
      */
-    public UnsafeLongArray add(long...values) {
+    public UnsafeLongArray append(long...values) {
     	_check();
     	if(values!=null && values.length>0) {
     		for(long v: values) {
@@ -532,11 +547,11 @@ public class UnsafeLongArray {
     
     
     /**
-     * Adds the passed long values to this array if they are not present already 
+     * Appends the passed long values to this array if they are not present already 
      * @param values the values to add
      * @return this array
      */
-    public UnsafeLongArray addIfNotExists(long...values) {
+    public UnsafeLongArray appendIfNotExists(long...values) {
     	_check();
     	if(values!=null && values.length>0) {
     		for(long v: values) {
@@ -823,18 +838,31 @@ public class UnsafeLongArray {
     
     
     /**
+     * <p>Creates a clone of this array in a completely seprarate memory adddress, meaning
+     * that changes to the clone are not seen by this array and vice-versa.
      * {@inheritDoc}
      * @see java.lang.Object#clone()
      */
     public UnsafeLongArray clone() {
     	_check();
-    	UnsafeLongArray cloned = new UnsafeLongArray(size, DEFAULT_ALLOC);
+    	UnsafeLongArray cloned = new UnsafeLongArray(size, allocation);
+    	unsafe.copyMemory(address, cloned.address, size);
+    	return cloned;
+    }
+    
+    /**
+     * Same as {@link #clone()} but uses a long by long copy
+     * @return a clone of this array in a completely seprarate memory adddress, meaning
+     * that changes to the clone are not seen by this array and vice-versa.
+     */
+    public UnsafeLongArray slowClone() {
+    	_check();
+    	UnsafeLongArray cloned = new UnsafeLongArray(size, allocation);
     	for(int i = 0; i < size; i++) {
     		cloned.a(i, a(i));
     	}
     	return cloned;
     }
-    
     
 
 
