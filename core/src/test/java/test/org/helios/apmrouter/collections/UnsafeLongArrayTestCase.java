@@ -27,7 +27,10 @@ package test.org.helios.apmrouter.collections;
 import java.util.Arrays;
 import java.util.Random;
 
+import org.helios.apmrouter.collections.UnsafeArrayBuilder;
 import org.helios.apmrouter.collections.UnsafeLongArray;
+import org.helios.apmrouter.util.SystemClock;
+import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -72,6 +75,17 @@ public class UnsafeLongArrayTestCase {
 	
 	/** A random */
 	protected final Random RANDOM = new Random(System.currentTimeMillis());
+	
+	/** A sample large-ish test array */
+	static final long[] LARGE_TEST_ARR = new long[250000];
+	
+	static {  // Initializes the test array
+		Random r = new Random(System.currentTimeMillis());
+		for(int i = 0; i < LARGE_TEST_ARR.length; i++) {
+			LARGE_TEST_ARR[i] = r.nextLong();
+		}
+	}
+	
 	
 	/**
 	 * Returns the next positive random int
@@ -119,11 +133,11 @@ public class UnsafeLongArrayTestCase {
 	 */
 	@Test
 	public void testNoParamAllocation() {
-		ula = new UnsafeLongArray();
-		Assert.assertEquals(UnsafeLongArray.DEFAULT_ALLOC, ula.capacity());
+		ula = UnsafeArrayBuilder.newBuilder().buildLongArray();
+		Assert.assertEquals(UnsafeLongArray.DEFAULT_CAPACITY, ula.capacity());
 		Assert.assertEquals(0, ula.size());
-		long[] defValues = new long[UnsafeLongArray.DEFAULT_ALLOC];
-		Arrays.fill(defValues, Long.MAX_VALUE);
+		long[] defValues = new long[UnsafeLongArray.DEFAULT_CAPACITY];
+		Arrays.fill(defValues, 0);
 		Assert.assertArrayEquals(defValues, ula.getAllocatedArray());
 		Assert.assertArrayEquals(new long[]{}, ula.getArray());
 	}
@@ -133,7 +147,7 @@ public class UnsafeLongArrayTestCase {
 	 */
 	@Test
 	public void testSizedAllocation() {
-		ula = new UnsafeLongArray(31, 0L);
+		ula = UnsafeArrayBuilder.newBuilder().initialCapacity(31).buildLongArray();
 		Assert.assertEquals(31, ula.capacity());
 		Assert.assertEquals(0, ula.size());
 		long[] defValues = new long[ula.capacity()];
@@ -147,12 +161,20 @@ public class UnsafeLongArrayTestCase {
 	 */
 	@Test
 	public void testArrayAllocation() {
-		final long[] ARR_DATA = allocateRandom(31, false);		
-		ula = new UnsafeLongArray(ARR_DATA);
+		final long[] ARR_DATA = allocateRandom(31, false);
+		ula = UnsafeArrayBuilder.newBuilder().initialCapacity(31).buildLongArray(ARR_DATA);
 		Assert.assertEquals(31, ula.capacity());
 		Assert.assertEquals(31, ula.size());
 		Assert.assertArrayEquals(ARR_DATA, ula.getAllocatedArray());
 		Assert.assertArrayEquals(ARR_DATA, ula.getArray());
+		UnsafeLongArray anotherUla = UnsafeArrayBuilder.newBuilder().initialCapacity(31).buildLongArray(ula);
+		Assert.assertEquals(31, anotherUla.capacity());
+		Assert.assertEquals(31, anotherUla.size());
+		Assert.assertArrayEquals(ARR_DATA, anotherUla.getAllocatedArray());
+		Assert.assertArrayEquals(ARR_DATA, anotherUla.getArray());
+		anotherUla.destroy();
+		
+		
 	}
 	
 	/**
@@ -160,9 +182,9 @@ public class UnsafeLongArrayTestCase {
 	 */
 	@Test
 	public void testRollRightNoExtend() {
-		int arrSize = 10;
-		for(int indexToInsertAt = 0; indexToInsertAt < arrSize; indexToInsertAt++) { 
-			ula = new UnsafeLongArray(arrSize+1, 0L);
+		int arrSize = 1000;
+		for(int indexToInsertAt = 0; indexToInsertAt < arrSize; indexToInsertAt++) {
+			ula = UnsafeArrayBuilder.newBuilder().initialCapacity(arrSize+1).buildLongArray();
 			Assert.assertEquals(0, ula.size());
 			Assert.assertEquals(arrSize+1, ula.capacity());
 			final long[] ARR_DATA = allocateRandom(arrSize, false);
@@ -193,10 +215,10 @@ public class UnsafeLongArrayTestCase {
 	public void testRollRightWithExtend() {
 		int arrSize = 300;
 		int initialSize = 1;
-		int expectedExtends = (arrSize/UnsafeLongArray.DEFAULT_ALLOC)+1;
-		int expectedCapacity = (expectedExtends*UnsafeLongArray.DEFAULT_ALLOC)+1; 		
+		int expectedExtends = (arrSize/UnsafeLongArray.DEFAULT_CAPACITY)+1;
+		int expectedCapacity = (expectedExtends*UnsafeLongArray.DEFAULT_CAPACITY)+1; 		
 		for(int indexToInsertAt = 0; indexToInsertAt < arrSize; indexToInsertAt++) { 
-			ula = new UnsafeLongArray(1, 0L);
+			ula = UnsafeArrayBuilder.newBuilder().initialCapacity(1).buildLongArray();
 			Assert.assertEquals(0, ula.size());
 			Assert.assertEquals(initialSize, ula.capacity());
 			final long[] ARR_DATA = allocateRandom(arrSize, false);
@@ -240,11 +262,11 @@ public class UnsafeLongArrayTestCase {
 		final long[] AFTER  = {23, 77, 47, 19, 67, 42};
 		final long INSERT = 77;
 		final int INDEX = 1;
-		ula = new UnsafeLongArray(BEFORE);
+		ula = UnsafeArrayBuilder.newBuilder().fixed(true).maxCapacity(BEFORE.length).buildLongArray(BEFORE);
 		Assert.assertEquals(BEFORE.length, ula.size());
 		Assert.assertEquals(BEFORE.length, ula.capacity());
 		Assert.assertArrayEquals(BEFORE, ula.getArray());
-		ula.rollRight(INDEX, INSERT, true);
+		ula.rollRight(INDEX, INSERT);
 		Assert.assertEquals(BEFORE.length, ula.size());
 		Assert.assertEquals(BEFORE.length, ula.capacity());
 		Assert.assertArrayEquals(AFTER, ula.getArray());
@@ -272,7 +294,7 @@ public class UnsafeLongArrayTestCase {
 	public void testRollLeft() {
 		int arrSize = 300;
 		for(int indexToRemove = 0; indexToRemove < arrSize; indexToRemove++) { 
-			ula = new UnsafeLongArray(arrSize+1, 0L);
+			ula = UnsafeArrayBuilder.newBuilder().initialCapacity(arrSize+1).buildLongArray();
 			Assert.assertEquals(0, ula.size());
 			Assert.assertEquals(arrSize+1, ula.capacity());
 			final long[] ARR_DATA = allocateRandom(arrSize, false);
@@ -290,17 +312,49 @@ public class UnsafeLongArrayTestCase {
 	}
 	
 	/**
-	 * Tests the array clone
+	 * Tests the array fast clone
 	 */
 	@Test
 	public void testClone() {
-		int arrSize = Integer.MAX_VALUE/10;
-		ula = new UnsafeLongArray(arrSize, 0L);
-		Assert.assertEquals(0, ula.size());
-		Assert.assertEquals(arrSize, ula.capacity());
-		final long[] ARR_DATA = allocateRandom(arrSize, false);
-		ula.append(ARR_DATA);
+		int arrSize = LARGE_TEST_ARR.length;
+		ula = UnsafeArrayBuilder.newBuilder().buildLongArray(LARGE_TEST_ARR);		
 		Assert.assertEquals(arrSize, ula.size());
+		Assert.assertEquals(arrSize, ula.capacity());
+		UnsafeLongArray clonedUla = null;
+		try {
+			clonedUla = ula.clone();
+			Assert.assertEquals(arrSize, clonedUla.size());
+			Assert.assertEquals(arrSize, clonedUla.capacity());
+			Assert.assertArrayEquals(ula.getArray(), clonedUla.getArray());
+		} finally {
+			if(clonedUla!=null) {
+				clonedUla.destroy();
+			}
+		}
 	}
+	
+	/**
+	 * Tests the array sort
+	 */
+	@Test
+	public void testSort() {
+		int arrSize = LARGE_TEST_ARR.length;
+		ula = UnsafeArrayBuilder.newBuilder().buildLongArray(LARGE_TEST_ARR);
+		Assert.assertEquals(arrSize, ula.size());
+		Assert.assertEquals(arrSize, ula.capacity());
+		SystemClock.startTimer();
+		ula.sort();
+		ElapsedTime et = SystemClock.endTimer();
+		log("ULA Sort:" + et);
+		long[] arrToSort = new long[arrSize];
+		System.arraycopy(LARGE_TEST_ARR, 0, arrToSort, 0, arrSize);
+		SystemClock.startTimer();
+		Arrays.sort(arrToSort);
+		et = SystemClock.endTimer();
+		log("long[] Sort:" + et);
+		Assert.assertArrayEquals(arrToSort, ula.getArray());
+	}
+	
+	
 
 }

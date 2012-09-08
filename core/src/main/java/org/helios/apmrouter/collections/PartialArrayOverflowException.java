@@ -25,39 +25,35 @@
 package org.helios.apmrouter.collections;
 
 /**
- * <p>Title: SortedUnsafeLongArray</p>
- * <p>Description: An extension of {@link UnsafeLongArray} that keeps the long values sorted in ascending order</p> 
+ * <p>Title: PartialArrayOverflowException</p>
+ * <p>Description: Exception thrown when an addition of items to an array partially completes.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.collections.SortedUnsafeLongArray</code></p>
+ * <p><code>org.helios.apmrouter.collections.PartialArrayOverflowException</code></p>
  */
 
-public class SortedUnsafeLongArray extends UnsafeLongArray {
-
+public class PartialArrayOverflowException extends ArrayOverflowException {
+	/**  */
+	private static final long serialVersionUID = 5930277580751072763L;
+	/** The number of items successfully inserted */
+	private final int succeeded;
 	/**
-	 * Creates a new SortedUnsafeLongArray
+	 * Creates a new PartialArrayOverflowException
+	 * @param succeeded The number of items successfully inserted
+	 * @param message The exception message
+	 * @param cause The exception cause
 	 */
-	public SortedUnsafeLongArray() {
-		super();		
+	public PartialArrayOverflowException(int succeeded, String message, Throwable cause) {
+		super(message, cause);
+		this.succeeded = succeeded;
 	}
-
+	
 	/**
-	 * Creates a new SortedUnsafeLongArray
-	 * @param initialCapacity The initial capacity
-	 * @param initialValue The default initial value
+	 * Returns the number of items successfully inserted
+	 * @return the number of items successfully inserted
 	 */
-	public SortedUnsafeLongArray(int initialCapacity, long initialValue) {
-		super(initialCapacity, initialValue);
-		sort(this);
-	}
-
-	/**
-	 * Creates a new SortedUnsafeLongArray containing the contents of the passed array
-	 * @param array The values to load this array with
-	 */
-	public SortedUnsafeLongArray(long[] array) {
-		super(array);
-		sort(this);
+	public int getSucceeded() {
+		return succeeded;
 	}
 
 }

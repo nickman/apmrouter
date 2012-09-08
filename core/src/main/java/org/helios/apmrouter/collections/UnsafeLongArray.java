@@ -24,17 +24,6 @@
  */
 package org.helios.apmrouter.collections;
 
-import java.lang.management.ManagementFactory;
-import java.lang.reflect.Field;
-import java.nio.BufferOverflowException;
-import java.util.Arrays;
-import java.util.Random;
-
-import org.helios.apmrouter.util.ResourceHelper;
-import org.helios.apmrouter.util.SystemClock;
-import org.helios.apmrouter.util.SystemClock.ElapsedTime;
-
-import sun.misc.Unsafe;
 
 /**
  * <p>Title: UnsafeLongArray</p>
@@ -45,7 +34,10 @@ import sun.misc.Unsafe;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.collections.UnsafeLongArray</code></p>
  */
-public class UnsafeLongArray {
+public class UnsafeLongArray extends UnsafeArray {
+	// ==================================================================================
+	//			Constants used in the array sort
+	// ==================================================================================
     /** The maximum number of runs in merge sort.*/
     private static final int MAX_RUN_COUNT = 67;
     /** The maximum length of run in merge sort. */
@@ -54,350 +46,130 @@ public class UnsafeLongArray {
     private static final int QUICKSORT_THRESHOLD = 286;
     /** If the length of an array to be sorted is less than this constant, insertion sort is used in preference to Quicksort. */
     private static final int INSERTION_SORT_THRESHOLD = 47;    
-    /** The default allocation size for UnsafeLongArrays */
-    public static final int DEFAULT_ALLOC = 128;
-    /** The default initial allocation value for un-populated slots */
-    public static final int DEFAULT_INIT = 0;
+	// ==================================================================================
+    /** The memory offset for a long array */
+    public static final long LONG_ARRAY_OFFSET = unsafe.arrayBaseOffset(long[].class);
+    
+	/**
+	 * Creates a new UnsafeLongArray
+	 * @param initialCapacity The initial allocated capacity
+	 * @param sorted Indicates the array will be maintained in sorted order
+	 * @param fixed Indicates the capacity of the array will be fixed
+	 * @param maxCapacity The maximum capacity of the array
+	 * @param minCapacity The minimum capacity of the array
+	 * @param allocationIncrement The number of slots that will be allocated when the array needs to be extended
+	 * @param clearedSlotsFree The number of excess slots that are emptied by rollLefts before the array capacity is shrunk
+	 */
+	private UnsafeLongArray(int initialCapacity, boolean sorted, boolean fixed, int maxCapacity,
+			int minCapacity, int allocationIncrement, int clearedSlotsFree) {
+		super(initialCapacity, sorted, fixed, maxCapacity, minCapacity, allocationIncrement, clearedSlotsFree);
+	}
+	
+	
+	
+	/**
+	 * Creates a new UnsafeLongArray. Used for cloning.
+	 * @param size The size of the clone
+	 * @param capacity The capacity of the clone
+	 * @param address The memory address of the array to be cloned
+	 * @param sorted Indicates the array will be maintained in sorted order
+	 * @param fixed Indicates the capacity of the array will be fixed
+	 * @param maxCapacity The maximum capacity of the array
+	 * @param minCapacity The minimum capacity of the array
+	 * @param allocationIncrement The number of slots that will be allocated when the array needs to be extended
+	 * @param clearedSlotsFree The number of excess slots that are emptied by rollLefts before the array capacity is shrunk
+	 */
+	private UnsafeLongArray(int size, int capacity, long address, boolean sorted,
+			boolean fixed, int maxCapacity, int minCapacity,
+			int allocationIncrement, int clearedSlotsFree) {
+		super(size, capacity, address, sorted, fixed, maxCapacity, minCapacity,
+				allocationIncrement, clearedSlotsFree);
+	}
+	
+	/**
+	 * Creates a new fixed capacity and unsorted UnsafeLongArray with initial, min and max capacity set to the passed size.
+	 * For internal use.
+	 * @param size the initial capacity
+	 */
+	private UnsafeLongArray(int size) {
+		this(size, false, true, size, size, 0, 0);
+	}
+	
 
-    /** The unsafe instance */
-    private static final Unsafe unsafe;
-    
-    static
-    {
-        try
-        {
-            Field field = Unsafe.class.getDeclaredField("theUnsafe");
-            field.setAccessible(true);
-            unsafe = (Unsafe)field.get(null);
-        }
-        catch (Exception e)
-        {
-            throw new RuntimeException(e);
-        }
-    }
-    
-    /** The capacity of the array, i.e. the total number of allocated slots */
-    private int capacity;
-    /** The size of the array as the number of occupied slots */
-    private int size;
-    /** The alllocation size that specifies the initial size of the array and how much to grow the array by when it needs to grow */
-    private final int allocation;
-    
-    /** The memory address of the 0th slot in the array */
-    private long address;
-
-    public static void log(Object msg) {
-    	System.out.println(msg);
-    }
-
-    public static void main(String[] args) {
-    	final long[] TEST_DATA = new long[]{0L, 1L, 2L};
-    	final long REMOVE = 1L;
-    	log("Add longs to UnsafeLongArray Test");
-    	UnsafeLongArray ula = new UnsafeLongArray(3, Long.MAX_VALUE);
-    	log("Empty:\n\t" + ula.toFullString() + "\n\t" + ula.toString() + "\n\tSize:" + ula.size());
-    	ula.insert(TEST_DATA);
-    	log("Full At 3:\n\t" + ula.toFullString() + "\n\t" + ula.toString() + "\n\tSize:" + ula.size());
-    	ula.insert(TEST_DATA);
-    	log("Full At 6:\n\t" + ula.toFullString() + "\n\t" + ula.toString() + "\n\tSize:" + ula.size());
-    	int removed = ula.removeAll(REMOVE);
-    	log( "" + removed + " removed:\n\t" + ula.toFullString() + "\n\t" + ula.toString() + "\n\tSize:" + ula.size());
-    	log("BinSearch for :" + REMOVE + ":" + ula.binarySearch(REMOVE));
-    	log(ula.debugString());
-    	ula.insertIfNotExists(REMOVE);
-    	log("" + REMOVE + " back in once:\n\t" + ula.toFullString() + "\n\t" + ula.toString() + "\n\tSize:" + ula.size());
-    	log(ula.debugString());
-    	
-    	
-    	
-    	
-    }
-    
-    public static void mainx(String[] args) {
-    	log("UnsafeLongArray Test");
-    	Random r = new Random(System.currentTimeMillis());
-    	int LONG_COUNT = 1000000;
-    	int WARM_COUNT = 1000;
-    	int WARMUP_LOOPS = 15002;
-    	long[] TEST_DATA = new long[LONG_COUNT];
-    	for(int i = 0; i < LONG_COUNT; i++) {
-    		TEST_DATA[i] = r.nextLong();
-    	}
-    	UnsafeLongArray ula = new UnsafeLongArray(TEST_DATA);
-    	long[] readOut = ula.getArray();
-    	long[] testData = new long[TEST_DATA.length];
-    	System.arraycopy(TEST_DATA, 0, testData, 0, TEST_DATA.length);
-    	Arrays.sort(testData);
-    	log("Equal:" + Arrays.equals(testData, readOut));
-    	for(int i = 0; i < LONG_COUNT; i++) {
-    		assert testData[i] == ula.a(i);
-    	}
-    	ula.destroy();
-    	
-    	//LONG_COUNT = 3000000;
-    	//LONG_COUNT = 250000;
-    	
-    	log("Testing native long array sort");
-    	testData = new long[WARM_COUNT];
-    	for(int i = 0; i < WARMUP_LOOPS; i++) {
-    		System.arraycopy(TEST_DATA, 0, testData, 0, testData.length);    	
-    		Arrays.sort(testData);
-    	}
-    	log("Warmup Complete");
-    	testData = new long[TEST_DATA.length];
-    	System.arraycopy(TEST_DATA, 0, testData, 0, TEST_DATA.length);
-    	SystemClock.startTimer();
-    	Arrays.sort(testData);
-    	ElapsedTime et = SystemClock.endTimer();
-    	log("long array sorted:" + et + "\n\tAverage Per:" + et.avgNs(LONG_COUNT));
-    	
-    	
-
-    	log("Testing UnsafeLongArray sort");
-    	testData = new long[WARM_COUNT];
-    	System.arraycopy(TEST_DATA, 0, testData, 0, testData.length);
-    	for(int i = 0; i < WARMUP_LOOPS; i++) {
-    		ula = new UnsafeLongArray(testData);    	
-    		ula.destroy();
-    	}
-    	log("Warmup Complete");
-    	SystemClock.startTimer();
-    	ula = new UnsafeLongArray(TEST_DATA);
-    	et = SystemClock.endTimer();
-    	ula.destroy();
-    	log("UnsafeLongArray sorted:" + et + "\n\tAverage Per:" + et.avgNs(LONG_COUNT));
-    	
-    	log("Testing native long array search");
-    	testData = new long[WARM_COUNT];
-		System.arraycopy(TEST_DATA, 0, testData, 0, testData.length);    	
-		Arrays.sort(testData);
-    	for(int i = 0; i < WARM_COUNT; i++) {
-    		assert Arrays.binarySearch(testData, testData[i])==i;
-    	}
-    	log("Warmup Complete");
-    	testData = new long[TEST_DATA.length];
-    	System.arraycopy(TEST_DATA, 0, testData, 0, TEST_DATA.length);
-    	Arrays.sort(testData);
-    	SystemClock.startTimer();
-    	for(int i = 0; i < LONG_COUNT; i++) {
-    		assert Arrays.binarySearch(testData, testData[i])==i;
-    		assert Arrays.binarySearch(testData, testData[i]*31)!=i;
-    	}    	
-    	et = SystemClock.endTimer();
-    	log("long array search:" + et + "\n\tAverage Per:" + et.avgNs(LONG_COUNT));
-    	
-    	log("Testing UnsafeLongArray search");
-    	testData = new long[WARM_COUNT];
-    	System.arraycopy(TEST_DATA, 0, testData, 0, testData.length);
-    	ula = new UnsafeLongArray(testData);
-    	Arrays.sort(testData);
-    	for(int i = 0; i < WARM_COUNT; i++) {
-    		assert testData[i] == ula.a(i);
-    		assert ula.binarySearch(testData[i])==i;
-    		assert ula.binarySearch(testData[i]*31)!=i;
-    	}
-    	ula.destroy();
-    	log("Warmup Complete");
-    	ula = new UnsafeLongArray(TEST_DATA);
-    	testData = ula.getArray();
-    	SystemClock.startTimer();
-    	
-    	for(int i = 0; i < LONG_COUNT; i++) {
-    		assert ula.binarySearch(testData[i])==i;
-    		assert ula.binarySearch(testData[i]*31)!=i;
-    	}
-    	
-    	et = SystemClock.endTimer();
-    	ula.destroy();
-    	log("UnsafeLongArray search:" + et + "\n\tAverage Per:" + et.avgNs(LONG_COUNT));
-    	
-    	final int HEAP_TEST_SIZE = 20;
-    	
-    	log("Testing long array heap size");
-    	long[][] arrays = new long[HEAP_TEST_SIZE][];
-    	ResourceHelper.memoryUsage(true);
-    	long heapBefore = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
-    	for(int i = 0; i < HEAP_TEST_SIZE; i++) {
-    		arrays[i] = new long[LONG_COUNT];
-    		System.arraycopy(TEST_DATA, 0, arrays[i], 0, TEST_DATA.length);    	
-    	}
-    	long heapAfter = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
-    	long heapDiff = heapAfter-heapBefore;
-    	log("Long Array Heap:" + heapDiff);
-    	arrays = null;
-    	ResourceHelper.memoryUsage(true);
-    	long heapAfterRelease = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
-    	heapDiff = heapAfter-heapAfterRelease;
-    	log("Long Array Heap Released:" + heapDiff);
-    	
-    	log("Testing UnsafeLongArray heap size");
-    	UnsafeLongArray[] ulas = new UnsafeLongArray[HEAP_TEST_SIZE];
-    	ResourceHelper.memoryUsage(true);
-    	heapBefore = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
-    	for(int i = 0; i < HEAP_TEST_SIZE; i++) {
-    		ulas[i] = new UnsafeLongArray(TEST_DATA);    	
-    	}
-    	heapAfter = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
-    	heapDiff = heapAfter-heapBefore;
-    	log("UnsafeLongArray Heap:" + heapDiff);
-    	for(int i = 0; i < HEAP_TEST_SIZE; i++) {
-    		ulas[i].destroy();
-    	}
-    	ulas = null;
-    	ResourceHelper.memoryUsage(true);
-    	heapAfterRelease = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
-    	heapDiff = heapAfter-heapAfterRelease;
-    	log("UnsafeLongArray Heap Released:" + heapDiff);
-    	
-    	
-    }
-    
-    
-    /**
-     * Creates a new UnsafeLongArray using the default allocation {@value UnsafeLongArray#DEFAULT_ALLOC} and initial values of {@value Long#MAX_VALUE}.
-     */
-    public UnsafeLongArray() {
-    	this(DEFAULT_ALLOC, Long.MAX_VALUE);
-    }
-    
-    /**
-     * Creates a new UnsafeLongArray of the specified initial capacity, with all inital values set to the specified initial value.
-     * The capacity increase size when the array needs to be extended will be the same as the initial capacity
-     * @param initialSize The initial number of slots and the capacity growth increment
-     * @param initialValue The value to set in all longs in the array
-     */
-    public UnsafeLongArray(int initialCapacity, long initialValue)  {
-    	this(initialCapacity, DEFAULT_ALLOC);
-    	for(int i = 0; i < initialCapacity; i++) {
-    		a(i, initialValue);
-    	}    	
-    }
-    
-    /**
-     * Creates a new UnsafeLongArray of the specified initial capacity, with all inital values set to the specified initial value.
-     * @param initialSize The initial number of slots
-     * @param initialValue The value to set in all longs in the array
-     * @param allocation The number of slots added each time the array needs to be extended
-     */
-    public UnsafeLongArray(int initialCapacity, long initialValue, int allocation)  {
-    	this(initialCapacity, allocation);    	
-    	if(initialValue!=0) {
-	    	for(int i = 0; i < initialCapacity; i++) {
-	    		unsafe.putLong(this.address + (i << 3), initialValue);
-	    	}
-    	}
-    }
-    
-    
-    /**
-     * Creates a new un-initialized UnsafeLongArray. All values are garbage. 
-     * @param initialCapacity The initial number of longs
-     * @param allocation The number of slots added each time the array needs to be extended
-     */
-    private UnsafeLongArray(int initialCapacity, int allocation)  {
-        if (initialCapacity < 1) {
-            throw new IllegalArgumentException("size must be at least 1 long", new Throwable());
-        }
-        this.allocation = allocation;
-        capacity = initialCapacity;
-        this.address = unsafe.allocateMemory(initialCapacity << 3);
-        this.size = 0;        
-    }
-    
-    /**
-     * Creates a new UnsafeLongArray initialized with the passed values
-     * @param array The array to initialize from
-     */
-    public UnsafeLongArray(long[] array)  {
-    	this(array.length, DEFAULT_ALLOC);
-    	for(int i = 0; i < array.length; i++) {
-    		unsafe.putLong(this.address + (i << 3), array[i]);
-    	}
-    	size = array.length;
-    	//sort(this);
-    }
-    
-    /**
-     * {@inheritDoc}
-     * @see java.lang.Object#toString()
-     */
-    @Override
-    public String toString() {
-    	if(size==0) return "[]";
-    	StringBuilder b = new StringBuilder("[");
-    	for(int i = 0; i < size; i++) {
-    		b.append(a(i)).append(",");
-    	}
-    	b.deleteCharAt(b.length()-1);
-    	b.append("]");
-    	return b.toString();
-    }
-    
-    /**
-     * Renders in the same format as {@link #toString()} except it includes the entire capacity of the array
-     * @return a {@link #toString()} of the full array
-     */
-    public String toFullString() {
-    	StringBuilder b = new StringBuilder("fc:[");
-    	for(int i = 0; i < capacity; i++) {
-    		if(i==size-1) {
-    			b.append(a(i)).append(">><<,");
-    		} else {
-    			b.append(a(i)).append(",");
-    		}
-    		
-    	}
-    	b.deleteCharAt(b.length()-1);
-    	b.append("]");
-    	return b.toString();
-    }
+	/**
+	 * Creates a new UnsafeLongArray from the passed builder
+	 * @param builder The builder to configure the new UnsafeLongArray
+	 * @param data The optional data load load 
+	 * @return the new UnsafeLongArray
+	 */
+	static UnsafeLongArray build(UnsafeArrayBuilder builder, Object data) {		
+		UnsafeLongArray ula = new UnsafeLongArray(builder.initialCapacity(), builder.sorted(), builder.fixed(), builder.maxCapacity(), builder.minCapacity(), builder.allocationIncrement(), builder.clearedSlotsFree());
+		if(data!=null) {
+			if(data instanceof long[]) {
+				ula.load((long[])data);
+			} else if(data instanceof UnsafeLongArray) {
+				ula.load((UnsafeLongArray)data);
+			}
+		}
+		return ula;
+	}
+	
+	/**
+	 * Creates a new UnsafeLongArray from the passed builder
+	 * @param builder The builder to configure the new UnsafeLongArray
+	 * @return the new UnsafeLongArray
+	 */
+	static UnsafeLongArray build(UnsafeArrayBuilder builder) {
+		return build(builder, null);
+	}
+	
 
 
 	/**
-     * Returns a string containing some useful debug information about this instance
-     * @return a disgnostic string
-     */
-    public String debugString() {
-		StringBuilder builder = new StringBuilder();
-		builder.append("UnsafeLongArray [\n\tcapacity=");
-		builder.append(capacity);
-		builder.append("\n\tsize=");
-		builder.append(size);
-		builder.append("\n\tallocation=");
-		builder.append(allocation);
-		builder.append("\n\taddress=");
-		builder.append(address);
-		builder.append("\n]");
-		return builder.toString();
-    }
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.UnsafeArray#getSlotSize()
+	 */
+	@Override
+	protected int getSlotSize() {
+		return 3;
+	}
+
+    // ======================================================================================
+	//			Standard Load Impls.
+	// ======================================================================================
+	
+	/**
+	 * Loads this array from a long array
+	 * @param arr The array to load
+	 */
+	private void load(long[] arr) {		
+		if(arr.length<1) return;
+		if(arr.length>maxCapacity) throw new ArrayOverflowException("Passed array of length [" + arr.length + "] is too large for this UnsafeLongArray with a max capacity of [" + maxCapacity + "]", new Throwable());
+		unsafe.freeMemory(address);
+		address = unsafe.allocateMemory(arr.length << 3);
+		unsafe.copyMemory(arr, LONG_ARRAY_OFFSET, null, address, arr.length << 3);
+		size = capacity = arr.length;
+	}
+	
+	/**
+	 * Loads this array from another UnsafeLongArray
+	 * @param ula The UnsafeLongArray to copy
+	 */
+	private void load(UnsafeLongArray ula) {				
+		if(ula.size>maxCapacity) throw new ArrayOverflowException("Passed UnsafeLongArray of size [" + ula.size + "] is too large for this UnsafeLongArray with a max capacity of [" + maxCapacity + "]", new Throwable());
+		unsafe.freeMemory(address);		
+		address = unsafe.allocateMemory(ula.size << 3);
+		unsafe.copyMemory(ula.address, address, ula.size << 3);
+		size = capacity = ula.size;
+	}
+	
+	// ======================================================================================
+	
+	
     
-    /**
-     * <p>Rolls all the entries in the array one slot to the right after the referenced index, 
-     * extending the array capacity if it is full when this method is called. 
-     * Logically, this opens a new slot at the referenced index, and the new slot is set to the passed new value.
-     * Once this method completes, the size of the array will have been incremented by 1.</p>
-     * <p><b>Note:</b> The rolling of the array values is performed by {@link sun.misc.Unsafe#copyMemory(long, long, long)}</p>
-     * @param index The index after which the remaining values are rolled to the right
-     * @param newValue The value to place into the new slot 
-     * @return this array
-     */
-    public UnsafeLongArray rollRight(int index, long newValue) {
-    	return rollRight(index, newValue, false);
-//    	_check(); _check(index);
-//    	if(size==capacity) extend();    	
-//    	int numberOfSlotsToMove = size-index;
-//    	long srcOffset = (index << 3); 
-//    	long destOffset = ((index) << 3);
-//    	long bytes = numberOfSlotsToMove << 3;
-//		unsafe.copyMemory(
-//				(address + srcOffset),   	// src: the address of the first index we want to roll
-//				(address + destOffset), 	// dest: the address of the slot after the one we want to roll
-//				bytes						// bytes: the number of bytes in the entries that need to be rolled
-//		);
-//		a(index, newValue);
-//		size++;
-//    	return this;
-    }
+
+
+    
     
     /**
      * <p>Rolls all the entries in the array one slot to the right after the referenced index, 
@@ -405,197 +177,130 @@ public class UnsafeLongArray {
      * Logically, this opens a new slot at the referenced index, and the new slot is set to the passed new value.
      * Once this method completes, the size of the array will have been incremented by 1, unless <b><code>fixedSize==true</code></b>
      * in which case both the size and the capacity will be unchanged.</p>
+     * If this array is fixed capacity when <b><code>size==capacity</code></b>, 
+     * the right-most value of the array will be dropped, effectively creating a sliding-window when used with <b><code>index==0</code></b>.
      * <p><b>Note:</b> The rolling of the array values is performed by {@link sun.misc.Unsafe#copyMemory(long, long, long)}</p>
      * <p><b>Example</b> of calling <b><code>rollRight(1, 77, bool)</code></b> on an array of size 6 and capacity of 8</p>
-     * <b>Before Operation</b>
-     * <pre>
-	           -->  -->  -->  -->  -->
-	    +--+ +--+ +--+ +--+ +--+ +--+               Size:      6     Index:   1
-	    |23| |47| |19| |67| |42| |89|               Capacity:  8     Value:   77
-	    +--+ +--+ +--+ +--+ +--+ +--+ +--+ +--+
-	          /^\
-	           |
-	         Index
-      </pre><b>After Operation</b><pre>
-	     +--+ +--+ +--+ +--+ +--+ +--+ +--+          Size:      7
-	     |23| |77| |47| |19| |67| |42| |89|          Capacity:  8
-	     +--+ +--+ +--+ +--+ +--+ +--+ +--+ +--+
-     * </pre>
+     * <p>If this array is sorted, the index is checked for the passed value and a RuntimeException will be thrown if the index is incorrect.
      * @param index The index after which the remaining values are rolled to the right
      * @param newValue The value to place into the new slot 
-     * @param fixedSize If this is true, the capacity of the array will not be extended, so when <b><code>size==capacity</code></b>, 
-     * the right-most value of the array will be dropped, effectively creating a sliding-window when used with <b><code>index==0</code></b>.
-     * If this is false, the behaviour is the default as defined in {@link #rollRight(int, long)}.
      * @return this array
      */
-    public UnsafeLongArray rollRight(int index, long newValue, boolean fixedSize) {
-    	_check(); _check(index);
-    	final int numberOfSlotsToMove;
-    	final boolean incrSize;
-    	if(size==capacity) {
-        	if(fixedSize) {
-        		numberOfSlotsToMove = size-index-1;
-        		incrSize=false;
-        	} else {
-        		extend();
-        		numberOfSlotsToMove = size-index;
-        		incrSize=true;
-        	}    	
-        	
-    	} else {
-    		numberOfSlotsToMove = size-index;
-    		incrSize=true;
-    	}
-    	
-    	long srcOffset = (index << 3); 
-    	long destOffset = ((index+1) << 3);
-    	long bytes = numberOfSlotsToMove << 3;
-		unsafe.copyMemory(
-				(address + srcOffset),   	// src: the address of the first index we want to roll
-				(address + destOffset), 	// dest: the address of the slot after the one we want to roll
-				bytes						// bytes: the number of bytes in the entries that need to be rolled
-		);
+    public UnsafeLongArray rollRight(int index, long newValue) {
+    	if(sorted && binarySearch(newValue)!=index) throw new RuntimeException("The index [" + index + "] is incorrect for the value [" + newValue + "] for this sorted array", new Throwable());
+    	rollRight(index);
 		a(index, newValue);
-		if(incrSize) size++;
     	return this;
     }
     
-    
     /**
-     * Rolls all the entries in the array one slot to the right after the referenced index, 
-     * extending the array capacity if it is full when this method is called. 
-     * Logically, this opens a new slot at the referenced index, and the new slot is initially populated with the assigned initial value.
-     * Once this method completes, the size of the array will have been incremented by 1.
-     * @param index The index after which the remaining values are rolled to the right 
-     * @return this array
+     * {@inheritDoc}
+     * @see org.helios.apmrouter.collections.UnsafeArray#append(java.lang.StringBuilder, int)
      */
-    protected UnsafeLongArray rollRight(int index) {
-    	return rollRight(index, DEFAULT_INIT);
-    }
-
-    
-    /**
-     * Rolls all the entries in the array one slot to the left after the referenced index
-     * Logically, this removes a new slot at the referenced index.
-     * Once this method completes, the size of the array will have been decremented by 1.
-     * @param index The index after which the remaining values are rolled to the left
-     * @return this array
-	 * <p><b>Before</b><pre>
-	             <--  <--  <--  <--
-	    +--+ +--+ +--+ +--+ +--+ +--+               Size:      6     Index:   1
-	    |23| |47| |19| |67| |42| |89|               Capacity:  6     
-	    +--+ +--+ +--+ +--+ +--+ +--+
-	           ^                                      
-	           |                   
-	         Delete               
-		</pre><b>After</b><pre>
-	     +--+ +--+ +--+ +--+ +--+               Size:      5
-	     |23| |47| |19| |67| |42|               Capacity:  6
-	     +--+ +--+ +--+ +--+ +--+ +--+	 
-	     </pre> 
-
-     */
-    public UnsafeLongArray rollLeft(int index) {
-    	_check(); _check(index);
-    	int newInd = index+1;
-    	int numberOfSlotsToMove = size-newInd;
-    	long srcOffset = (newInd << 3); 
-    	long destOffset = (index << 3);
-    	long bytes = numberOfSlotsToMove << 3;
-		unsafe.copyMemory(
-				(address + srcOffset),   	// src: the address of the first index we want to roll
-				(address + destOffset), 	// dest: the address of the slot after the one we want to roll
-				bytes						// bytes: the number of bytes in the entries that need to be rolled
-		);
-		size--;
-    	
-    	return this;
+    @Override
+    protected StringBuilder append(StringBuilder b, int i) {
+    	return b.append(a(i));
     }
     
-    
     /**
-     * Appends the passed long values to this array 
+     * Appends the passed long values to this array.
+     * If this array is sorted, this operation will trigger a sort once the append is complete
      * @param values the values to add
      * @return this array
+     * TODO: If the size is fixed, make space for the appended values by dropping on the left
      */
     public UnsafeLongArray append(long...values) {
-    	_check();
+    	_check();    	
     	if(values!=null && values.length>0) {
-    		for(long v: values) {
-    			_add(v);
+    		int vl = values.length;
+    		int newSize = vl + size;
+    		if(newSize > maxCapacity) throw new ArrayOverflowException("Passed array of length [" + vl + "] is too large for this UnsafeLongArray with a max capacity of [" + maxCapacity + "]", new Throwable());
+    		while(newSize > capacity) {
+    			extend(false, vl);
     		}
+        	unsafe.copyMemory(values, LONG_ARRAY_OFFSET, null, address + (size << 3), vl << 3);    		
+        	size += vl;
     	}
-    	//sort(this);
+    	if(sorted) sort();
     	return this;
     }
     
     /**
-     * Inserts the passed long values to this array at the location returned from a binary search 
+     * Appends as many of the passed long values to this array as will fit up to the max capacity, discarding the remaining values.
+     * If this array is sorted, this operation will trigger a sort once the append is complete
+     * @param values the values to add
+     * @return the number of dicarded values that were dropped
+     * TODO: If the size is fixed, make space for the appended values by dropping on the left
+     */
+    public int appendWhatFits(long...values) {
+    	_check();
+    	int howManyWillFit = 0;
+    	int vl = 0;
+    	if(values!=null && values.length>0) {
+    		vl = values.length;
+    		int currentCap = (maxCapacity-size); 
+    		howManyWillFit = vl<=currentCap ? vl : currentCap;
+    		int newSize = size + howManyWillFit; 
+    		while(newSize > capacity) {
+    			extend(true, vl);
+    		}
+        	unsafe.copyMemory(values, LONG_ARRAY_OFFSET, null, address + (size << 3), howManyWillFit << 3);    		
+        	size = newSize;
+    	}
+    	if(sorted) sort();
+    	return vl-howManyWillFit;
+    }
+    
+    
+    /**
+     * Inserts the passed long values to this array at the location returned from a binary search .
+     * Throws a {@link RuntimeException} if this array is not sorted.
+     * May throw a {@link PartialArrayOverflowException} if the capacity is exhausted in which case the exception will provide the number of values successfully inserted.
      * @param values the values to insert
      * @return this array
      */
     public UnsafeLongArray insert(long...values) {
     	_check();
+    	if(!sorted) throw new RuntimeException("Cannot insert into an unsorted array", new Throwable());    	
     	if(values!=null && values.length>0) {
-    		for(long v: values) {
-    			_insert(v);
-    		}
-    	}
-    	//sort(this);
-    	return this;
-    }
-    
-    
-    /**
-     * Appends the passed long values to this array if they are not present already 
-     * @param values the values to add
-     * @return this array
-     */
-    public UnsafeLongArray appendIfNotExists(long...values) {
-    	_check();
-    	if(values!=null && values.length>0) {
-    		for(long v: values) {
-    			if(binarySearch(v)<0) {
-    				_add(v);
+    		for(int i = 0; i < values.length; i++) {
+    			try {
+		    		_insert(values[i]);
+    			} catch (Exception e) {
+    				throw new PartialArrayOverflowException(i, "Partial overflow at item [" + i + "]", e);
     			}
     		}
     	}
-    	//sort(this);
     	return this;
     }
     
+    
+    
     /**
-     * Inserts the passed long values to this array if they are not present already 
+     * Inserts the passed long values to this array if they are not present already.
+     * Throws a {@link RuntimeException} if this array is not sorted.
+     * May throw a {@link PartialArrayOverflowException} if the capacity is exhausted in which case the exception will provide the number of values successfully inserted. 
      * @param values the values to insert
      * @return this array
      */
     public UnsafeLongArray insertIfNotExists(long...values) {
     	_check();
     	if(values!=null && values.length>0) {
-    		for(long v: values) {
-    			if(binarySearch(v)<0) {
-    				_insert(v);
+    		for(int i = 0; i < values.length; i++) {
+    			try {
+    				if(binarySearch(values[i])<0) {
+    					_insert(values[i]);
+    				} 
+		 		} catch (Exception e) {
+    				throw new PartialArrayOverflowException(i, "Partial overflow at item [" + i + "]", e);
     			}
     		}
     	}
-    	//sort(this);
     	return this;
     }
     
     
     
-    /**
-     * Adds the passed long to the array, extending the size of the array if necessary
-     * @param v the long to add
-     */
-    private void _add(long v) {
-    	if(size==capacity) {
-    		extend();
-    	}
-    	unsafe.putLong(address + (size << 3), v);
-    	size++;    	
-    	//sort(this);
-    }
     
     /**
      * Inserts the passed long to the array, extending the size of the array if necessary
@@ -603,72 +308,27 @@ public class UnsafeLongArray {
      */
     private void _insert(long v) {
     	if(size==capacity) {
-    		extend();
+    		extend(fixed, 1);  // allow truncation if capacity is fixed
     	}
 		int index = binarySearch(v);
 		if(index<0) index = (index*-1)-1;
 		
 		if(size!=0) {
-	    	//if(index!=size-1) {
-		    	long srcOffset = (index << 3); 
-		    	long destOffset = ((index+1) << 3);
-		    	long bytes = (size-index) << 3;
-				unsafe.copyMemory(
-						(address + srcOffset),   	// src: the address of the index where we want to insert
-						(address + destOffset), 	// dest: the address of the slot after the one we want to insert
-						bytes						// bytes: the number of bytes in the entries that need to be shifted down
-				);
-	    	//}
-		} 
-		unsafe.putLong(address + (index << 3), v);
-		size++;
-		log("\n\t--->At Size:" + size + "  Added:" + v +  "  Index:" + index + "  " +  toFullString());
+			rollRight(index, v);
+		} else {
+			a(0, v);
+			size++;			
+		}
+		//log("\n\t--->At Size:" + size + "  Added:" + v +  "  Index:" + index + "  " +  toFullString());
     }
     
     
-    /*
-         	//int ind = binarySearch(v);
-    	int index = binarySearch(v);
-    	if(index<0) index = (index*-1)-1;
-    	
-    	if(size!=0) {
-	    	//if(index!=size-1) {
-		    	long srcOffset = (index << 3); 
-		    	long destOffset = ((index+1) << 3);
-		    	long bytes = (size-index) << 3;
-				unsafe.copyMemory(
-						(address + srcOffset),   	// src: the address of the index where we want to insert
-						(address + destOffset), 	// dest: the address of the slot after the one we want to insert
-						bytes						// bytes: the number of bytes in the entries that need to be shifted down
-				);
-	    	//}
-    	} 
-    	unsafe.putLong(address + (index+1 << 3), v);
-    	size++;
-    	if(capacity==10) log("\n\t--->At Size:" + size + "  Added:" + v +  "  Index:" + index + "  " +  toFullString());
- 
-     */
     
-    /**
-     * Extends the allocated memory by the configured allocation size.
-     */
-    private void extend() {
-    	if(capacity==Integer.MAX_VALUE) throw new ArrayOverflowException("Capacity [" + capacity + "] plus allocation [" + allocation + "] is greater than Integer.MAX_VALUE", new Throwable());
-    	long cap = capacity;
-    	long alloc = allocation;
-    	int newAlloc = -1;
-    	if(cap+alloc>Integer.MAX_VALUE) {
-    		newAlloc = Integer.MAX_VALUE-capacity;
-    	} else {
-    		newAlloc = allocation;
-    	}    			
-    	address = unsafe.reallocateMemory(address, (capacity << 3) + (newAlloc << 3));
-    	capacity += newAlloc;
-    }
     
     
     /**
-     * Removes the first instance of each of the passed long values from this array if they are present 
+     * <p>Removes the first instance of each of the passed long values from this array if they are present.
+     * <p><b>NOTE:</b>This operation can be slow-ish if the array is not sorted.
      * @param values the values to remove
      * @return the number of removed values
      */
@@ -677,15 +337,26 @@ public class UnsafeLongArray {
     	int removed = 0;
     	if(values!=null && values.length>0) {
     		for(long v: values) {
-    			_remove(binarySearch(v));
+    			if(sorted) {
+    				removed += _remove(binarySearch(v)) ? 1 : 0;
+    			} else {
+    				for(int i = 0; i < size; i++) {
+    					if(a(i)==v) {
+    						removed += _remove(i) ? 1 : 0;
+    						break;
+    					}
+    				}
+    			}
     		}
     	}
     	//sort(this);
+    	shrink();
     	return removed;
     }
     
     /**
-     * Removes all instances of each of the passed long values from this array if they are present 
+     * Removes all instances of each of the passed long values from this array if they are present
+     * <p><b>NOTE:</b>This operation can be slow-ish if the array is not sorted. 
      * @param values the values to remove
      * @return the number of removed items
      */
@@ -694,13 +365,21 @@ public class UnsafeLongArray {
     	int _size = size;
     	if(values!=null && values.length>0) {
     		for(long v: values) {
-    			boolean rem = true;
-    			while(rem) {
-    				rem = _remove(binarySearch(v));
+    			if(sorted) {
+	    			boolean rem = true;
+	    			while(rem) {
+	    				rem = _remove(binarySearch(v));
+	    			}
+    			} else {
+    				for(int i = 0; i < size; i++) {
+    					if(a(i)==v) {
+    						_remove(i);    						
+    					}
+    				}    				
     			}
     		}
     	}
-    	//sort(this);
+    	shrink();
     	return _size - size;
     }
     
@@ -711,51 +390,13 @@ public class UnsafeLongArray {
      * @return true if the value was removed, false if no change occured
      */
     private boolean _remove(int index) {
-    	if(index>=0) {    	
-    		unsafe.copyMemory(
-    				(address + ((index+1) << 3)),   // the address of the next index 
-    				(address + ((index) << 3)), 	// the address of the index to remove
-    				(size-index-1) << 3					// the number of bytes in the entries that need to be shifted down
-    		);
-    		size--;
+    	if(index>=0) {
+    		rollLeft(false, index);
     		return true;
     	}
     	return false;
     }
     
-    /**
-     * Checks to make sure this UnsafeLongArray has not been deallocated
-     * @return true if this UnsafeLongArray is still allocated, false otherwise
-     */
-    public boolean check() {
-    	return this.address !=0;
-    }
-    
-    /**
-     * Checks that the array has not been deallocated, throwing a {@link IllegalStateException} if it has.
-     */
-    private void _check() {
-    	if(!check()) throw new IllegalStateException("This UnsafeLongArray has been deallocated", new Throwable());
-    }
-    
-    /**
-     * Deallocates this UnsafeLongArrray
-     */
-    public void destroy() {
-    	if(this.address!=0) {
-    		try { unsafe.freeMemory(address); } catch (Throwable t) {}
-    		this.address=0;
-    	}
-    }
-    
-    /**
-     * Checks that an index is within the populated slots of this array.
-     * If the check fails, throws a {@link IllegalArgumentException}
-     * @param index The index to check
-     */
-    private void _check(int index) {
-    	if(index<0 || index > (size-1)) throw new IllegalArgumentException("The passed index was invalid [" + index + "]. Valid ranges are 0 - " + (size-1), new Throwable());
-    }
     
     /**
      * Returns the long at the specified index
@@ -798,17 +439,7 @@ public class UnsafeLongArray {
     }
     
     
-//  public static void putLongArrayDirect(long[] array) {
-//	  int base = unsafe.arrayBaseOffset(long[].class); 
-//	  int scale = unsafe.arrayIndexScale(long[].class);
-//	  int elementIdx = 1;
-//	  int offsetForIdx = base + (elementIdx  * scale);
-//	  unsafe.copyMemory(scale + base , bufferaddress?, array.length);
-//}    
     
-    public void finalize() throws Throwable {
-    	if(this.address!=0) try { unsafe.freeMemory(address); } catch (Throwable t) {}
-    }
     
     /**
      * Returns a traditional long array representing the longs in this array
@@ -817,9 +448,10 @@ public class UnsafeLongArray {
     public long[] getArray() {
     	_check();
     	long[] arr = new long[size];
-    	for(int i = 0; i < size; i++) {
-    		arr[i] = unsafe.getLong(this.address + (i << 3));
-    	}
+    	unsafe.copyMemory(null, address, arr, LONG_ARRAY_OFFSET, size << 3);
+//    	for(int i = 0; i < size; i++) {
+//    		arr[i] = unsafe.getLong(this.address + (i << 3));
+//    	}
     	return arr;
     }
     
@@ -830,9 +462,10 @@ public class UnsafeLongArray {
     public long[] getAllocatedArray() {
     	_check();
     	long[] arr = new long[capacity];
-    	for(int i = 0; i < capacity; i++) {
-    		arr[i] = unsafe.getLong(this.address + (i << 3));
-    	}
+    	unsafe.copyMemory(null, address, arr, LONG_ARRAY_OFFSET, capacity << 3);
+//    	for(int i = 0; i < capacity; i++) {
+//    		arr[i] = unsafe.getLong(this.address + (i << 3));
+//    	}
     	return arr;
     }
     
@@ -843,46 +476,13 @@ public class UnsafeLongArray {
      * {@inheritDoc}
      * @see java.lang.Object#clone()
      */
-    public UnsafeLongArray clone() {
+    @Override
+	public UnsafeLongArray clone() {
     	_check();
-    	UnsafeLongArray cloned = new UnsafeLongArray(size, allocation);
-    	unsafe.copyMemory(address, cloned.address, size);
-    	return cloned;
-    }
-    
-    /**
-     * Same as {@link #clone()} but uses a long by long copy
-     * @return a clone of this array in a completely seprarate memory adddress, meaning
-     * that changes to the clone are not seen by this array and vice-versa.
-     */
-    public UnsafeLongArray slowClone() {
-    	_check();
-    	UnsafeLongArray cloned = new UnsafeLongArray(size, allocation);
-    	for(int i = 0; i < size; i++) {
-    		cloned.a(i, a(i));
-    	}
-    	return cloned;
+    	return new UnsafeLongArray(size, capacity, address, sorted, fixed, maxCapacity, minCapacity, allocationIncrement, clearedSlotsFree);
     }
     
 
-
-    /**
-     * Returns the number of allocated longs in the array
-     * @return the number of allocated longs in the array
-     */
-    public int size() {
-    	_check();
-    	return size;
-    }
-
-    /**
-     * Returns the total number of allocated slots in the array
-     * @return the total number of allocated slots in the array
-     */    
-    public int capacity() {
-    	_check();
-    	return capacity;    	
-    }
     
     
     /**
@@ -919,8 +519,7 @@ public class UnsafeLongArray {
     }
     
 	/**
-	 * Calculates a low collision hash code for the passed string
-	 * @param s The string to calculate the hash code for
+	 * Calculates a low collision hash code for this array
 	 * @return the long hashcode
 	 */
 	public long longHashCode() {
@@ -939,7 +538,8 @@ public class UnsafeLongArray {
      * {@inheritDoc}
      * @see java.lang.Object#hashCode()
      */
-    public int hashCode() {
+    @Override
+	public int hashCode() {
     	_check();
         int result = 1;
         for(int i = 0; i < size; i++) {
@@ -955,7 +555,8 @@ public class UnsafeLongArray {
      * {@inheritDoc}
      * @see java.lang.Object#equals(java.lang.Object)
      */
-    public boolean equals(Object obj) {
+    @Override
+	public boolean equals(Object obj) {
 		if (this == obj) {
 			return true;
 		}
@@ -974,37 +575,13 @@ public class UnsafeLongArray {
     }
 	
 
-	/**
-	 * If the passed object is an {@link UnsafeLongArray} or assignable to it, indicates if the two instances point to the same array (i.e. memory address). 
-	 * @param obj The object to compare to
-	 * @return true if the passed object is an {@link UnsafeLongArray} or assignable to it and they share the same array (memory address).
-	 */
-	public boolean isSameInstance(Object obj) {
-		if (this == obj) {
-			return true;
-		}
-		if (obj == null) {
-			return false;
-		}
-		if (!getClass().isAssignableFrom(obj.getClass())) {
-			return false;
-		}
-		UnsafeLongArray other = (UnsafeLongArray) obj;
-		if (address != other.address) {
-			return false;
-		}
-		return true;
-	}
 	
     
 	
     
     /**
-     * Sorts the specified range of the array.
-     *
-     * @param a the array to be sorted
-     * @param left the index of the first element, inclusive, to be sorted
-     * @param right the index of the last element, inclusive, to be sorted
+     * Sorts the passed UnsafeLongArray.
+     * @param ula The UnsafeLongArray to sort
      */
     public static void sort(UnsafeLongArray ula) {
     	int left = 0;
@@ -1057,6 +634,9 @@ public class UnsafeLongArray {
             return;
         }
 
+        
+
+        
         /*
          * Create temporary array, which is used for merging.
          * Implementation note: variable "right" is increased by 1.
@@ -1065,10 +645,10 @@ public class UnsafeLongArray {
         for (int n = 1; (n <<= 1) < count; odd ^= 1);
 
         if (odd == 0) {
-            b = ula; ula = new UnsafeLongArray(b.size(), DEFAULT_ALLOC);
+            b = ula; ula = new UnsafeLongArray(b.size());
             for (int i = left - 1; ++i < right; ula.a(i, b.a(i)));
         } else {
-            b = new UnsafeLongArray(ula.size(), DEFAULT_ALLOC);
+            b = new UnsafeLongArray(ula.size);
         }
 
         // Merging
@@ -1092,6 +672,7 @@ public class UnsafeLongArray {
             }
             UnsafeLongArray t = ula; ula = b; b = t;
         }
+        
     }
     
 
@@ -1434,3 +1015,168 @@ public class UnsafeLongArray {
     }
     
 }
+
+
+//
+//public static void mainy(String[] args) {
+//	final long[] TEST_DATA = new long[]{0L, 1L, 2L};
+//	final long REMOVE = 1L;
+//	log("Add longs to UnsafeLongArray Test");
+//	UnsafeLongArray ula = new UnsafeLongArray(3, Long.MAX_VALUE);
+//	log("Empty:\n\t" + ula.toFullString() + "\n\t" + ula.toString() + "\n\tSize:" + ula.size());
+//	ula.insert(TEST_DATA);
+//	log("Full At 3:\n\t" + ula.toFullString() + "\n\t" + ula.toString() + "\n\tSize:" + ula.size());
+//	ula.insert(TEST_DATA);
+//	log("Full At 6:\n\t" + ula.toFullString() + "\n\t" + ula.toString() + "\n\tSize:" + ula.size());
+//	int removed = ula.removeAll(REMOVE);
+//	log( "" + removed + " removed:\n\t" + ula.toFullString() + "\n\t" + ula.toString() + "\n\tSize:" + ula.size());
+//	log("BinSearch for :" + REMOVE + ":" + ula.binarySearch(REMOVE));
+//	log(ula.debugString());
+//	ula.insertIfNotExists(REMOVE);
+//	log("" + REMOVE + " back in once:\n\t" + ula.toFullString() + "\n\t" + ula.toString() + "\n\tSize:" + ula.size());
+//	log(ula.debugString());
+//	
+//	
+//	
+//	
+//}
+//
+//public static void mainx(String[] args) {
+//	log("UnsafeLongArray Test");
+//	Random r = new Random(System.currentTimeMillis());
+//	int LONG_COUNT = 1000000;
+//	int WARM_COUNT = 1000;
+//	int WARMUP_LOOPS = 15002;
+//	long[] TEST_DATA = new long[LONG_COUNT];
+//	for(int i = 0; i < LONG_COUNT; i++) {
+//		TEST_DATA[i] = r.nextLong();
+//	}
+//	UnsafeLongArray ula = new UnsafeLongArray(TEST_DATA);
+//	long[] readOut = ula.getArray();
+//	long[] testData = new long[TEST_DATA.length];
+//	System.arraycopy(TEST_DATA, 0, testData, 0, TEST_DATA.length);
+//	Arrays.sort(testData);
+//	log("Equal:" + Arrays.equals(testData, readOut));
+//	for(int i = 0; i < LONG_COUNT; i++) {
+//		assert testData[i] == ula.a(i);
+//	}
+//	ula.destroy();
+//	
+//	//LONG_COUNT = 3000000;
+//	//LONG_COUNT = 250000;
+//	
+//	log("Testing native long array sort");
+//	testData = new long[WARM_COUNT];
+//	for(int i = 0; i < WARMUP_LOOPS; i++) {
+//		System.arraycopy(TEST_DATA, 0, testData, 0, testData.length);    	
+//		Arrays.sort(testData);
+//	}
+//	log("Warmup Complete");
+//	testData = new long[TEST_DATA.length];
+//	System.arraycopy(TEST_DATA, 0, testData, 0, TEST_DATA.length);
+//	SystemClock.startTimer();
+//	Arrays.sort(testData);
+//	ElapsedTime et = SystemClock.endTimer();
+//	log("long array sorted:" + et + "\n\tAverage Per:" + et.avgNs(LONG_COUNT));
+//	
+//	
+//
+//	log("Testing UnsafeLongArray sort");
+//	testData = new long[WARM_COUNT];
+//	System.arraycopy(TEST_DATA, 0, testData, 0, testData.length);
+//	for(int i = 0; i < WARMUP_LOOPS; i++) {
+//		ula = new UnsafeLongArray(testData);    	
+//		ula.destroy();
+//	}
+//	log("Warmup Complete");
+//	SystemClock.startTimer();
+//	ula = new UnsafeLongArray(TEST_DATA);
+//	et = SystemClock.endTimer();
+//	ula.destroy();
+//	log("UnsafeLongArray sorted:" + et + "\n\tAverage Per:" + et.avgNs(LONG_COUNT));
+//	
+//	log("Testing native long array search");
+//	testData = new long[WARM_COUNT];
+//	System.arraycopy(TEST_DATA, 0, testData, 0, testData.length);    	
+//	Arrays.sort(testData);
+//	for(int i = 0; i < WARM_COUNT; i++) {
+//		assert Arrays.binarySearch(testData, testData[i])==i;
+//	}
+//	log("Warmup Complete");
+//	testData = new long[TEST_DATA.length];
+//	System.arraycopy(TEST_DATA, 0, testData, 0, TEST_DATA.length);
+//	Arrays.sort(testData);
+//	SystemClock.startTimer();
+//	for(int i = 0; i < LONG_COUNT; i++) {
+//		assert Arrays.binarySearch(testData, testData[i])==i;
+//		assert Arrays.binarySearch(testData, testData[i]*31)!=i;
+//	}    	
+//	et = SystemClock.endTimer();
+//	log("long array search:" + et + "\n\tAverage Per:" + et.avgNs(LONG_COUNT));
+//	
+//	log("Testing UnsafeLongArray search");
+//	testData = new long[WARM_COUNT];
+//	System.arraycopy(TEST_DATA, 0, testData, 0, testData.length);
+//	ula = new UnsafeLongArray(testData);
+//	Arrays.sort(testData);
+//	for(int i = 0; i < WARM_COUNT; i++) {
+//		assert testData[i] == ula.a(i);
+//		assert ula.binarySearch(testData[i])==i;
+//		assert ula.binarySearch(testData[i]*31)!=i;
+//	}
+//	ula.destroy();
+//	log("Warmup Complete");
+//	ula = new UnsafeLongArray(TEST_DATA);
+//	testData = ula.getArray();
+//	SystemClock.startTimer();
+//	
+//	for(int i = 0; i < LONG_COUNT; i++) {
+//		assert ula.binarySearch(testData[i])==i;
+//		assert ula.binarySearch(testData[i]*31)!=i;
+//	}
+//	
+//	et = SystemClock.endTimer();
+//	ula.destroy();
+//	log("UnsafeLongArray search:" + et + "\n\tAverage Per:" + et.avgNs(LONG_COUNT));
+//	
+//	final int HEAP_TEST_SIZE = 20;
+//	
+//	log("Testing long array heap size");
+//	long[][] arrays = new long[HEAP_TEST_SIZE][];
+//	ResourceHelper.memoryUsage(true);
+//	long heapBefore = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
+//	for(int i = 0; i < HEAP_TEST_SIZE; i++) {
+//		arrays[i] = new long[LONG_COUNT];
+//		System.arraycopy(TEST_DATA, 0, arrays[i], 0, TEST_DATA.length);    	
+//	}
+//	long heapAfter = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
+//	long heapDiff = heapAfter-heapBefore;
+//	log("Long Array Heap:" + heapDiff);
+//	arrays = null;
+//	ResourceHelper.memoryUsage(true);
+//	long heapAfterRelease = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
+//	heapDiff = heapAfter-heapAfterRelease;
+//	log("Long Array Heap Released:" + heapDiff);
+//	
+//	log("Testing UnsafeLongArray heap size");
+//	UnsafeLongArray[] ulas = new UnsafeLongArray[HEAP_TEST_SIZE];
+//	ResourceHelper.memoryUsage(true);
+//	heapBefore = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
+//	for(int i = 0; i < HEAP_TEST_SIZE; i++) {
+//		ulas[i] = new UnsafeLongArray(TEST_DATA);    	
+//	}
+//	heapAfter = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
+//	heapDiff = heapAfter-heapBefore;
+//	log("UnsafeLongArray Heap:" + heapDiff);
+//	for(int i = 0; i < HEAP_TEST_SIZE; i++) {
+//		ulas[i].destroy();
+//	}
+//	ulas = null;
+//	ResourceHelper.memoryUsage(true);
+//	heapAfterRelease = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
+//	heapDiff = heapAfter-heapAfterRelease;
+//	log("UnsafeLongArray Heap Released:" + heapDiff);
+//	
+//	
+//}
+//
