@@ -187,10 +187,21 @@ public class UnsafeLongArray extends UnsafeArray {
      * @return this array
      */
     public UnsafeLongArray rollRight(int index, long newValue) {
-    	if(sorted && binarySearch(newValue)!=index) throw new RuntimeException("The index [" + index + "] is incorrect for the value [" + newValue + "] for this sorted array", new Throwable());
+    	if(sorted && normalizedBinarySearch(newValue)!=index) throw new RuntimeException("The index [" + index + "] is incorrect for the value [" + newValue + "] for this sorted array", new Throwable());
     	rollRight(index);
 		a(index, newValue);
     	return this;
+    }
+    
+    /**
+     * Adjusts the binary search result to the actual index to insert into
+     * @param v The long value to insert
+     * @return the index to insert into
+     */
+    public int normalizedBinarySearch(long v) {
+    	int index = binarySearch(v);
+    	return (index<0) ? (index*-1)-1 : index;
+    	
     }
     
     /**
@@ -281,22 +292,24 @@ public class UnsafeLongArray extends UnsafeArray {
      * Throws a {@link RuntimeException} if this array is not sorted.
      * May throw a {@link PartialArrayOverflowException} if the capacity is exhausted in which case the exception will provide the number of values successfully inserted. 
      * @param values the values to insert
-     * @return this array
+     * @return the number of items inserted
      */
-    public UnsafeLongArray insertIfNotExists(long...values) {
+    public int insertIfNotExists(long...values) {
     	_check();
+    	int insertCount = 0; 
     	if(values!=null && values.length>0) {
     		for(int i = 0; i < values.length; i++) {
     			try {
     				if(binarySearch(values[i])<0) {
     					_insert(values[i]);
+    					insertCount++;
     				} 
 		 		} catch (Exception e) {
     				throw new PartialArrayOverflowException(i, "Partial overflow at item [" + i + "]", e);
     			}
     		}
     	}
-    	return this;
+    	return insertCount;
     }
     
     
@@ -313,7 +326,9 @@ public class UnsafeLongArray extends UnsafeArray {
 		int index = binarySearch(v);
 		if(index<0) index = (index*-1)-1;
 		
-		if(size!=0) {
+		if(index==size) {
+			append(v);
+		} else if(size!=0) {
 			rollRight(index, v);
 		} else {
 			a(0, v);
@@ -448,24 +463,19 @@ public class UnsafeLongArray extends UnsafeArray {
     public long[] getArray() {
     	_check();
     	long[] arr = new long[size];
-    	unsafe.copyMemory(null, address, arr, LONG_ARRAY_OFFSET, size << 3);
-//    	for(int i = 0; i < size; i++) {
-//    		arr[i] = unsafe.getLong(this.address + (i << 3));
-//    	}
+    	if(size>0) unsafe.copyMemory(null, address, arr, LONG_ARRAY_OFFSET, size << 3);
     	return arr;
     }
     
     /**
      * Returns a traditional long array representing the all the allocated slots this array
      * @return a long array representing the all the allocated slots this array
+     * TODO: This should be deprecated unless there is any testing use for it.
      */
     public long[] getAllocatedArray() {
     	_check();
     	long[] arr = new long[capacity];
     	unsafe.copyMemory(null, address, arr, LONG_ARRAY_OFFSET, capacity << 3);
-//    	for(int i = 0; i < capacity; i++) {
-//    		arr[i] = unsafe.getLong(this.address + (i << 3));
-//    	}
     	return arr;
     }
     

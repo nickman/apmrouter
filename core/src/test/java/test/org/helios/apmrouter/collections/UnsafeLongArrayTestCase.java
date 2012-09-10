@@ -312,6 +312,50 @@ public class UnsafeLongArrayTestCase {
 	}
 	
 	/**
+	 * Tests an array with a small initial capacity that grows to a much larger size, 
+	 * allocating aditional memory as required, and then shrinking as items are removed.
+	 */
+	@Test
+	public void testExtendsWithAddMemory() {
+		final int LOOPS = 1000;
+		final int ALLOC_INCR = 100;
+		final int MIN_CAP = 100;
+		int expectedCapacity = 1;
+		long[] testArray = new long[1];
+		ula = UnsafeArrayBuilder.newBuilder().initialCapacity(1).minCapacity(MIN_CAP).allocationIncrement(ALLOC_INCR).buildLongArray();
+		log("Min Capacity:" + ula.minCapacity());
+		log("Init Capacity:" + ula.capacity());
+		for(int i = 0; i < LOOPS; i++) {
+			ula.append(i);
+			Assert.assertEquals(i+1, ula.size());
+			Assert.assertEquals(expectedCapacity, ula.capacity());
+			testArray[testArray.length-1] = i;
+			Assert.assertArrayEquals(testArray, ula.getArray());
+			// ==================
+			if(ula.capacity()==ula.size()) {
+				expectedCapacity += ALLOC_INCR;
+			}
+			// ==================
+			long[] tmp = new long[testArray.length+1];
+			System.arraycopy(testArray, 0, tmp, 0, testArray.length);
+			testArray = tmp;
+		}
+		ula.removeAll(testArray);  // will trigger a shrink.
+		Assert.assertEquals(MIN_CAP, ula.capacity());
+		Assert.assertEquals(0, ula.size());
+		int newDataLength = (testArray.length/2)-50;
+		long[] tmp = new long[newDataLength];
+		System.arraycopy(testArray, 0, tmp, 0, newDataLength);
+		ula.append(tmp);
+		expectedCapacity = newDataLength + newDataLength%ALLOC_INCR;  // round up to the next ALLOC size
+		Assert.assertEquals(expectedCapacity, ula.capacity());
+		Assert.assertEquals(newDataLength, ula.size());
+//		log("Capacity:" + ula.capacity());
+//		log("Size:" + ula.size());
+	}
+	
+	
+	/**
 	 * Tests the array fast clone
 	 */
 	@Test
@@ -353,6 +397,126 @@ public class UnsafeLongArrayTestCase {
 		et = SystemClock.endTimer();
 		log("long[] Sort:" + et);
 		Assert.assertArrayEquals(arrToSort, ula.getArray());
+	}
+	
+	/**
+	 * Tests that new items are placed into the correct slots in a sorted array
+	 * and that binary searches for values not in the ula return <0.
+	 */
+	@Test
+	public void testInsertIntoSorted() {
+		final int ARR_SIZE = 10000;
+		ula = UnsafeArrayBuilder.newBuilder().initialCapacity(ARR_SIZE*2).sorted(true).buildLongArray();
+		long[] odds = new long[ARR_SIZE];
+		long[] evens = new long[ARR_SIZE];
+		long[] all = new long[ARR_SIZE*2];
+		// ============================================
+		// Initialize 3 arrays:
+		// An array of all odds
+		// An array of all evens
+		// An array of both
+		// ============================================
+		int value = 0;
+		for(int i = 0; i < ARR_SIZE; i++) {
+			if(value%2==0) {				
+				evens[i] = value;
+				value++;
+				odds[i] = value;
+			} else {				
+				odds[i] = value;
+				value++;
+				evens[i] = value;
+			}
+			value++;
+		}
+		for(int i = 0; i < ARR_SIZE*2; i++) {
+			all[i] = i;
+		}
+		// ============================================
+//		log("Even Array:" + Arrays.toString(evens));
+//		log("Odd Array:" + Arrays.toString(odds));
+//		log("All Array:" + Arrays.toString(all));
+		// ============================================
+		//   Append all the evens
+		// ============================================
+		ula.append(evens);
+		// ============================================
+		//		Insert all the odds
+		// ============================================
+		for(int i = 0; i < ARR_SIZE; i++) {
+			Assert.assertTrue(ula.binarySearch(odds[i])<0);
+			ula.insert(odds[i]);
+		}
+		// ============================================
+		//		The ula should now be equal to all
+		// ============================================		
+		Assert.assertArrayEquals(all, ula.getArray());
+		//log(ula.toString());
+	}
+	
+	/**
+	 * Tests that removed from a sorted array are remobed from the correct slot
+	 * and the remaining array is adjusted for capacity and shrinks.
+	 */
+	@Test
+	public void testRemoveFromSorted() {
+		final int ARR_SIZE = 5;
+		ula = UnsafeArrayBuilder.newBuilder().initialCapacity(ARR_SIZE*2).sorted(true).buildLongArray();
+		long[] odds = new long[ARR_SIZE];
+		long[] evens = new long[ARR_SIZE];
+		long[] all = new long[ARR_SIZE*2];
+		// ============================================
+		// Initialize 3 arrays:
+		// An array of all odds
+		// An array of all evens
+		// An array of both
+		// ============================================
+		int value = 0;
+		for(int i = 0; i < ARR_SIZE; i++) {
+			if(value%2==0) {				
+				evens[i] = value;
+				value++;
+				odds[i] = value;
+			} else {				
+				odds[i] = value;
+				value++;
+				evens[i] = value;
+			}
+			value++;
+		}
+		for(int i = 0; i < ARR_SIZE*2; i++) {
+			all[i] = i;
+		}
+		// ============================================
+		//   Append the ALL array
+		// ============================================
+		ula.append(all);
+		// ============================================
+		//		Remove each of the odds
+		// ============================================
+		for(int i = 0; i < ARR_SIZE; i++) {
+			int preSize = ula.size();
+			ula.remove(odds[i]);
+			Assert.assertEquals(preSize-1, ula.size());
+		}
+		// ============================================
+		//		The ula should now be equal to evens
+		// ============================================		
+		Assert.assertArrayEquals(evens, ula.getArray());
+		//log(ula.toString());
+	}
+	
+	
+	/**
+	 * Tests that the clear() method correctly clears the size and shrinks the capacity where applicable
+	 */
+	@Test
+	public void testClear() {
+		ula = UnsafeArrayBuilder.newBuilder().minCapacity(200).buildLongArray(LARGE_TEST_ARR);
+		Assert.assertEquals(LARGE_TEST_ARR.length, ula.size());
+		ula.clear();
+		Assert.assertEquals(0, ula.size());
+		Assert.assertEquals(200, ula.capacity());
 	}
 	
 	

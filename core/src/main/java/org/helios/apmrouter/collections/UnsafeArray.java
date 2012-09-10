@@ -212,6 +212,8 @@ public abstract class UnsafeArray {
     	return this.address !=0;
     }
     
+    
+    
     /**
      * Checks that the array has not been deallocated, throwing a {@link IllegalStateException} if it has.
      */
@@ -266,7 +268,7 @@ public abstract class UnsafeArray {
 	    	} else if(cap+alloc > Integer.MAX_VALUE) {
 	    		newAlloc = Integer.MAX_VALUE-capacity;
 	    	} else {
-	    		newAlloc += allocationIncrement;
+	    		newAlloc = allocationIncrement;
 	    	}    			
     		capacity += newAlloc;
     	}
@@ -388,9 +390,11 @@ public abstract class UnsafeArray {
      * @return the number of slots freed
      */
     public int shrink() {
-			int freeSlots = capacity-size;			
-			if(freeSlots >= clearedSlotsFree && (capacity-freeSlots) >= minCapacity) {
-				int slotsToFree = freeSlots-minCapacity;
+			int freeSlots = capacity-size;	 // the number of empty slots	
+			// if true, there are enough empty slots to trigger a shrink, 
+			// and still leave the min capacity available
+			if(freeSlots >= clearedSlotsFree && freeSlots-minCapacity>0) {  				
+				int slotsToFree = freeSlots-minCapacity; // the number of slots to free and leave the min
 				_shrink(slotsToFree);
 				return slotsToFree;
 			}
@@ -427,6 +431,14 @@ public abstract class UnsafeArray {
 	 */
 	public int capacity() {
 		return capacity;
+	}
+	
+	/**
+	 * Removes all values and if applicable, shrinks the capacity.
+	 */
+	public void clear() {
+		size = 0;
+		shrink();
 	}
 	
 	/**

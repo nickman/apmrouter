@@ -25,12 +25,44 @@
 package org.helios.apmrouter.collections;
 
 /**
- * <p>Title: PrimitiveLongSet</p>
- * <p>Description: </p> 
+ * <p>Title: LongSortedSet</p>
+ * <p>Description: A managed off-heap array of unique longs, maintained in sorted order.</p>
+ * <p><b><font color='red'>!!  NOTE !!&nbsp;&nbsp;</font>:&nbsp;&nbsp;</b>This class is THREAD UNSAFE. Only use with one thread at a time, or used one
+ * of the concurrent/synchronized versions</p>  
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.collections.PrimitiveLongSet</code></p>
+ * <p><code>org.helios.apmrouter.collections.LongSortedSet</code></p>
  */
-public class PrimitiveLongSet {
-
+public class LongSortedSet {
+	/*
+	 * Required Ops from UnsafeLongArray:
+	 * ==================================
+	 * long get(int)
+	 * boolean contains(long)
+	 * int size()
+	 * 
+	 * add(long)
+	 * clear()
+	 * remove(long)
+	 * 
+	 * 
+	 * 
+	 * 
+	 */
+	
+	public LongSortedSet() {
+		
+	}
+	
+	public LongSortedSet(int initialCapacity) {
+		
+	}
+	
+	public LongSortedSet(long[] values) {
+		
+	}
+	
+	
+	
+	
 }
