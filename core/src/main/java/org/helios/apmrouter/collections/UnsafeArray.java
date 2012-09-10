@@ -26,6 +26,7 @@ package org.helios.apmrouter.collections;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.util.concurrent.atomic.AtomicLong;
 
 import sun.misc.Unsafe;
 
@@ -46,6 +47,9 @@ public abstract class UnsafeArray {
 	
 	/** The default capacity of an empty created UnsafeArray */
 	public static int DEFAULT_CAPACITY = 128;
+	
+	/** A gauge of the number of un-managed memory allocations */
+	private static final AtomicLong UNMANAGED_MEM_ALLOCATIONS = new AtomicLong(0L);
 	
 	
     /** The unsafe instance */
@@ -100,9 +104,35 @@ public abstract class UnsafeArray {
      */
     protected abstract StringBuilder append(final StringBuilder b, int index);
     
+    /**
+     * Allocates the sized memory block, incrementing the unmanaged counter
+     * @param size The size of the memory to allocate in bytes
+     * @return a pointer to the memory block allocated
+     */
+    private static long allocateMemory(long size) {
+    	long address = unsafe.allocateMemory(size);
+    	UNMANAGED_MEM_ALLOCATIONS.incrementAndGet();
+    	return address;
+    }
     
-    
+    /**
+     * Frees the memory block pointed to by the passed address, decrementing the unmanaged counter
+     * @param address The pointer to the memory block to free
+     * @return the number of unmanaged allocations remaining
+     */
+    private static long freeMemory(long address) {
+    	unsafe.freeMemory(address);
+    	return UNMANAGED_MEM_ALLOCATIONS.decrementAndGet();    	
+    }
 	
+    
+    /**
+     * Returns the number of existing unmanaged memory allocations
+     * @return the number of existing unmanaged memory allocations
+     */
+    public static long getPointerCount() {
+    	return UNMANAGED_MEM_ALLOCATIONS.get();
+    }
 	
 	/**
 	 * Creates a new UnsafeArray
@@ -123,7 +153,7 @@ public abstract class UnsafeArray {
 		this.clearedSlotsFree = clearedSlotsFree;
 		slotSize = getSlotSize();
 		capacity = initialCapacity;
-		address = unsafe.allocateMemory(capacity << slotSize);
+		address = allocateMemory(capacity << slotSize);
 		unsafe.setMemory(null, address, capacity << slotSize, (byte)0);
 		size = 0;
 		
@@ -151,7 +181,7 @@ public abstract class UnsafeArray {
 		slotSize = getSlotSize();		
 		this.size = size;
 		this.capacity = capacity;
-		this.address = unsafe.allocateMemory(capacity << slotSize);
+		this.address = allocateMemory(capacity << slotSize);
 		unsafe.copyMemory(address, this.address, size << slotSize);
 	}
 
@@ -226,7 +256,7 @@ public abstract class UnsafeArray {
      */
     public void destroy() {
     	if(this.address!=0) {
-    		try { unsafe.freeMemory(address); } catch (Throwable t) {}
+    		try { freeMemory(address); } catch (Throwable t) {}
     		this.address=0;
     	}
     }
@@ -353,8 +383,6 @@ public abstract class UnsafeArray {
 	     |23| |47| |19| |67| |42|               Capacity:  6
 	     +--+ +--+ +--+ +--+ +--+ +--+	 
 	     </pre> 
-	     
-	     TODO: For operations involving many removes, it may be more efficient to defer the shrink test
      */
     public void rollLeft(boolean shrink, int index) {
     	_check(); _check(index);
@@ -417,7 +445,7 @@ public abstract class UnsafeArray {
      */
     @Override
 	public void finalize() throws Throwable {
-    	if(this.address!=0) try { unsafe.freeMemory(address); } catch (Throwable t) {}
+    	if(this.address!=0) try { freeMemory(address); } catch (Throwable t) {}
     	super.finalize();
     }
     

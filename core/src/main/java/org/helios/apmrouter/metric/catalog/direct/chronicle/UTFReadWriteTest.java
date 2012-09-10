@@ -76,14 +76,13 @@ public class UTFReadWriteTest {
 			chronicle = new IndexedChronicle(cdir.getAbsolutePath() + File.separator + "utftest", 2);
 			for(int i = 0; i < 10; i++) {				
 				Excerpt<IndexedChronicle> ex = chronicle.createExcerpt();
-				ex.startExcerpt(20);
+				ex.startExcerpt(12);
 				String foo = "foo" + i;
 				String bar = "bar" + i;				
 				ex.writeUTF(foo);
-				log("Pos After UTF Write:" + ex.position());
 				ex.writeUTF(bar);
 				ex.finish();
-				log("Length " + i + "#:" + ex.length());
+				log("Length:" + ex.length());
 				indexes.add(ex.index());
 			}
 			log("Writes complete");
@@ -91,11 +90,12 @@ public class UTFReadWriteTest {
 				Excerpt<IndexedChronicle> ex = chronicle.createExcerpt();
 				ex.index(index);
 				String foo = ex.readUTF();
-				String bar = ex.readUTF();
+				String bar = ex.readUTF();				
+				ex.finish();				
 				if(!("foo" + index).equals(foo)) throw new RuntimeException("Mismatch on [" + foo + "]"); 				
 				if(!("bar" + index).equals(bar)) throw new RuntimeException("Mismatch on [" + foo + "]");
-				log("Index " + index + ":[" + foo + "/" + bar + "]");
-				ex.finish();
+				
+				
 			}
 			log("Done");
 		} catch (Exception e) {

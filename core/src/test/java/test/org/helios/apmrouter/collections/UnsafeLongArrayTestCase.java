@@ -27,13 +27,16 @@ package test.org.helios.apmrouter.collections;
 import java.util.Arrays;
 import java.util.Random;
 
+import org.helios.apmrouter.collections.UnsafeArray;
 import org.helios.apmrouter.collections.UnsafeArrayBuilder;
 import org.helios.apmrouter.collections.UnsafeLongArray;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -71,6 +74,32 @@ public class UnsafeLongArrayTestCase {
 	@Before
 	public void printTestName() {
 		log("\n\t==================================\n\tRunning Test [" + name.getMethodName() + "]\n\t==================================\n");
+	}
+	
+	/** The number of unmanaged allocations before the tests start */
+	private static long unmanagedAllocations = 0;
+	
+	/**
+	 * Records the number of unmanaged unsafe allocations
+	 */
+	@BeforeClass
+	public static void getUnsafeAllocations() {
+		unmanagedAllocations = UnsafeArray.getPointerCount();
+	}
+	
+	
+	/**
+	 * Asserts that the number of unsafe allocations is the same as before the tests started 
+	 */
+	@AfterClass
+	public static void testZeroAllocations() {
+		System.gc();
+		System.runFinalization();
+		System.gc();
+		log("Starting Unmanaged Allocations:" + unmanagedAllocations);
+		log("Ending Unmanaged Allocations:" + UnsafeArray.getPointerCount());
+		Assert.assertEquals("The expected number of allocations", unmanagedAllocations, UnsafeArray.getPointerCount());
+		
 	}
 	
 	/** A random */
@@ -323,8 +352,6 @@ public class UnsafeLongArrayTestCase {
 		int expectedCapacity = 1;
 		long[] testArray = new long[1];
 		ula = UnsafeArrayBuilder.newBuilder().initialCapacity(1).minCapacity(MIN_CAP).allocationIncrement(ALLOC_INCR).buildLongArray();
-		log("Min Capacity:" + ula.minCapacity());
-		log("Init Capacity:" + ula.capacity());
 		for(int i = 0; i < LOOPS; i++) {
 			ula.append(i);
 			Assert.assertEquals(i+1, ula.size());
@@ -350,8 +377,6 @@ public class UnsafeLongArrayTestCase {
 		expectedCapacity = newDataLength + newDataLength%ALLOC_INCR;  // round up to the next ALLOC size
 		Assert.assertEquals(expectedCapacity, ula.capacity());
 		Assert.assertEquals(newDataLength, ula.size());
-//		log("Capacity:" + ula.capacity());
-//		log("Size:" + ula.size());
 	}
 	
 	
@@ -386,16 +411,10 @@ public class UnsafeLongArrayTestCase {
 		ula = UnsafeArrayBuilder.newBuilder().buildLongArray(LARGE_TEST_ARR);
 		Assert.assertEquals(arrSize, ula.size());
 		Assert.assertEquals(arrSize, ula.capacity());
-		SystemClock.startTimer();
 		ula.sort();
-		ElapsedTime et = SystemClock.endTimer();
-		log("ULA Sort:" + et);
 		long[] arrToSort = new long[arrSize];
 		System.arraycopy(LARGE_TEST_ARR, 0, arrToSort, 0, arrSize);
-		SystemClock.startTimer();
 		Arrays.sort(arrToSort);
-		et = SystemClock.endTimer();
-		log("long[] Sort:" + et);
 		Assert.assertArrayEquals(arrToSort, ula.getArray());
 	}
 	
@@ -496,9 +515,28 @@ public class UnsafeLongArrayTestCase {
 		// ============================================
 		for(int i = 0; i < ARR_SIZE; i++) {
 			int preSize = ula.size();
-			ula.remove(odds[i]);
+			int removed = ula.remove(odds[i]);
+			Assert.assertEquals(1, removed);
 			Assert.assertEquals(preSize-1, ula.size());
+			removed = ula.remove(odds[i]);
+			Assert.assertEquals(0, removed);
+			Assert.assertEquals(preSize-1, ula.size());			
 		}
+		// ============================================
+		//		BATCH Add all the odds back in again
+		// ============================================
+		int preSize = ula.size();
+		int inserted = ula.insertIfNotExists(odds);
+		Assert.assertEquals(odds.length, inserted);
+		Assert.assertEquals(preSize+odds.length, ula.size());
+		// ============================================
+		//		BATCH Remove all the odds 
+		// ============================================
+		preSize = ula.size();
+		int removed = ula.remove(odds);
+		Assert.assertEquals(odds.length, removed);
+		Assert.assertEquals(preSize-odds.length, ula.size());
+		
 		// ============================================
 		//		The ula should now be equal to evens
 		// ============================================		

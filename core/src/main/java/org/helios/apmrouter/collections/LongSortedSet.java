@@ -50,6 +50,9 @@ public class LongSortedSet {
 	 * 
 	 */
 	
+	/**
+	 * Creates a new LongSortedSet with the default initial capacity of {@link UnsafeArray#DEFAULT_CAPACITY}.
+	 */
 	public LongSortedSet() {
 		
 	}
