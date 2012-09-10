@@ -152,6 +152,12 @@ public class ChronicleController {
 	public long size() {
 		return chronicle.size();
 	}
+	
+	public void close() {
+		chronicle.close();
+		instance=null;
+		
+	}
 
 	/**
 	 * @param useUnsafe

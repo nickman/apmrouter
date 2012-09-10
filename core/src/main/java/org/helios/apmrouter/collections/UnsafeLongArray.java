@@ -50,6 +50,14 @@ public class UnsafeLongArray extends UnsafeArray {
     /** The memory offset for a long array */
     public static final long LONG_ARRAY_OFFSET = unsafe.arrayBaseOffset(long[].class);
     
+    public static void main(String[] args) {
+    	log("Long ArrOff:" +  unsafe.arrayBaseOffset(Long[].class));
+    	log("Long IScale:" +  unsafe.arrayIndexScale(Long[].class));
+    	log("long ArrOff:" +  unsafe.arrayBaseOffset(long[].class));
+    	log("long IScale:" +  unsafe.arrayIndexScale(long[].class));
+    	
+    }
+    
 	/**
 	 * Creates a new UnsafeLongArray
 	 * @param initialCapacity The initial allocated capacity

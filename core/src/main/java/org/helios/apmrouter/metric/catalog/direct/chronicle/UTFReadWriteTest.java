@@ -29,6 +29,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.nio.ByteOrder;
 import java.util.TreeSet;
 
 import vanilla.java.chronicle.Excerpt;
@@ -63,8 +64,9 @@ public class UTFReadWriteTest {
 	public static void main(String[] args) {
 		log("UTFReadWriteTest");
 		testUTFWriteToChronicle();
-		testCharSequenceWriteToChronicle();
+//		testCharSequenceWriteToChronicle();
 		testUTFWriteToByteArray();
+//		testUTFWriteWithDOSToChronicle();
 	}
 	
 	static void testUTFWriteToChronicle() {
@@ -74,15 +76,20 @@ public class UTFReadWriteTest {
 		try {
 			TreeSet<Long> indexes = new TreeSet<Long>();
 			chronicle = new IndexedChronicle(cdir.getAbsolutePath() + File.separator + "utftest", 2);
+			chronicle.useUnsafe(false);
+			
 			for(int i = 0; i < 10; i++) {				
 				Excerpt<IndexedChronicle> ex = chronicle.createExcerpt();
+				
+				log("Ex is DOS:" + (ex instanceof DataOutputStream));
 				ex.startExcerpt(12);
 				String foo = "foo" + i;
 				String bar = "bar" + i;				
 				ex.writeUTF(foo);
 				ex.writeUTF(bar);
+				short b1 = ex.readShort(0);				
+				log("Length:" + ex.length() + "  b1:" + b1);				
 				ex.finish();
-				log("Length:" + ex.length());
 				indexes.add(ex.index());
 			}
 			log("Writes complete");
@@ -125,6 +132,11 @@ public class UTFReadWriteTest {
 			log("Writes complete");
 			bais = new ByteArrayInputStream(baos.toByteArray());
 			dais = new DataInputStream(bais);
+			log("First Short:" + dais.readShort());
+			log("Second Short:" + dais.readShort());
+			
+			bais = new ByteArrayInputStream(baos.toByteArray());
+			dais = new DataInputStream(bais);
 			for(int i = 0; i < 10; i++) {
 				String foo = dais.readUTF();
 				String bar = dais.readUTF();
@@ -146,6 +158,7 @@ public class UTFReadWriteTest {
 		try {
 			TreeSet<Long> indexes = new TreeSet<Long>();
 			chronicle = new IndexedChronicle(cdir.getAbsolutePath() + File.separator + "utftest", 2);
+			chronicle.useUnsafe(true);
 			for(int i = 0; i < 10; i++) {				
 				Excerpt<IndexedChronicle> ex = chronicle.createExcerpt();
 				ex.startExcerpt(20);
@@ -168,6 +181,47 @@ public class UTFReadWriteTest {
 				if(!("bar" + index).equals(bar)) throw new RuntimeException("Mismatch on [" + foo + "]");				
 				log("Index " + index + ":[" + foo + "/" + bar + "]");
 				ex.finish();
+			}
+			log("Done");
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try { chronicle.close(); } catch (Exception e) {}
+		}
+	}
+
+	static void testUTFWriteWithDOSToChronicle() {
+		log("\n\t==================================\n\tRunning testUTFWriteWithDOSToChronicle\n\t==================================\n");		
+		deleteFiles();
+		IndexedChronicle chronicle = null;
+		try {
+			TreeSet<Long> indexes = new TreeSet<Long>();
+			chronicle = new IndexedChronicle(cdir.getAbsolutePath() + File.separator + "utftest", 2);
+			chronicle.useUnsafe(true);
+			for(int i = 0; i < 10; i++) {				
+				Excerpt<IndexedChronicle> ex = chronicle.createExcerpt();
+				ex.startExcerpt(12);
+				DataOutputStream daos = new DataOutputStream(ex.outputStream());
+				String foo = "foo" + i;
+				String bar = "bar" + i;				
+				daos.writeUTF(foo);
+				daos.writeUTF(bar);
+				daos.flush();
+				ex.finish();
+				log("Length:" + ex.length());
+				indexes.add(ex.index());
+			}
+			log("Writes complete");
+			for(Long index: indexes) {
+				Excerpt<IndexedChronicle> ex = chronicle.createExcerpt();
+				ex.index(index);
+				String foo = ex.readUTF();
+				String bar = ex.readUTF();				
+				ex.finish();				
+				if(!("foo" + index).equals(foo)) throw new RuntimeException("Mismatch on [" + foo + "]"); 				
+				if(!("bar" + index).equals(bar)) throw new RuntimeException("Mismatch on [" + foo + "]");
+				
+				
 			}
 			log("Done");
 		} catch (Exception e) {

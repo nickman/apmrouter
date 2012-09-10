@@ -25,71 +25,67 @@
 package org.helios.apmrouter.collections;
 
 /**
- * <p>Title: LongSortedSet</p>
- * <p>Description: A managed off-heap array of unique longs, maintained in sorted order.</p>
- * <p><b><font color='red'>!!  NOTE !!&nbsp;&nbsp;</font>:&nbsp;&nbsp;</b>This class is THREAD UNSAFE. Only use with one thread at a time, or used one
- * of the concurrent/synchronized versions</p>  
+ * <p>Title: SynchronizedLongSortedSet</p>
+ * <p>Description: An extension of {@link LongSortedSet} which synchronizes all thread-unsafe methods (which is all of them).</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.collections.LongSortedSet</code></p>
+ * <p><code>org.helios.apmrouter.collections.SynchronizedLongSortedSet</code></p>
  */
-public class LongSortedSet {
-
-	/** The underlying UnsafeLongArray */
-	protected final UnsafeLongArray array;
+public class SynchronizedLongSortedSet extends LongSortedSet {
+	
 	
 	/**
-	 * Creates a new LongSortedSet
-	 * @param array the cloned array
+	 * Creates a new SynchronizedLongSortedSet with the default initial capacity of {@link UnsafeArray#DEFAULT_CAPACITY}.
 	 */
-	protected LongSortedSet(UnsafeLongArray array) {
-		this.array = array;
-	}
-	
-	/**
-	 * Creates a new LongSortedSet with the default initial capacity of {@link UnsafeArray#DEFAULT_CAPACITY}.
-	 */
-	public LongSortedSet() {
+	public SynchronizedLongSortedSet() {
 		this(UnsafeArray.DEFAULT_CAPACITY);
 	}
 	
 	/**
-	 * Creates a new LongSortedSet with the specified initial capacity
+	 * Creates a new SynchronizedLongSortedSet with the specified initial capacity
 	 * @param initialCapacity The initial number of allocated slots
 	 */
-	public LongSortedSet(int initialCapacity) {
-		array = UnsafeArrayBuilder.newBuilder().sorted(true).initialCapacity(initialCapacity).buildLongArray();
+	public SynchronizedLongSortedSet(int initialCapacity) {
+		super(initialCapacity);
 	}
 	
 	/**
-	 * Creates a new LongSortedSet initialized with the passed values
+	 * Creates a new SynchronizedLongSortedSet initialized with the passed values
 	 * @param values The long array to initialize with
 	 */
-	public LongSortedSet(long[] values) {
-		array = UnsafeArrayBuilder.newBuilder().sorted(true).buildLongArray(values);
+	public SynchronizedLongSortedSet(long[] values) {
+		super(values);
 	}
 	
 	/**
-	 * Creates a new LongSortedSet initialized with the passed values
+	 * Creates a new SynchronizedLongSortedSet initialized with the passed values
 	 * @param values the values to copy into this new sorted set
 	 */
-	public LongSortedSet(LongSortedSet values) {
-		array = UnsafeArrayBuilder.newBuilder().sorted(true).buildLongArray(values);
+	public SynchronizedLongSortedSet(LongSortedSet values) {
+		super(values);
 	}
 	
+	/**
+	 * Creates a new SynchronizedLongSortedSet from an existing array
+	 * @param clone the cloned values
+	 */
+	public SynchronizedLongSortedSet(UnsafeLongArray clone) {
+		super(clone);
+	}
+
 	/**
 	 * Inserts the each passed value into the correct slot position in the array if the value is not present in the array already 
 	 * @param values The values to insert
 	 * @return true if any of the values were successfully added
 	 */
-	public boolean add(long...values) {
+	public synchronized boolean add(long...values) {
 		return array.insertIfNotExists(values)>0;
 	}
 	
 	/**
 	 * Removes all the values from this array, shrinking the capacity if necessary.
 	 */
-	public void clear() {
+	public synchronized void clear() {
 		array.clear();
 	}
 	
@@ -98,7 +94,7 @@ public class LongSortedSet {
 	 * @param values The values to remove from the array
 	 * @return true if one or more of the values was removed
 	 */
-	public boolean remove(long...values) {
+	public synchronized boolean remove(long...values) {
 		return array.remove(values)>0;
 	}
 	
@@ -107,7 +103,7 @@ public class LongSortedSet {
 	 * @param index the index of the value to retrieve 
 	 * @return the long value at the specified array index
 	 */
-	public long get(int index) {
+	public synchronized long get(int index) {
 		return array.get(index);
 	}
 	
@@ -115,7 +111,7 @@ public class LongSortedSet {
 	 * Returns the number of entries in the array
 	 * @return the number of entries in the array
 	 */
-	public int size() {
+	public synchronized int size() {
 		return array.size();
 	}
 	
@@ -124,7 +120,7 @@ public class LongSortedSet {
 	 * @param value the long value to test for
 	 * @return true if the passed long value is in the array, false otherwise
 	 */
-	public boolean contains(long value) {
+	public synchronized boolean contains(long value) {
 		return array.binarySearch(value)>=0;
 	}
 	
@@ -132,7 +128,7 @@ public class LongSortedSet {
 	 * {@inheritDoc}
 	 * @see java.lang.Object#toString()
 	 */
-	public String toString() {
+	public synchronized String toString() {
 		return array.toString();
 	}
 	
@@ -140,15 +136,17 @@ public class LongSortedSet {
 	 * {@inheritDoc}
 	 * @see java.lang.Object#clone()
 	 */
-	public LongSortedSet clone() {
-		return new LongSortedSet(array.clone());
+	public synchronized SynchronizedLongSortedSet clone() {
+		return new SynchronizedLongSortedSet(array.clone());
 	}
 	
 	/**
 	 * Indicates if this set is empty
 	 * @return true if this set is empty, false otherwise
 	 */
-	public boolean isEmpty() {
+	public synchronized boolean isEmpty() {
 		return array.size()==0;
 	}
+
+
 }
