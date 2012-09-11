@@ -24,8 +24,16 @@
  */
 package org.helios.apmrouter.metric.catalog;
 
-import org.helios.apmrouter.metric.MetricType;
 import static org.helios.apmrouter.util.Methods.nvl;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Pattern;
+
+import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.util.SystemClock;
+import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 
 /**
  * <p>Title: ICEMetricCatalog</p>
@@ -104,6 +112,29 @@ public class ICEMetricCatalog implements IMetricCatalog {
 	public int size() {
 		return actualCatalog.size();
 	}
+	
+	/**
+	 * Returns the delegate metric id with the passed token
+	 * @param metricIdToken The token to resolve
+	 * @return The resolved metric ID or null if not found
+	 */
+	public IDelegateMetric get(long metricIdToken) {
+		return actualCatalog.get(metricIdToken);
+	}
+	
+	/**
+	 * Sets the serialization token for the passed metric identifier
+	 * @param host The host name
+	 * @param agent The agent name
+	 * @param name The metric name
+	 * @param type The metric type
+	 * @param namespace The namespace segments
+	 * @return  the assigned token
+	 */
+	public long setToken(String host, String agent, CharSequence name, MetricType type, CharSequence... namespace) {
+		return actualCatalog.setToken(host, agent, name, type, namespace);
+	}
+	
 
 	/**
 	 * Retrieves the named IDelegateMetric, creating it if it not in the catalog
@@ -165,9 +196,69 @@ public class ICEMetricCatalog implements IMetricCatalog {
 	 * Returns the class name of the current catalog in use
 	 * @return the class name of the current catalog in use
 	 */
-	public String getCatalogClassName() {
+	public static String getCatalogClassName() {
 		return (instance!=null && instance.actualCatalog!=null) ? instance.actualCatalog.getClass().getName() : null;
 	}
+	
+	/**
+	 * Returns a delegate metric for the passed FQN and type
+	 * @param fqn The metric FQN
+	 * @param type The metric type
+	 * @return the delegate metric
+	 */
+	public IDelegateMetric build(String fqn, MetricType type) {
+		return build(fqn, type, actualCatalog);
+	}
+
+	
+	/**
+	 * Returns a delegate metric for the passed FQN and type
+	 * @param fqn The metric FQN
+	 * @param type The metric type
+	 * @param catalog The catalog to look the metric up in
+	 * @return the delegate metric
+	 */
+	public static IDelegateMetric build(String fqn, MetricType type, IMetricCatalog catalog) {
+		nvl(fqn, "FQN");
+		nvl(type, "MetricType");
+		String host=null, agent=null, metricName=null;
+		List<CharSequence> namespace = new ArrayList<CharSequence>();
+		int sequence = 0;
+		int lastIndex = 0;
+		int index = fqn.indexOf(IMetric.NSDELIM, 0);
+		while(index!=-1) {
+			if(sequence==0) host = fqn.substring(lastIndex, index);
+			else if(sequence==1) agent = fqn.substring(lastIndex+1, index);
+			else namespace.add(fqn.substring(lastIndex+1, index));
+			sequence++;
+			lastIndex = index;
+			index = fqn.indexOf(IMetric.NSDELIM, lastIndex+1);
+		}
+		
+		index = fqn.indexOf(IMetric.NADELIM);
+		if(sequence==1) {
+			agent = fqn.substring(lastIndex+1, index);
+		} else {
+			namespace.add(fqn.substring(lastIndex+1, index));
+		}
+		
+		metricName = fqn.substring(index+1);
+		
+		return (catalog==null ? ICEMetricCatalog.getInstance() : catalog).get(host, agent, metricName, type, namespace.toArray(new CharSequence[namespace.size()]));
+	}
+	
+//	public static void main(String[] args) {
+//		log("FQN Parse Test");
+//		log(build("myhost/myagent:cpu1", MetricType.LONG));
+//		log(build("myhost/myagent/foo/bar/baz/cpu:cpu1", MetricType.LONG));
+//		
+//	}
+//	
+//
+//	public static void log(Object msg) {
+//		System.out.println(msg);
+//	}
+
 	
 	/**
 	 * {@inheritDoc}
@@ -180,3 +271,123 @@ public class ICEMetricCatalog implements IMetricCatalog {
 	}	
 	
 }
+
+
+
+// =============================
+// Some other parsers I tested.
+// The one above was the fastest
+// =============================
+
+//public static String builds(String fqn, MetricType type) {
+//	nvl(fqn, "FQN");
+//	nvl(type, "MetricType");
+//	String host=null, agent=null, metricName=null;
+//	List<CharSequence> namespace = new ArrayList<CharSequence>();
+//	int sequence = 0;
+//	int lastIndex = 0;
+//	int index = fqn.indexOf(IMetric.NSDELIM, 0);
+//	while(index!=-1) {
+//		if(sequence==0) host = fqn.substring(lastIndex, index);
+//		else if(sequence==1) agent = fqn.substring(lastIndex+1, index);
+//		else namespace.add(fqn.substring(lastIndex+1, index));
+//		switch(sequence) {
+//		case 0:
+//				host = fqn.substring(lastIndex, index);
+//				sequence++;
+//				break;
+//		case 1:
+//				agent = fqn.substring(lastIndex+1, index);
+//				sequence++;
+//				break; 
+//		default:
+//				namespace.add(fqn.substring(lastIndex+1, index));
+//				break; 					
+//		}
+//		lastIndex = index;
+//		index = fqn.indexOf(IMetric.NSDELIM, lastIndex+1);
+//	}
+//	
+//	index = fqn.indexOf(IMetric.NADELIM);
+//	if(sequence==1) {
+//		agent = fqn.substring(lastIndex+1, index);
+//	} else {
+//		namespace.add(fqn.substring(lastIndex+1, index));
+//	}
+//	
+//	metricName = fqn.substring(index+1);
+//	
+//	return log(host, agent, metricName, namespace.toArray(new CharSequence[namespace.size()])); //ICEMetricCatalog.getInstance().get(host, agent, metricName, type, namespace.toArray(new CharSequence[namespace.size()]));
+//}
+//
+///** FQN split pattern */
+//public static final Pattern FQN_PATTERN = Pattern.compile("/|:");
+//
+//public static String buildr(String fqn, MetricType type) {
+//	nvl(fqn, "FQN");
+//	nvl(type, "MetricType");
+//	String[] frags = FQN_PATTERN.split(fqn);
+//	String host=frags[0], agent=frags[1], metricName=frags[frags.length-1];
+//	if(frags.length>3) {
+//		List<CharSequence> namespace = new ArrayList<CharSequence>();
+//		for(int i = 2; i < frags.length-1; i++) {
+//			namespace.add(frags[i]);
+//		}
+//		
+//		return log(host, agent, metricName, namespace.toArray(new CharSequence[namespace.size()])); //ICEMetricCatalog.getInstance().get(host, agent, metricName, type, namespace.toArray(new CharSequence[namespace.size()]));
+//	}
+//	log(host, agent, metricName);
+//	return log(host, agent, metricName); //ICEMetricCatalog.getInstance().get(host, agent, metricName, type);
+//}
+//
+//public static void main(String[] args) {
+//	log("FQN Parse Test");
+//	
+//	int LOOPS = 2000000;
+//	for(int i = 0; i < LOOPS; i++) {
+//		if(buildp("myhost/myagent/foo/bar/baz/cpu:cpu1", MetricType.LONG)==null) throw new RuntimeException();
+//	}
+//	SystemClock.startTimer();
+//	for(int i = 0; i < LOOPS; i++) {
+//		if(buildp("myhost/myagent/foo/bar/baz/cpu:cpu1", MetricType.LONG)==null) throw new RuntimeException();
+//	}
+//	ElapsedTime et = SystemClock.endTimer();
+//	log("Parser Time:" + et);
+//	for(int i = 0; i < LOOPS; i++) {
+//		if(builds("myhost/myagent/foo/bar/baz/cpu:cpu1", MetricType.LONG)==null) throw new RuntimeException();
+//	}
+//
+//	SystemClock.startTimer();
+//	for(int i = 0; i < LOOPS; i++) {
+//		if(builds("myhost/myagent/foo/bar/baz/cpu:cpu1", MetricType.LONG)==null) throw new RuntimeException();
+//	}
+//	et = SystemClock.endTimer();
+//	log("Switcher Time:" + et);
+//	for(int i = 0; i < LOOPS; i++) {
+//		if(buildr("myhost/myagent/foo/bar/baz/cpu:cpu1", MetricType.LONG)==null) throw new RuntimeException();
+//	}		
+//	SystemClock.startTimer();
+//	for(int i = 0; i < LOOPS; i++) {
+//		if(buildr("myhost/myagent/foo/bar/baz/cpu:cpu1", MetricType.LONG)==null) throw new RuntimeException();
+//	}
+//	et = SystemClock.endTimer();
+//	log("Splitter Time:" + et);
+//	
+////	log(buildp("myhost/myagent:cpu1", MetricType.LONG));
+////	log(buildp("myhost/myagent/foo/bar/baz/cpu:cpu1", MetricType.LONG));
+//}
+//
+//public static void log(Object msg) {
+//	System.out.println(msg);
+//}
+//public static String log(String host, String agent, String name, CharSequence...ns) {
+//	StringBuilder b = new StringBuilder("[(").append(host).append("-").append(agent).append(")");
+//	if(ns.length>0) {
+//		for(int i = 0; i < ns.length; i++) {
+//			b.append("-").append(ns[i]);
+//		}
+//	}
+//	b.append("]:").append(name);
+//	return b.toString();
+//}
+//

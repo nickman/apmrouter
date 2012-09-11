@@ -66,6 +66,25 @@ public interface IMetricCatalog {
 	 */
 	public abstract IDelegateMetric get(String host, String agent, CharSequence name, MetricType type,
 			CharSequence... namespace);
+	
+	/**
+	 * Returns the delegate metric id with the passed token
+	 * @param metricIdToken The token to resolve
+	 * @return The resolved metric ID or null if not found
+	 */
+	public abstract IDelegateMetric get(long metricIdToken);
+	
+	/**
+	 * Sets the serialization token for the passed metric identifier
+	 * @param host The host name
+	 * @param agent The agent name
+	 * @param name The metric name
+	 * @param type The metric type
+	 * @param namespace The namespace segments
+	 * @return  the assigned token
+	 */
+	public abstract long setToken(String host, String agent, CharSequence name, MetricType type,
+			CharSequence... namespace);
 
 	/**
 	 * Retrieves the named IDelegateMetric, creating it if it not in the catalog.
@@ -110,6 +129,14 @@ public interface IMetricCatalog {
 	 * @return the number of entries in the metric catalog
 	 */
 	public int size();
+	
+	/**
+	 * Returns a delegate metric for the passed FQN and type
+	 * @param fqn The metric FQN
+	 * @param type The metric type
+	 * @return the delegate metric
+	 */
+	public IDelegateMetric build(String fqn, MetricType type);	
 	
 	/**
 	 * <p>Testing hook for disposing a switched catalog.

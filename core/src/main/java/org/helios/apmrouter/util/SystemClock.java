@@ -89,6 +89,28 @@ public enum SystemClock {
 		}
 	};
 	
+	/**
+	 * Causes the calling thread to join itself for the indicated time
+	 * @param time The time to join in ms.
+	 */
+	public static void sleep(long time) {
+		sleep(time, null);
+	}	
+	
+	/**
+	 * Causes the calling thread to join itself for the indicated time
+	 * @param time The time to join
+	 * @param unit The unit of time (optional, if null, means ms.)
+	 */
+	public static void sleep(long time, TimeUnit unit) {
+		try {
+			long actual = unit==null ? time : TimeUnit.MILLISECONDS.convert(time, unit);
+			Thread.currentThread().join(actual);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to sleep", e);
+		}
+	}
+	
 	
 	/**
 	 * Starts an elapsed timer for the current thread

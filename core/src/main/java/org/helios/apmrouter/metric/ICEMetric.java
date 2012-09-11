@@ -27,6 +27,7 @@ package org.helios.apmrouter.metric;
 import static org.helios.apmrouter.util.Methods.nvl;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -52,15 +53,40 @@ public class ICEMetric implements IMetric {
 	protected final IDelegateMetric metricId;
 	
 
+	/**
+	 * Creates a new ICEMetric
+	 * @param timestamp THe metric value timestamp
+	 * @param value The long value of the metric
+	 * @param type The type of the metric
+	 * @param dmetric The metric ID
+	 * @return a new ICEMetric
+	 */
+	public static ICEMetric newMetric(long timestamp, long value, MetricType type, IDelegateMetric dmetric) {
+		return new ICEMetric(new ICEMetricValue(type, value, timestamp), dmetric);
+	}
+	
+	/**
+	 * Creates a new ICEMetric
+	 * @param timestamp THe metric value timestamp
+	 * @param value The non-long value of the metric
+	 * @param type The type of the metric
+	 * @param dmetric The metric ID
+	 * @return a new ICEMetric
+	 */
+	public static ICEMetric newMetric(long timestamp, ByteBuffer value, MetricType type, IDelegateMetric dmetric) {
+		return new ICEMetric(new ICEMetricValue(type, value, timestamp), dmetric);
+	}
+	
+	
 	
 	/**
 	 * Creates a new ICEMetric
 	 * @param value The value for this metricId
 	 * @param metricId The metricId identifier
 	 */
-	private ICEMetric(ICEMetricValue value, IDelegateMetric metric) {
+	ICEMetric(ICEMetricValue value, IDelegateMetric metricId) {
 		this.value = value;
-		this.metricId = metric;
+		this.metricId = metricId;
 	}
 	
 	/**
@@ -210,7 +236,7 @@ public class ICEMetric implements IMetric {
 	 */
 	@Override
 	public MetricType getType() {
-		return metricId.getType();
+		return value.getType();
 	}
 
 	
@@ -361,15 +387,21 @@ public class ICEMetric implements IMetric {
 	 */
 	@Override
 	public int getSerSize() {
-		// TODO Auto-generated method stub
-		return 	metricId.getSerSize() +  		// the metric id size 
-				8 + 					 		// the timestamp  size (a long)
-				4 +								// the type size (an int)
-				(metricId.getType().isLong() ?
-					8 :							// the size of a long value
-					value.getValue().limit()+1 // the size of the bytebuffer +1 for the size
-				);
+		try {
+			return 	1 + 							// the byteorder byte
+					metricId.getSerSize() +1 +1 +	// the metric id size, 8 if tokenized, variable otherwise, +1 for the tokenization indicator byte 
+					8 + 					 		// the timestamp  size (a long)
+					1 +								// the type size (a byte)
+					(metricId.getType().isLong() ?
+						8 :							// the size of a long value
+						value.getValue().limit()+4 // the size of the bytebuffer +4 for the size
+					);
+		} catch (Exception e) {
+			throw new RuntimeException("Exception calculating size of metric [" + this + "]", e);
+		}
+		
 	}
+	
 
 	/**
 	 * {@inheritDoc}

@@ -44,6 +44,7 @@ public class LongKeyedHeapMetricCatalog extends AbstractMetricCatalog<Long, IDel
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.metric.catalog.AbstractMetricCatalog#createKey(java.lang.String)
 	 */
+	@SuppressWarnings("boxing")
 	@Override
 	protected Long createKey(String fqn) {		
 		return longHashCode(nvl(fqn, "FQN"));
@@ -68,6 +69,7 @@ public class LongKeyedHeapMetricCatalog extends AbstractMetricCatalog<Long, IDel
 		namecache.put(key, metric);
 		return metric;
 	}
+
 	
 
 }

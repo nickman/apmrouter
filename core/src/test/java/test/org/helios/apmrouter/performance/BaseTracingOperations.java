@@ -120,7 +120,7 @@ public class BaseTracingOperations extends BasePerformanceTestCase {
 	/**
 	 * Executes a microbenchmark for tracing native longs
 	 */
-	@Test(timeout=60000)
+	@Test(timeout=120000)
 	public void TraceLongPerformance() {
 		final ITracer tracer = TracerFactory.getTracer();
 		Runnable workLoadProfile = newTracingRunnable(new TracingDirective<ICEMetric>(){

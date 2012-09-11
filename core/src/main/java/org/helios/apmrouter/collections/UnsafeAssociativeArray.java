@@ -22,38 +22,19 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.sender.netty.codec;
-
+package org.helios.apmrouter.collections;
 
 /**
- * <p>Title: IMetricDecodePhase</p>
- * <p>Description: Enumerates the phasesof an IMetric decode</p> 
+ * <p>Title: UnsafeAssociativeArray</p>
+ * <p>Description: Base class for primitive associative arrays</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.sender.netty.codec.IMetricDecodePhase</code></p>
+ * <p><code>org.helios.apmrouter.collections.UnsafeAssociativeArray</code></p>
  */
+public class UnsafeAssociativeArray {
+	/** The associative array's keys */
+	protected UnsafeArray keys;
+	/** The associative array's values */
+	protected UnsafeArray values;
 
-public enum IMetricDecodePhase {
-	/** Reads the byte order of the incoming metric */
-	BYTE_ORDER,
-	/** Determines if the incoming metric ID is tokenized */
-	ISTOKENIZED,  
-	// if tokenized, next is TIMESTAMP, otherwise: TYPE->FQNLENGTH->FQN->TIMESTAMP
-	/** The incoming metric type */
-	TYPE,		
-	/** The length of the incoming FQN */
-	FQNLENGTH,
-	/** The incoming FQN bytes */
-	FQN,
-	/** The incoming metric timestamp */
-	TIMESTAMP,
-	// if long, goto LONG, otherwise: VLENGTH, VALUE
-	/** The incoming metric long value */
-	LONGVALUE,         	
-	/** The length of the incoming non-long value */
-	VLENGTH, 
-	/** The incoming non-long value */
-	VALUE;
-	
-	
 }

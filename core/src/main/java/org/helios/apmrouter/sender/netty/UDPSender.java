@@ -24,24 +24,30 @@
  */
 package org.helios.apmrouter.sender.netty;
 
+import static org.helios.apmrouter.util.Methods.nvl;
+
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.nio.channels.DatagramChannel;
+import java.util.Collection;
 import java.util.concurrent.Executor;
 
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.sender.AbstractSender;
 import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
+import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFactory;
+import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.FixedReceiveBufferSizePredictorFactory;
+import org.jboss.netty.channel.MessageEvent;
+import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.channel.socket.DatagramChannel;
 import org.jboss.netty.channel.socket.nio.NioDatagramChannelFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import static org.helios.apmrouter.util.Methods.nvl;
 
 /**
  * <p>Title: UDPSender</p>
@@ -56,6 +62,8 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	protected static final Logger LOG = LoggerFactory.getLogger(UDPSender.class);	
 	/** The netty server worker pool */
 	protected final Executor workerPool;
+	/** The URI that this sender is sending to */
+	protected final URI serverURI;
 	/** The netty bootstrap */
 	protected final ConnectionlessBootstrap bstrap;
 	/** The netty channel factory */
@@ -64,6 +72,17 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	protected final DatagramChannel channel;
 	/** The server socket to send to */
 	protected final InetSocketAddress socketAddress;
+	/** A discard handler used for discarding self-sent messages */
+	protected static final SimpleChannelUpstreamHandler discard = new SimpleChannelUpstreamHandler() {
+		@Override
+		public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
+			if(e.getChannel().getLocalAddress().equals(e.getRemoteAddress())) {
+				LOG.info("Drop");
+			} else {
+				super.messageReceived(ctx, e);
+			}
+		}
+	};
 	
 	/**
 	 * Returns a built instance of a UDPSender for the passed URI
@@ -89,12 +108,23 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	 * @param serverURI The host/port to send to
 	 */
 	private UDPSender(URI serverURI) {
+		super(serverURI);
+		this.serverURI = serverURI;
 		workerPool =  ThreadPoolFactory.newCachedThreadPool(getClass().getPackage().getName(), "UDPSenderWorker/" + serverURI.getHost() + "/" + serverURI.getPort());
 		channelFactory = new NioDatagramChannelFactory(workerPool);
 		bstrap = new ConnectionlessBootstrap(channelFactory);
+		bstrap.setPipelineFactory(this);
 		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(1024));
 		channel = (DatagramChannel) bstrap.bind(new InetSocketAddress(0));
 		socketAddress = new InetSocketAddress(serverURI.getHost(), serverURI.getPort());
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.ISender#getURI()
+	 */
+	public URI getURI() {
+		return serverURI;
 	}
 
 	/**
@@ -102,9 +132,31 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	 * @see org.helios.apmrouter.sender.ISender#send(org.helios.apmrouter.metric.IMetric[])
 	 */
 	@Override
+	public void sendDirect(IMetric... metrics) {		
+		Channel ch = channelFactory.newChannel(getPipeline());
+		for(IMetric metric: metrics) {
+			ch.write(metric);
+		}
+		sent.addAndGet(metrics.length);
+		ch.close();
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.ISender#sendDirect(java.util.Collection)
+	 */
+	public void sendDirect(Collection<IMetric[]> metrics) {
+		if(metrics!=null && !metrics.isEmpty()) {
+			for(IMetric[] arr: metrics) {
+				sendDirect(arr);
+			}
+		}
+	}
+	
 	public void send(IMetric... metrics) {
-		
-		
+		if(!queue.offer(metrics)) {
+			dropped.addAndGet(metrics.length);
+		}
 	}
 
 	/**
@@ -112,8 +164,10 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	 * @see org.jboss.netty.channel.ChannelPipelineFactory#getPipeline()
 	 */
 	@Override
-	public ChannelPipeline getPipeline() throws Exception {
+	public ChannelPipeline getPipeline()  {
 		ChannelPipeline pipeline = Channels.pipeline();
+		pipeline.addLast("discard", discard);
+		pipeline.addLast("metric-encoder", metricEncoder);
 		return pipeline;
 	}
 

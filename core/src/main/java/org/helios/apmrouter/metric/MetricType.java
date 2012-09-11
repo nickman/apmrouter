@@ -336,6 +336,7 @@ public enum MetricType  implements IMetricDataAccessor {
 		 * {@inheritDoc}
 		 * @see org.helios.apmrouter.metric.IMetricDataAccessor#write(java.lang.Object)
 		 */
+		@SuppressWarnings("synthetic-access")
 		@Override
 		public ICEMetricValue write(Serializable value) {
 			return new ICEMetricValue(BLOB, IO.writeToByteBuffer(value, direct, compress));

@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.helios.apmrouter.metric.MetricType;
 
@@ -48,6 +49,10 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 	protected final Map<K, V> namecache;
 	/** The delta cache for metrics */
 	protected final Map<K, Long> deltacache;
+	/** The metric token map */
+	protected final Map<Long, IDelegateMetric> tokencache;
+	/** The token ID factory */
+	protected final AtomicLong tokenSerial = new AtomicLong(0);
 	
 	/**
 	 * Creates a new AbstractMetricCatalog
@@ -56,7 +61,37 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 	protected AbstractMetricCatalog() {
 		namecache = new ConcurrentHashMap<K, V>(1024, 0.5f, 16);
 		deltacache = new ConcurrentHashMap<K, Long>(128, 0.5f, 16);
+		tokencache = new ConcurrentHashMap<Long, IDelegateMetric>(1024, 0.5f, 16);
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#get(long)
+	 */
+	@Override
+	public IDelegateMetric get(long metricIdToken) {
+		return tokencache.get(metricIdToken);
+	}
+
+	/**
+	 * Sets the serialization token for the passed metric identifier
+	 * @param host The host name
+	 * @param agent The agent name
+	 * @param name The metric name
+	 * @param type The metric type
+	 * @param namespace The namespace segments
+	 * @return  the assigned token
+	 */
+	public long setToken(String host, String agent, CharSequence name, MetricType type, CharSequence... namespace) {
+		IDelegateMetric metric = get(host, agent, name, type, namespace);
+		long token = metric.getToken();
+		if(token==-1) {
+			token = tokenSerial.incrementAndGet();
+			metric.setToken(token);
+		}
+		return token;
+	}
+	
 	
 	/**
 	 * Returns the delta for the passed value and metricId key
@@ -202,8 +237,18 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 	public void dispose() {
 		namecache.clear();
 		deltacache.clear();
+		tokencache.clear();
 	}
 	
+	/**
+	 * Returns a delegate metric for the passed FQN and type
+	 * @param fqn The metric FQN
+	 * @param type The metric type
+	 * @return the delegate metric
+	 */
+	public IDelegateMetric build(String fqn, MetricType type) {
+		return ICEMetricCatalog.build(fqn, type, this);
+	}
 	
 	/**
 	 * Calculates a low collision hash code for the passed string

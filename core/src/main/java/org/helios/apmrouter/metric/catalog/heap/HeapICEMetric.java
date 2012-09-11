@@ -27,6 +27,7 @@ package org.helios.apmrouter.metric.catalog.heap;
 import static org.helios.apmrouter.util.Methods.nvl;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.helios.apmrouter.metric.IMetric;
@@ -59,6 +60,27 @@ public class HeapICEMetric implements IDelegateMetric {
 	protected transient long token = -1;
 	/** The byte size of the metricId, held until the token is received */
 	protected transient volatile int byteSize = -1;
+
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		StringBuilder builder = new StringBuilder();
+		builder.append("HeapICEMetric [host=");
+		builder.append(host);
+		builder.append(", agent=");
+		builder.append(agent);
+		builder.append(", namespace=");
+		builder.append(Arrays.toString(namespace));
+		builder.append(", name=");
+		builder.append(name);
+		builder.append(", type=");
+		builder.append(type);
+		builder.append("]");
+		return builder.toString();
+	}
 
 	/**
 	 * Creates a new HeapICEMetric
@@ -257,7 +279,7 @@ public class HeapICEMetric implements IDelegateMetric {
 	public int getSerSize() {
 		if(getToken()!=-1) return 8;
 		if(byteSize!=-1) return byteSize;
-		byteSize = getFQN().getBytes().length; // just the FQN. Type is serialized seperately		
+		byteSize = getFQN().getBytes().length + 4; // just the FQN and +4 for the int size . Type is serialized seperately		
 		return byteSize;
 	}
 	

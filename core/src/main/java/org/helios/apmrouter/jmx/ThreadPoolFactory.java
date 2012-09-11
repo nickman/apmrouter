@@ -69,6 +69,7 @@ public class ThreadPoolFactory extends ThreadPoolExecutor implements ThreadFacto
 		super(0, Integer.MAX_VALUE, 50L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
 		setThreadFactory(this);
 		this.name = name;
+		prestartAllCoreThreads();
 		try {
 			objectName = new ObjectName(domain + ":service=ThreadPool,name=" + name);
 			ManagementFactory.getPlatformMBeanServer().registerMBean(this, objectName);

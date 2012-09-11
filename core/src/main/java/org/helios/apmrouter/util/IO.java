@@ -197,7 +197,8 @@ public class IO {
 			//log("Total Bytes:" + cntr.get());
 			buff[0].flip();			
 			return buff[0];
-		} catch (Exception e) {
+		} catch (Throwable e) {
+			e.printStackTrace(System.err);
 			throw new RuntimeException("Failed to write instance of [" + value.getClass().getName() + "]", e);
 		} finally {
 			if(ois!=null) try { ois.close(); } catch (Exception ex) {}

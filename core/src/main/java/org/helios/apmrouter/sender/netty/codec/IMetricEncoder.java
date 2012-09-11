@@ -50,42 +50,53 @@ public class IMetricEncoder extends OneToOneEncoder {
 	 */
 	@Override
 	protected Object encode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
-		if(msg instanceof IMetric) {			
-			IMetric metric = (IMetric)msg;
-			ChannelBuffer buff = ChannelBuffers.directBuffer(metric.getSerSize()+1); // the size of the metric +1 for the endianess
-			buff.writeByte(ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN) ? 0 : 1); // 0 for LITTLE, 1 for BIG
-			long token = metric.getToken();
-			// write metric ID
-			if(token!=-1) {
-				buff.writeByte(1);
-				buff.writeLong(token);
-			} else {
-				buff.writeByte(0);
-				writeMetricId(buff, metric);
+		if(msg instanceof IMetric) {
+			try {
+				IMetric metric = (IMetric)msg;
+				ChannelBuffer buff = ChannelBuffers.directBuffer(metric.getSerSize()+1+4); // the size of the metric,  +1 for the endianess
+				buff.writeByte(ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN) ? 0 : 1); // 0 for LITTLE, 1 for BIG
+				long token = metric.getToken();
+				// write metric ID
+				if(token!=-1) {
+					buff.writeByte(1);
+					buff.writeLong(token);
+				} else {
+					buff.writeByte(0);
+					// Write the metric type
+					buff.writeByte(metric.getType().ordinal());
+					// Write the metric fqn
+					writeMetricId(buff, metric);
+				}
+				// Write the metric timestamp
+				buff.writeLong(metric.getTime());
+				// Write the metric value
+				if(metric.getType().isLong()) {
+					// just the long if this is a long type
+					buff.writeLong(metric.getLongValue());
+				} else {
+					// get the bytebuffer if its not a long
+					// write the length, then the bytes
+					buff.writeByte(metric.getRawValue().limit());
+					buff.writeBytes(metric.getRawValue());
+				}
+				System.out.println("Buff:" + buff.readableBytes());
+				return buff;
+			} catch (Exception e) {
+				e.printStackTrace(System.err);
+				throw e;
 			}
-			// Write the metric timestamp
-			buff.writeLong(metric.getTime());
-			// Write the metric type
-			buff.writeInt(metric.getType().ordinal());
-			// Write the metric value
-			if(metric.getType().isLong()) {
-				// just the long if this is a long type
-				buff.writeLong(metric.getLongValue());
-			} else {
-				// get the bytebuffer if its not a long
-				buff.writeBytes(metric.getRawValue());
-			}
-			return buff;
 		}
 		return null;
 	}
+	
+	
 	
 	/**
 	 * Writes the metric's metricId if it has not been tokenized yet
 	 * @param cb The channel buffer to write to 
 	 * @param metric The metric to write the metricId for
 	 */
-	protected void writeMetricId(ChannelBuffer cb, IMetric metric) {
+	protected static void writeMetricId(ChannelBuffer cb, IMetric metric) {
 		byte[] fqn = metric.getFQN().getBytes();
 		cb.writeInt(fqn.length);
 		cb.writeBytes(fqn);

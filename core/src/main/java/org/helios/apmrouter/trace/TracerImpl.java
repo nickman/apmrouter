@@ -24,13 +24,15 @@
  */
 package org.helios.apmrouter.trace;
 
+import static org.helios.apmrouter.util.Methods.nvl;
+
 import java.io.Serializable;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
-
-import static org.helios.apmrouter.util.Methods.nvl;
+import org.helios.apmrouter.sender.ISender;
 
 /**
  * <p>Title: TracerImpl</p>
@@ -45,6 +47,11 @@ public class TracerImpl implements ITracer {
 	protected final String host;
 	/** The originating agent of the metrics created by this tracer */
 	protected final String agent;
+	/** The sender ref which will change if the apmserver is not available */
+	protected final AtomicReference<ISender> senderRef; 
+	/** The current sender */
+	protected ISender sender; 
+	
 	
 	
 
@@ -53,9 +60,11 @@ public class TracerImpl implements ITracer {
 	 * @param host The originating host of the metrics created by this tracer
 	 * @param agent The originating agent of the metrics created by this tracer
 	 */
-	public TracerImpl(String host, String agent) {
+	public TracerImpl(String host, String agent, final AtomicReference<ISender> senderRef) {
 		this.host = nvl(host, "HostName");
 		this.agent = nvl(agent, "Agent Name");
+		this.senderRef = senderRef;
+		sender = senderRef.get();
 	}
 	
 	/**
@@ -98,6 +107,7 @@ public class TracerImpl implements ITracer {
 			} else {
 				metric = ICEMetric.trace(value, host, agent, name, type, namespace);
 			}
+			sender.send(metric);
 			return metric;
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
@@ -149,7 +159,9 @@ public class TracerImpl implements ITracer {
 	@Override
 	public ICEMetric traceLong(long value, CharSequence name, CharSequence... namespace) {
 		try {				
-			return ICEMetric.trace(value, host, agent, name, MetricType.LONG, namespace);			
+			ICEMetric metric = ICEMetric.trace(value, host, agent, name, MetricType.LONG, namespace);
+			sender.send(metric);
+			return metric;
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
 			return null;
@@ -165,7 +177,9 @@ public class TracerImpl implements ITracer {
 		try {
 			Long delta = ICEMetricCatalog.getInstance().getDelta(value, host, agent, name, namespace);
 			if(delta==null) return null;			
-			return ICEMetric.trace(delta.longValue(), host, agent, name, MetricType.DELTA, namespace);			
+			ICEMetric metric =  ICEMetric.trace(delta.longValue(), host, agent, name, MetricType.DELTA, namespace);
+			sender.send(metric);
+			return metric;
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
 			return null;
@@ -179,7 +193,9 @@ public class TracerImpl implements ITracer {
 	@Override
 	public ICEMetric traceString(CharSequence value, CharSequence name, CharSequence... namespace) {
 		try {				
-			return ICEMetric.trace(value, host, agent, name, MetricType.STRING, namespace);			
+			ICEMetric metric = ICEMetric.trace(value, host, agent, name, MetricType.STRING, namespace);
+			sender.send(metric);
+			return metric;			
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
 			return null;
@@ -193,7 +209,9 @@ public class TracerImpl implements ITracer {
 	@Override
 	public ICEMetric traceError(Throwable value, CharSequence name, CharSequence... namespace) {
 		try {				
-			return ICEMetric.trace(value, host, agent, name, MetricType.ERROR, namespace);			
+			ICEMetric metric =  ICEMetric.trace(value, host, agent, name, MetricType.ERROR, namespace);
+			sender.send(metric);
+			return metric;						
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
 			return null;
@@ -207,7 +225,9 @@ public class TracerImpl implements ITracer {
 	@Override
 	public ICEMetric traceBlob(Serializable value, CharSequence name, CharSequence... namespace) {
 		try {				
-			return ICEMetric.trace(value, host, agent, name, MetricType.BLOB, namespace);			
+			ICEMetric metric =   ICEMetric.trace(value, host, agent, name, MetricType.BLOB, namespace);
+			sender.send(metric);
+			return metric;									
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
 			return null;
@@ -231,5 +251,25 @@ public class TracerImpl implements ITracer {
 	public String getAgent() {
 		return agent;
 	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#getSentMetrics()
+	 */
+	@Override
+	public long getSentMetrics() {
+		return sender.getSentMetrics();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#getDroppedMetrics()
+	 */
+	@Override
+	public long getDroppedMetrics() {
+		return sender.getDroppedMetrics();
+	}
+	
+	
 
 }

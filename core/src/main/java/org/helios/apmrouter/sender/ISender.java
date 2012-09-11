@@ -24,6 +24,9 @@
  */
 package org.helios.apmrouter.sender;
 
+import java.net.URI;
+import java.util.Collection;
+
 import org.helios.apmrouter.metric.IMetric;
 
 /**
@@ -36,8 +39,39 @@ import org.helios.apmrouter.metric.IMetric;
 
 public interface ISender {
 	/**
-	 * Sends the passed metrics to the configured endpoint
-	 * @param metrics the metrics to send
+	 * Queues the passed metrics for transmission to the configured endpoint
+	 * @param metrics the metrics to queue
 	 */
 	public void send(IMetric...metrics);
+
+	/**
+	 * Directly transmits the passed metrics to the configured endpoint
+	 * @param metrics the metrics to send
+	 */
+	public void sendDirect(IMetric...metrics);
+	
+	/**
+	 * Directly transmits the passed metrics to the configured endpoint
+	 * @param metrics the metrics to send
+	 */
+	public void sendDirect(Collection<IMetric[]> metrics);
+	
+	/**
+	 * Returns the total number of sent metrics on this sender
+	 * @return the total number of sent metrics on this sender
+	 */
+	public long getSentMetrics();
+
+	/**
+	 * Returns the total number of dropped metrics on this sender
+	 * @return the total number of dropped metrics on this sender
+	 */	
+	public long getDroppedMetrics();
+
+	
+	/**
+	 * Returns the URI that this sender is sending to
+	 * @return the URI that this sender is sending to
+	 */
+	public URI getURI();
 }

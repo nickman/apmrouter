@@ -25,8 +25,16 @@
 package org.helios.apmrouter.sender;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+
+import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.sender.netty.codec.IMetricEncoder;
 
 
 /**
@@ -40,5 +48,47 @@ import java.util.concurrent.ConcurrentHashMap;
 public abstract class AbstractSender implements ISender {
 	/** A map of created senders keyed by the URI */
 	protected static final Map<URI, ISender> senders = new ConcurrentHashMap<URI, ISender>(); 
+	
+	/** The metric encoder */
+	protected static final IMetricEncoder metricEncoder = new IMetricEncoder();
+	
+	protected final AtomicLong sent = new AtomicLong(0);
+	protected final AtomicLong dropped = new AtomicLong(0);
+	
+	/** The metric processing queue */
+	protected final BlockingQueue<IMetric[]> queue = new ArrayBlockingQueue<IMetric[]>(1000, false);
+	/** The metric queue processing thread */
+	protected final Thread queueProcessor;
+	
+	protected AbstractSender(URI serverURI) {
+		queueProcessor = new Thread(serverURI.toString() + "-QueueProcessor") {
+			public void run() {
+				List<IMetric[]> drain = new ArrayList<IMetric[]>(1000);
+				while(true) {
+					try {						
+						queue.drainTo(drain, 100);
+						if(!drain.isEmpty()) {
+							sendDirect(drain);
+							drain.clear();
+						}
+					} catch (Exception e) {
+						e.printStackTrace(System.err);
+					}
+				}
+			}
+		};
+		queueProcessor.setDaemon(true);
+		queueProcessor.start();
+	}
+	
+	public long getSentMetrics() {
+		return sent.get();
+	}
+	
+	public long getDroppedMetrics() {
+		return dropped.get();
+	}
+	
+	
 
 }

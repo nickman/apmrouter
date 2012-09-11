@@ -125,6 +125,17 @@ public interface ITracer {
 	 */
 	public String getAgent();
 	
+	/**
+	 * Returns the total number of sent metrics on this tracer's sender
+	 * @return the total number of sent metrics on this tracer's sender
+	 */
+	public long getSentMetrics();
+
+	/**
+	 * Returns the total number of dropped metrics on this tracer's sender
+	 * @return the total number of dropped metrics on this tracer's sender
+	 */	
+	public long getDroppedMetrics();
 	
 	
 }

@@ -41,13 +41,41 @@ public class ICEMetricValue {
 	/**
 	 * Creates a new ICEMetricValue
 	 * @param type The metricId type
+	 * @param longValue The value of this metricId as a long
+	 * @param timestamp The metric value timestamp
+	 */
+	ICEMetricValue(MetricType type, long longValue, long timestamp) {
+		this.time = timestamp;
+		this.type = type;
+		this.longValue = longValue;
+	}
+	
+	
+	/**
+	 * Creates a new ICEMetricValue
+	 * @param type The metricId type
 	 * @param value The value of this metricId in bytes
 	 */
 	ICEMetricValue(MetricType type, ByteBuffer value) {
 		this.time = SystemClock.time();
 		this.type = type;
 		this.value = value;
+		if(this.value.position()!=0) this.value.flip(); 
 	}
+	
+	/**
+	 * Creates a new ICEMetricValue
+	 * @param type The metricId type
+	 * @param value The value of this metricId in bytes
+	 * @param timestamp The metric value timestamp
+	 */
+	ICEMetricValue(MetricType type, ByteBuffer value, long timestamp) {
+		this.time = timestamp;
+		this.type = type;
+		this.value = value;
+		if(this.value.position()!=0) this.value.flip(); 
+	}
+	
 	
 	
 
