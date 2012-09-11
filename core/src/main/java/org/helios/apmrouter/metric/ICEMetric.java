@@ -26,6 +26,7 @@ package org.helios.apmrouter.metric;
 
 import static org.helios.apmrouter.util.Methods.nvl;
 
+import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -352,6 +353,32 @@ public class ICEMetric implements IMetric {
 		builder.append("]:");
 		builder.append(getValue());
 		return builder.toString();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getSerSize()
+	 */
+	@Override
+	public int getSerSize() {
+		// TODO Auto-generated method stub
+		return 	metricId.getSerSize() +  		// the metric id size 
+				8 + 					 		// the timestamp  size (a long)
+				4 +								// the type size (an int)
+				(metricId.getType().isLong() ?
+					8 :							// the size of a long value
+					value.getValue().limit()+1 // the size of the bytebuffer +1 for the size
+				);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getRawValue()
+	 */
+	@Override
+	public ByteBuffer getRawValue() {
+		if(metricId.getType().isLong()) throw new RuntimeException("Call to getRawValue on a long type metric", new Throwable());
+		return value.getValue();
 	}
 
 

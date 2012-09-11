@@ -24,7 +24,12 @@
  */
 package org.helios.apmrouter.sender.netty.codec;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+
 import org.helios.apmrouter.metric.IMetric;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -39,16 +44,51 @@ import org.jboss.netty.handler.codec.oneone.OneToOneEncoder;
  */
 @ChannelHandler.Sharable
 public class IMetricEncoder extends OneToOneEncoder {
-
-
 	/**
 	 * {@inheritDoc}
 	 * @see org.jboss.netty.handler.codec.oneone.OneToOneEncoder#encode(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.Channel, java.lang.Object)
 	 */
 	@Override
 	protected Object encode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
-		// TODO Auto-generated method stub
+		if(msg instanceof IMetric) {			
+			IMetric metric = (IMetric)msg;
+			ChannelBuffer buff = ChannelBuffers.directBuffer(metric.getSerSize()+1); // the size of the metric +1 for the endianess
+			buff.writeByte(ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN) ? 0 : 1); // 0 for LITTLE, 1 for BIG
+			long token = metric.getToken();
+			// write metric ID
+			if(token!=-1) {
+				buff.writeByte(1);
+				buff.writeLong(token);
+			} else {
+				buff.writeByte(0);
+				writeMetricId(buff, metric);
+			}
+			// Write the metric timestamp
+			buff.writeLong(metric.getTime());
+			// Write the metric type
+			buff.writeInt(metric.getType().ordinal());
+			// Write the metric value
+			if(metric.getType().isLong()) {
+				// just the long if this is a long type
+				buff.writeLong(metric.getLongValue());
+			} else {
+				// get the bytebuffer if its not a long
+				buff.writeBytes(metric.getRawValue());
+			}
+			return buff;
+		}
 		return null;
+	}
+	
+	/**
+	 * Writes the metric's metricId if it has not been tokenized yet
+	 * @param cb The channel buffer to write to 
+	 * @param metric The metric to write the metricId for
+	 */
+	protected void writeMetricId(ChannelBuffer cb, IMetric metric) {
+		byte[] fqn = metric.getFQN().getBytes();
+		cb.writeInt(fqn.length);
+		cb.writeBytes(fqn);
 	}
 
 }

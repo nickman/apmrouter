@@ -153,10 +153,11 @@ public class UnsafeLongArray extends UnsafeArray {
 	private void load(long[] arr) {		
 		if(arr.length<1) return;
 		if(arr.length>maxCapacity) throw new ArrayOverflowException("Passed array of length [" + arr.length + "] is too large for this UnsafeLongArray with a max capacity of [" + maxCapacity + "]", new Throwable());
-		unsafe.freeMemory(address);
-		address = unsafe.allocateMemory(arr.length << 3);
+		freeMemory(address);
+		address = allocateMemory(arr.length << 3);
 		unsafe.copyMemory(arr, LONG_ARRAY_OFFSET, null, address, arr.length << 3);
 		size = capacity = arr.length;
+		if(sorted) sort();
 	}
 	
 	/**
@@ -165,10 +166,11 @@ public class UnsafeLongArray extends UnsafeArray {
 	 */
 	private void load(UnsafeLongArray ula) {				
 		if(ula.size>maxCapacity) throw new ArrayOverflowException("Passed UnsafeLongArray of size [" + ula.size + "] is too large for this UnsafeLongArray with a max capacity of [" + maxCapacity + "]", new Throwable());
-		unsafe.freeMemory(address);		
-		address = unsafe.allocateMemory(ula.size << 3);
+		freeMemory(address);		
+		address = allocateMemory(ula.size << 3);
 		unsafe.copyMemory(ula.address, address, ula.size << 3);
 		size = capacity = ula.size;
+		if(sorted) sort();
 	}
 	
 	// ======================================================================================

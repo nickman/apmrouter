@@ -342,6 +342,18 @@ public class ChronicleICEMetric implements IDelegateMetric {
 		//excerpt.finish();
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.catalog.IDelegateMetric#getSerSize()
+	 */
+	@Override
+	public int getSerSize() {
+		if(getToken()!=-1) return 8;
+		// bigger than it needs to be, but fast
+		return excerpt.length();
+	}
+	
+	
 	
 	/**
 	 * {@inheritDoc}
@@ -474,6 +486,7 @@ public class ChronicleICEMetric implements IDelegateMetric {
 		builder.append("]");
 		return builder.toString();
 	}
+
 	
 	
 

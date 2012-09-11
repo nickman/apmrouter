@@ -109,7 +109,7 @@ public abstract class UnsafeArray {
      * @param size The size of the memory to allocate in bytes
      * @return a pointer to the memory block allocated
      */
-    private static long allocateMemory(long size) {
+    protected static long allocateMemory(long size) {
     	long address = unsafe.allocateMemory(size);
     	UNMANAGED_MEM_ALLOCATIONS.incrementAndGet();
     	return address;
@@ -120,7 +120,7 @@ public abstract class UnsafeArray {
      * @param address The pointer to the memory block to free
      * @return the number of unmanaged allocations remaining
      */
-    private static long freeMemory(long address) {
+    protected static long freeMemory(long address) {
     	unsafe.freeMemory(address);
     	return UNMANAGED_MEM_ALLOCATIONS.decrementAndGet();    	
     }

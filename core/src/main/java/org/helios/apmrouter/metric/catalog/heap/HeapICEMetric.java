@@ -57,6 +57,8 @@ public class HeapICEMetric implements IDelegateMetric {
 	protected final boolean flat;
 	/** The serialization token */
 	protected transient long token = -1;
+	/** The byte size of the metricId, held until the token is received */
+	protected transient volatile int byteSize = -1;
 
 	/**
 	 * Creates a new HeapICEMetric
@@ -244,6 +246,19 @@ public class HeapICEMetric implements IDelegateMetric {
 	@Override
 	public void setToken(long token) {
 		this.token = token;
+		byteSize = -1;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.catalog.IDelegateMetric#getSerSize()
+	 */
+	@Override
+	public int getSerSize() {
+		if(getToken()!=-1) return 8;
+		if(byteSize!=-1) return byteSize;
+		byteSize = getFQN().getBytes().length; // just the FQN. Type is serialized seperately		
+		return byteSize;
 	}
 	
 

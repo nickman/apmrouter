@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.metric;
 
+import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.Map;
 
@@ -162,6 +163,17 @@ public interface IMetric {
 	 */
 	public abstract long getLongValue();
 	
+	/**
+	 * Returns the number of bytes required to marshall this metric
+	 * @return the number of bytes required to marshall this metric
+	 */
+	public abstract int getSerSize();
+	
+	/**
+	 * Returns the non-long value as it's native byte buffer
+	 * @return the non-long value as it's native byte buffer
+	 */
+	public ByteBuffer getRawValue();
 	/**
 	 * Returns the serialization token for this IMetric
 	 * @return the serialization token for this IMetric or -1 if one has not been assigned

@@ -29,10 +29,14 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.helios.apmrouter.collections.ConcurrentLongSortedSet;
 import org.helios.apmrouter.collections.UnsafeArrayBuilder;
 import org.helios.apmrouter.collections.UnsafeLongArray;
+import org.helios.apmrouter.util.SystemClock;
+import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -52,28 +56,27 @@ public class ConcurrentLongSortedSetTestCase {
 	public static void setUpBeforeClass() throws Exception {
 	}
 
-	static int sampleSize = 2500000;
+	static int sampleSize = 1500000;
+//	static int sampleSize = 2500;
 	
-//	/** A sample large-ish test array */
-//	static  long[] LARGE_TEST_ARR;
-//	static Set<Long> LARGE_TEST_SET;
-//	
-//	static {  // Initializes the test array
-//		Random r = new Random(System.currentTimeMillis());
-//		Set<Long> set = new HashSet<Long>();
-//		for(int i = 0; i < sampleSize; i++) {
-//			set.add(r.nextLong());
-//		}
-//		LARGE_TEST_SET = new HashSet<Long>(set);
-//		LARGE_TEST_ARR = new long[LARGE_TEST_SET.size()];
-//		int cnt = 0;
-//		for(long v: LARGE_TEST_SET) {
-//			LARGE_TEST_ARR[cnt] = v;
-//			cnt++;
-//		}
-//		log("Sample Size:" + cnt);
-//		
-//	}
+	/** A sample large-ish test array */
+	static final long[] LARGE_TEST_ARR;
+	static final Set<Long> LARGE_TEST_SET;
+	
+	static {  // Initializes the test array
+		Random r = new Random(System.currentTimeMillis());
+		Set<Long> set = new HashSet<Long>();
+		for(int i = 0; i < sampleSize; i++) {
+			set.add(r.nextLong());
+		}
+		LARGE_TEST_SET = new HashSet<Long>(set);
+		LARGE_TEST_ARR = new long[LARGE_TEST_SET.size()];
+		int cnt = 0;
+		for(long v: LARGE_TEST_SET) {
+			LARGE_TEST_ARR[cnt] = v;
+			cnt++;
+		}			
+	}
 	
 	protected static void log(Object obj) {
 		System.out.println(obj);
@@ -108,6 +111,78 @@ public class ConcurrentLongSortedSetTestCase {
 		log("Heap Used:" + (ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed()-initial));
 //		Assert.assertEquals(hits, chits);
 //		Assert.assertEquals(set.size(), ula.size());	
+	}
+	
+	public static void main(String[] args) {
+		final int SAMPLE_SIZE = LARGE_TEST_SET.size();
+		final int THREADCOUNT = ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors();
+		final int LOOPCOUNT = 1;
+		log("MultiThreaded Perftest. \n\tSample Size:" + SAMPLE_SIZE + "\n\tThread Count:" + THREADCOUNT + "\n\tLoop Count:" + LOOPCOUNT);
+		
+		
+		log("Starting ConcurrentSkipListSet Test: ThreadCount:" + THREADCOUNT);
+		final ConcurrentSkipListSet csl = new ConcurrentSkipListSet(LARGE_TEST_SET);
+		final AtomicLong cslMatches = new AtomicLong(0L);
+		final CountDownLatch startLatch = new CountDownLatch(1);
+		final CountDownLatch endLatch = new CountDownLatch(THREADCOUNT);
+		for(int i = 0; i < THREADCOUNT; i++) {
+			Thread t = new Thread() {
+				public void run() {
+					try {startLatch.await();} catch (Exception ex) { throw new RuntimeException(); }
+					//log("Started CSL Thread");
+					int matches = 0;
+					for(long v: LARGE_TEST_ARR) {
+						matches += csl.contains(v) ? 1 : 0;
+					}
+					cslMatches.addAndGet(matches);
+					endLatch.countDown();
+				}
+			};
+			t.setDaemon(true);
+			t.start();
+		}
+		SystemClock.startTimer();
+		startLatch.countDown();
+		try {endLatch.await();} catch (Exception ex) { throw new RuntimeException(ex); }
+		ElapsedTime et = SystemClock.endTimer();
+		log("ConcurrentSkipListSet:" + et);
+		log("Starting ConcurrentLongSortedSet Test: ThreadCount:" + THREADCOUNT);
+
+		
+		final ConcurrentLongSortedSet ula = new ConcurrentLongSortedSet(LARGE_TEST_ARR);
+		final AtomicLong ulaMatches = new AtomicLong(0L);
+		final CountDownLatch ulaStartLatch = new CountDownLatch(1);
+		final CountDownLatch ulaEndLatch = new CountDownLatch(THREADCOUNT);
+		log("Warmup");
+		int matches = 0;
+		for(long v: LARGE_TEST_ARR) {
+			matches += ula.contains(v) ? 1 : 0;
+		}
+		assert SAMPLE_SIZE == matches;
+		log("Warmup Complete");
+		for(int i = 0; i < THREADCOUNT; i++) {
+			Thread t = new Thread() {
+				public void run() {
+					try {ulaStartLatch.await();} catch (Exception ex) { throw new RuntimeException(); }
+					//log("Started ULA Thread");
+					int matches = 0;
+					for(long v: LARGE_TEST_ARR) {
+						matches += ula.contains(v) ? 1 : 0;
+					}
+					ulaMatches.addAndGet(matches);
+					ulaEndLatch.countDown();
+					//log("ULA Thread:" + matches);
+				}
+			};
+			t.setDaemon(true);
+			t.start();
+		}
+		SystemClock.startTimer();
+		ulaStartLatch.countDown();
+		try {ulaEndLatch.await();} catch (Exception ex) { throw new RuntimeException(ex); }
+		et = SystemClock.endTimer();
+		log("ULA:" + et);
+		log("CSL Matches:" + cslMatches.get() + "   ULA Matches:" + ulaMatches.get());
 	}
 
 }

@@ -108,5 +108,12 @@ public interface IDelegateMetric {
 	 */
 	public abstract void setToken(long token);
 	
+	/**
+	 * Returns the number of bytes required to marshall this metric id
+	 * @return the number of bytes required to marshall this metric id
+	 */
+	public abstract int getSerSize();
+
+	
 
 }
