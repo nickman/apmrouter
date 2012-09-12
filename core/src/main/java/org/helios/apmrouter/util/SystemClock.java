@@ -90,6 +90,15 @@ public enum SystemClock {
 	};
 	
 	/**
+	 * Returns the elapsed time in ms. since the passed timestamp
+	 * @param time The base time to get the elapsed from
+	 * @return the elapsed time
+	 */
+	public static long elapsedMsSince(long time) {
+		return currentClock.get().getTime()-time;
+	}
+	
+	/**
 	 * Causes the calling thread to join itself for the indicated time
 	 * @param time The time to join in ms.
 	 */
@@ -371,7 +380,7 @@ public enum SystemClock {
 		private long _avg(double time, double cnt) {
 			if(time==0 || cnt==0 ) return 0L;
 			double d = time/cnt;
-			return (long)d;
+			return Math.round(d);
 		}
 		
 		

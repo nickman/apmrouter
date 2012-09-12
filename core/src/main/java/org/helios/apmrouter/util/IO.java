@@ -143,7 +143,7 @@ public class IO {
 	 * @param compress Indicates if the byte array should be compressed 
 	 * @return The buffer containing the serialized object which may be empty if the value was null
 	 */
-	public static ByteBuffer writeToByteBuffer(final Object value, final boolean direct, final int bufferSize, final boolean compress) {
+	public static ByteBuffer writeToByteBufferX(final Object value, final boolean direct, final int bufferSize, final boolean compress) {
 		if(value==null) return direct ? ByteBuffer.allocateDirect(0) : ByteBuffer.allocate(0);
 		ObjectOutputStream ois = null;
 		OutputStream channelOutputStream = null;
@@ -205,6 +205,52 @@ public class IO {
 			if(zipOutputStream!=null) try { zipOutputStream.close(); } catch (Exception ex) {}
 		}		
 	}
+	
+	/**
+	 * Serializes an object to a byte buffer
+	 * @param value The object to serialize
+	 * @param direct true to return a direct buffer, false for a heap buffer
+	 * @param bufferSize The incremental size of the buffers to create while streaming
+	 * @param compress Indicates if the byte array should be compressed 
+	 * @return The buffer containing the serialized object which may be empty if the value was null
+	 */
+	public static ByteBuffer writeToByteBuffer(final Object value, final boolean direct, final int bufferSize, final boolean compress) {
+		if(value==null) return direct ? ByteBuffer.allocateDirect(0) : ByteBuffer.allocate(0);
+		ObjectOutputStream ois = null;
+		ByteArrayOutputStream channelOutputStream = new ByteArrayOutputStream(bufferSize);
+		GZIPOutputStream zipOutputStream = null;
+		try {
+			if(compress) {						
+				zipOutputStream = new GZIPOutputStream(channelOutputStream);
+				ois = new ObjectOutputStream(zipOutputStream);
+				channelOutputStream.write(1);
+			} else {			
+				ois = new ObjectOutputStream(channelOutputStream);
+				channelOutputStream.write(0);
+			}
+			ois.writeObject(value);
+			ois.flush();
+			if(compress) zipOutputStream.finish();
+			channelOutputStream.flush();
+			ByteBuffer bb = null;
+			byte[] bytes = channelOutputStream.toByteArray();
+			if(direct) {
+				bb = ByteBuffer.allocateDirect(bytes.length);
+				bb.put(bytes);
+			} else {
+				bb = ByteBuffer.wrap(bytes);
+			}
+			bb.flip();
+			return bb;
+		} catch (Throwable e) {
+			e.printStackTrace(System.err);
+			throw new RuntimeException("Failed to write instance of [" + value.getClass().getName() + "]", e);
+		} finally {
+			if(ois!=null) try { ois.close(); } catch (Exception ex) {}
+			if(zipOutputStream!=null) try { zipOutputStream.close(); } catch (Exception ex) {}
+		}		
+	}
+	
 	
 	public static void log(Object msg) {
 		System.out.println(msg);

@@ -54,31 +54,10 @@ public abstract class AbstractSender implements ISender {
 	
 	protected final AtomicLong sent = new AtomicLong(0);
 	protected final AtomicLong dropped = new AtomicLong(0);
-	
-	/** The metric processing queue */
-	protected final BlockingQueue<IMetric[]> queue = new ArrayBlockingQueue<IMetric[]>(1000, false);
-	/** The metric queue processing thread */
-	protected final Thread queueProcessor;
+	protected final URI serverURI;
 	
 	protected AbstractSender(URI serverURI) {
-		queueProcessor = new Thread(serverURI.toString() + "-QueueProcessor") {
-			public void run() {
-				List<IMetric[]> drain = new ArrayList<IMetric[]>(1000);
-				while(true) {
-					try {						
-						queue.drainTo(drain, 100);
-						if(!drain.isEmpty()) {
-							sendDirect(drain);
-							drain.clear();
-						}
-					} catch (Exception e) {
-						e.printStackTrace(System.err);
-					}
-				}
-			}
-		};
-		queueProcessor.setDaemon(true);
-		queueProcessor.start();
+		this.serverURI = serverURI;
 	}
 	
 	public long getSentMetrics() {

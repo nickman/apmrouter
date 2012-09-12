@@ -38,7 +38,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.helios.apmrouter.metric.AgentIdentity;
+import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.sender.ISender;
 import org.helios.apmrouter.sender.netty.UDPSender;
 import org.helios.apmrouter.util.SystemClock;
@@ -168,31 +171,45 @@ public class TracerFactory {
 	
 	public static void main(String[] args) {
 		log("Basic Tracing Test");
-		final int LOOPS = 10;
+		MetricType.setCompress(false);
+		MetricType.setDirect(true);
+		final int LOOPS = 1000;
 		final ITracer tracer = getTracer();
-		DirectMetricCollection dcm = DirectMetricCollection.newDirectMetricCollection(); 
-		log("DCM:" + dcm);
-		for(int i = 0; i < LOOPS; i++) {
-			log("Loop:" + i);
-			dcm.append(tracer.traceBlob(new Date(), "foo", "date"));
-			log("Loop:" + i);
-			dcm.append(tracer.traceLong(i, "foo", "bar"));	
-			log("Loop:" + i);
+		DirectMetricCollection dcm = null;
+		for(int x = 0; x < 100; x++) {			
+			dcm = DirectMetricCollection.newDirectMetricCollection();			
+			for(int i = 0; i < LOOPS; i++) {
+				//dcm.append(tracer.traceBlob(new Date(), "foo", "date"));
+				dcm.append(tracer.traceLong(i, "foo", "bar"));	
+			}
+			//log("DCM:" + dcm);
+			dcm.destroy();
 		}
-		log("DCM:" + dcm);
-		dcm.destroy();
-		log("DCM Destroyed");
 		dcm = null;
 		log("Warmup Complete");
 		dcm = DirectMetricCollection.newDirectMetricCollection();
 		SystemClock.startTimer();
 		for(int i = 0; i < LOOPS; i++) {
+			//dcm.append(tracer.traceBlob(new Date(), "foo", "date"));
 			dcm.append(tracer.traceLong(i, "foo", "bar"));						
 		}
 		ElapsedTime et = SystemClock.endTimer();
-		log("DCM:" + dcm + "\nSent:" + tracer.getSentMetrics() + "\nDropped:" + tracer.getDroppedMetrics() + "\nElapsed:" + et + "\nAvg Per:" + et.avgNs(LOOPS) + "ns");
+		log("FULL:\nDCM:" + dcm + "\nSent:" + tracer.getSentMetrics() + "\nDropped:" + tracer.getDroppedMetrics() + "\nElapsed:" + et + "\nAvg Per:" + et.avgNs(LOOPS) + " ns");
 		dcm.destroy();
 		dcm = null;
+		/// TOKENIZE
+		ICEMetricCatalog.getInstance().setToken(tracer.getHost(), tracer.getAgent(), "foo", MetricType.LONG, "bar");
+		dcm = DirectMetricCollection.newDirectMetricCollection();
+		SystemClock.startTimer();
+		for(int i = 0; i < LOOPS; i++) {
+			//dcm.append(tracer.traceBlob(new Date(), "foo", "date"));
+			dcm.append(tracer.traceLong(i, "foo", "bar"));						
+		}
+		et = SystemClock.endTimer();
+		log("TOKEN:\nDCM:" + dcm + "\nSent:" + tracer.getSentMetrics() + "\nDropped:" + tracer.getDroppedMetrics() + "\nElapsed:" + et + "\nAvg Per:" + et.avgNs(LOOPS) + " ns");
+		dcm.destroy();
+		dcm = null;
+		
 	}
 	public static void log(Object msg) {
 		System.out.println(msg);

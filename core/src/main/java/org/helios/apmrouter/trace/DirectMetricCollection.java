@@ -27,8 +27,11 @@ package org.helios.apmrouter.trace;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Collection;
 
 import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.sender.ISender;
+import org.helios.apmrouter.sender.Sender;
 
 import sun.misc.Unsafe;
 import sun.nio.ch.DirectBuffer;
@@ -40,13 +43,13 @@ import sun.nio.ch.DirectBuffer;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.trace.DirectMetricCollection</code></p>
  */
-public class DirectMetricCollection {
+public class DirectMetricCollection implements Runnable {
     /** The unsafe instance */
     protected static final Unsafe unsafe;
     /** The initial capacity allocation */
-    public static final int INITIAL = 512;
+    public static final int INITIAL;
     /** The extend capacity allocation */
-    public static final int EXTEND = 512;
+    public static final int EXTEND;
     /** The byte array offset */
     public static final int BYTE_ARRAY_OFFSET;
     
@@ -70,6 +73,8 @@ public class DirectMetricCollection {
             field.setAccessible(true);
             unsafe = (Unsafe)field.get(null);
             BYTE_ARRAY_OFFSET = unsafe.arrayBaseOffset(byte[].class);
+            INITIAL = unsafe.pageSize();
+            EXTEND = unsafe.pageSize()/8;
         } catch (Exception e) {
             throw new RuntimeException("Failed to get the Unsafe instance", e);
         }
@@ -83,38 +88,53 @@ public class DirectMetricCollection {
     public static DirectMetricCollection newDirectMetricCollection(IMetric...metrics) {
     	DirectMetricCollection dmc = new DirectMetricCollection();
     	for(IMetric m: metrics) {
-    		dmc.append(m);
+    		dmc._append(m);
     	}
     	return dmc;
     }
     
+	/**
+     * Loads a collection of IMetrics
+     * @param metrics the metrics to load
+     * @return the number of metrics in the collection after this operation completes
+     */
+    public synchronized int append(Collection<IMetric> metrics) {
+    	if(metrics!=null && !metrics.isEmpty()) {
+        	for(IMetric metric: metrics) {
+        		_append(metric);
+        	}    		
+    	}
+    	return getMetricCount();
+    }
+     
+	/**
+     * Loads an array of IMetrics
+     * @param metrics the metrics to load
+     * @return the number of metrics in the collection after this operation completes
+     */
+    public synchronized int append(IMetric...metrics) {
+    	for(IMetric metric: metrics) {
+    		_append(metric);
+    	}
+    	return getMetricCount();
+    }
     
     
     /**
-     * Returns the current size in bytes of this collection
-	 * @return the current size in bytes of this collection
-	 */
-	public int getSize() {
-		return size;
-	}
-
-
-
-	/**
-	 * Returns the current memory capacity in bytes of this collection
-	 * @return the current memory capacity in bytes of this collection
-	 */
-	public int getCapacity() {
-		return capacity;
-	}
-
-
-
+     * <p>Sends this collection
+     * {@inheritDoc}
+     * @see java.lang.Runnable#run()
+     */
+    public void run() {
+    	//Sender.getInstance();
+    }
+    
 	/**
      * Loads an IMetric
      * @param metric the metric to load
+     * @return the number of metrics in the collection after this operation completes
      */
-    public void append(IMetric metric) {
+    protected int _append(IMetric metric) {
     	while(size + metric.getSerSize() > capacity) extend();
     	writeByte(ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN) ? BYTE_ZERO : BYTE_ONE);
     	long token = metric.getToken();
@@ -136,10 +156,27 @@ public class DirectMetricCollection {
     		writeInt(bb.limit());
     		writeBytes(bb);    		
     	}
-    	updateCount();
+    	return updateCount();
     }
     
     
+    /**
+     * Returns the current size in bytes of this collection
+	 * @return the current size in bytes of this collection
+	 */
+	public int getSize() {
+		return size;
+	}
+
+
+
+	/**
+	 * Returns the current memory capacity in bytes of this collection
+	 * @return the current memory capacity in bytes of this collection
+	 */
+	public int getCapacity() {
+		return capacity;
+	}
     
     /**
 	 * {@inheritDoc}
@@ -160,34 +197,59 @@ public class DirectMetricCollection {
 
 
 
+	/**
+	 * Writes the bytes contained in the passed ByteBuffer into this collection
+	 * @param bb the ByteBuffer to write
+	 */
 	protected void writeBytes(ByteBuffer bb) {    	
     	if(bb.isDirect()) {
     		DirectBuffer db = (DirectBuffer)bb;
-    		unsafe.copyMemory(null, db.address(), null, address + size, bb.limit());
+    		int byteCount = bb.limit();
+    		unsafe.copyMemory(null, db.address(), null, address + size, byteCount);
+    		size += byteCount;
     	} else {
-    		writeBytes(bb.array());
+    		byte[] bytes = new byte[bb.limit()];
+    		bb.get(bytes);
+    		writeBytes(bytes);
     	}
+    	
     }
 
     
+    /**
+     * Writes the passed bytes to the memory block
+     * @param bytes the bytes to write
+     */
     protected void writeBytes(byte[] bytes) {
     	unsafe.copyMemory(bytes, BYTE_ARRAY_OFFSET, null, address + size, bytes.length);
     	size += bytes.length;
     }
     
     
+    /**
+     * Writes the passed long value to the memory block
+     * @param v the long value to write
+     */
     protected void writeLong(long v) {
     	unsafe.putLong(address + size, v);
     	size += 8;
     }
     
     
+    /**
+     * Writes the passed int value to the memory block
+     * @param v the int value to write
+     */
     protected void writeInt(int i) {
     	unsafe.putInt(address + size, i);
     	size += 4;
     }
     
     
+    /**
+     * Writes the passed byte to the memory block
+     * @param v the byte to write
+     */
     protected void writeByte(byte b) {
     	unsafe.putByte(address + size, b);
     	size += 1;
@@ -204,10 +266,13 @@ public class DirectMetricCollection {
     
     /**
      * Updates the count of metrics
+     * @return the new metric count
      */
-    private void updateCount() {    	
+    private int updateCount() {    	
     	unsafe.putInt(address, unsafe.getInt(address)+1);
+    	return getMetricCount();
     }
+    
     
     /**
      * Returns the number of metrics contained
@@ -240,6 +305,7 @@ public class DirectMetricCollection {
      * {@inheritDoc}
      * @see java.lang.Object#finalize()
      */
+    @Override
     protected void finalize() throws Throwable {
     	destroy();
     	super.finalize();

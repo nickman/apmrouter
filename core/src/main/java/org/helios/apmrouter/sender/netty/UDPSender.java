@@ -34,6 +34,7 @@ import java.util.concurrent.Executor;
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.sender.AbstractSender;
+import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFactory;
@@ -123,41 +124,12 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.sender.ISender#getURI()
 	 */
+	@Override
 	public URI getURI() {
 		return serverURI;
 	}
 
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.sender.ISender#send(org.helios.apmrouter.metric.IMetric[])
-	 */
-	@Override
-	public void sendDirect(IMetric... metrics) {		
-		Channel ch = channelFactory.newChannel(getPipeline());
-		for(IMetric metric: metrics) {
-			ch.write(metric);
-		}
-		sent.addAndGet(metrics.length);
-		ch.close();
-	}
 	
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.sender.ISender#sendDirect(java.util.Collection)
-	 */
-	public void sendDirect(Collection<IMetric[]> metrics) {
-		if(metrics!=null && !metrics.isEmpty()) {
-			for(IMetric[] arr: metrics) {
-				sendDirect(arr);
-			}
-		}
-	}
-	
-	public void send(IMetric... metrics) {
-		if(!queue.offer(metrics)) {
-			dropped.addAndGet(metrics.length);
-		}
-	}
 
 	/**
 	 * {@inheritDoc}
@@ -169,6 +141,22 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 		pipeline.addLast("discard", discard);
 		pipeline.addLast("metric-encoder", metricEncoder);
 		return pipeline;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.ISender#send(org.helios.apmrouter.trace.DirectMetricCollection)
+	 */
+	@Override
+	public void send(DirectMetricCollection dcm) {
+//		Channel ch = channelFactory.newChannel(getPipeline());
+//		for(IMetric metric: metrics) {
+//			ch.write(metric);
+//		}
+//		sent.addAndGet(metrics.length);
+//		ch.close();
+		
+		
 	}
 
 }
