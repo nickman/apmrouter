@@ -68,6 +68,13 @@ public abstract class AbstractSender implements ISender {
 		return dropped.get();
 	}
 	
-	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.ISender#getURI()
+	 */
+	@Override
+	public URI getURI() {
+		return serverURI;
+	}
 
 }

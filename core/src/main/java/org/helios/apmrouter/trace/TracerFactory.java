@@ -26,24 +26,16 @@ package org.helios.apmrouter.trace;
 
 import static org.helios.apmrouter.util.Methods.nvl;
 
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Collection;
+import java.lang.management.ManagementFactory;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.helios.apmrouter.metric.AgentIdentity;
-import org.helios.apmrouter.metric.ICEMetric;
-import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.sender.ISender;
-import org.helios.apmrouter.sender.netty.UDPSender;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 
@@ -57,85 +49,42 @@ import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 
 public class TracerFactory {
 	
-	/** The name of the system property that specifies the apm router URIs*/
-	public static final String SENDER_URI_PROP = "org.helios.apmrouter.uri";
-	/** The default apmrouter URI */
-	public static final String DEFAULT_SENDER_URI = "udp://localhost:2094";
 	
 	/** The default tracer */
 	private static final ITracer defaultTracer;
-	/** The configured apmrouter URIs */
-	private static final Set<URI>  endpoints = new HashSet<URI>();
-	/** The configured apmrouter senders */
-	private static final Map<URI, ISender>  senders = new TreeMap<URI, ISender>();
 	/** The current apmrouter sender */
 	private static final AtomicReference<ISender>  sender = new AtomicReference<ISender>();
+	
+	/** The collection funnel */
+	private static final CollectionFunnel funnel;
 	
 	
 	/** A map of created tracers keyed by host/agent */
 	private static final Map<String, ITracer> tracers = new ConcurrentHashMap<String, ITracer>();
 	
 	static {
-		String uris = System.getProperty(SENDER_URI_PROP, DEFAULT_SENDER_URI);
-		for(String uri: uris.split(",")) {
-			try {
-				if(!uri.trim().isEmpty()) {
-					endpoints.add(new URI(uri.trim()));
+		funnel = CollectionFunnel.getInstance();
+		defaultTracer = new TracerImpl(AgentIdentity.ID.getHostName(), AgentIdentity.ID.getAgentName(), funnel);
+		if(System.getProperties().containsKey("debug-stop")) {
+			long time = 60000;
+			try { 
+				time = Long.parseLong(System.getProperty("debug-stop").trim()); 
+			} catch (Exception e) {
+				time = 60000;
+			};
+			final long ftime = time;
+			String cmdLine = ManagementFactory.getRuntimeMXBean().getInputArguments().toString();
+			System.err.println("Args:" + cmdLine);
+			Thread t = new Thread("DEBUG STOP THREAD") {
+				public void run() {
+					SystemClock.sleep(ftime);
+					System.err.println("\n\t===========================================\n\tDEBUG STOP THREAD EXITING\n\t===========================================\n");
+					System.exit(-99);
 				}
-			} catch (Exception e) {}
+			};
+			t.start();
+			System.err.println("\n\t===========================================\n\tDEBUG STOP THREAD STARTED\n\tTimeout:" + ftime + " ms." + "\n\t===========================================\n");
 		}
-		if(endpoints.isEmpty()) {
-			try {
-				endpoints.add(new URI(DEFAULT_SENDER_URI));
-			} catch (URISyntaxException e) {
-				throw new RuntimeException("Failed to add default endpoint URI [" + DEFAULT_SENDER_URI + "]", e);
-			}
-		}
-		for(URI uri: endpoints) {
-			senders.put(uri, UDPSender.getInstance(uri));
-		}
-		//sender.set(senders.values().iterator().next());
-		sender.set(new ISender(){
-
-			@Override
-			public void send(IMetric... metrics) {
-				// TODO Auto-generated method stub
-				
-			}
-
-			@Override
-			public void sendDirect(IMetric... metrics) {
-				// TODO Auto-generated method stub
-				
-			}
-
-			@Override
-			public void sendDirect(Collection<IMetric[]> metrics) {
-				// TODO Auto-generated method stub
-				
-			}
-
-			@Override
-			public long getSentMetrics() {
-				// TODO Auto-generated method stub
-				return 0;
-			}
-
-			@Override
-			public long getDroppedMetrics() {
-				// TODO Auto-generated method stub
-				return 0;
-			}
-
-			@Override
-			public URI getURI() {
-				// TODO Auto-generated method stub
-				return null;
-			}
-			
-		});
-		defaultTracer = new TracerImpl(AgentIdentity.ID.getHostName(), AgentIdentity.ID.getAgentName(), sender);
-		
 	}
 	
 	/**
@@ -161,55 +110,69 @@ public class TracerFactory {
 			synchronized(tracers) {
 				tracer = tracers.get(key);
 				if(tracer==null) {
-					tracer = new TracerImpl(host.trim(), agent.trim(), sender);
+					tracer = new TracerImpl(host.trim(), agent.trim(), funnel);
 					tracers.put(key, tracer);
 				}
 			}
 		}
 		return tracer;
 	}
+	public static void mainx(String[] args) {
+		log("DMC Decode Test");
+		getTracer().traceDirect(1, "foo", MetricType.LONG, "bar");	
+	}
+	
 	
 	public static void main(String[] args) {
 		log("Basic Tracing Test");
 		MetricType.setCompress(false);
-		MetricType.setDirect(true);
+		MetricType.setDirect(false);
+		boolean traceBlob = false;
 		final int LOOPS = 1000;
 		final ITracer tracer = getTracer();
-		DirectMetricCollection dcm = null;
 		for(int x = 0; x < 100; x++) {			
-			dcm = DirectMetricCollection.newDirectMetricCollection();			
 			for(int i = 0; i < LOOPS; i++) {
-				//dcm.append(tracer.traceBlob(new Date(), "foo", "date"));
-				dcm.append(tracer.traceLong(i, "foo", "bar"));	
+				if(traceBlob) {
+					tracer.traceBlob(new Date(), "foo", "date");
+				} else {
+					tracer.traceLong(i, "foo", "bar");
+				}					
 			}
-			//log("DCM:" + dcm);
-			dcm.destroy();
 		}
-		dcm = null;
+//		SystemClock.sleep(CollectionFunnel.getInstance().getTimerPeriod()+1000);
 		log("Warmup Complete");
-		dcm = DirectMetricCollection.newDirectMetricCollection();
+		log("Starting Untokenized");
+//		tracer.resetStats();
 		SystemClock.startTimer();
 		for(int i = 0; i < LOOPS; i++) {
-			//dcm.append(tracer.traceBlob(new Date(), "foo", "date"));
-			dcm.append(tracer.traceLong(i, "foo", "bar"));						
+			if(traceBlob) {
+				tracer.traceBlob(new Date(), "foo", "date");
+			} else {
+				tracer.traceLong(i, "foo", "bar");
+			}					
 		}
 		ElapsedTime et = SystemClock.endTimer();
-		log("FULL:\nDCM:" + dcm + "\nSent:" + tracer.getSentMetrics() + "\nDropped:" + tracer.getDroppedMetrics() + "\nElapsed:" + et + "\nAvg Per:" + et.avgNs(LOOPS) + " ns");
-		dcm.destroy();
-		dcm = null;
+		log("FULL:\nSent:" + tracer.getSentMetrics() + "\nDropped:" + tracer.getDroppedMetrics() + "\nElapsed:" + et + "\nAvg Per:" + et.avgNs(LOOPS) + " ns");
 		/// TOKENIZE
 		ICEMetricCatalog.getInstance().setToken(tracer.getHost(), tracer.getAgent(), "foo", MetricType.LONG, "bar");
-		dcm = DirectMetricCollection.newDirectMetricCollection();
+//		SystemClock.sleep(CollectionFunnel.getInstance().getTimerPeriod()+1000);
+		log("Starting Tokenized");
+//		tracer.resetStats();
 		SystemClock.startTimer();
 		for(int i = 0; i < LOOPS; i++) {
-			//dcm.append(tracer.traceBlob(new Date(), "foo", "date"));
-			dcm.append(tracer.traceLong(i, "foo", "bar"));						
+			if(traceBlob) {
+				tracer.traceBlob(new Date(), "foo", "date");
+			} else {
+				tracer.traceLong(i, "foo", "bar");
+			}					
 		}
 		et = SystemClock.endTimer();
-		log("TOKEN:\nDCM:" + dcm + "\nSent:" + tracer.getSentMetrics() + "\nDropped:" + tracer.getDroppedMetrics() + "\nElapsed:" + et + "\nAvg Per:" + et.avgNs(LOOPS) + " ns");
-		dcm.destroy();
-		dcm = null;
-		
+		log("TOKEN:\nSent:" + tracer.getSentMetrics() + "\nDropped:" + tracer.getDroppedMetrics() + "\nElapsed:" + et + "\nAvg Per:" + et.avgNs(LOOPS) + " ns");
+		SystemClock.sleep(CollectionFunnel.getInstance().getTimerPeriod()+3000);
+		log("\n\tTotal Sent:" + tracer.getSentMetrics());
+		log("\tTotal Dropped:" + tracer.getDroppedMetrics());
+		log("\tTotal Queued:" + tracer.getQueuedMetrics());
+		log(CollectionFunnel.getInstance().status());
 	}
 	public static void log(Object msg) {
 		System.out.println(msg);

@@ -28,16 +28,18 @@ import static org.helios.apmrouter.util.Methods.nvl;
 
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.util.Collection;
+import java.util.Iterator;
 import java.util.concurrent.Executor;
 
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
-import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.sender.AbstractSender;
 import org.helios.apmrouter.trace.DirectMetricCollection;
+import org.helios.apmrouter.trace.DirectMetricCollection.SplitReader;
 import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFactory;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
@@ -63,8 +65,6 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	protected static final Logger LOG = LoggerFactory.getLogger(UDPSender.class);	
 	/** The netty server worker pool */
 	protected final Executor workerPool;
-	/** The URI that this sender is sending to */
-	protected final URI serverURI;
 	/** The netty bootstrap */
 	protected final ConnectionlessBootstrap bstrap;
 	/** The netty channel factory */
@@ -110,7 +110,6 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	 */
 	private UDPSender(URI serverURI) {
 		super(serverURI);
-		this.serverURI = serverURI;
 		workerPool =  ThreadPoolFactory.newCachedThreadPool(getClass().getPackage().getName(), "UDPSenderWorker/" + serverURI.getHost() + "/" + serverURI.getPort());
 		channelFactory = new NioDatagramChannelFactory(workerPool);
 		bstrap = new ConnectionlessBootstrap(channelFactory);
@@ -120,14 +119,7 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 		socketAddress = new InetSocketAddress(serverURI.getHost(), serverURI.getPort());
 	}
 	
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.sender.ISender#getURI()
-	 */
-	@Override
-	public URI getURI() {
-		return serverURI;
-	}
+
 
 	
 
@@ -149,12 +141,42 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	 */
 	@Override
 	public void send(DirectMetricCollection dcm) {
-//		Channel ch = channelFactory.newChannel(getPipeline());
-//		for(IMetric metric: metrics) {
-//			ch.write(metric);
+//		System.out.println("Received [" + dcm.getMetricCount() + "]");
+//		SplitReader sr = dcm.newSplitReader(1024);
+//		int cnt = 0;
+//		for(DirectMetricCollection d: sr) {
+//			cnt += d.getMetricCount();
+//			d.destroy();
 //		}
-//		sent.addAndGet(metrics.length);
-//		ch.close();
+//		dcm.destroy();
+//		System.out.println("Sending [" + cnt + "] Dropped:" + sr.getDrops());
+		
+		
+		
+		final Channel ch = channelFactory.newChannel(getPipeline());
+		SplitReader sr = dcm.newSplitReader(1024);
+		for(final DirectMetricCollection d: sr) {
+			final boolean last = !sr.hasNext();
+			final int mcount = d.getMetricCount();
+			ChannelFuture channelFuture = ch.write(d.toChannelBuffer()); 
+			channelFuture.addListener(new ChannelFutureListener() {
+				public void operationComplete(ChannelFuture future) throws Exception {					
+					if(future.isSuccess()) {
+						sent.addAndGet(mcount);
+					} else {
+						dropped.addAndGet(mcount);
+					}
+				}
+			});
+			if(last) channelFuture.addListener(new ChannelFutureListener() {
+				@Override
+				public void operationComplete(ChannelFuture future) throws Exception {
+					ch.close();
+				}
+			});
+		}
+		dcm.destroy();
+		dropped.addAndGet(sr.getDrops());
 		
 		
 	}

@@ -47,10 +47,8 @@ public class TracerImpl implements ITracer {
 	protected final String host;
 	/** The originating agent of the metrics created by this tracer */
 	protected final String agent;
-	/** The sender ref which will change if the apmserver is not available */
-	protected final AtomicReference<ISender> senderRef; 
-	/** The current sender */
-	protected ISender sender; 
+	/** The collection funnel */
+	protected final CollectionFunnel funnel; 
 	
 	
 	
@@ -59,12 +57,12 @@ public class TracerImpl implements ITracer {
 	 * Creates a new TracerImpl
 	 * @param host The originating host of the metrics created by this tracer
 	 * @param agent The originating agent of the metrics created by this tracer
+	 * @param funnel the collection funnel the tracer writes metrics to
 	 */
-	public TracerImpl(String host, String agent, final AtomicReference<ISender> senderRef) {
+	public TracerImpl(String host, String agent, CollectionFunnel funnel) {
 		this.host = nvl(host, "HostName");
 		this.agent = nvl(agent, "Agent Name");
-		this.senderRef = senderRef;
-		sender = senderRef.get();
+		this.funnel = funnel;
 	}
 	
 	/**
@@ -89,11 +87,15 @@ public class TracerImpl implements ITracer {
 	}
 
 	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.trace.ITracer#trace(java.lang.Object, java.lang.CharSequence, org.helios.apmrouter.metric.MetricType, java.lang.CharSequence[])
+	 * Trace operation with direct overload
+	 * @param direct Indicates if the metric should be sent directly, or buffered
+	 * @param value The value of the metric
+	 * @param name The name of the metric
+	 * @param type The type of the metric
+	 * @param namespace The optional namespace of the metric
+	 * @return the created {@link ICEMetric} 
 	 */
-	@Override
-	public ICEMetric trace(Object value, CharSequence name, MetricType type, CharSequence... namespace) {
+	protected ICEMetric _trace(boolean direct, Object value, CharSequence name, MetricType type, CharSequence... namespace) {
 		ICEMetric metric = null;
 		try {
 			if(type.isLong()) {
@@ -107,12 +109,34 @@ public class TracerImpl implements ITracer {
 			} else {
 				metric = ICEMetric.trace(value, host, agent, name, type, namespace);
 			}
-			sender.send(metric);
+			if(direct) {
+				funnel.submitDirect(metric);
+			} else {
+				funnel.submit(metric);
+			}
 			return metric;
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
 			return null;
 		}
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#trace(java.lang.Object, java.lang.CharSequence, org.helios.apmrouter.metric.MetricType, java.lang.CharSequence[])
+	 */
+	@Override	
+	public ICEMetric trace(Object value, CharSequence name, MetricType type, CharSequence... namespace) {
+		return _trace(false, value, name, type, namespace);
+	}
+	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceDirect(java.lang.Object, java.lang.CharSequence, org.helios.apmrouter.metric.MetricType, java.lang.CharSequence[])
+	 */
+	public ICEMetric traceDirect(Object value, CharSequence name, MetricType type, CharSequence...namespace) {
+		return _trace(true, value, name, type, namespace);
 	}
 
 //	/**
@@ -160,7 +184,7 @@ public class TracerImpl implements ITracer {
 	public ICEMetric traceLong(long value, CharSequence name, CharSequence... namespace) {
 		try {				
 			ICEMetric metric = ICEMetric.trace(value, host, agent, name, MetricType.LONG, namespace);
-			sender.send(metric);
+			funnel.submit(metric);
 			return metric;
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
@@ -178,7 +202,7 @@ public class TracerImpl implements ITracer {
 			Long delta = ICEMetricCatalog.getInstance().getDelta(value, host, agent, name, namespace);
 			if(delta==null) return null;			
 			ICEMetric metric =  ICEMetric.trace(delta.longValue(), host, agent, name, MetricType.DELTA, namespace);
-			sender.send(metric);
+			funnel.submit(metric);
 			return metric;
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
@@ -194,7 +218,7 @@ public class TracerImpl implements ITracer {
 	public ICEMetric traceString(CharSequence value, CharSequence name, CharSequence... namespace) {
 		try {				
 			ICEMetric metric = ICEMetric.trace(value, host, agent, name, MetricType.STRING, namespace);
-			sender.send(metric);
+			funnel.submit(metric);
 			return metric;			
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
@@ -210,7 +234,7 @@ public class TracerImpl implements ITracer {
 	public ICEMetric traceError(Throwable value, CharSequence name, CharSequence... namespace) {
 		try {				
 			ICEMetric metric =  ICEMetric.trace(value, host, agent, name, MetricType.ERROR, namespace);
-			sender.send(metric);
+			funnel.submit(metric);
 			return metric;						
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
@@ -226,7 +250,7 @@ public class TracerImpl implements ITracer {
 	public ICEMetric traceBlob(Serializable value, CharSequence name, CharSequence... namespace) {
 		try {				
 			ICEMetric metric =   ICEMetric.trace(value, host, agent, name, MetricType.BLOB, namespace);
-			sender.send(metric);
+			funnel.submit(metric);
 			return metric;									
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
@@ -258,7 +282,7 @@ public class TracerImpl implements ITracer {
 	 */
 	@Override
 	public long getSentMetrics() {
-		return sender.getSentMetrics();
+		return funnel.getSent();
 	}
 
 	/**
@@ -267,9 +291,22 @@ public class TracerImpl implements ITracer {
 	 */
 	@Override
 	public long getDroppedMetrics() {
-		return sender.getDroppedMetrics();
+		return funnel.getDropped();
 	}
 	
-	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#resetStats()
+	 */
+	public void resetStats() {
+		funnel.resetStats();
+	}
 
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#getQueuedMetrics()
+	 */
+	public long getQueuedMetrics() {
+		return funnel.getQueued();
+	}
 }

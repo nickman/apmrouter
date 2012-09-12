@@ -22,16 +22,19 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.util;
+package org.helios.apmrouter.trace;
 
+import java.lang.management.ManagementFactory;
 import java.util.Collection;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.metric.IMetric;
-import org.helios.apmrouter.trace.DirectMetricCollection;
+import org.helios.apmrouter.util.SystemClock;
 
 /**
  * <p>Title: CollectionFunnel</p>
@@ -58,6 +61,14 @@ public class CollectionFunnel {
 	private final AtomicBoolean switchToQueue = new AtomicBoolean(false);
 	/** The number of metrics dropped while trying to queue */
 	private final AtomicLong dropped = new AtomicLong(0L);
+	/** The number of metrics queued */
+	private final AtomicLong queued = new AtomicLong(0L);	
+	/** The number of metrics sent */
+	private final AtomicLong sent = new AtomicLong(0L);
+	/** The send thread pool */
+	private final ThreadPoolExecutor executor = (ThreadPoolExecutor)ThreadPoolFactory.newCachedThreadPool(getClass().getPackage().getName(), "CollectionFunnel");
+	
+
 	/** The timestamp of the last flush */
 	private volatile long lastFlush;
 	/** The current DCM */
@@ -82,6 +93,16 @@ public class CollectionFunnel {
 	}
 	
 	/**
+	 * Sends a metric directly, bypassing the local buffer
+	 * @param metric
+	 */
+	public void submitDirect(IMetric metric) {
+		if(metric!=null) {
+			sendDcmInCurrentThread(DirectMetricCollection.newDirectMetricCollection(metric));
+		}
+	}
+	
+	/**
 	 * Submits the passed metrics for a send to the apmrouter
 	 * @param metrics A collection of metrics to send
 	 */
@@ -100,17 +121,30 @@ public class CollectionFunnel {
 		if(switchToQueue.get()) {
 			if(!offLineQueue.offer(metrics)) {
 				dropped.addAndGet(metrics.length);
+			} else {
+				queued.addAndGet(metrics.length);
 			}
 		} else {
-			dcm.append(metrics);
+			if(dcm.append(metrics)>maxDcmSize) {
+				flush();
+			}
 		}
+	}
+	
+	/**
+	 * Resets the sent and dropped stats
+	 */
+	public void resetStats() {
+		dropped.set(0L);
+		sent.set(0L);
+		queued.set(0);
 	}
 	
 	/**
 	 * Timer flush
 	 */
 	protected void timerFlush() {
-		if(SystemClock.elapsedMsSince(timerPeriod) >= timerPeriod) {
+		if(SystemClock.elapsedMsSince(lastFlush) >= timerPeriod) {
 			flush();
 		}		
 	}
@@ -122,13 +156,13 @@ public class CollectionFunnel {
 	protected void flush() {
 		if(switchToQueue.compareAndSet(false, true)) {
 			DirectMetricCollection toSend = null;
-			if(dcm.getMetricCount()>0) {
+			if(dcm.getSize()>0) {
 				toSend = dcm;
 				dcm = DirectMetricCollection.newDirectMetricCollection();
 			}
 			lastFlush = SystemClock.time();
 			switchToQueue.set(false);
-			sendDcm(toSend);
+			sendDcm(toSend);			
 			drainQueue();
 		}
 	}
@@ -151,16 +185,68 @@ public class CollectionFunnel {
 	
 	/**
 	 * Sends the DCM 
-	 * @param dcm the DCM to send
+	 * @param dcmToSend the DCM to send
 	 */
-	protected void sendDcm(DirectMetricCollection dcm) {
+	protected void sendDcm(final DirectMetricCollection dcmToSend) {
+		sent.addAndGet(dcmToSend.getMetricCount());
+		executor.execute(dcmToSend);
 		
+	}
+	
+	/**
+	 * Sends the DMC in the current thread
+	 * @param dcmToSend The DMC to send
+	 */
+	protected void sendDcmInCurrentThread(final DirectMetricCollection dcmToSend) {
+		sent.addAndGet(dcmToSend.getMetricCount());
+		dcmToSend.run();
+		
+	}
+	
+	
+	/**
+	 * Returns the total number of metrics dropped
+	 * @return the total number of metrics dropped
+	 */
+	public long getDropped() {
+		return dropped.get();
+	}
+	
+	/**
+	 * Returns the total number of metrics sent
+	 * @return the total number of metrics sent
+	 */
+	public long getSent() {
+		return sent.get();
+	}
+	
+	/**
+	 * Returns the total number of metrics queued
+	 * @return the total number of metrics queued
+	 */
+	public long getQueued() {
+		return queued.get();
+	}
+	
+	
+	/**
+	 * Returns the timer flush period in ms.
+	 * @return the timer flush period
+	 */
+	public long getTimerPeriod() {
+		return timerPeriod;
 	}
 	
 	private CollectionFunnel() {
 		timerPeriod = 3000;
-		maxDcmSize = 10240;
+		maxDcmSize = 20480;
 		switchQueueSize = 1000;
+		executor.allowCoreThreadTimeOut(false);
+		executor.setCorePoolSize(ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors()/2);
+		executor.setMaximumPoolSize(ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors());
+		while(true) {
+			if(!executor.prestartCoreThread()) break;
+		}
 		offLineQueue = new ArrayBlockingQueue<IMetric[]>(switchQueueSize, false);
 		timerThread = new Thread("CollectionFunnelTimer") {
 			public void run() {
@@ -173,10 +259,48 @@ public class CollectionFunnel {
 			}
 		};
 		timerThread.setPriority(Thread.MAX_PRIORITY);
-		timerThread.setDaemon(false);
+		timerThread.setDaemon(true);
 		timerThread.start();
 		dcm = DirectMetricCollection.newDirectMetricCollection();
-		
 	}
+	
+	public int getCorePoolSize() {
+		return executor.getCorePoolSize();
+	}
+
+	public int getMaximumPoolSize() {
+		return executor.getMaximumPoolSize();
+	}
+
+	public int getPoolSize() {
+		return executor.getPoolSize();
+	}
+
+	public int getActiveCount() {
+		return executor.getActiveCount();
+	}
+
+	public int getLargestPoolSize() {
+		return executor.getLargestPoolSize();
+	}
+
+	public long getTaskCount() {
+		return executor.getTaskCount();
+	}
+
+	public long getCompletedTaskCount() {
+		return executor.getCompletedTaskCount();
+	}
+
+	
+	public String status() {
+		return String
+				.format("CollectionFunnel Status[\n\tDropped=%s \n\tSent=%s, \n\tQueued=%s \n\tTimerPeriod=%s \n\tCorePoolSize=%s \n\tMaximumPoolSize=%s \n\tPoolSize=%s \n\tActiveCount=%s \n\tLargestPoolSize=%s \n\tTaskCount=%s \n\tCompletedTaskCount=%s\n]",
+						getDropped(), getSent(), getQueued(), getTimerPeriod(),
+						getCorePoolSize(), getMaximumPoolSize(), getPoolSize(),
+						getActiveCount(), getLargestPoolSize(), getTaskCount(),
+						getCompletedTaskCount());
+	}
+	
 	
 }

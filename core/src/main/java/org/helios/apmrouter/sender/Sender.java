@@ -24,6 +24,15 @@
  */
 package org.helios.apmrouter.sender;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+
+import org.helios.apmrouter.sender.netty.UDPSender;
+
 /**
  * <p>Title: Sender</p>
  * <p>Description: The sender factory and singleton</p> 
@@ -37,6 +46,18 @@ public class Sender {
 	private static volatile Sender instance = null;
 	/** The Sender singleton instance ctor lock */
 	private static final Object lock = new Object();
+	
+	/** The configured apmrouter URIs */
+	private final Set<URI>  endpoints = new HashSet<URI>();
+	/** The configured apmrouter senders */
+	private final Map<URI, ISender>  senders = new TreeMap<URI, ISender>();
+	
+	
+	/** The name of the system property that specifies the apm router URIs*/
+	public static final String SENDER_URI_PROP = "org.helios.apmrouter.uri";
+	/** The default apmrouter URI */
+	public static final String DEFAULT_SENDER_URI = "udp://localhost:2094";
+
 	
 	/**
 	 * Acquires the Sender singleton instance
@@ -54,7 +75,36 @@ public class Sender {
 	}
 	
 	
+	/**
+	 * Creates a new Sender
+	 */
 	private Sender() {
-		
+		String uris = System.getProperty(SENDER_URI_PROP, DEFAULT_SENDER_URI);
+		for(String uri: uris.split(",")) {
+			try {
+				if(!uri.trim().isEmpty()) {
+					endpoints.add(new URI(uri.trim()));
+				}
+			} catch (Exception e) {}
+		}
+		if(endpoints.isEmpty()) {
+			try {
+				endpoints.add(new URI(DEFAULT_SENDER_URI));
+			} catch (URISyntaxException e) {
+				throw new RuntimeException("Failed to add default endpoint URI [" + DEFAULT_SENDER_URI + "]", e);
+			}
+		}
+		for(URI uri: endpoints) {
+			senders.put(uri, UDPSender.getInstance(uri));
+		}
+	}
+	
+	
+	/**
+	 * Returns the default sender
+	 * @return the default sender
+	 */
+	public ISender getDefaultSender() {
+		return senders.values().iterator().next();
 	}
 }

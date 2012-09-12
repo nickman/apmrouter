@@ -38,6 +38,12 @@ import org.helios.apmrouter.metric.MetricType;
  */
 
 public interface ITracer {
+	
+	/**
+	 * Resets the tracer stats
+	 */
+	public void resetStats();
+	
 	/**
 	 * Creates and sends an {@link ICEMetric} 
 	 * @param value The value of the metric
@@ -47,6 +53,17 @@ public interface ITracer {
 	 * @return the created {@link ICEMetric} 
 	 */
 	public ICEMetric trace(Object value, CharSequence name, MetricType type, CharSequence...namespace);
+	
+	/**
+	 * Creates and sends an {@link ICEMetric} directly, bypassing the local bufer. 
+	 * @param value The value of the metric
+	 * @param name The name of the metric
+	 * @param type The type of the metric
+	 * @param namespace The optional namespace of the metric
+	 * @return the created {@link ICEMetric} 
+	 */
+	public ICEMetric traceDirect(Object value, CharSequence name, MetricType type, CharSequence...namespace);
+	
 	
 //	/**
 //	 * Creates and sends an {@link ICEMetric} 
@@ -136,6 +153,12 @@ public interface ITracer {
 	 * @return the total number of dropped metrics on this tracer's sender
 	 */	
 	public long getDroppedMetrics();
+	
+	/**
+	 * Returns the total number of queued metrics on this tracer's sender
+	 * @return the total number of queued metrics on this tracer's sender
+	 */	
+	public long getQueuedMetrics();	
 	
 	
 }

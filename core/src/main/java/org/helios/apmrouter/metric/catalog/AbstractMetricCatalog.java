@@ -74,7 +74,8 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 	}
 
 	/**
-	 * Sets the serialization token for the passed metric identifier
+	 * Sets the serialization token for the passed metric identifier using a contrived token.
+	 * Intended only for testing or server side.
 	 * @param host The host name
 	 * @param agent The agent name
 	 * @param name The metric name
@@ -83,14 +84,26 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 	 * @return  the assigned token
 	 */
 	public long setToken(String host, String agent, CharSequence name, MetricType type, CharSequence... namespace) {
+		return setToken(tokenSerial.incrementAndGet(), host,agent, name, type, namespace);
+	}
+	
+	/**
+	 * Sets the serialization token for the passed metric identifier
+	 * @param token The token to set on the metric 
+	 * @param host The host name
+	 * @param agent The agent name
+	 * @param name The metric name
+	 * @param type The metric type
+	 * @param namespace The namespace segments
+	 * @return  the assigned token
+	 */
+	public long setToken(long token, String host, String agent, CharSequence name, MetricType type, CharSequence... namespace) {
 		IDelegateMetric metric = get(host, agent, name, type, namespace);
-		long token = metric.getToken();
-		if(token==-1) {
-			token = tokenSerial.incrementAndGet();
-			metric.setToken(token);
-		}
+		metric.setToken(token);
+		tokencache.put(token, metric);
 		return token;
 	}
+	
 	
 	
 	/**
