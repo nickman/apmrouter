@@ -72,8 +72,14 @@ public class TracerFactory {
 			} catch (Exception e) {
 				time = 60000;
 			};
-			final long ftime = time;
+			int multiplier = 1;
 			String cmdLine = ManagementFactory.getRuntimeMXBean().getInputArguments().toString();
+			if(cmdLine.contains("agentlib:jdwp")) {
+				multiplier = 10*6;
+			}
+			final long ftime = time * multiplier;
+			
+			
 			System.err.println("Args:" + cmdLine);
 			Thread t = new Thread("DEBUG STOP THREAD") {
 				public void run() {
@@ -119,7 +125,10 @@ public class TracerFactory {
 	}
 	public static void mainx(String[] args) {
 		log("DMC Decode Test");
-		getTracer().traceDirect(1, "foo", MetricType.LONG, "bar");	
+		int LOOPS = 10;
+		for(int i = 0; i < LOOPS; i++) {
+			getTracer().trace(i, "foo", MetricType.LONG, "bar");
+		}
 	}
 	
 	

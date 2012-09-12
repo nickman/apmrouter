@@ -114,9 +114,11 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 		channelFactory = new NioDatagramChannelFactory(workerPool);
 		bstrap = new ConnectionlessBootstrap(channelFactory);
 		bstrap.setPipelineFactory(this);
+		bstrap.setOption("broadcast", true);
 		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(1024));
 		channel = (DatagramChannel) bstrap.bind(new InetSocketAddress(0));
-		socketAddress = new InetSocketAddress(serverURI.getHost(), serverURI.getPort());
+		//socketAddress = new InetSocketAddress(serverURI.getHost(), serverURI.getPort());
+		socketAddress = new InetSocketAddress("239.192.74.66", 25826);
 	}
 	
 

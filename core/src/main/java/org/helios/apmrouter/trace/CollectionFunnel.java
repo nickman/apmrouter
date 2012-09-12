@@ -156,7 +156,7 @@ public class CollectionFunnel {
 	protected void flush() {
 		if(switchToQueue.compareAndSet(false, true)) {
 			DirectMetricCollection toSend = null;
-			if(dcm.getSize()>0) {
+			if(dcm.getMetricCount()>0) {
 				toSend = dcm;
 				dcm = DirectMetricCollection.newDirectMetricCollection();
 			}
@@ -239,11 +239,14 @@ public class CollectionFunnel {
 	
 	private CollectionFunnel() {
 		timerPeriod = 3000;
-		maxDcmSize = 20480;
+		maxDcmSize = 10240;
 		switchQueueSize = 1000;
 		executor.allowCoreThreadTimeOut(false);
 		executor.setCorePoolSize(ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors()/2);
 		executor.setMaximumPoolSize(ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors());
+//		executor.setCorePoolSize(1);
+//		executor.setMaximumPoolSize(1);
+		
 		while(true) {
 			if(!executor.prestartCoreThread()) break;
 		}

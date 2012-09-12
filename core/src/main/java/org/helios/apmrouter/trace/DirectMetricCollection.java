@@ -62,7 +62,12 @@ public class DirectMetricCollection implements Runnable {
     public static final int BYTE_ARRAY_OFFSET;
     
     /** The offset from the address where the actual metric data starts */
-    public static final int METRIC_OFFSET = 6;
+    public static final int METRIC_OFFSET = 10;
+    /** The offset from the address where the DCM byte size is */
+    public static final int SIZE_OFFSET = 0;
+    /** The offset from the address where the DCM metric count is */
+    public static final int COUNT_OFFSET = 4;
+    
     /** Zero byte literal */
     public static final byte BYTE_ZERO = 0;
     /** One byte literal */
@@ -161,6 +166,7 @@ public class DirectMetricCollection implements Runnable {
     	while(size + metric.getSerSize()+6 > capacity) extend();    	
     	long token = metric.getToken();
     	final int currentSize = size;
+    	// write the place-holder for the size
     	writeInt(0);
     	if(token!=-1) {
     		writeByte(BYTE_ONE);
@@ -182,6 +188,8 @@ public class DirectMetricCollection implements Runnable {
     	}
     	int metricSize = size - currentSize;
     	unsafe.putInt(address + currentSize, metricSize);
+    	// update the DMC size
+    	setSize(size);
     	return updateCount();
     }
     
@@ -221,6 +229,7 @@ public class DirectMetricCollection implements Runnable {
     	unsafe.copyMemory(otherAddress, address+size, byteCount);
     	size += byteCount;
     	updateCount();
+    	setSize(size);
     }
     
     /**
@@ -279,6 +288,7 @@ public class DirectMetricCollection implements Runnable {
 		 * @return the size of the record in bytes
 		 */
 		protected int getSize() {
+			//System.out.println("[" + Thread.currentThread() + "] Getting current record size [" + rootAddress + "], Cursor:" + cursor + " MetricCount:" + metricCount);
 			return unsafe.getInt(address + rootAddress);
 		}
 		
@@ -484,8 +494,9 @@ public class DirectMetricCollection implements Runnable {
     protected DirectMetricCollection shrinkWrap() {
     	if(capacity > size) {
     		address = unsafe.reallocateMemory(address, size);
-    		capacity = size;
+    		capacity = size;    		
     	}
+    	unsafe.putInt(address+SIZE_OFFSET, size);
     	return this;
     }
     
@@ -495,7 +506,15 @@ public class DirectMetricCollection implements Runnable {
 	 * @return the current size in bytes of this collection
 	 */
 	public int getSize() {
-		return size;
+		return unsafe.getInt(address+SIZE_OFFSET);
+	}
+	
+	/**
+	 * Updates the total size field
+	 * @param s the new size
+	 */
+	private void setSize(int s) {
+		unsafe.putInt(address+SIZE_OFFSET, s);
 	}
 
 
@@ -595,12 +614,16 @@ public class DirectMetricCollection implements Runnable {
     	address = unsafe.allocateMemory(initialCapacity);
     	capacity = initialCapacity;
     	size = 0;
+    	// the byte size of this DMC set during shrinkWrap()
+    	writeInt(0);
     	// the number of metrics in this dmc
     	writeInt(0);  			
     	// the op code (0 for metrics)
     	writeByte(BYTE_ZERO);	
     	// The byte order of this message
     	writeByte(BYTE_ORDER); 
+    	// set the initial size
+    	setSize(size);
     }
     
     /**
@@ -608,8 +631,8 @@ public class DirectMetricCollection implements Runnable {
      * @return the new metric count
      */
     private int updateCount() {    	
-    	int cnt = unsafe.getInt(address)+1;
-    	unsafe.putInt(address, cnt);
+    	int cnt = unsafe.getInt(address+COUNT_OFFSET)+1;
+    	unsafe.putInt(address+COUNT_OFFSET, cnt);
     	return cnt;
     }
     
@@ -622,7 +645,7 @@ public class DirectMetricCollection implements Runnable {
     	if(address==0) {
     		throw new RuntimeException("Attempted to access destroyed DMA", new Throwable());
     	}
-    	return unsafe.getInt(address);
+    	return unsafe.getInt(address + COUNT_OFFSET);
     }
     
     /**
