@@ -28,6 +28,7 @@ import java.lang.management.ManagementFactory;
 import java.util.Collection;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -44,7 +45,7 @@ import org.helios.apmrouter.util.SystemClock;
  * <p><code>org.helios.apmrouter.util.CollectionFunnel</code></p>
  */
 
-public class CollectionFunnel {
+public class CollectionFunnel implements RejectedExecutionHandler {
 	/** the singleton instance */
 	private static volatile CollectionFunnel instance = null;
 	/** the singleton instance ctor lock */
@@ -53,8 +54,10 @@ public class CollectionFunnel {
 	private final Thread timerThread;
 	/** The timer period in ms. */
 	private final long timerPeriod;
-	/** The maximum size in bytes of a DCM before it is flushed */
-	private final long maxDcmSize;
+	/** The maximum size in bytes of a DMC before it is flushed */
+	private final int maxDmcBytes;
+	/** The maximum number of metrics in a DMC before it is flushed */
+	private final int maxDmcMetrics;	
 	/** The size of the switch queue */
 	private final int switchQueueSize;
 	/** The DCM switch that causes messages to be queued while the current DCM is being flushed */
@@ -66,15 +69,15 @@ public class CollectionFunnel {
 	/** The number of metrics sent */
 	private final AtomicLong sent = new AtomicLong(0L);
 	/** The send thread pool */
-	private final ThreadPoolExecutor executor = (ThreadPoolExecutor)ThreadPoolFactory.newCachedThreadPool(getClass().getPackage().getName(), "CollectionFunnel");
+	private final ThreadPoolExecutor executor; 
 	
 
 	/** The timestamp of the last flush */
 	private volatile long lastFlush;
 	/** The current DCM */
-	private DirectMetricCollection dcm = null;
+	private DirectMetricCollection dmc = null;
 	
-	/** The switch queue that metrics are written to while the dcm is being flushed */
+	/** The switch queue that metrics are written to while the dmc is being flushed */
 	private final BlockingQueue<IMetric[]> offLineQueue;
 	
 	/**
@@ -125,8 +128,10 @@ public class CollectionFunnel {
 				queued.addAndGet(metrics.length);
 			}
 		} else {
-			if(dcm.append(metrics)>maxDcmSize) {
-				flush();
+			synchronized(switchToQueue) {
+				if(dmc.append(maxDmcBytes, maxDmcMetrics, metrics)) {
+					flush();
+				}
 			}
 		}
 	}
@@ -139,6 +144,7 @@ public class CollectionFunnel {
 		sent.set(0L);
 		queued.set(0);
 	}
+	
 	
 	/**
 	 * Timer flush
@@ -155,15 +161,18 @@ public class CollectionFunnel {
 	 */
 	protected void flush() {
 		if(switchToQueue.compareAndSet(false, true)) {
-			DirectMetricCollection toSend = null;
-			if(dcm.getMetricCount()>0) {
-				toSend = dcm;
-				dcm = DirectMetricCollection.newDirectMetricCollection();
+			try {
+				DirectMetricCollection toSend = null;				
+				if(dmc.getMetricCount()>0) {
+					toSend = dmc;
+					dmc = DirectMetricCollection.newDirectMetricCollection();
+					switchToQueue.set(false);
+					sendDcm(toSend);
+				}							
+				drainQueue();
+			} finally {
+				lastFlush = SystemClock.time();								
 			}
-			lastFlush = SystemClock.time();
-			switchToQueue.set(false);
-			sendDcm(toSend);			
-			drainQueue();
 		}
 	}
 	
@@ -175,7 +184,7 @@ public class CollectionFunnel {
 			IMetric[] metrics = null;
 			DirectMetricCollection toSend = DirectMetricCollection.newDirectMetricCollection();
 			while((metrics=offLineQueue.poll())!=null) {
-				if(toSend.append(metrics)>=maxDcmSize) {
+				if(toSend.append(maxDmcBytes, maxDmcMetrics, metrics)) {
 					sendDcm(toSend);
 					toSend = DirectMetricCollection.newDirectMetricCollection();
 				}
@@ -188,6 +197,11 @@ public class CollectionFunnel {
 	 * @param dcmToSend the DCM to send
 	 */
 	protected void sendDcm(final DirectMetricCollection dcmToSend) {
+		if(dcmToSend==null) {
+			System.err.println("Null DCM to send");
+			new Throwable().printStackTrace(System.err);
+			return;
+		}
 		sent.addAndGet(dcmToSend.getMetricCount());
 		executor.execute(dcmToSend);
 		
@@ -239,17 +253,21 @@ public class CollectionFunnel {
 	
 	private CollectionFunnel() {
 		timerPeriod = 3000;
-		maxDcmSize = 10240;
+		maxDmcBytes = 10240;
+		maxDmcMetrics = 100;
 		switchQueueSize = 1000;
+		executor = new ThreadPoolFactory(
+				ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors()/2,
+				ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors(),
+				60000,
+				1000,
+				false,
+				this,
+				true,
+				getClass().getPackage().getName(), 
+				"CollectionFunnel"				
+		);
 		executor.allowCoreThreadTimeOut(false);
-		executor.setCorePoolSize(ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors()/2);
-		executor.setMaximumPoolSize(ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors());
-//		executor.setCorePoolSize(1);
-//		executor.setMaximumPoolSize(1);
-		
-		while(true) {
-			if(!executor.prestartCoreThread()) break;
-		}
 		offLineQueue = new ArrayBlockingQueue<IMetric[]>(switchQueueSize, false);
 		timerThread = new Thread("CollectionFunnelTimer") {
 			public void run() {
@@ -264,8 +282,21 @@ public class CollectionFunnel {
 		timerThread.setPriority(Thread.MAX_PRIORITY);
 		timerThread.setDaemon(true);
 		timerThread.start();
-		dcm = DirectMetricCollection.newDirectMetricCollection();
+		dmc = DirectMetricCollection.newDirectMetricCollection();
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see java.util.concurrent.RejectedExecutionHandler#rejectedExecution(java.lang.Runnable, java.util.concurrent.ThreadPoolExecutor)
+	 */
+	@Override
+	public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+		if(r!=null && (r instanceof DirectMetricCollection)) {
+			long dr = dropped.addAndGet(((DirectMetricCollection)r).getMetricCount());
+			System.err.println("Dropped Count:" + dr);
+		}
+	}
+	
 	
 	public int getCorePoolSize() {
 		return executor.getCorePoolSize();
@@ -304,6 +335,7 @@ public class CollectionFunnel {
 						getActiveCount(), getLargestPoolSize(), getTaskCount(),
 						getCompletedTaskCount());
 	}
+
 	
 	
 }

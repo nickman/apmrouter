@@ -120,33 +120,53 @@ public class DirectMetricCollection implements Runnable {
     	return dmc;
     }
     
+    /**
+     * Determines if the DMC is full
+     * @param maxByteSize The maximum number of bytes
+     * @param maxMetricCount The maximum number of metrics
+     * @return true if the DMC is full, false otherwise
+     */
+    protected boolean isFull(int maxByteSize, int maxMetricCount) {
+    	return (maxByteSize>=getSize() || maxMetricCount>=getMetricCount());
+    }
     
 	/**
      * Loads a collection of IMetrics
+     * @param maxByteSize The maximum number of bytes
+     * @param maxMetricCount The maximum number of metrics  
      * @param metrics the metrics to load
      * @return the number of bytes in the collection after this operation completes
      */
-    public synchronized int append(Collection<IMetric> metrics) {
+    public boolean append(int maxByteSize, int maxMetricCount, Collection<IMetric> metrics) {
     	if(metrics!=null && !metrics.isEmpty()) {
         	for(IMetric metric: metrics) {
         		_append(metric);
         	}    		
     	}
-    	return size;
+    	return isFull(maxByteSize, maxMetricCount);
     }
      
 	/**
      * Loads an array of IMetrics
+     * @param maxByteSize The maximum number of bytes
+     * @param maxMetricCount The maximum number of metrics 
      * @param metrics the metrics to load
      * @return the number of bytes in the collection after this operation completes
      */
-    public synchronized int append(IMetric...metrics) {
+    public boolean append(int maxByteSize, int maxMetricCount, IMetric...metrics) {
+    	_check();
     	for(IMetric metric: metrics) {
     		_append(metric);
     	}
-    	return size;
+    	return isFull(maxByteSize, maxMetricCount);
     }
     
+    /**
+     * Checks the memory allocation
+     */
+    private void _check() {
+    	if(address==0) throw new RuntimeException("Call to DCM with unallocated address", new Throwable());
+    }
     
     /**
      * <p>Sends this collection

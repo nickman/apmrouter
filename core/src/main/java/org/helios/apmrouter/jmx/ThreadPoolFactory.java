@@ -25,7 +25,10 @@
 package org.helios.apmrouter.jmx;
 
 import java.lang.management.ManagementFactory;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -59,6 +62,34 @@ public class ThreadPoolFactory extends ThreadPoolExecutor implements ThreadFacto
 	public static Executor newCachedThreadPool(String domain, String name) {
 		return new ThreadPoolFactory(domain, name);
 	}
+	
+	/**
+	 * Creates a new custmized ThreadPool
+	 * @param coreThreads The number of core threads
+	 * @param maxThreads The maximum number of threads
+	 * @param keepAliveMs The keep alive time of non-core threads
+	 * @param queueSize The execution queue size
+	 * @param fairQueue true for a fair queue, false otherwise
+	 * @param handler The rejection handler to install
+	 * @param prestartCoreThreads true to prestart all core threads
+	 * @param domain The JMX domain where the MBean will be published 
+	 * @param name The name property for the MBean ObjectName
+	 */
+	public ThreadPoolFactory(int coreThreads, int maxThreads, long keepAliveMs, int queueSize, boolean fairQueue,  RejectedExecutionHandler handler, boolean prestartCoreThreads, String domain, String name) {		
+		super(coreThreads, maxThreads, keepAliveMs, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<Runnable>(queueSize, fairQueue));
+		this.name = name;
+		setRejectedExecutionHandler(handler);
+		setThreadFactory(this);
+		try {
+			objectName = new ObjectName(domain + ":service=ThreadPool,name=" + name);
+			ManagementFactory.getPlatformMBeanServer().registerMBean(this, objectName);
+//			String prefix = "threadPools.[" + name + "].";
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to register management interface for pool [" + domain + "/" + name + "]", e);
+		}
+		if(prestartCoreThreads) prestartAllCoreThreads();
+	}
+	
 	
 	/**
 	 * Creates a new ThreadPool

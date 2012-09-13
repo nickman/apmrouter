@@ -155,12 +155,11 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 		
 		
 		
-		final Channel ch = channelFactory.newChannel(getPipeline());
 		SplitReader sr = dcm.newSplitReader(1024);
 		for(final DirectMetricCollection d: sr) {
 			final boolean last = !sr.hasNext();
 			final int mcount = d.getMetricCount();
-			ChannelFuture channelFuture = ch.write(d.toChannelBuffer()); 
+			ChannelFuture channelFuture = channel.write(d.toChannelBuffer(), socketAddress); 
 			channelFuture.addListener(new ChannelFutureListener() {
 				public void operationComplete(ChannelFuture future) throws Exception {					
 					if(future.isSuccess()) {
@@ -173,7 +172,7 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 			if(last) channelFuture.addListener(new ChannelFutureListener() {
 				@Override
 				public void operationComplete(ChannelFuture future) throws Exception {
-					ch.close();
+					//ch.close();
 				}
 			});
 		}
