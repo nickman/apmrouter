@@ -28,15 +28,16 @@ import static org.helios.apmrouter.util.Methods.nvl;
 
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.util.Iterator;
 import java.util.concurrent.Executor;
 
+import org.apache.log4j.BasicConfigurator;
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.sender.AbstractSender;
 import org.helios.apmrouter.trace.DirectMetricCollection;
+import org.helios.apmrouter.trace.DirectMetricCollection.SplitDMC;
 import org.helios.apmrouter.trace.DirectMetricCollection.SplitReader;
 import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
-import org.jboss.netty.channel.Channel;
+import org.jboss.netty.buffer.DirectChannelBufferFactory;
 import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -49,6 +50,10 @@ import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.socket.DatagramChannel;
 import org.jboss.netty.channel.socket.nio.NioDatagramChannelFactory;
+import org.jboss.netty.handler.logging.LoggingHandler;
+import org.jboss.netty.logging.InternalLogLevel;
+import org.jboss.netty.logging.InternalLoggerFactory;
+import org.jboss.netty.logging.Log4JLoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,6 +78,7 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	protected final DatagramChannel channel;
 	/** The server socket to send to */
 	protected final InetSocketAddress socketAddress;
+	private LoggingHandler loggingHandler;
 	/** A discard handler used for discarding self-sent messages */
 	protected static final SimpleChannelUpstreamHandler discard = new SimpleChannelUpstreamHandler() {
 		@Override
@@ -110,15 +116,22 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	 */
 	private UDPSender(URI serverURI) {
 		super(serverURI);
+		BasicConfigurator.configure();
+		InternalLoggerFactory.setDefaultFactory(new Log4JLoggerFactory());	
+		loggingHandler = new LoggingHandler(InternalLogLevel.INFO, true);
 		workerPool =  ThreadPoolFactory.newCachedThreadPool(getClass().getPackage().getName(), "UDPSenderWorker/" + serverURI.getHost() + "/" + serverURI.getPort());
 		channelFactory = new NioDatagramChannelFactory(workerPool);
 		bstrap = new ConnectionlessBootstrap(channelFactory);
 		bstrap.setPipelineFactory(this);
 		bstrap.setOption("broadcast", true);
 		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(1024));
-		channel = (DatagramChannel) bstrap.bind(new InetSocketAddress(0));
-		//socketAddress = new InetSocketAddress(serverURI.getHost(), serverURI.getPort());
-		socketAddress = new InetSocketAddress("239.192.74.66", 25826);
+		socketAddress = new InetSocketAddress(serverURI.getHost(), serverURI.getPort());
+		//channel = (DatagramChannel) bstrap.connect(socketAddress).awaitUninterruptibly().getChannel();
+		channel = (DatagramChannel) bstrap.bind(new InetSocketAddress("localhost", 2095));
+		channel.getConfig().setBufferFactory(new DirectChannelBufferFactory());
+		channel.connect(socketAddress);
+		
+		//socketAddress = new InetSocketAddress("239.192.74.66", 25826);
 	}
 	
 
@@ -132,6 +145,8 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	@Override
 	public ChannelPipeline getPipeline()  {
 		ChannelPipeline pipeline = Channels.pipeline();
+		
+		//pipeline.addLast("logging", loggingHandler);
 		pipeline.addLast("discard", discard);
 		pipeline.addLast("metric-encoder", metricEncoder);
 		return pipeline;
@@ -142,7 +157,7 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	 * @see org.helios.apmrouter.sender.ISender#send(org.helios.apmrouter.trace.DirectMetricCollection)
 	 */
 	@Override
-	public void send(DirectMetricCollection dcm) {
+	public void send(final DirectMetricCollection dcm) {
 //		System.out.println("Received [" + dcm.getMetricCount() + "]");
 //		SplitReader sr = dcm.newSplitReader(1024);
 //		int cnt = 0;
@@ -153,19 +168,42 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 //		dcm.destroy();
 //		System.out.println("Sending [" + cnt + "] Dropped:" + sr.getDrops());
 		
-		
-		
-		SplitReader sr = dcm.newSplitReader(1024);
-		for(final DirectMetricCollection d: sr) {
-			final boolean last = !sr.hasNext();
-			final int mcount = d.getMetricCount();
-			ChannelFuture channelFuture = channel.write(d.toChannelBuffer(), socketAddress); 
+		if(dcm.getSize()<1024) {
+			final int mcount = dcm.getMetricCount();
+			ChannelFuture channelFuture = channel.write(dcm);
+			//System.out.println("Sent to [" + socketAddress + "]");
 			channelFuture.addListener(new ChannelFutureListener() {
 				public void operationComplete(ChannelFuture future) throws Exception {					
 					if(future.isSuccess()) {
 						sent.addAndGet(mcount);
 					} else {
-						dropped.addAndGet(mcount);
+						long d = dropped.addAndGet(mcount);
+						System.err.println("Sender Drops:" + d );
+						if(future.getCause()!=null) future.getCause().printStackTrace(System.err);
+					}
+					dcm.decode();
+				}
+			});
+			return;
+		}
+		
+		
+		
+		SplitDMC sr = dcm.newSplitReader(1024);
+		for(final DirectMetricCollection d: sr) {
+			final boolean last = !sr.hasNext();
+			final int mcount = d.getMetricCount();
+			//System.out.println("Sending ---->[" + d.getSize() + "/" + mcount +  "]"); 
+			ChannelFuture channelFuture = channel.write(d);
+			//System.out.println("Sent to [" + socketAddress + "]");
+			channelFuture.addListener(new ChannelFutureListener() {
+				public void operationComplete(ChannelFuture future) throws Exception {					
+					if(future.isSuccess()) {
+						sent.addAndGet(mcount);
+					} else {
+						long d = dropped.addAndGet(mcount);
+						System.err.println("Sender Drops:" + d );
+						if(future.getCause()!=null) future.getCause().printStackTrace(System.err);
 					}
 				}
 			});
@@ -177,7 +215,10 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 			});
 		}
 		dcm.destroy();
-		dropped.addAndGet(sr.getDrops());
+		if(sr instanceof SplitReader) {
+			dropped.addAndGet(((SplitReader)sr).getDrops());
+		}
+		
 		
 		
 	}

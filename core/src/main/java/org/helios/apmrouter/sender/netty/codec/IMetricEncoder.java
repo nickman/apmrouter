@@ -24,10 +24,10 @@
  */
 package org.helios.apmrouter.sender.netty.codec;
 
-import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
@@ -50,41 +50,11 @@ public class IMetricEncoder extends OneToOneEncoder {
 	 */
 	@Override
 	protected Object encode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
-		if(msg instanceof IMetric) {
-			try {
-				IMetric metric = (IMetric)msg;
-				ChannelBuffer buff = ChannelBuffers.directBuffer(metric.getSerSize()+1+4); // the size of the metric,  +1 for the endianess
-				buff.writeByte(ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN) ? 0 : 1); // 0 for LITTLE, 1 for BIG
-				long token = metric.getToken();
-				// write metric ID
-				if(token!=-1) {
-					buff.writeByte(1);
-					buff.writeLong(token);
-				} else {
-					buff.writeByte(0);
-					// Write the metric type
-					buff.writeByte(metric.getType().ordinal());
-					// Write the metric fqn
-					writeMetricId(buff, metric);
-				}
-				// Write the metric timestamp
-				buff.writeLong(metric.getTime());
-				// Write the metric value
-				if(metric.getType().isLong()) {
-					// just the long if this is a long type
-					buff.writeLong(metric.getLongValue());
-				} else {
-					// get the bytebuffer if its not a long
-					// write the length, then the bytes
-					buff.writeByte(metric.getRawValue().limit());
-					buff.writeBytes(metric.getRawValue());
-				}
-				System.out.println("Buff:" + buff.readableBytes());
-				return buff;
-			} catch (Exception e) {
-				e.printStackTrace(System.err);
-				throw e;
-			}
+		if(msg instanceof DirectMetricCollection) {
+			ChannelBuffer cb = ((DirectMetricCollection)msg).toChannelBuffer();
+//			System.out.println("Sending [" + cb.getInt(0) + "] Bytes");
+			//System.out.println("CB:" + cb.readableBytes() + "  Encoded Size:" + cb.getInt(0) +  "  Encoded Metrics:" + cb.getInt(4));
+			return cb;
 		}
 		return null;
 	}

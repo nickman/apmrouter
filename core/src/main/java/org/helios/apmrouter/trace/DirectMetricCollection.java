@@ -24,11 +24,14 @@
  */
 package org.helios.apmrouter.trace;
 
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -37,6 +40,7 @@ import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
+import org.helios.apmrouter.sender.ISender;
 import org.helios.apmrouter.sender.Sender;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -64,9 +68,9 @@ public class DirectMetricCollection implements Runnable {
     /** The offset from the address where the actual metric data starts */
     public static final int METRIC_OFFSET = 10;
     /** The offset from the address where the DCM byte size is */
-    public static final int SIZE_OFFSET = 0;
+    public static final int SIZE_OFFSET = 2;
     /** The offset from the address where the DCM metric count is */
-    public static final int COUNT_OFFSET = 4;
+    public static final int COUNT_OFFSET = 6;
     
     /** Zero byte literal */
     public static final byte BYTE_ZERO = 0;
@@ -75,6 +79,10 @@ public class DirectMetricCollection implements Runnable {
     /** The byte order indicator */
     public static final byte BYTE_ORDER = ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN) ? BYTE_ZERO : BYTE_ONE;
     
+    /** The reverse byte order */
+    public static final ByteOrder REV_BYTE_ORDER = ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN) ? ByteOrder.BIG_ENDIAN: ByteOrder.LITTLE_ENDIAN;
+    
+    
 
     /** the address of the direct memory allocation */
     protected long address = 0;
@@ -82,6 +90,9 @@ public class DirectMetricCollection implements Runnable {
     protected int size = 0;
     /** the current capacity of this collection in bytes */
     protected int capacity = 0;
+    
+    /** The DMC sender */
+    protected static volatile ISender sender;
     
     
     static {
@@ -127,7 +138,7 @@ public class DirectMetricCollection implements Runnable {
      * @return true if the DMC is full, false otherwise
      */
     protected boolean isFull(int maxByteSize, int maxMetricCount) {
-    	return (maxByteSize>=getSize() || maxMetricCount>=getMetricCount());
+    	return (getSize()>=maxByteSize || getMetricCount()>=maxMetricCount);
     }
     
 	/**
@@ -135,7 +146,7 @@ public class DirectMetricCollection implements Runnable {
      * @param maxByteSize The maximum number of bytes
      * @param maxMetricCount The maximum number of metrics  
      * @param metrics the metrics to load
-     * @return the number of bytes in the collection after this operation completes
+     * @return true if the DMC is full after this operation, false otherwise
      */
     public boolean append(int maxByteSize, int maxMetricCount, Collection<IMetric> metrics) {
     	if(metrics!=null && !metrics.isEmpty()) {
@@ -151,7 +162,7 @@ public class DirectMetricCollection implements Runnable {
      * @param maxByteSize The maximum number of bytes
      * @param maxMetricCount The maximum number of metrics 
      * @param metrics the metrics to load
-     * @return the number of bytes in the collection after this operation completes
+     * @return true if the DMC is full after this operation, false otherwise
      */
     public boolean append(int maxByteSize, int maxMetricCount, IMetric...metrics) {
     	_check();
@@ -174,7 +185,7 @@ public class DirectMetricCollection implements Runnable {
      * @see java.lang.Runnable#run()
      */
     public void run() {
-    	Sender.getInstance().getDefaultSender().send(this);
+    	sender.send(this);
     }
     
 	/**
@@ -188,12 +199,13 @@ public class DirectMetricCollection implements Runnable {
     	final int currentSize = size;
     	// write the place-holder for the size
     	writeInt(0);
+    	// write the type code
+    	writeByte((byte)metric.getType().ordinal());
     	if(token!=-1) {
     		writeByte(BYTE_ONE);
     		writeLong(token);
     	} else {
-    		writeByte(BYTE_ZERO);    		
-    		writeByte((byte)metric.getType().ordinal());
+    		writeByte(BYTE_ZERO);    		    		
     		byte[] fqnBytes = metric.getFQN().getBytes();
     		writeInt(fqnBytes.length);
     		writeBytes(fqnBytes);
@@ -226,16 +238,105 @@ public class DirectMetricCollection implements Runnable {
     }
     
     /**
+     * Recreates a DirectMetricCollection from a ChannelBuffer
+     * @param cb The ChannelBuffer to read the bytes from
+     * @return the new DirectMetricCollection
+     * FIXME: the order of ints and longs is wrong when we do this
+     */
+    public static DirectMetricCollection fromChannelBuffer(ChannelBuffer cb) {
+    	ChannelBuffer rbuff = ChannelBuffers.directBuffer(cb.order().equals(ByteOrder.LITTLE_ENDIAN) ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN, cb.readableBytes());
+    	rbuff.writeBytes(cb);
+    	byte[] bytes = new byte[rbuff.readableBytes()];
+    	rbuff.readBytes(bytes);
+    	DirectMetricCollection d = new DirectMetricCollection(bytes.length);
+    	unsafe.copyMemory(bytes, BYTE_ARRAY_OFFSET, null, d.address, bytes.length);
+    	bytes = null;
+//    	System.err.println("Read in [" + d.getSize() + "/" + d.getMetricCount() + "]");
+    	return d;
+    }
+    
+    /**
      * Writes this DMC to a direct {@link ChannelBuffer} and then destroys.
      * @return a loaded {@link ChannelBuffer}
+     * TODO: Get rid of the call to ICEMetricCatalog. Need to store the type even if it is tokenized.
      */
     public ChannelBuffer toChannelBuffer() {
-    	ChannelBuffer cb = ChannelBuffers.directBuffer(size);
-		byte[] bytes = new byte[size];
-		unsafe.copyMemory(null, (address), bytes, BYTE_ARRAY_OFFSET, size);
-		destroy();
-		cb.writeBytes(bytes);
+    	shrinkWrap();
+    	ChannelBuffer cb = ChannelBuffers.directBuffer(getSize());
+    	// ===================================
+    	// WRITE HEADER
+    	// ===================================
+    	// the op code (0 for metrics)
+    	cb.writeByte(BYTE_ZERO);	
+    	// The byte order of this message
+    	cb.writeByte(BYTE_ORDER);
+    	// The size of this message in bytes
+    	cb.writeInt(getSize());
+    	// the number of metrics in this dmc
+    	cb.writeInt(getMetricCount());  			
+    	// ===================================
+    	// WRITE BODY
+    	// ===================================
+    	Reader r = new Reader();
+    	
+    	while(r._next()) {
+    		int msize = r.readInt();
+    		cb.writeInt(msize); // the size of this metric
+    		byte typeOrdinal = r.readByte();
+    		MetricType t = MetricType.valueOf(typeOrdinal);
+    		cb.writeByte(typeOrdinal); 			// the metric type byte
+    		byte isToken = r.readByte();  // the token indicator
+    		cb.writeByte(isToken); 			// the token indicator
+    		if(BYTE_ONE==isToken) {
+    			long token  = r.readLong();
+    			cb.writeLong(token); // the token
+    		} else {
+    			//byte[] fqn = r.readString().getBytes();
+    			int fqnSize = r.readInt();
+    			byte[] fqnBytes = r.readBytes(fqnSize);
+    			cb.writeInt(fqnSize);    // the fqn length
+    			cb.writeBytes(fqnBytes);    // the fqn 
+    		}
+    		cb.writeLong(r.readLong());
+			if(t.isLong()) {
+				cb.writeLong(r.readLong());
+			} else {
+				int byteLength = r.readInt();
+				cb.writeInt(byteLength);			// the length of the next sequence of bytes
+				cb.writeBytes(r.readByteBuffer(byteLength));  // the value bytes
+			}
+    	}
+//		byte[] bytes = new byte[size];
+//		unsafe.copyMemory(null, (address), bytes, BYTE_ARRAY_OFFSET, size);
+//		destroy();
+//		cb.writeBytes(bytes);
+//		logBits(cb);
+//		logBits(bytes);
     	return cb;
+    }
+    
+    
+    private void logBits(ChannelBuffer cb) {
+    	try {
+	    	int size = cb.getInt(0);
+	    	int count = cb.getInt(4);
+	    	System.err.println("logBits [" + size + "/" + count + "]");
+    	} catch (Exception e) {
+    		e.printStackTrace(System.err);
+    	}
+    }
+
+    
+    private void logBits(byte[] bytes) {
+    	try {
+	    	ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+	    	DataInputStream dis = new DataInputStream(bais);
+	    	int size = dis.readInt();
+	    	int count = dis.readInt();
+	    	System.err.println("logBits [" + size + "/" + count + "]");
+    	} catch (Exception e) {
+    		e.printStackTrace(System.err);
+    	}
     }
     
     
@@ -259,7 +360,7 @@ public class DirectMetricCollection implements Runnable {
      * @author Whitehead (nwhitehead AT heliosdev DOT org)
      * <p><code>org.helios.apmrouter.trace.DirectMetricCollection.Reader</code></p>
      */
-    protected abstract class Reader {
+    protected class Reader {
     	/** The current offset for this reader */
     	protected int offset = METRIC_OFFSET;
     	/** The number of metrics to read */
@@ -352,22 +453,22 @@ public class DirectMetricCollection implements Runnable {
 		
 		/**
 		 * Reads the specified number of bytes and returns them in a byte array
-		 * @param byteCount the number of bytes to read
+		 * @param bytesToRead the number of bytes to read
 		 * @return a byte array
 		 */
-		protected byte[] readBytes(int byteCount) {
-			byte[] bytes = new byte[byteCount];
-			unsafe.copyMemory(null, (address + offset), bytes, BYTE_ARRAY_OFFSET, byteCount);
-			offset += byteCount;
+		protected byte[] readBytes(int bytesToRead) {
+			byte[] bytes = new byte[bytesToRead];
+			unsafe.copyMemory(null, (address + offset), bytes, BYTE_ARRAY_OFFSET, bytesToRead);
+			offset += bytesToRead;
 			return bytes;
 		}
 		
 		/**
 		 * Reads the specified number of bytes and returns them in a direct ByteBuffer
-		 * @param byteCount the number of bytes to read
+		 * @param bytesToRead the number of bytes to read
 		 * @return a direct ByteBuffer
 		 */
-		protected ByteBuffer readByteBuffer(int byteCount) {
+		protected ByteBuffer readByteBuffer(int bytesToRead) {
 			byte[] bytes = new byte[byteCount];
 			unsafe.copyMemory(null, (address + offset), bytes, BYTE_ARRAY_OFFSET, byteCount);
 			ByteBuffer bb = ByteBuffer.allocateDirect(byteCount);
@@ -394,18 +495,42 @@ public class DirectMetricCollection implements Runnable {
 		 */
 		@Override
 		public IMetric next() {			
-			cursor++;
-    		MetricType type = null;
+			cursor++;    		
     		IDelegateMetric dmetric = null;
-    		readInt(); // skip size
+    		
+//        	final int currentSize = size;
+//        	// write the place-holder for the size
+//        	writeInt(0);
+//        	// write the type code
+//        	writeByte((byte)metric.getType().ordinal());
+//        	if(token!=-1) {
+//        		writeByte(BYTE_ONE);
+//        		writeLong(token);
+//        	} else {
+//        		writeByte(BYTE_ZERO);    		    		
+//        		byte[] fqnBytes = metric.getFQN().getBytes();
+//        		writeInt(fqnBytes.length);
+//        		writeBytes(fqnBytes);
+//        	}
+//        	writeLong(metric.getTime());
+//        	if(metric.getType().isLong()) {
+//        		writeLong(metric.getLongValue());
+//        	} else {
+//        		ByteBuffer bb = metric.getRawValue();
+//        		writeInt(bb.limit());
+//        		writeBytes(bb);    		
+//        	}
+    		
+    		
+    		readInt(); // skip size    		
     		if(byteCount<1) throw new RuntimeException("Read a <= 1 byte count", new Throwable());
+    		byte typeOrdinal = readByte();
+    		MetricType type = MetricType.valueOf(typeOrdinal);
     		byte isToken = readByte();
     		if(BYTE_ONE==isToken) {
     			long token =  readLong();
-    			dmetric = ICEMetricCatalog.getInstance().get(token);
-    			type = dmetric.getType();
-    		} else {
-    			type = MetricType.valueOf(readByte());
+    			dmetric = ICEMetricCatalog.getInstance().get(token);    			
+    		} else {    			
 				String fqn = readString();
 				dmetric = ICEMetricCatalog.getInstance().build(fqn, type);
     		}
@@ -424,7 +549,15 @@ public class DirectMetricCollection implements Runnable {
 		}
     }
     
-    public class SplitReader extends Reader implements Iterable<DirectMetricCollection>, Iterator<DirectMetricCollection> {
+    /**
+     * <p>Title: SplitReader</p>
+     * <p>Description: A reader implementation for breaking up a DMC into an array of DMCs, each with a maximum byte size.
+     * This is intended to support transmissions using protocols with limited payload size.</p> 
+     * <p>Company: Helios Development Group LLC</p>
+     * @author Whitehead (nwhitehead AT heliosdev DOT org)
+     * <p><code>org.helios.apmrouter.trace.DirectMetricCollection.SplitReader</code></p>
+     */
+    public class SplitReader extends Reader implements SplitDMC {
     	/** The maximum size of one split DirectMetricCollection */
     	private final int maxSize;
     	/** The current DMC */
@@ -448,6 +581,7 @@ public class DirectMetricCollection implements Runnable {
     		this.maxSize = maxSize;
     		dmc = DirectMetricCollection.newDirectMetricCollection(maxSize);
     	}
+    	
 		/**
 		 * {@inheritDoc}
 		 * @see java.util.Iterator#next()
@@ -480,12 +614,61 @@ public class DirectMetricCollection implements Runnable {
      * @param maxSize The maximum size of the split DMCs
      * @return a SplitReader
      */
-    public SplitReader newSplitReader(int maxSize) {
+    public SplitDMC newSplitReader(int maxSize) {
+		if(maxSize>getSize()) {
+			return new OneDMCReader(this);
+		}
+    	
     	return new SplitReader(maxSize);
     }
     
+    public interface SplitDMC extends Iterator<DirectMetricCollection>, Iterable<DirectMetricCollection> {
+    	
+    }
+    
+	private class OneDMCReader implements SplitDMC {
+    	/** The single DMC */
+    	private final List<DirectMetricCollection> dmc;
+    	/** The single DMC iterator*/
+    	private final Iterator<DirectMetricCollection> dmcIter;
+
+    	/**
+    	 * Creates a new OneDMCReader
+    	 * @param dmc The DMC to wrap
+    	 */
+    	OneDMCReader(DirectMetricCollection dmc) {
+    		this.dmc = Collections.singletonList(dmc);
+    		dmcIter = this.dmc.iterator();
+    	}
+
+		@Override
+		public boolean hasNext() {
+			return dmcIter.hasNext();
+		}
+
+		@Override
+		public DirectMetricCollection next() {
+			return dmcIter.next();
+		}
+
+		@Override
+		public void remove() {
+			// No Op
+			
+		}
+
+		@Override
+		public Iterator<DirectMetricCollection> iterator() {
+			return dmcIter;
+		}
+    	
+    	
+
+	}
+    
+    
     /**
-     * Returns a MetricReader that can iteratively decode all the {@ link IMetric}s in this DMC.
+     * Returns a MetricReader that can iteratively decode all the {@link IMetric}s in this DMC.
      * @return a MetricReader 
      */
     public MetricReader newMetricReader() {
@@ -580,6 +763,7 @@ public class DirectMetricCollection implements Runnable {
     		byte[] bytes = new byte[bb.limit()];
     		bb.get(bytes);
     		writeBytes(bytes);
+    		size += bytes.length;
     	}
     	
     }
@@ -631,17 +815,24 @@ public class DirectMetricCollection implements Runnable {
      * @param initialCapacity The initial capacity of this DMC
      */
     private DirectMetricCollection(int initialCapacity) {
+    	if(sender==null) {
+    		synchronized(this) {
+    			if(sender==null) {
+    				sender = Sender.getInstance().getDefaultSender();
+    			}
+    		}
+    	}
     	address = unsafe.allocateMemory(initialCapacity);
     	capacity = initialCapacity;
     	size = 0;
-    	// the byte size of this DMC set during shrinkWrap()
-    	writeInt(0);
-    	// the number of metrics in this dmc
-    	writeInt(0);  			
     	// the op code (0 for metrics)
     	writeByte(BYTE_ZERO);	
     	// The byte order of this message
     	writeByte(BYTE_ORDER); 
+    	// the byte size of this DMC set during shrinkWrap()
+    	writeInt(0);
+    	// the number of metrics in this dmc
+    	writeInt(0);  			
     	// set the initial size
     	setSize(size);
     }

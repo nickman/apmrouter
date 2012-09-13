@@ -123,29 +123,31 @@ public class TracerFactory {
 		}
 		return tracer;
 	}
-	public static void mainx(String[] args) {
+	public static void main(String[] args) {
 		log("DMC Decode Test");
-		int LOOPS = 10;
+		int LOOPS = 1;
 		for(int i = 0; i < LOOPS; i++) {
-			getTracer().trace(i, "foo", MetricType.LONG, "bar");
+			//getTracer().trace(i, "foo", MetricType.LONG, "bar");
+			//getTracer().traceString("H#" + i, "W", "G", "H");
+			getTracer().traceDirect(i, "bar", MetricType.LONG, "bar");
 		}
 	}
 	
 	
-	public static void main(String[] args) {
+	public static void mainx(String[] args) {
 		log("Basic Tracing Test");
 		MetricType.setCompress(false);
 		MetricType.setDirect(false);
 		boolean traceBlob = false;
+		boolean traceLong = false;
+		boolean traceString = true;
 		final int LOOPS = 1000;
 		final ITracer tracer = getTracer();
 		for(int x = 0; x < 100; x++) {			
 			for(int i = 0; i < LOOPS; i++) {
-				if(traceBlob) {
-					tracer.traceBlob(new Date(), "foo", "date");
-				} else {
-					tracer.traceLong(i, "foo", "bar");
-				}					
+				if(traceBlob) tracer.traceBlob(new Date(), "foo", "date");
+				if(traceLong) tracer.traceLong(i, "foo", "bar");
+				if(traceString) getTracer().traceString("H#" + i, "W", "G", "H");
 			}
 		}
 //		SystemClock.sleep(CollectionFunnel.getInstance().getTimerPeriod()+1000);
@@ -154,11 +156,9 @@ public class TracerFactory {
 //		tracer.resetStats();
 		SystemClock.startTimer();
 		for(int i = 0; i < LOOPS; i++) {
-			if(traceBlob) {
-				tracer.traceBlob(new Date(), "foo", "date");
-			} else {
-				tracer.traceLong(i, "foo", "bar");
-			}					
+			if(traceBlob) tracer.traceBlob(new Date(), "foo", "date");
+			if(traceLong) tracer.traceLong(i, "foo", "bar");
+			if(traceString) getTracer().traceString("H#" + i, "W", "G", "H");
 		}
 		ElapsedTime et = SystemClock.endTimer();
 		log("FULL:\nSent:" + tracer.getSentMetrics() + "\nDropped:" + tracer.getDroppedMetrics() + "\nElapsed:" + et + "\nAvg Per:" + et.avgNs(LOOPS) + " ns");
@@ -169,11 +169,9 @@ public class TracerFactory {
 //		tracer.resetStats();
 		SystemClock.startTimer();
 		for(int i = 0; i < LOOPS; i++) {
-			if(traceBlob) {
-				tracer.traceBlob(new Date(), "foo", "date");
-			} else {
-				tracer.traceLong(i, "foo", "bar");
-			}					
+			if(traceBlob) tracer.traceBlob(new Date(), "foo", "date");
+			if(traceLong) tracer.traceLong(i, "foo", "bar");
+			if(traceString) getTracer().traceString("H#" + i, "W", "G", "H");
 		}
 		et = SystemClock.endTimer();
 		log("TOKEN:\nSent:" + tracer.getSentMetrics() + "\nDropped:" + tracer.getDroppedMetrics() + "\nElapsed:" + et + "\nAvg Per:" + et.avgNs(LOOPS) + " ns");

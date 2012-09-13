@@ -128,7 +128,7 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 				queued.addAndGet(metrics.length);
 			}
 		} else {
-			synchronized(switchToQueue) {
+			synchronized(switchToQueue) {				
 				if(dmc.append(maxDmcBytes, maxDmcMetrics, metrics)) {
 					flush();
 				}
@@ -151,6 +151,7 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 	 */
 	protected void timerFlush() {
 		if(SystemClock.elapsedMsSince(lastFlush) >= timerPeriod) {
+			System.out.println("============> TIMER FLUSH");
 			flush();
 		}		
 	}
@@ -202,6 +203,7 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 			new Throwable().printStackTrace(System.err);
 			return;
 		}
+		System.out.println("DCM Send:\n\tBytes:" + dcmToSend.getSize() + "\n\tMetrics:" + dcmToSend.getMetricCount());
 		sent.addAndGet(dcmToSend.getMetricCount());
 		executor.execute(dcmToSend);
 		
@@ -253,14 +255,14 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 	
 	private CollectionFunnel() {
 		timerPeriod = 3000;
-		maxDmcBytes = 10240;
-		maxDmcMetrics = 100;
+		maxDmcBytes = 10240  * 10;
+		maxDmcMetrics = 100 * 100;
 		switchQueueSize = 1000;
 		executor = new ThreadPoolFactory(
 				ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors()/2,
 				ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors(),
 				60000,
-				1000,
+				100000,
 				false,
 				this,
 				true,
@@ -293,7 +295,7 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 	public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
 		if(r!=null && (r instanceof DirectMetricCollection)) {
 			long dr = dropped.addAndGet(((DirectMetricCollection)r).getMetricCount());
-			System.err.println("Dropped Count:" + dr);
+			System.err.println("Execution Dropped Count:" + dr + "  Queue Depth:" + executor.getQueue().size());
 		}
 	}
 	

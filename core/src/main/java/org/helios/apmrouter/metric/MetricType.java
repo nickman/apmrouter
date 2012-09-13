@@ -13,13 +13,10 @@ import java.nio.ByteOrder;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.GZIPOutputStream;
 
 import org.helios.apmrouter.util.IO;
-
-import test.org.helios.apmrouter.performance.BaseTracingOperations;
+import org.snmp4j.PDU;
 
 
 /**
@@ -40,8 +37,11 @@ public enum MetricType  implements IMetricDataAccessor {
 	ERROR(new ErrorMDA()),
 	/** A char sequence type message metricId type */
 	STRING(new StringMDA()),
-	/** A catch call metricId type in the form of a byte array for everything else */
+	/** An SNMP PDU */
+	PDU(new PduMDA()),	
+	/** A catch all metricId type in the form of a byte array for everything else */
 	BLOB(new BlobMDA());
+	
 	
 	/** Map of MetricTypes keyed by the ordinal */
 	public static final Map<Integer, MetricType> ORD2ENUM;
@@ -359,6 +359,25 @@ public enum MetricType  implements IMetricDataAccessor {
 		public Serializable read(ICEMetricValue metricValue) {
 			return (Serializable)IO.readFromByteBuffer(metricValue.getValue());
 		}		
+	}
+	
+	private static class PduMDA implements IMetricDataAccessor<PDU> {
+		/** TODO:  Replace IO.writeToBuffer with BEROutputStream */
+		@Override
+		public ICEMetricValue write(org.snmp4j.PDU value) {
+			return new ICEMetricValue(PDU, IO.writeToByteBuffer(value, direct, compress));			
+		}
+
+		@Override
+		public ICEMetricValue writeObject(Object value) {
+			return new ICEMetricValue(PDU, IO.writeToByteBuffer(value, direct, compress));
+		}
+
+		@Override
+		public org.snmp4j.PDU read(ICEMetricValue metricValue) {
+			return (PDU)IO.readFromByteBuffer(metricValue.getValue());
+		}
+		
 	}
 	
 	/**

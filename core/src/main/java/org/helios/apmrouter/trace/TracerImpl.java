@@ -33,6 +33,7 @@ import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.sender.ISender;
+import org.snmp4j.PDU;
 
 /**
  * <p>Title: TracerImpl</p>
@@ -256,6 +257,17 @@ public class TracerImpl implements ITracer {
 			t.printStackTrace(System.err);
 			return null;
 		}		
+	}
+	
+	public ICEMetric tracePDU(PDU pdu, CharSequence name, CharSequence...namespace) {
+		try {				
+			ICEMetric metric =   ICEMetric.trace(pdu, host, agent, name, MetricType.PDU, namespace);
+			funnel.submit(metric);
+			return metric;									
+		} catch (Throwable t) {
+			t.printStackTrace(System.err);
+			return null;
+		}				
 	}
 
 	/**

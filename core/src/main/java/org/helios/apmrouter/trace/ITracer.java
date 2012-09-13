@@ -28,6 +28,7 @@ import java.io.Serializable;
 
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.MetricType;
+import org.snmp4j.PDU;
 
 /**
  * <p>Title: ITracer</p>
@@ -129,6 +130,16 @@ public interface ITracer {
 	 * @return the created {@link ICEMetric}
 	 */
 	public ICEMetric traceBlob(Serializable value, CharSequence name, CharSequence...namespace);
+	
+	/**
+	 * Traces an SNMP PDU  type
+	 * @param pdu The SNMP PDU
+	 * @param name The name of the metric
+	 * @param namespace The optional namespace of the metric
+	 * @return the created {@link ICEMetric}
+	 */
+	public ICEMetric tracePDU(PDU pdu, CharSequence name, CharSequence...namespace);
+	
 	
 	/**
 	 * Returns the originating host of the metrics created by this tracer
