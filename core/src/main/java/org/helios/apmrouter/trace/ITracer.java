@@ -68,6 +68,17 @@ public interface ITracer {
 	 */
 	public ICEMetric traceDirect(long timeout, TimeUnit unit, Object value, CharSequence name, MetricType type, CharSequence...namespace);
 	
+	/**
+	 * Creates and sends an {@link ICEMetric} directly, bypassing the local bufer and using the default timeout specified in {@link TracerFactory#DIRECT_TIMEOUT}.
+	 * @param value The value of the metric
+	 * @param name The name of the metric
+	 * @param type The type of the metric
+	 * @param namespace The optional namespace of the metric
+	 * @return the created {@link ICEMetric} 
+	 */
+	public ICEMetric traceDirect(Object value, CharSequence name, MetricType type, CharSequence...namespace);
+	
+	
 	
 //	/**
 //	 * Creates and sends an {@link ICEMetric} 

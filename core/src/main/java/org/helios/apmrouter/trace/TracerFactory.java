@@ -59,6 +59,13 @@ public class TracerFactory {
 	/** The collection funnel */
 	private static final CollectionFunnel funnel;
 	
+	/** The property name to override the default direct trace confirmation timeout */
+	public static final String DIRECT_TIMEOUT_PROP = "org.helios.apmrouter.direct.timeout";
+	/** The default direct trace confirmation timeout */
+	public static final long DEFAULT_DIRECT_TIMEOUT = 2000;
+	
+	/** The configured direct timeout */
+	public static long DIRECT_TIMEOUT = DEFAULT_DIRECT_TIMEOUT;
 	
 	/** A map of created tracers keyed by host/agent */
 	private static final Map<String, ITracer> tracers = new ConcurrentHashMap<String, ITracer>();
@@ -66,6 +73,12 @@ public class TracerFactory {
 	static {
 		funnel = CollectionFunnel.getInstance();
 		defaultTracer = new TracerImpl(AgentIdentity.ID.getHostName(), AgentIdentity.ID.getAgentName(), funnel);
+		try {
+			DIRECT_TIMEOUT = Long.parseLong(System.getProperty(DIRECT_TIMEOUT_PROP, "" + DEFAULT_DIRECT_TIMEOUT));
+		} catch (Exception e) {
+			DIRECT_TIMEOUT = DEFAULT_DIRECT_TIMEOUT;
+		}
+		
 		if(System.getProperties().containsKey("debug-stop")) {
 			long time = 60000;
 			try { 
@@ -124,21 +137,21 @@ public class TracerFactory {
 		}
 		return tracer;
 	}
+//	public static void main(String[] args) {
+//		log("DMC Decode Test");
+//		int LOOPS = 30000;
+//		SystemClock.startTimer();
+//		for(int i = 0; i < LOOPS; i++) {
+//			//getTracer().trace(i, "foo", MetricType.LONG, "bar");
+//			//getTracer().traceString("H#" + i, "W", "G", "H");
+//			getTracer().traceDirect(1000, TimeUnit.MILLISECONDS, i, "bar", MetricType.LONG, "bar");
+//		}
+//		ElapsedTime et = SystemClock.endTimer();
+//		log("Complete in [" + et + "]\n\tAvg Per Ms:" + et.avgMs(LOOPS) + "\n\tAvg Per Ns:" + et.avgNs(LOOPS));
+//	}
+//	
+//	
 	public static void main(String[] args) {
-		log("DMC Decode Test");
-		int LOOPS = 30000;
-		SystemClock.startTimer();
-		for(int i = 0; i < LOOPS; i++) {
-			//getTracer().trace(i, "foo", MetricType.LONG, "bar");
-			//getTracer().traceString("H#" + i, "W", "G", "H");
-			getTracer().traceDirect(1000, TimeUnit.MILLISECONDS, i, "bar", MetricType.LONG, "bar");
-		}
-		ElapsedTime et = SystemClock.endTimer();
-		log("Complete in [" + et + "]\n\tAvg Per Ms:" + et.avgMs(LOOPS) + "\n\tAvg Per Ns:" + et.avgNs(LOOPS));
-	}
-	
-	
-	public static void mainy(String[] args) {
 		log("Basic Tracing Test");
 		MetricType.setCompress(false);
 		MetricType.setDirect(false);
@@ -188,5 +201,6 @@ public class TracerFactory {
 	public static void log(Object msg) {
 		System.out.println(msg);
 	}
+	
 	
 }

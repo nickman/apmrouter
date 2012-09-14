@@ -71,7 +71,7 @@ public class TracerImpl implements ITracer {
 	 * @param value The value to coerce
 	 * @return The coerced long
 	 */
-	protected long coerce(Object value) {
+	protected static long coerce(Object value) {
 		long actual = 0;
 		if(value==null) {
 			actual = 0;
@@ -160,6 +160,14 @@ public class TracerImpl implements ITracer {
 	 */
 	public ICEMetric traceDirect(long timeout, TimeUnit unit, Object value, CharSequence name, MetricType type, CharSequence...namespace) {
 		return _trace(timeout, unit,  value, name, type, namespace);
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceDirect(java.lang.Object, java.lang.CharSequence, org.helios.apmrouter.metric.MetricType, java.lang.CharSequence[])
+	 */
+	public ICEMetric traceDirect(Object value, CharSequence name, MetricType type, CharSequence...namespace) {
+		return traceDirect(TracerFactory.DIRECT_TIMEOUT, TimeUnit.MILLISECONDS, value, name, type, namespace);
 	}
 
 //	/**
