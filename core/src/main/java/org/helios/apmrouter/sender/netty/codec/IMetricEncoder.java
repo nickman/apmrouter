@@ -52,6 +52,7 @@ public class IMetricEncoder extends OneToOneEncoder {
 	protected Object encode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
 		if(msg instanceof DirectMetricCollection) {
 			ChannelBuffer cb = ((DirectMetricCollection)msg).toChannelBuffer();
+			cb.setByte(DirectMetricCollection.BYTE_ORDER_OFFSET, cb.getByte(DirectMetricCollection.BYTE_ORDER_OFFSET)==DirectMetricCollection.BYTE_ZERO ? DirectMetricCollection.BYTE_ONE : DirectMetricCollection.BYTE_ZERO);
 //			System.out.println("Sending [" + cb.getInt(0) + "] Bytes");
 			//System.out.println("CB:" + cb.readableBytes() + "  Encoded Size:" + cb.getInt(0) +  "  Encoded Metrics:" + cb.getInt(4));
 			return cb;

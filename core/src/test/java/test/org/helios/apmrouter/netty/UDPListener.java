@@ -4,18 +4,17 @@
 package test.org.helios.apmrouter.netty;
 
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.BasicConfigurator;
+import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.helios.apmrouter.util.SystemClock;
 import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -23,11 +22,8 @@ import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.FixedReceiveBufferSizePredictorFactory;
-import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.channel.SimpleChannelHandler;
 import org.jboss.netty.channel.socket.nio.NioDatagramChannel;
 import org.jboss.netty.channel.socket.nio.NioDatagramChannelFactory;
-import org.jboss.netty.handler.codec.frame.LengthFieldBasedFrameDecoder;
 import org.jboss.netty.handler.codec.oneone.OneToOneDecoder;
 import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLogLevel;
@@ -118,6 +114,7 @@ public class UDPListener implements  ChannelPipelineFactory {
 	
 	private class TestHandler extends OneToOneDecoder {
 
+		@SuppressWarnings("unused")
 		@Override
 		protected Object decode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {			
 			if(msg instanceof ChannelBuffer) {
@@ -125,8 +122,13 @@ public class UDPListener implements  ChannelPipelineFactory {
 				//log("Received Channel Buffer:" + buff.isDirect());
 				DirectMetricCollection dmc = DirectMetricCollection.fromChannelBuffer(buff);
 				//if(buff.readableBytes()<length) return null;
-				receivedBytes.addAndGet(reverse(dmc.getSize()));
-				receivedMetrics.addAndGet(reverse(dmc.getMetricCount()));
+				receivedBytes.addAndGet(dmc.getSize());
+				receivedMetrics.addAndGet(dmc.getMetricCount());
+				int opCode = buff.getByte(0);
+				int byteOrder = buff.getByte(1);
+				int totalSize = buff.getInt(2);
+				
+				IMetric[] metrics = dmc.decode();
 				dmc.destroy();
 				return -1;
 			} 

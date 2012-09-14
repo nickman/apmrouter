@@ -125,16 +125,16 @@ public class TracerFactory {
 	}
 	public static void main(String[] args) {
 		log("DMC Decode Test");
-		int LOOPS = 1;
+		int LOOPS = 2;
 		for(int i = 0; i < LOOPS; i++) {
 			//getTracer().trace(i, "foo", MetricType.LONG, "bar");
-			//getTracer().traceString("H#" + i, "W", "G", "H");
-			getTracer().traceDirect(i, "bar", MetricType.LONG, "bar");
+			getTracer().traceString("H#" + i, "W", "G", "H");
+			//getTracer().traceDirect(i, "bar", MetricType.LONG, "bar");
 		}
 	}
 	
 	
-	public static void mainx(String[] args) {
+	public static void mainy(String[] args) {
 		log("Basic Tracing Test");
 		MetricType.setCompress(false);
 		MetricType.setDirect(false);

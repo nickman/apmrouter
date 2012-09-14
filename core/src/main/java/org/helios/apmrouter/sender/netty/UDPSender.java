@@ -180,8 +180,7 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 						long d = dropped.addAndGet(mcount);
 						System.err.println("Sender Drops:" + d );
 						if(future.getCause()!=null) future.getCause().printStackTrace(System.err);
-					}
-					dcm.decode();
+					}					
 				}
 			});
 			return;

@@ -67,6 +67,9 @@ public class DirectMetricCollection implements Runnable {
     
     /** The offset from the address where the actual metric data starts */
     public static final int METRIC_OFFSET = 10;
+    /** The offset from the address of the byte order byte */
+    public static final int BYTE_ORDER_OFFSET = 1;
+    
     /** The offset from the address where the DCM byte size is */
     public static final int SIZE_OFFSET = 2;
     /** The offset from the address where the DCM metric count is */
@@ -78,6 +81,8 @@ public class DirectMetricCollection implements Runnable {
     public static final byte BYTE_ONE = 1;
     /** The byte order indicator */
     public static final byte BYTE_ORDER = ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN) ? BYTE_ZERO : BYTE_ONE;
+    /** The reverse byte order indicator */
+    public static final byte R_BYTE_ORDER = BYTE_ORDER==BYTE_ONE ? BYTE_ZERO : BYTE_ONE;
     
     /** The reverse byte order */
     public static final ByteOrder REV_BYTE_ORDER = ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN) ? ByteOrder.BIG_ENDIAN: ByteOrder.LITTLE_ENDIAN;
@@ -123,7 +128,10 @@ public class DirectMetricCollection implements Runnable {
      * @param metrics The initial metrics to load
      * @return the loaded DirectMetricCollection
      */
-    public static DirectMetricCollection newDirectMetricCollection(int initialCapacity, IMetric...metrics) {
+    public static DirectMetricCollection newDirectMetricCollection(int initialCapacity, IMetric...metrics) {    
+    	if(sender==null) {
+    		sender = Sender.getInstance().getDefaultSender();
+    	}    	    	
     	DirectMetricCollection dmc = new DirectMetricCollection(initialCapacity);
     	for(IMetric m: metrics) {
     		dmc._append(m);
@@ -155,6 +163,23 @@ public class DirectMetricCollection implements Runnable {
         	}    		
     	}
     	return isFull(maxByteSize, maxMetricCount);
+    }
+    
+    /**
+     * Returns the current byte order
+     * @return the current byte order
+     */
+    private byte getByteOrder() {
+    	return unsafe.getByte(address + BYTE_ORDER_OFFSET);
+    }
+    
+    /**
+     * Reverses the byte order byte
+     * @return this DMC
+     */
+    public DirectMetricCollection  reverseByteOrder() {
+    	unsafe.putByte(address + BYTE_ORDER_OFFSET, unsafe.getByte(address + BYTE_ORDER_OFFSET)==BYTE_ZERO ? BYTE_ONE : BYTE_ZERO);
+    	return this;
     }
      
 	/**
@@ -197,29 +222,32 @@ public class DirectMetricCollection implements Runnable {
     	while(size + metric.getSerSize()+6 > capacity) extend();    	
     	long token = metric.getToken();
     	final int currentSize = size;
+    	int VS = 0;
     	// write the place-holder for the size
-    	writeInt(0);
+    	writeInt(0); VS+= 4;
     	// write the type code
-    	writeByte((byte)metric.getType().ordinal());
+    	writeByte((byte)metric.getType().ordinal()); VS++;
     	if(token!=-1) {
-    		writeByte(BYTE_ONE);
-    		writeLong(token);
+    		writeByte(BYTE_ONE); VS++;
+    		writeLong(token); VS += 8;
     	} else {
-    		writeByte(BYTE_ZERO);    		    		
+    		writeByte(BYTE_ZERO); VS++;    		    		
     		byte[] fqnBytes = metric.getFQN().getBytes();
-    		writeInt(fqnBytes.length);
-    		writeBytes(fqnBytes);
+    		writeInt(fqnBytes.length); VS+= 4;
+    		writeBytes(fqnBytes); VS+= fqnBytes.length;
     	}
-    	writeLong(metric.getTime());
+    	writeLong(metric.getTime()); VS += 8;
     	if(metric.getType().isLong()) {
-    		writeLong(metric.getLongValue());
+    		writeLong(metric.getLongValue()); VS += 8;
     	} else {
     		ByteBuffer bb = metric.getRawValue();
-    		writeInt(bb.limit());
-    		writeBytes(bb);    		
+    		int vsize = bb.limit();
+    		writeInt(bb.limit()); VS += 4;
+    		writeBytes(bb); VS+= vsize;    		
     	}
     	int metricSize = size - currentSize;
     	unsafe.putInt(address + currentSize, metricSize);
+    	log("Metric Size:" + metricSize + " New Buff Size:" + size + "  Size Offset:" + currentSize + "  VS:" + VS);
     	// update the DMC size
     	setSize(size);
     	return updateCount();
@@ -280,6 +308,7 @@ public class DirectMetricCollection implements Runnable {
     	Reader r = new Reader();
     	
     	while(r._next()) {
+    		log("Next Record:" + r.cursor);
     		int msize = r.readInt();
     		cb.writeInt(msize); // the size of this metric
     		byte typeOrdinal = r.readByte();
@@ -303,7 +332,8 @@ public class DirectMetricCollection implements Runnable {
 			} else {
 				int byteLength = r.readInt();
 				cb.writeInt(byteLength);			// the length of the next sequence of bytes
-				cb.writeBytes(r.readByteBuffer(byteLength));  // the value bytes
+				ByteBuffer bb = r.readByteBuffer(byteLength);
+				cb.writeBytes(bb);  // the value bytes
 			}
     	}
 //		byte[] bytes = new byte[size];
@@ -353,6 +383,10 @@ public class DirectMetricCollection implements Runnable {
     	setSize(size);
     }
     
+    public static void log(Object msg) {
+    	System.out.println(msg);
+    }
+    
     /**
      * <p>Title: Reader</p>
      * <p>Description: Base class for cursor controlled readers</p> 
@@ -362,18 +396,34 @@ public class DirectMetricCollection implements Runnable {
      */
     protected class Reader {
     	/** The current offset for this reader */
-    	protected int offset = METRIC_OFFSET;
+    	private int offset = METRIC_OFFSET;
     	/** The number of metrics to read */
-    	protected final int metricCount = getMetricCount();
+    	private final int metricCount = getMetricCount();
     	/** The current cursor */
-    	protected int cursor = -1;
+    	private int cursor = -1;
 		/** The root address offset for the current record */
-		protected int rootAddress = METRIC_OFFSET; 
+    	private int rootAddress = METRIC_OFFSET; 
 		/** The byte size of the current record */
-		protected int byteCount = -1;
+    	private int byteCount = -1;
 
 		protected Reader() {
-			byteCount = getSize();
+			byteCount = getRecordSize();
+		}
+		
+		/**
+		 * Returns the number of bytes in the current record
+		 * @return the number of bytes in the current record
+		 */
+		public int getRecordByteSize() {			
+			return byteCount;
+		}
+		
+		/**
+		 * Returns the memory offset of the first byte of the current record
+		 * @return the memory offset of the first byte of the current record
+		 */
+		public int getRecordOffset() {
+			return rootAddress;
 		}
     	
     	
@@ -391,16 +441,16 @@ public class DirectMetricCollection implements Runnable {
 		/**
 		 * Increments the offset to the next root address
 		 * @return true if the offset was incremented, false if the cursor is EOF
+		 * FIXME: After record 0 is run, (rootAddress + byteCount = offset) but is 3 more ON SERVER SIDE.
 		 */
 		protected boolean _next() {
 			cursor++;
-			if(cursor==metricCount) return false;			
-			if(cursor==0) {				
-				return true;
-			}
-			offset += byteCount;
-			rootAddress = offset;
-			byteCount = getSize();
+			if(cursor==metricCount) return false;
+			if(cursor==0) return true;  // since we're already at the 0th record.
+			// roll into the next record.
+			rootAddress += byteCount;
+			offset = rootAddress;
+			byteCount = getRecordSize();
 			return true;
 		}
 		
@@ -408,9 +458,10 @@ public class DirectMetricCollection implements Runnable {
 		 * Returns the size of the record without incrementing the counter
 		 * @return the size of the record in bytes
 		 */
-		protected int getSize() {
+		protected int getRecordSize() {
 			//System.out.println("[" + Thread.currentThread() + "] Getting current record size [" + rootAddress + "], Cursor:" + cursor + " MetricCount:" + metricCount);
-			return unsafe.getInt(address + rootAddress);
+			int i = unsafe.getInt(address + rootAddress);
+			return getByteOrder()==BYTE_ZERO ? i : Integer.reverseBytes(i);
 		}
 		
 		/**
@@ -430,7 +481,7 @@ public class DirectMetricCollection implements Runnable {
 		protected int readInt() {
 			int i = unsafe.getInt(address + offset);
 			offset += 4;
-			return i;
+			return getByteOrder()==BYTE_ZERO ? i : Integer.reverseBytes(i);
 		}
 		
 		/**
@@ -440,7 +491,7 @@ public class DirectMetricCollection implements Runnable {
 		protected long readLong() {
 			long v = unsafe.getLong(address + offset);
 			offset += 8;
-			return v;
+			return getByteOrder()==BYTE_ZERO ? v : Long.reverseBytes(v);
 		}
 		
 		/**
@@ -469,12 +520,9 @@ public class DirectMetricCollection implements Runnable {
 		 * @return a direct ByteBuffer
 		 */
 		protected ByteBuffer readByteBuffer(int bytesToRead) {
-			byte[] bytes = new byte[byteCount];
-			unsafe.copyMemory(null, (address + offset), bytes, BYTE_ARRAY_OFFSET, byteCount);
 			ByteBuffer bb = ByteBuffer.allocateDirect(byteCount);
-			bb.put(bytes);
+			bb.put(readBytes(bytesToRead));
 			bb.flip();
-			offset += byteCount;
 			return bb;
 		}
     	
@@ -493,37 +541,13 @@ public class DirectMetricCollection implements Runnable {
 		 * {@inheritDoc}
 		 * @see java.util.Iterator#next()
 		 */
+		@SuppressWarnings("unused")
 		@Override
 		public IMetric next() {			
-			cursor++;    		
-    		IDelegateMetric dmetric = null;
-    		
-//        	final int currentSize = size;
-//        	// write the place-holder for the size
-//        	writeInt(0);
-//        	// write the type code
-//        	writeByte((byte)metric.getType().ordinal());
-//        	if(token!=-1) {
-//        		writeByte(BYTE_ONE);
-//        		writeLong(token);
-//        	} else {
-//        		writeByte(BYTE_ZERO);    		    		
-//        		byte[] fqnBytes = metric.getFQN().getBytes();
-//        		writeInt(fqnBytes.length);
-//        		writeBytes(fqnBytes);
-//        	}
-//        	writeLong(metric.getTime());
-//        	if(metric.getType().isLong()) {
-//        		writeLong(metric.getLongValue());
-//        	} else {
-//        		ByteBuffer bb = metric.getRawValue();
-//        		writeInt(bb.limit());
-//        		writeBytes(bb);    		
-//        	}
-    		
-    		
-    		readInt(); // skip size    		
-    		if(byteCount<1) throw new RuntimeException("Read a <= 1 byte count", new Throwable());
+			if(!_next()) throw new RuntimeException("Iterator fetched pass EOF", new Throwable());
+			IDelegateMetric dmetric = null;
+    		int size = readInt(); // skip size    		
+    		//if(byteCount<1) throw new RuntimeException("Read a <= 1 byte count", new Throwable());
     		byte typeOrdinal = readByte();
     		MetricType type = MetricType.valueOf(typeOrdinal);
     		byte isToken = readByte();
@@ -589,9 +613,11 @@ public class DirectMetricCollection implements Runnable {
 		@Override
 		public DirectMetricCollection next() {
 			while(_next()) {
-				if(byteCount<maxSize) {
-					if(dmc.size + byteCount < maxSize) {
-						dmc.copyFrom(address + rootAddress, byteCount);
+				int recordSize = getRecordByteSize();
+				int recordOffset = getRecordOffset();
+				if(recordSize<maxSize) {
+					if(dmc.size + recordSize < maxSize) {
+						dmc.copyFrom(address + recordOffset, recordSize);
 					} else {
 						DirectMetricCollection retMet = dmc;
 						dmc = DirectMetricCollection.newDirectMetricCollection(maxSize);
@@ -709,7 +735,8 @@ public class DirectMetricCollection implements Runnable {
 	 * @return the current size in bytes of this collection
 	 */
 	public int getSize() {
-		return unsafe.getInt(address+SIZE_OFFSET);
+		int i = unsafe.getInt(address+SIZE_OFFSET);
+		return getByteOrder()==BYTE_ZERO ? i : Integer.reverseBytes(i);
 	}
 	
 	/**
@@ -763,7 +790,7 @@ public class DirectMetricCollection implements Runnable {
     		byte[] bytes = new byte[bb.limit()];
     		bb.get(bytes);
     		writeBytes(bytes);
-    		size += bytes.length;
+    		//size += bytes.length;
     	}
     	
     }
@@ -815,13 +842,6 @@ public class DirectMetricCollection implements Runnable {
      * @param initialCapacity The initial capacity of this DMC
      */
     private DirectMetricCollection(int initialCapacity) {
-    	if(sender==null) {
-    		synchronized(this) {
-    			if(sender==null) {
-    				sender = Sender.getInstance().getDefaultSender();
-    			}
-    		}
-    	}
     	address = unsafe.allocateMemory(initialCapacity);
     	capacity = initialCapacity;
     	size = 0;
@@ -856,7 +876,8 @@ public class DirectMetricCollection implements Runnable {
     	if(address==0) {
     		throw new RuntimeException("Attempted to access destroyed DMA", new Throwable());
     	}
-    	return unsafe.getInt(address + COUNT_OFFSET);
+    	int i = unsafe.getInt(address + COUNT_OFFSET);
+    	return getByteOrder()==BYTE_ZERO ? i : Integer.reverseBytes(i);
     }
     
     /**
