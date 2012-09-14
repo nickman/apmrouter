@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.metric.catalog;
 
+import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
 
 /**
@@ -85,6 +86,29 @@ public interface IMetricCatalog {
 	 */
 	public abstract long setToken(String host, String agent, CharSequence name, MetricType type,
 			CharSequence... namespace);
+	
+	/**
+	 * Sets the serialization token for the passed un-tokenized metric 
+	 * @param metric the un-tokenized IMetric to tokenize
+	 * @return  the assigned token
+	 */
+	public abstract long setToken(IMetric metric);
+	
+	/**
+	 * Sets the serialization token for the IDelegateMetric with the passed FQN 
+	 * @param metricFqn The FQN of the IDelegateMetric to update
+	 * @param token The token 
+	 */
+	public abstract void setToken(CharSequence metricFqn, long token);	
+	
+	
+	/**
+	 * Sets the serialization token for the passed un-tokenized metricId 
+	 * @param metricId the un-tokenized IDelegateMetric to tokenize
+	 * @param token The token to set
+	 * @return the set token
+	 */
+	public abstract long setToken(IDelegateMetric metricId, long token); 	
 
 	/**
 	 * Retrieves the named IDelegateMetric, creating it if it not in the catalog.

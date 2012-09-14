@@ -30,6 +30,7 @@ import java.lang.management.ManagementFactory;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.helios.apmrouter.metric.AgentIdentity;
@@ -125,12 +126,15 @@ public class TracerFactory {
 	}
 	public static void main(String[] args) {
 		log("DMC Decode Test");
-		int LOOPS = 2;
+		int LOOPS = 30000;
+		SystemClock.startTimer();
 		for(int i = 0; i < LOOPS; i++) {
 			//getTracer().trace(i, "foo", MetricType.LONG, "bar");
-			getTracer().traceString("H#" + i, "W", "G", "H");
-			//getTracer().traceDirect(i, "bar", MetricType.LONG, "bar");
+			//getTracer().traceString("H#" + i, "W", "G", "H");
+			getTracer().traceDirect(1000, TimeUnit.MILLISECONDS, i, "bar", MetricType.LONG, "bar");
 		}
+		ElapsedTime et = SystemClock.endTimer();
+		log("Complete in [" + et + "]\n\tAvg Per Ms:" + et.avgMs(LOOPS) + "\n\tAvg Per Ns:" + et.avgNs(LOOPS));
 	}
 	
 	
@@ -139,9 +143,9 @@ public class TracerFactory {
 		MetricType.setCompress(false);
 		MetricType.setDirect(false);
 		boolean traceBlob = false;
-		boolean traceLong = false;
-		boolean traceString = true;
-		final int LOOPS = 1000;
+		boolean traceLong = true;
+		boolean traceString = false;
+		final int LOOPS = 100000;
 		final ITracer tracer = getTracer();
 		for(int x = 0; x < 100; x++) {			
 			for(int i = 0; i < LOOPS; i++) {
@@ -164,9 +168,9 @@ public class TracerFactory {
 		log("FULL:\nSent:" + tracer.getSentMetrics() + "\nDropped:" + tracer.getDroppedMetrics() + "\nElapsed:" + et + "\nAvg Per:" + et.avgNs(LOOPS) + " ns");
 		/// TOKENIZE
 		ICEMetricCatalog.getInstance().setToken(tracer.getHost(), tracer.getAgent(), "foo", MetricType.LONG, "bar");
-//		SystemClock.sleep(CollectionFunnel.getInstance().getTimerPeriod()+1000);
+		SystemClock.sleep(CollectionFunnel.getInstance().getTimerPeriod()+1000);
 		log("Starting Tokenized");
-//		tracer.resetStats();
+		tracer.resetStats();
 		SystemClock.startTimer();
 		for(int i = 0; i < LOOPS; i++) {
 			if(traceBlob) tracer.traceBlob(new Date(), "foo", "date");

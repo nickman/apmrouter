@@ -268,7 +268,37 @@ public class ICEMetricCatalog implements IMetricCatalog {
 	@Override
 	public void dispose() {
 		
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#setToken(org.helios.apmrouter.metric.IMetric)
+	 */
+	@Override
+	public long setToken(IMetric metric) {		
+		return actualCatalog.setToken(metric);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#setToken(java.lang.CharSequence, long)
+	 */
+	@Override
+	public void setToken(CharSequence metricFqn, long token) {
+		actualCatalog.setToken(metricFqn, token);
+		
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#setToken(org.helios.apmrouter.metric.catalog.IDelegateMetric, long)
+	 */
+	@Override
+	public long setToken(IDelegateMetric metricId, long token) {
+		return actualCatalog.setToken(metricId, token);
 	}	
+	
+	
 	
 }
 

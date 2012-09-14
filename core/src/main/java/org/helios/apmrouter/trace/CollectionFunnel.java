@@ -30,11 +30,15 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.helios.apmrouter.SenderOpCode;
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.sender.ISender;
+import org.helios.apmrouter.sender.Sender;
 import org.helios.apmrouter.util.SystemClock;
 
 /**
@@ -70,6 +74,8 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 	private final AtomicLong sent = new AtomicLong(0L);
 	/** The send thread pool */
 	private final ThreadPoolExecutor executor; 
+	/** The sender, for synchronous sends */
+	private final ISender sender;
 	
 
 	/** The timestamp of the last flush */
@@ -97,11 +103,13 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 	
 	/**
 	 * Sends a metric directly, bypassing the local buffer
-	 * @param metric
+	 * @param metric The metric to send
+	 * @param timeout The period of time to wait for a confirm in ms.
+	 * @throws TimeoutException Thrown if the confirmation is not received in the specified time.
 	 */
-	public void submitDirect(IMetric metric) {
-		if(metric!=null) {
-			sendDcmInCurrentThread(DirectMetricCollection.newDirectMetricCollection(metric));
+	public void submitDirect(IMetric metric, long timeout) throws TimeoutException {
+		if(metric!=null) {			
+			sender.send(metric, timeout);
 		}
 	}
 	
@@ -151,7 +159,7 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 	 */
 	protected void timerFlush() {
 		if(SystemClock.elapsedMsSince(lastFlush) >= timerPeriod) {
-			System.out.println("============> TIMER FLUSH");
+			//System.out.println("============> TIMER FLUSH");
 			flush();
 		}		
 	}
@@ -202,22 +210,21 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 			System.err.println("Null DCM to send");
 			new Throwable().printStackTrace(System.err);
 			return;
-		}
-		System.out.println("DCM Send:\n\tBytes:" + dcmToSend.getSize() + "\n\tMetrics:" + dcmToSend.getMetricCount());
+		}		
 		sent.addAndGet(dcmToSend.getMetricCount());
 		executor.execute(dcmToSend);
 		
 	}
 	
-	/**
-	 * Sends the DMC in the current thread
-	 * @param dcmToSend The DMC to send
-	 */
-	protected void sendDcmInCurrentThread(final DirectMetricCollection dcmToSend) {
-		sent.addAndGet(dcmToSend.getMetricCount());
-		dcmToSend.run();
-		
-	}
+//	/**
+//	 * Sends the DMC in the current thread
+//	 * @param dcmToSend The DMC to send
+//	 * @param timeout The timeout on this send in ms.
+//	 */
+//	protected void sendDcmInCurrentThread(final DirectMetricCollection dcmToSend, long timeout) {
+//		sent.addAndGet(dcmToSend.getMetricCount());		
+//		sender.send(dcmToSend, timeout);
+//	}
 	
 	
 	/**
@@ -269,6 +276,7 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 				getClass().getPackage().getName(), 
 				"CollectionFunnel"				
 		);
+		sender = Sender.getInstance().getDefaultSender();
 		executor.allowCoreThreadTimeOut(false);
 		offLineQueue = new ArrayBlockingQueue<IMetric[]>(switchQueueSize, false);
 		timerThread = new Thread("CollectionFunnelTimer") {

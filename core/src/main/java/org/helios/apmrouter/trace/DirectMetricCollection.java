@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import org.helios.apmrouter.SenderOpCode;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
@@ -44,6 +45,8 @@ import org.helios.apmrouter.sender.ISender;
 import org.helios.apmrouter.sender.Sender;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
+
+import static org.helios.apmrouter.util.Methods.nvl;
 
 import sun.misc.Unsafe;
 import sun.nio.ch.DirectBuffer;
@@ -198,6 +201,23 @@ public class DirectMetricCollection implements Runnable {
     }
     
     /**
+     * Overrides the opCode
+     * @param opCode The op code to set to
+     */
+    public void setOpCode(SenderOpCode opCode) {
+    	nvl(opCode, "SenderOpCode");
+    	unsafe.putByte(address, opCode.op());
+    }
+    
+    /**
+     * Returns the currently set op code
+     * @return the currently set op code
+     */
+    public SenderOpCode getOpCode() {
+    	return SenderOpCode.valueOf(unsafe.getByte(address));
+    }
+    
+    /**
      * Checks the memory allocation
      */
     private void _check() {
@@ -221,33 +241,31 @@ public class DirectMetricCollection implements Runnable {
     protected int _append(IMetric metric) {
     	while(size + metric.getSerSize()+6 > capacity) extend();    	
     	long token = metric.getToken();
-    	final int currentSize = size;
-    	int VS = 0;
+    	final int currentSize = size;    	
     	// write the place-holder for the size
-    	writeInt(0); VS+= 4;
+    	writeInt(0); 
     	// write the type code
-    	writeByte((byte)metric.getType().ordinal()); VS++;
+    	writeByte((byte)metric.getType().ordinal()); 
     	if(token!=-1) {
-    		writeByte(BYTE_ONE); VS++;
-    		writeLong(token); VS += 8;
+    		writeByte(BYTE_ONE); 
+    		writeLong(token); 
     	} else {
-    		writeByte(BYTE_ZERO); VS++;    		    		
+    		writeByte(BYTE_ZERO);     		    		
     		byte[] fqnBytes = metric.getFQN().getBytes();
-    		writeInt(fqnBytes.length); VS+= 4;
-    		writeBytes(fqnBytes); VS+= fqnBytes.length;
+    		writeInt(fqnBytes.length); 
+    		writeBytes(fqnBytes); 
     	}
-    	writeLong(metric.getTime()); VS += 8;
+    	writeLong(metric.getTime()); 
     	if(metric.getType().isLong()) {
-    		writeLong(metric.getLongValue()); VS += 8;
+    		writeLong(metric.getLongValue()); 
     	} else {
-    		ByteBuffer bb = metric.getRawValue();
-    		int vsize = bb.limit();
-    		writeInt(bb.limit()); VS += 4;
-    		writeBytes(bb); VS+= vsize;    		
+    		ByteBuffer bb = metric.getRawValue();    		
+    		writeInt(bb.limit()); 
+    		writeBytes(bb);     		
     	}
     	int metricSize = size - currentSize;
     	unsafe.putInt(address + currentSize, metricSize);
-    	log("Metric Size:" + metricSize + " New Buff Size:" + size + "  Size Offset:" + currentSize + "  VS:" + VS);
+    	//log("Metric Size:" + metricSize + " New Buff Size:" + size + "  Size Offset:" + currentSize + "  VS:" + VS);
     	// update the DMC size
     	setSize(size);
     	return updateCount();
@@ -288,14 +306,30 @@ public class DirectMetricCollection implements Runnable {
      * @return a loaded {@link ChannelBuffer}
      * TODO: Get rid of the call to ICEMetricCatalog. Need to store the type even if it is tokenized.
      */
+    public ChannelBuffer toChannelBufferX() {
+    	shrinkWrap();
+    	byte[] bytes = new byte[size];
+    	unsafe.copyMemory(null, address, bytes, BYTE_ARRAY_OFFSET, size);
+    	destroy();
+    	ChannelBuffer cb = ChannelBuffers.directBuffer(bytes.length);
+    	cb.writeBytes(bytes);
+    	return cb;
+    }
+    
+    
+    /**
+     * Writes this DMC to a direct {@link ChannelBuffer} and then destroys.
+     * @return a loaded {@link ChannelBuffer}
+     * TODO: Get rid of the call to ICEMetricCatalog. Need to store the type even if it is tokenized.
+     */
     public ChannelBuffer toChannelBuffer() {
     	shrinkWrap();
     	ChannelBuffer cb = ChannelBuffers.directBuffer(getSize());
     	// ===================================
     	// WRITE HEADER
     	// ===================================
-    	// the op code (0 for metrics)
-    	cb.writeByte(BYTE_ZERO);	
+    	// the op code (0 for metrics, 1 for direct metrics, etc.)
+    	cb.writeByte(getOpCode().op());	
     	// The byte order of this message
     	cb.writeByte(BYTE_ORDER);
     	// The size of this message in bytes
@@ -308,7 +342,6 @@ public class DirectMetricCollection implements Runnable {
     	Reader r = new Reader();
     	
     	while(r._next()) {
-    		log("Next Record:" + r.cursor);
     		int msize = r.readInt();
     		cb.writeInt(msize); // the size of this metric
     		byte typeOrdinal = r.readByte();
@@ -428,7 +461,8 @@ public class DirectMetricCollection implements Runnable {
     	
     	
 		public boolean hasNext() {
-			return cursor<metricCount;
+			return cursor<metricCount-1;
+			//        1			2
 		}
 		
 		/**
@@ -649,7 +683,11 @@ public class DirectMetricCollection implements Runnable {
     }
     
     public interface SplitDMC extends Iterator<DirectMetricCollection>, Iterable<DirectMetricCollection> {
-    	
+       	/**
+    	 * The droup count, which is metrics too large to serialize
+		 * @return the number of dropped metrics
+		 */
+		public int getDrops();
     }
     
 	private class OneDMCReader implements SplitDMC {
@@ -658,6 +696,14 @@ public class DirectMetricCollection implements Runnable {
     	/** The single DMC iterator*/
     	private final Iterator<DirectMetricCollection> dmcIter;
 
+    	/**
+    	 * {@inheritDoc}
+    	 * @see org.helios.apmrouter.trace.DirectMetricCollection.SplitDMC#getDrops()
+    	 */
+    	public int getDrops() {
+    		return 0;
+    	}
+    	
     	/**
     	 * Creates a new OneDMCReader
     	 * @param dmc The DMC to wrap
@@ -846,7 +892,7 @@ public class DirectMetricCollection implements Runnable {
     	capacity = initialCapacity;
     	size = 0;
     	// the op code (0 for metrics)
-    	writeByte(BYTE_ZERO);	
+    	writeByte(SenderOpCode.SEND_METRIC.op());	
     	// The byte order of this message
     	writeByte(BYTE_ORDER); 
     	// the byte size of this DMC set during shrinkWrap()

@@ -25,16 +25,18 @@
 package org.helios.apmrouter.sender;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.helios.apmrouter.SenderOpCode;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.sender.netty.codec.IMetricEncoder;
+import org.helios.apmrouter.trace.DirectMetricCollection;
+import org.helios.apmrouter.util.TimeoutQueueMap;
 
 
 /**
@@ -52,8 +54,12 @@ public abstract class AbstractSender implements ISender {
 	/** The metric encoder */
 	protected static final IMetricEncoder metricEncoder = new IMetricEncoder();
 	
+	/** The synchronous request timeout map */
+	protected static final TimeoutQueueMap<String, CountDownLatch> timeoutMap = new TimeoutQueueMap<String, CountDownLatch>(2000);
+	
 	protected final AtomicLong sent = new AtomicLong(0);
 	protected final AtomicLong dropped = new AtomicLong(0);
+	protected final AtomicLong failed = new AtomicLong(0);
 	protected final URI serverURI;
 	
 	protected AbstractSender(URI serverURI) {
@@ -67,6 +73,33 @@ public abstract class AbstractSender implements ISender {
 	public long getDroppedMetrics() {
 		return dropped.get();
 	}
+	
+	public long getFailedMetrics() {
+		return failed.get();
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.ISender#send(org.helios.apmrouter.metric.IMetric, long)
+	 */
+	public void send(IMetric metric, long timeout) throws TimeoutException {
+		DirectMetricCollection dcm = DirectMetricCollection.newDirectMetricCollection(metric);
+		dcm.setOpCode(SenderOpCode.SEND_METRIC_DIRECT);
+		CountDownLatch latch = new CountDownLatch(1);
+		String key = new StringBuilder(metric.getFQN()).append(metric.getTime()).toString();
+		send(dcm);
+		timeoutMap.put(key, latch, timeout);
+		try {
+			if(!latch.await(timeout, TimeUnit.MILLISECONDS)) {
+				throw new TimeoutException("Direct Metric Trace timed out after " + timeout + " ms. [" + metric + "]");
+			}
+		} catch (InterruptedException e) {
+			throw new RuntimeException("Thread interrupted while waiting for Direct Metric Trace confirm for " + timeout + " ms. [" + metric + "]", e);
+		}
+	}
+	
+
+	
 	
 	/**
 	 * {@inheritDoc}

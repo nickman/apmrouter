@@ -27,12 +27,12 @@ package org.helios.apmrouter.trace;
 import static org.helios.apmrouter.util.Methods.nvl;
 
 import java.io.Serializable;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
-import org.helios.apmrouter.sender.ISender;
 import org.snmp4j.PDU;
 
 /**
@@ -88,15 +88,14 @@ public class TracerImpl implements ITracer {
 	}
 
 	/**
-	 * Trace operation with direct overload
-	 * @param direct Indicates if the metric should be sent directly, or buffered
+	 * Trace operation
 	 * @param value The value of the metric
 	 * @param name The name of the metric
 	 * @param type The type of the metric
 	 * @param namespace The optional namespace of the metric
 	 * @return the created {@link ICEMetric} 
 	 */
-	protected ICEMetric _trace(boolean direct, Object value, CharSequence name, MetricType type, CharSequence... namespace) {
+	public ICEMetric trace(Object value, CharSequence name, MetricType type, CharSequence... namespace) {
 		ICEMetric metric = null;
 		try {
 			if(type.isLong()) {
@@ -110,11 +109,7 @@ public class TracerImpl implements ITracer {
 			} else {
 				metric = ICEMetric.trace(value, host, agent, name, type, namespace);
 			}
-			if(direct) {
-				funnel.submitDirect(metric);
-			} else {
-				funnel.submit(metric);
-			}
+			funnel.submit(metric);
 			return metric;
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
@@ -123,21 +118,48 @@ public class TracerImpl implements ITracer {
 	}
 	
 	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.trace.ITracer#trace(java.lang.Object, java.lang.CharSequence, org.helios.apmrouter.metric.MetricType, java.lang.CharSequence[])
+	 * Confirmed Trace operation
+	 * @param timeout The timeout period to wait for a confirm
+	 * @param unit The unit of the timeout 
+	 * @param value The value of the metric
+	 * @param name The name of the metric
+	 * @param type The type of the metric
+	 * @param namespace The optional namespace of the metric
+	 * @return the created {@link ICEMetric} 
 	 */
-	@Override	
-	public ICEMetric trace(Object value, CharSequence name, MetricType type, CharSequence... namespace) {
-		return _trace(false, value, name, type, namespace);
+	protected ICEMetric _trace(long timeout, TimeUnit unit, Object value, CharSequence name, MetricType type, CharSequence... namespace) {
+		ICEMetric metric = null;
+		try {
+			if(type.isLong()) {
+				if(type.equals(MetricType.DELTA)) {
+					Long delta = ICEMetricCatalog.getInstance().getDelta(coerce(value), host, agent, name, namespace);
+					if(delta==null) return null;
+					metric = ICEMetric.trace(delta.longValue(), host, agent, name, type, namespace);
+				} else {
+					metric = ICEMetric.trace(coerce(value), host, agent, name, type, namespace);
+				}
+			} else {
+				metric = ICEMetric.trace(value, host, agent, name, type, namespace);
+			}
+			funnel.submitDirect(metric, TimeUnit.MILLISECONDS.convert(timeout, unit));
+			return metric;
+		} catch (Throwable t) {
+			if(t.getClass().equals(TimeoutException.class)) {
+				throw new RuntimeException("Confirmed Trace Timed Out", t);
+			}
+			t.printStackTrace(System.err);
+			return null;
+		}
 	}
+
 	
 	
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.trace.ITracer#traceDirect(java.lang.Object, java.lang.CharSequence, org.helios.apmrouter.metric.MetricType, java.lang.CharSequence[])
 	 */
-	public ICEMetric traceDirect(Object value, CharSequence name, MetricType type, CharSequence...namespace) {
-		return _trace(true, value, name, type, namespace);
+	public ICEMetric traceDirect(long timeout, TimeUnit unit, Object value, CharSequence name, MetricType type, CharSequence...namespace) {
+		return _trace(timeout, unit,  value, name, type, namespace);
 	}
 
 //	/**
@@ -321,4 +343,5 @@ public class TracerImpl implements ITracer {
 	public long getQueuedMetrics() {
 		return funnel.getQueued();
 	}
+
 }

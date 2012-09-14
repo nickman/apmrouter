@@ -25,7 +25,7 @@
 package org.helios.apmrouter.sender;
 
 import java.net.URI;
-import java.util.Collection;
+import java.util.concurrent.TimeoutException;
 
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.trace.DirectMetricCollection;
@@ -44,6 +44,15 @@ public interface ISender {
 	 * @param dcm the DCM containing the metrics to send
 	 */
 	public void send(DirectMetricCollection dcm);
+	
+	/**
+	 * Sends the passed metric to the configured endpoint and waits for a confirmation
+	 * @param metric the metric to send
+	 * @param timeout The period of time to wait for the confirmation
+	 * @throws TimeoutException Thrown if the confirmation is not received in the specified time.
+	 */
+	public void send(IMetric metric, long timeout) throws TimeoutException;
+	
 
 	
 	/**
@@ -53,10 +62,19 @@ public interface ISender {
 	public long getSentMetrics();
 
 	/**
-	 * Returns the total number of dropped metrics on this sender
+	 * Returns the total number of dropped metrics on this sender.
+	 * This typically occurs when the payload of an individual metric is too large
+	 * for the limitations of the transport protocol of the sender.
 	 * @return the total number of dropped metrics on this sender
 	 */	
 	public long getDroppedMetrics();
+	
+	/**
+	 * Returns the number of metric send failures
+	 * @return the number of metric send failures
+	 */
+	public long getFailedMetrics();
+	
 
 	
 	/**

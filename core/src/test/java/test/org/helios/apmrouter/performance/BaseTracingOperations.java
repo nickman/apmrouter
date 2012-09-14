@@ -16,6 +16,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
+import org.helios.apmrouter.sender.Sender;
+import org.helios.apmrouter.trace.CollectionFunnel;
 import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.TracerFactory;
 import org.helios.apmrouter.util.StringHelper;
@@ -24,6 +26,7 @@ import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.helios.apmrouter.util.ThreadUtils;
 import org.helios.apmrouter.util.ThreadUtils.LockInfos;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Test;
 
 /**
@@ -45,7 +48,7 @@ public class BaseTracingOperations extends BasePerformanceTestCase {
 	/** The number of times each metric is traced in the benchmark */
 	public static final int OP_COUNT = 100;
 	/** The number of threads to execute tests in */
-	public static final int THREAD_COUNT = ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors();
+	public static final int THREAD_COUNT = ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors()/2;
 	/** The number of warmup loops to execute */
 	public static final int WARMUP_COUNT = 2;
 	/** The total number of profiled executions */
@@ -98,6 +101,17 @@ public class BaseTracingOperations extends BasePerformanceTestCase {
 		log("Total Executed Op Count:" + TOTAL_EXEC_COUNT);
 		MetricType.setDirect(true);
 		MetricType.setCompress(false);
+	}
+	
+	/**
+	 * Prints tracing stats
+	 */
+	@AfterClass
+	public static void printEnvSummary() {
+		log("CollectionFunnel:\n " + CollectionFunnel.getInstance().status());
+		log("Sender Sends: " + Sender.getInstance().getDefaultSender().getSentMetrics());
+		log("Sender Drops: " + Sender.getInstance().getDefaultSender().getDroppedMetrics());
+		log("Sender Fails: " + Sender.getInstance().getDefaultSender().getFailedMetrics());
 	}
 	
 	/**
@@ -156,7 +170,7 @@ public class BaseTracingOperations extends BasePerformanceTestCase {
 		Runnable workLoadProfile = newTracingRunnable(new TracingDirective<ICEMetric>(){
 			@Override
 			public ICEMetric doTrace(int index, int outerIndex) {
-				return tracer.traceDelta(longValues[index], names[index], namespaces[index]);
+				return tracer.traceDelta(longValues[index], names[index]+"D", namespaces[index]);
 			}
 		});
 		executeBenchmark(workLoadProfile, THREAD_COUNT, TOTAL_OP_COUNT, WARMUP_COUNT);
@@ -172,7 +186,7 @@ public class BaseTracingOperations extends BasePerformanceTestCase {
 		Runnable workLoadProfile = newTracingRunnable(new TracingDirective<ICEMetric>(){
 			@Override
 			public ICEMetric doTrace(int index, int outerIndex) {
-				return tracer.traceString(stringValues[index], names[index],  namespaces[index]);
+				return tracer.traceString(stringValues[index], names[index]+"S",  namespaces[index]);
 			}
 		});
 		executeBenchmark(workLoadProfile, THREAD_COUNT, TOTAL_OP_COUNT, WARMUP_COUNT);
@@ -208,7 +222,7 @@ public class BaseTracingOperations extends BasePerformanceTestCase {
 //					}
 //				}
 				//if(index==(UNIQUE_METRIC_COUNT-1) && outerIndex > 1 && outerIndex%50==0) log("[" + Thread.currentThread() + "] Completing Error Loop. Outer Index:" + outerIndex);
-				return tracer.traceError(t, names[index],  namespaces[index]);
+				return tracer.traceError(t, names[index]+"E",  namespaces[index]);
 			}
 		});
 		executeBenchmark(workLoadProfile, THREAD_COUNT, TOTAL_OP_COUNT, WARMUP_COUNT);
@@ -217,13 +231,13 @@ public class BaseTracingOperations extends BasePerformanceTestCase {
 	/**
 	 * Executes a microbenchmark for tracing Dates (blobs)
 	 */
-	@Test(timeout=60000)
+	@Test(timeout=120000)
 	public void TraceBlobPerformance() {
 		final ITracer tracer = TracerFactory.getTracer();		
 		Runnable workLoadProfile = newTracingRunnable(new TracingDirective<ICEMetric>(){
 			@Override
 			public ICEMetric doTrace(int index, int outerIndex) {
-				return tracer.traceBlob(blobValues[index], names[index],  namespaces[index]);
+				return tracer.traceBlob(blobValues[index], names[index]+"B",  namespaces[index]);
 			}
 		});
 		executeBenchmark(workLoadProfile, THREAD_COUNT, TOTAL_OP_COUNT, WARMUP_COUNT);

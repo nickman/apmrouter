@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
 
 /**
@@ -102,6 +103,41 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 		metric.setToken(token);
 		tokencache.put(token, metric);
 		return token;
+	}
+	
+	/**
+	 * Sets the serialization token for the IDelegateMetric with the passed FQN 
+	 * @param metricFqn The FQN of the IDelegateMetric to update
+	 * @param token The token 
+	 */
+	public void setToken(CharSequence metricFqn, long token) {
+		K key = createKey(metricFqn.toString());
+		IDelegateMetric idm = get(key);
+		if(idm!=null) {
+			setToken(idm, token);
+		} else {
+			System.err.println("Null IDelegateMetric for [" + metricFqn + "]:" + token);
+		}
+	}
+	
+	/**
+	 * Sets the serialization token for the passed un-tokenized metric 
+	 * @param metric the un-tokenized IMetric to tokenize
+	 * @return  the assigned token
+	 * FIXME: This needs to assign a REAL token from a persistent store.
+	 */
+	public long setToken(IMetric metric) {
+		return setToken(metric.getHost(), metric.getAgent(), metric.getName(), metric.getType(), metric.getNamespace());
+	}
+	
+	/**
+	 * Sets the serialization token for the passed un-tokenized metricId 
+	 * @param metricId the un-tokenized IDelegateMetric to tokenize
+	 * @param token The token to set
+	 * @return the set token
+	 */
+	public long setToken(IDelegateMetric metricId, long token) {
+		return setToken(token, metricId.getHost(), metricId.getAgent(), metricId.getName(), metricId.getType(), metricId.getNamespace());
 	}
 	
 	
@@ -219,6 +255,14 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 				}
 			}
 		}		
+		// ====================================================================================================
+		// Adding this to divert metric-type collisions where a tracer called for a metric with the same name
+		// as an already registered metric, but with a different metric type.
+		// ====================================================================================================
+		if(!idm.getType().equals(type)) {
+			//System.err.println("MetricType Collision [" + fqn + "]");
+			return get(host, agent, new StringBuilder(name.toString()).append("*").append(type.name()).append("*"), type, namespace);
+		}
 		assert fqn.equals(idm.getFQN());
 		return idm;
 	}

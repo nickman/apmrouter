@@ -25,6 +25,7 @@
 package org.helios.apmrouter.trace;
 
 import java.io.Serializable;
+import java.util.concurrent.TimeUnit;
 
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.MetricType;
@@ -56,14 +57,16 @@ public interface ITracer {
 	public ICEMetric trace(Object value, CharSequence name, MetricType type, CharSequence...namespace);
 	
 	/**
-	 * Creates and sends an {@link ICEMetric} directly, bypassing the local bufer. 
+	 * Creates and sends an {@link ICEMetric} directly, bypassing the local bufer.
+	 * @param timeout The timeout period to wait for a confirm
+	 * @param unit The unit of the timeout
 	 * @param value The value of the metric
 	 * @param name The name of the metric
 	 * @param type The type of the metric
 	 * @param namespace The optional namespace of the metric
 	 * @return the created {@link ICEMetric} 
 	 */
-	public ICEMetric traceDirect(Object value, CharSequence name, MetricType type, CharSequence...namespace);
+	public ICEMetric traceDirect(long timeout, TimeUnit unit, Object value, CharSequence name, MetricType type, CharSequence...namespace);
 	
 	
 //	/**

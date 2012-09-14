@@ -28,15 +28,23 @@ import static org.helios.apmrouter.util.Methods.nvl;
 
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.BasicConfigurator;
+import org.helios.apmrouter.ReceiverOpCode;
+import org.helios.apmrouter.SenderOpCode;
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
+import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
+import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.sender.AbstractSender;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.helios.apmrouter.trace.DirectMetricCollection.SplitDMC;
 import org.helios.apmrouter.trace.DirectMetricCollection.SplitReader;
+import org.helios.apmrouter.util.TimeoutQueueMap;
 import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
+import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
 import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
@@ -78,18 +86,56 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	protected final DatagramChannel channel;
 	/** The server socket to send to */
 	protected final InetSocketAddress socketAddress;
+	/** The metric catalog for token updates */
+	protected final IMetricCatalog metricCatalog;
+	/** The logging handler for debug */
 	private LoggingHandler loggingHandler;
 	/** A discard handler used for discarding self-sent messages */
-	protected static final SimpleChannelUpstreamHandler discard = new SimpleChannelUpstreamHandler() {
+	protected final SimpleChannelUpstreamHandler discard = new SimpleChannelUpstreamHandler() {
 		@Override
 		public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
 			if(e.getChannel().getLocalAddress().equals(e.getRemoteAddress())) {
 				LOG.info("Drop");
 			} else {
-				super.messageReceived(ctx, e);
+				Object msg = e.getMessage();
+				if(msg instanceof ChannelBuffer) {
+					ChannelBuffer buff = (ChannelBuffer)msg;
+					ReceiverOpCode opCode = ReceiverOpCode.valueOf(buff.readByte());					
+					switch (opCode) {
+						case CONFIRM_METRIC:							
+							int keyLength = buff.readInt();
+							byte[] keyBytes = new byte[keyLength];
+							buff.readBytes(keyBytes);
+							String key = new String(keyBytes);
+							CountDownLatch latch = timeoutMap.get(key);
+							if(latch!=null) {
+								long c = latch.getCount(); 
+								latch.countDown();
+							}
+							break;
+						case SEND_METRIC_TOKEN:
+							int fqnLength = buff.readInt();
+							byte[] bytes = new byte[fqnLength];
+							buff.readBytes(bytes);
+							String fqn = new String(bytes);
+							long token = buff.readLong();
+							metricCatalog.setToken(fqn, token);						
+							break;
+						default:
+							break;
+					}
+				}
 			}
 		}
 	};
+	
+	/**
+	 * Out log
+	 * @param msg the message to log
+	 */
+	public static void log(Object msg) {
+		System.out.println(msg);
+	}
 	
 	/**
 	 * Returns a built instance of a UDPSender for the passed URI
@@ -117,7 +163,8 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	private UDPSender(URI serverURI) {
 		super(serverURI);
 		BasicConfigurator.configure();
-		InternalLoggerFactory.setDefaultFactory(new Log4JLoggerFactory());	
+		InternalLoggerFactory.setDefaultFactory(new Log4JLoggerFactory());
+		metricCatalog = ICEMetricCatalog.getInstance();
 		loggingHandler = new LoggingHandler(InternalLogLevel.INFO, true);
 		workerPool =  ThreadPoolFactory.newCachedThreadPool(getClass().getPackage().getName(), "UDPSenderWorker/" + serverURI.getHost() + "/" + serverURI.getPort());
 		channelFactory = new NioDatagramChannelFactory(workerPool);
@@ -151,6 +198,7 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 		pipeline.addLast("metric-encoder", metricEncoder);
 		return pipeline;
 	}
+	
 
 	/**
 	 * {@inheritDoc}
@@ -177,8 +225,8 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 					if(future.isSuccess()) {
 						sent.addAndGet(mcount);
 					} else {
-						long d = dropped.addAndGet(mcount);
-						System.err.println("Sender Drops:" + d );
+						long d = failed.addAndGet(mcount);
+						System.err.println("Sender Fails:" + d );
 						if(future.getCause()!=null) future.getCause().printStackTrace(System.err);
 					}					
 				}
@@ -192,16 +240,14 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 		for(final DirectMetricCollection d: sr) {
 			final boolean last = !sr.hasNext();
 			final int mcount = d.getMetricCount();
-			//System.out.println("Sending ---->[" + d.getSize() + "/" + mcount +  "]"); 
 			ChannelFuture channelFuture = channel.write(d);
-			//System.out.println("Sent to [" + socketAddress + "]");
 			channelFuture.addListener(new ChannelFutureListener() {
 				public void operationComplete(ChannelFuture future) throws Exception {					
 					if(future.isSuccess()) {
 						sent.addAndGet(mcount);
 					} else {
-						long d = dropped.addAndGet(mcount);
-						System.err.println("Sender Drops:" + d );
+						long d = failed.addAndGet(mcount);
+						System.err.println("Sender Fails:" + d );
 						if(future.getCause()!=null) future.getCause().printStackTrace(System.err);
 					}
 				}
@@ -214,9 +260,8 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 			});
 		}
 		dcm.destroy();
-		if(sr instanceof SplitReader) {
-			dropped.addAndGet(((SplitReader)sr).getDrops());
-		}
+		dropped.addAndGet(((SplitReader)sr).getDrops());
+		
 		
 		
 		

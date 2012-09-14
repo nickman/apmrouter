@@ -24,12 +24,9 @@
  */
 package org.helios.apmrouter.sender.netty.codec;
 
-import java.nio.ByteOrder;
-
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -53,8 +50,6 @@ public class IMetricEncoder extends OneToOneEncoder {
 		if(msg instanceof DirectMetricCollection) {
 			ChannelBuffer cb = ((DirectMetricCollection)msg).toChannelBuffer();
 			cb.setByte(DirectMetricCollection.BYTE_ORDER_OFFSET, cb.getByte(DirectMetricCollection.BYTE_ORDER_OFFSET)==DirectMetricCollection.BYTE_ZERO ? DirectMetricCollection.BYTE_ONE : DirectMetricCollection.BYTE_ZERO);
-//			System.out.println("Sending [" + cb.getInt(0) + "] Bytes");
-			//System.out.println("CB:" + cb.readableBytes() + "  Encoded Size:" + cb.getInt(0) +  "  Encoded Metrics:" + cb.getInt(4));
 			return cb;
 		}
 		return null;
