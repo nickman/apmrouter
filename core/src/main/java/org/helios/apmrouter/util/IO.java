@@ -35,10 +35,13 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
-import java.util.Properties;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+
+import org.snmp4j.PDU;
+import org.snmp4j.asn1.BERInputStream;
+import org.snmp4j.asn1.BEROutputStream;
 
 /**
  * <p>Title: IO</p>
@@ -258,28 +261,43 @@ public class IO {
 		System.out.println(msg);
 	}
 	
-	public static void main(String[] args) {
+	
+	/**
+	 * Writes out an SNMP PDU to a byte buffer
+	 * @param pdu The PDU to write
+	 * @param direct true for a direct buffer, false for a heap buffer
+	 * @return the ByteBuffer the PDU was written to
+	 */
+	public static ByteBuffer writePDUToByteBuffer(PDU pdu, boolean direct)  {
 		try {
-			log("ByteBuffer OIS Test");
-			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			ObjectOutputStream oos = new ObjectOutputStream(baos);
-			oos.writeObject(System.getProperties());
-			oos.flush();
-			baos.flush();
-			byte[] bytes = baos.toByteArray();
-			log("Bytes:" + bytes.length + " Props Size:" + System.getProperties().size());
-			
-			ByteBuffer bb = writeToByteBuffer(System.getProperties(), true, true);
-			//ByteBuffer bb = ByteBuffer.wrap(bytes);
-			//ByteBuffer bb = ByteBuffer.allocateDirect(bytes.length).put(bytes);
-			
-			log("Write Complete:" + logb(bb));
-			
-			Properties p = (Properties)readFromByteBuffer(bb);
-			log("Read Complete:" + p.size());
+			ByteBuffer bb = direct ? ByteBuffer.allocateDirect(pdu.getBERLength()) : ByteBuffer.allocate(pdu.getBERLength());
+			BEROutputStream bos = new BEROutputStream(bb);
+			pdu.encodeBER(bos);
+			bos.flush(); 
+			return bb;
 		} catch (Exception e) {
 			e.printStackTrace(System.err);
+			throw new RuntimeException("Failed to write PDU", e);			
 		}
-		
 	}
+	
+	/**
+	 * Reads an SNMP PDU from the passed ByteBuffer
+	 * @param bb The ByteBuffer to read the PDU from
+	 * @return The read PDU
+	 */
+	public static PDU readPDUFromByteBuffer(ByteBuffer bb) {
+		try {
+			PDU pdu = new PDU();
+			BERInputStream bis = new BERInputStream(bb);
+			pdu.decodeBER(bis);
+			return pdu;
+		} catch (Exception e) {
+			e.printStackTrace(System.err);
+			throw new RuntimeException("Failed to read PDU", e);			
+		}		
+	}
+	
+	
+	
 }
