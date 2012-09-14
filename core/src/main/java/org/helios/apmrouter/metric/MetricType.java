@@ -330,6 +330,13 @@ public enum MetricType  implements IMetricDataAccessor {
 		}		
 	}
 	
+	/**
+	 * <p>Title: BlobMDA</p>
+	 * <p>Description: The {@link IMetricDataAccessor} for arbitrary serializable objects</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.metric.MetricType.BlobMDA</code></p>
+	 */
 	private static class BlobMDA implements IMetricDataAccessor<Serializable> {
 
 		/**
@@ -361,21 +368,28 @@ public enum MetricType  implements IMetricDataAccessor {
 		}		
 	}
 	
+	/**
+	 * <p>Title: PduMDA</p>
+	 * <p>Description: The {@link IMetricDataAccessor} for SNMP PDU metric types</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.metric.MetricType.PduMDA</code></p>
+	 */
 	private static class PduMDA implements IMetricDataAccessor<PDU> {
 		/** TODO:  Replace IO.writeToBuffer with BEROutputStream */
 		@Override
 		public ICEMetricValue write(org.snmp4j.PDU value) {
-			return new ICEMetricValue(PDU, IO.writeToByteBuffer(value, direct, compress));			
+			return new ICEMetricValue(PDU, IO.writePDUToByteBuffer(value, direct));			
 		}
 
 		@Override
 		public ICEMetricValue writeObject(Object value) {
-			return new ICEMetricValue(PDU, IO.writeToByteBuffer(value, direct, compress));
+			return new ICEMetricValue(PDU, IO.writePDUToByteBuffer((PDU)value, direct));
 		}
 
 		@Override
 		public org.snmp4j.PDU read(ICEMetricValue metricValue) {
-			return (PDU)IO.readFromByteBuffer(metricValue.getValue());
+			return IO.readPDUFromByteBuffer(metricValue.getValue());
 		}
 		
 	}
