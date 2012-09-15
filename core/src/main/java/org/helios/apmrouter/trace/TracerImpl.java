@@ -95,6 +95,7 @@ public class TracerImpl implements ITracer {
 	 * @param namespace The optional namespace of the metric
 	 * @return the created {@link ICEMetric} 
 	 */
+	@Override
 	public ICEMetric trace(Object value, CharSequence name, MetricType type, CharSequence... namespace) {
 		ICEMetric metric = null;
 		try {
@@ -108,6 +109,9 @@ public class TracerImpl implements ITracer {
 				}
 			} else {
 				metric = ICEMetric.trace(value, host, agent, name, type, namespace);
+			}
+			if(TXContext.hasContext()) {
+				metric.attachTXContext(TXContext.rollContext());
 			}
 			funnel.submit(metric);
 			return metric;
@@ -141,6 +145,9 @@ public class TracerImpl implements ITracer {
 			} else {
 				metric = ICEMetric.trace(value, host, agent, name, type, namespace);
 			}
+			if(TXContext.hasContext()) {
+				metric.attachTXContext(TXContext.rollContext());
+			}			
 			funnel.submitDirect(metric, TimeUnit.MILLISECONDS.convert(timeout, unit));
 			return metric;
 		} catch (Throwable t) {
@@ -158,6 +165,7 @@ public class TracerImpl implements ITracer {
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.trace.ITracer#traceDirect(java.lang.Object, java.lang.CharSequence, org.helios.apmrouter.metric.MetricType, java.lang.CharSequence[])
 	 */
+	@Override
 	public ICEMetric traceDirect(long timeout, TimeUnit unit, Object value, CharSequence name, MetricType type, CharSequence...namespace) {
 		return _trace(timeout, unit,  value, name, type, namespace);
 	}
@@ -166,6 +174,7 @@ public class TracerImpl implements ITracer {
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.trace.ITracer#traceDirect(java.lang.Object, java.lang.CharSequence, org.helios.apmrouter.metric.MetricType, java.lang.CharSequence[])
 	 */
+	@Override
 	public ICEMetric traceDirect(Object value, CharSequence name, MetricType type, CharSequence...namespace) {
 		return traceDirect(TracerFactory.DIRECT_TIMEOUT, TimeUnit.MILLISECONDS, value, name, type, namespace);
 	}
@@ -289,6 +298,7 @@ public class TracerImpl implements ITracer {
 		}		
 	}
 	
+	@Override
 	public ICEMetric tracePDU(PDU pdu, CharSequence name, CharSequence...namespace) {
 		try {				
 			ICEMetric metric =   ICEMetric.trace(pdu, host, agent, name, MetricType.PDU, namespace);
@@ -340,6 +350,7 @@ public class TracerImpl implements ITracer {
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.trace.ITracer#resetStats()
 	 */
+	@Override
 	public void resetStats() {
 		funnel.resetStats();
 	}
@@ -348,6 +359,7 @@ public class TracerImpl implements ITracer {
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.trace.ITracer#getQueuedMetrics()
 	 */
+	@Override
 	public long getQueuedMetrics() {
 		return funnel.getQueued();
 	}

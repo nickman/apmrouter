@@ -27,7 +27,6 @@ package org.helios.apmrouter.metric;
 import static org.helios.apmrouter.util.Methods.nvl;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -35,6 +34,7 @@ import java.util.Map;
 
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
+import org.helios.apmrouter.trace.TXContext;
 import org.helios.apmrouter.util.StringHelper;
 
 
@@ -51,6 +51,8 @@ public class ICEMetric implements IMetric {
 	protected final ICEMetricValue value;
 	/** The metricId name that this instance represents*/
 	protected final IDelegateMetric metricId;
+	/** The attached TXContext */
+	protected TXContext txContext;
 	
 
 	/**
@@ -75,6 +77,14 @@ public class ICEMetric implements IMetric {
 	 */
 	public static ICEMetric newMetric(long timestamp, ByteBuffer value, MetricType type, IDelegateMetric dmetric) {
 		return new ICEMetric(new ICEMetricValue(type, value, timestamp), dmetric);
+	}
+	
+	/**
+	 * Attaches a TXContext
+	 * @param txContext The context to attach
+	 */
+	public void attachTXContext(TXContext txContext) {
+		this.txContext = txContext;
 	}
 	
 	
@@ -395,7 +405,8 @@ public class ICEMetric implements IMetric {
 					(metricId.getType().isLong() ?
 						8 :							// the size of a long value
 						value.getValue().limit()+4 // the size of the bytebuffer +4 for the size
-					);
+					) + 
+					(hasTXContext() ? TXContext.TXCONTEXT_SIZE : 0);  // the size of the TXContext, if attached
 		} catch (Exception e) {
 			throw new RuntimeException("Exception calculating size of metric [" + this + "]", e);
 		}
@@ -411,6 +422,33 @@ public class ICEMetric implements IMetric {
 	public ByteBuffer getRawValue() {
 		if(metricId.getType().isLong()) throw new RuntimeException("Call to getRawValue on a long type metric", new Throwable());
 		return value.getValue();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#hasTXContext()
+	 */
+	@Override
+	public boolean hasTXContext() {
+		return txContext!=null;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getTXContext()
+	 */
+	@Override
+	public TXContext getTXContext() {
+		return txContext;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getRoutingKey()
+	 */
+	@Override
+	public CharSequence getRoutingKey() {
+		return String.format("%s-%s", getType().ordinal(), getFQN());
 	}
 
 

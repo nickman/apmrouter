@@ -66,7 +66,7 @@ public class UDPListener implements  ChannelPipelineFactory {
 		BasicConfigurator.configure();
 		InternalLoggerFactory.setDefaultFactory(new Log4JLoggerFactory());		
 		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(1024));
-		loggingHandler = new LoggingHandler(InternalLogLevel.INFO, true);
+		loggingHandler = new LoggingHandler(InternalLogLevel.DEBUG, true);
 		bstrap.setPipelineFactory(this);
 		metricCatalog = ICEMetricCatalog.getInstance();
 		
@@ -120,8 +120,8 @@ public class UDPListener implements  ChannelPipelineFactory {
 
 	@Override
 	public ChannelPipeline getPipeline() throws Exception {		
-//		return Channels.pipeline(loggingHandler, handler);
-		return Channels.pipeline(handler);
+		return Channels.pipeline(loggingHandler, handler);
+//		return Channels.pipeline(handler);
 	}
 	
 	

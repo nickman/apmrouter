@@ -28,6 +28,8 @@ import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.Map;
 
+import org.helios.apmrouter.trace.TXContext;
+
 /**
  * <p>Title: IMetric</p>
  * <p>Description: </p> 
@@ -179,5 +181,23 @@ public interface IMetric {
 	 * @return the serialization token for this IMetric or -1 if one has not been assigned
 	 */
 	public abstract long getToken();
+	
+	/**
+	 * Indicates if this metric has an attached TXContext
+	 * @return true if this metric has an attached TXContext, false otherwise
+	 */
+	public abstract boolean hasTXContext();
+	
+	/**
+	 * Returns the attached TXContext
+	 * @return the attached TXContext or null if one is not attached
+	 */
+	public abstract TXContext getTXContext();
+	
+	/**
+	 * Returns the routing key for this metric
+	 * @return the routing key
+	 */
+	public abstract CharSequence getRoutingKey();
 
 }

@@ -137,21 +137,22 @@ public class TracerFactory {
 		}
 		return tracer;
 	}
-//	public static void main(String[] args) {
-//		log("DMC Decode Test");
-//		int LOOPS = 30000;
-//		SystemClock.startTimer();
-//		for(int i = 0; i < LOOPS; i++) {
-//			//getTracer().trace(i, "foo", MetricType.LONG, "bar");
-//			//getTracer().traceString("H#" + i, "W", "G", "H");
-//			getTracer().traceDirect(1000, TimeUnit.MILLISECONDS, i, "bar", MetricType.LONG, "bar");
-//		}
-//		ElapsedTime et = SystemClock.endTimer();
-//		log("Complete in [" + et + "]\n\tAvg Per Ms:" + et.avgMs(LOOPS) + "\n\tAvg Per Ns:" + et.avgNs(LOOPS));
-//	}
-//	
-//	
 	public static void main(String[] args) {
+		log("DMC Decode Test");
+		int LOOPS = 10;
+		TXContext.rollContext();
+		SystemClock.startTimer();
+		for(int i = 0; i < LOOPS; i++) {
+			//getTracer().trace(i, "foo", MetricType.LONG, "bar");
+			//getTracer().traceString("H#" + i, "W", "G", "H");
+			getTracer().traceDirect(5000, TimeUnit.MILLISECONDS, i, "bar", MetricType.LONG, "bar");
+		}
+		ElapsedTime et = SystemClock.endTimer();
+		log("Complete in [" + et + "]\n\tAvg Per Ms:" + et.avgMs(LOOPS) + "\n\tAvg Per Ns:" + et.avgNs(LOOPS));
+	}
+	
+	
+	public static void mainy(String[] args) {
 		log("Basic Tracing Test");
 		MetricType.setCompress(false);
 		MetricType.setDirect(false);
