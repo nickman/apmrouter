@@ -25,6 +25,7 @@
 package org.helios.apmrouter.router;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -157,8 +158,11 @@ public class PatternRouter extends ServerComponentBean {
 	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
 	 */
 	@Override
-	public String[] getSupportedMetricNames() {		
-		return new String[]{"DroppedRoutes", "CompletedRoutes"};
+	public Set<String> getSupportedMetricNames() {
+		Set<String> metrics = new HashSet<String>(super.getSupportedMetricNames());
+		metrics.add("DroppedRoutes");
+		metrics.add("CompletedRoutes");
+		return metrics;
 	}
 
 	/**

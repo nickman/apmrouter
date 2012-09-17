@@ -26,7 +26,9 @@ package org.helios.apmrouter.util.thread;
 
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
@@ -536,8 +538,8 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
 	 */
 	@Override
-	public String[] getSupportedMetricNames() {		
-		return new String[]{};
+	public Set<String> getSupportedMetricNames() {		
+		return Collections.emptySet();
 	}
 
 

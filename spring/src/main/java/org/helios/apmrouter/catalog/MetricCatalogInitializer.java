@@ -24,6 +24,9 @@
  */
 package org.helios.apmrouter.catalog;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
@@ -68,10 +71,9 @@ public class MetricCatalogInitializer extends ServerComponentBean implements IMe
 	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
 	 */
 	@Override
-	public String[] getSupportedMetricNames() {		
-		return new String[]{};
-	}	
-
+	public Set<String> getSupportedMetricNames() {
+		return super.getSupportedMetricNames();
+	}
 	/**
 	 * @param host
 	 * @param agent

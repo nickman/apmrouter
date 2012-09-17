@@ -24,7 +24,10 @@
  */
 package org.helios.apmrouter.server;
 
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
@@ -207,7 +210,11 @@ public abstract class ServerComponent {
 	 * Returns the metric names implemented by this component
 	 * @return the metric names implemented by this component
 	 */
-	public abstract String[] getSupportedMetricNames();
+	public Set<String> getSupportedMetricNames() {
+		return Collections.emptySet();
+	}
+	
+
 	
 	/**
 	 * Initializes the metric counters for this component

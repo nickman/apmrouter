@@ -26,6 +26,8 @@ package org.helios.apmrouter.server.net.listener.netty.handlers.udp;
 
 import java.util.Collection;
 import java.util.EnumMap;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.helios.apmrouter.SenderOpCode;
 import org.helios.apmrouter.server.ServerComponentBean;
@@ -126,9 +128,14 @@ public class UDPAgentOperationRouter extends ServerComponentBean implements Chan
 	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
 	 */
 	@Override
-	public String[] getSupportedMetricNames() {		
-		return new String[]{"RequestsReceived", "RequestsCompleted", "RequestsFailed"};
-	}
+	public Set<String> getSupportedMetricNames() {
+		Set<String> metrics = new HashSet<String>(super.getSupportedMetricNames());
+		metrics.add("RequestsReceived");
+		metrics.add("RequestsCompleted");
+		metrics.add("RequestsFailed");
+		return metrics;
+	}	
+	
 	
 	
 

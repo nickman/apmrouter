@@ -22,7 +22,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.san.opentsdb;
+package org.helios.apmrouter.destination.opentsdb;
 
 import javax.management.MXBean;
 

@@ -26,6 +26,7 @@ package org.helios.apmrouter.destination;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
@@ -134,9 +135,13 @@ public class BaseDestination extends ServerComponentBean implements RouteDestina
 	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
 	 */
 	@Override
-	public String[] getSupportedMetricNames() {
-		return new String[]{"AcceptedRoutes"};
+	public Set<String> getSupportedMetricNames() {
+		Set<String> metrics = new HashSet<String>(super.getSupportedMetricNames());
+		metrics.add("AcceptedRoutes");
+		return metrics;
 	}
+	
+	
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.router.RouteDestination#acceptRoute(org.helios.apmrouter.router.Routable)
@@ -145,7 +150,16 @@ public class BaseDestination extends ServerComponentBean implements RouteDestina
 	public void acceptRoute(IMetric routable) {
 		if(pmg.matches(routable.getRoutingKey())) {
 			incr("AcceptedRoutes");
+			doAcceptRoute(routable);
 		}		
+	}
+	
+	/**
+	 * Accept Route additive for BaseDestination extensions
+	 * @param routable The metric to route
+	 */
+	protected void doAcceptRoute(IMetric routable) {
+		
 	}
 	
 	/**

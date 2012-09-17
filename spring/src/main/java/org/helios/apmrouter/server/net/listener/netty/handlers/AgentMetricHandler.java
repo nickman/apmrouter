@@ -25,6 +25,8 @@
 package org.helios.apmrouter.server.net.listener.netty.handlers;
 
 import java.net.SocketAddress;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.helios.apmrouter.ReceiverOpCode;
 import org.helios.apmrouter.SenderOpCode;
@@ -231,9 +233,14 @@ public class AgentMetricHandler extends ServerComponentBean implements AgentRequ
 	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
 	 */
 	@Override
-	public String[] getSupportedMetricNames() {
-		return new String[]{"BytesReceived", "MetricsReceived", "ConfirmsSent", "TokensSent"};
-	}
+	public Set<String> getSupportedMetricNames() {
+		Set<String> metrics = new HashSet<String>(super.getSupportedMetricNames());
+		metrics.add("BytesReceived");
+		metrics.add("MetricsReceived");
+		metrics.add("ConfirmsSent");
+		metrics.add("TokensSent");
+		return metrics;
+	}	
 
 	/**
 	 * Sets the pattern router

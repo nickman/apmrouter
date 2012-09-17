@@ -26,9 +26,11 @@ package org.helios.apmrouter.server.net.listener.netty;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -353,9 +355,13 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
 	 */
 	@Override
-	public String[] getSupportedMetricNames() {
-		return new String[]{"channelsCreated", "channelsClosed"};
+	public Set<String> getSupportedMetricNames() {
+		Set<String> metrics = new HashSet<String>(super.getSupportedMetricNames());
+		metrics.add("channelsCreated");
+		metrics.add("channelsClosed");
+		return metrics;
 	}
+
 	
 
 		
