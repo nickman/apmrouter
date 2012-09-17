@@ -22,61 +22,65 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.server.net.listener.netty;
+package org.helios.apmrouter.destination.graphite;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.destination.BaseDestination;
+import org.helios.apmrouter.metric.IMetric;
+import org.jboss.netty.bootstrap.ClientBootstrap;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
+import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLogLevel;
-import org.jboss.netty.logging.InternalLoggerFactory;
-import org.jboss.netty.logging.Log4JLoggerFactory;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedOperation;
 
 /**
- * <p>Title: BaseAgentListener</p>
- * <p>Description: Base class for agent listeners that listen for agent connections, disconnections and requests</p> 
+ * <p>Title: GraphiteDestination</p>
+ * <p>Description: Destination router for Graphite</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.server.net.listener.netty.BaseAgentListener</code></p>
- * TODO: Migrate to generic Netty class structure
+ * <p><code>org.helios.apmrouter.destination.graphite.GraphiteDestination</code></p>
  */
 
-public class BaseAgentListener extends ServerComponentBean implements ChannelPipelineFactory {
-	/** The netty channel factory's worker thread pool */
-	protected ExecutorService workerPool = null;
-	/** The managed channel group */
-	protected ChannelGroup channelGroup = null;
-	/** The interface that this listener will bind to */
-	protected String bindHost = null;
-	/** The port that this listener will bind to */
-	protected int bindPort = -1;
-//	/** The netty bootstrap */
-//	protected Bootstrap bootstrap = null;
-//	/** The netty channel factory */
-//	protected ChannelFactory channelFactory = null;
+public class GraphiteDestination extends BaseDestination implements ChannelPipelineFactory, ChannelFutureListener {
+	/** The netty boss pool */
+	protected ExecutorService bossPool;
+	/** The nety worker pool */
+	protected ExecutorService workerPool;
+	/** The client bootstrap */
+	protected ClientBootstrap bstrap;
+	/** The client channel factory */
+	protected NioClientSocketChannelFactory channelFactory;
+	/** The channel options */
+	protected Map<String, Object> channelOptions = new HashMap<String, Object>();
+	/** The graphite server host name or IP address */
+	protected String graphiteHost = null;
+	/** The port that the graphite server is listening on */
+	protected int graphitePort = -1;
 	/** The channel pipeline initial handler bean names */
 	protected final SortedMap<Integer, String> channelHandlers = new ConcurrentSkipListMap<Integer, String>();	
-	/** The channel options */
-	protected final Map<String, Object> channelOptions = new ConcurrentHashMap<String, Object>();
 	/** The socket address this listener is bound to */
 	protected InetSocketAddress socketAddress = null;
 	/** The resolved channel handlers in insertion order */
@@ -85,16 +89,22 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	protected final AtomicBoolean loggingHandlerInstalled = new AtomicBoolean(false);
 	/** The relative location of the logging handler */
 	protected String loggingHandlerLocation = null;
-
+	/** The managed channel group */
+	protected ChannelGroup channelGroup = null;
+	/** The main forwarding connection channel */
+	protected Channel channel = null;
+	/** The main forwarding connection channel close future */
+	protected ChannelFuture closeFuture = null;
+	/** Indicates if the main graphite client channel is currently connected */
+	protected final AtomicBoolean connected = new AtomicBoolean(false);
+	/** Indicates if a disconnect is expected. (If a disconnect occures and this is false, a reconnect thread will start) */
+	protected final AtomicBoolean expectDisconnect = new AtomicBoolean(false);
+	/** Indicates if the reconnect loop is running */
+	protected final AtomicBoolean reconnecting = new AtomicBoolean(false);
+	/** The frequency in ms. of the reconnect loop attempts */
+	protected long reconnectPeriod = 10000;
 	
 	
-	
-	/**
-	 * Creates a new BaseAgentListener
-	 */
-	protected BaseAgentListener() {
-		InternalLoggerFactory.setDefaultFactory(new Log4JLoggerFactory());	
-	}
 	/**
 	 * Starts this listener
 	 * {@inheritDoc}
@@ -110,11 +120,42 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 			resolvedHandlers.put(beanName, handler);
 		}
 		info("Resolved [", resolvedHandlers.size(), "] Channel Handlers");
-		socketAddress = new InetSocketAddress(bindHost, bindPort);
+		socketAddress = new InetSocketAddress(graphiteHost, graphitePort);
 		info("Socket Address:", socketAddress);
 		channelGroup = new DefaultChannelGroup(beanName);
-		
+		channelFactory = new NioClientSocketChannelFactory(bossPool, workerPool);
+		bstrap = new ClientBootstrap(channelFactory);
+		bstrap.setOptions(channelOptions);
+		bstrap.setPipelineFactory(this);
 	}
+	
+	/**
+	 * Initiates an asynch connect to the graphite server
+	 */
+	protected void doConnect() {
+		bstrap.connect(socketAddress).addListener(new ChannelFutureListener() {
+			@Override
+			public void operationComplete(ChannelFuture f) throws Exception {
+				if(f.isSuccess()) {
+					onConnect(f.getChannel());
+				} else {
+					startReconnectLoop();
+				}
+			}
+		});
+	}
+	
+	/**
+	 * Sets the expected disconnect to true and disconnects the current channel
+	 */
+	protected void doDisconnect() {
+		expectDisconnect.set(true);
+	}
+	
+	protected void startReconnectLoop() {
+		// reconnecting
+	}
+	
 	
 	/**
 	 * Stops this listener
@@ -128,6 +169,33 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 		channelGroup = null;
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.jboss.netty.channel.ChannelFutureListener#operationComplete(org.jboss.netty.channel.ChannelFuture)
+	 */
+	@Override
+	public void operationComplete(ChannelFuture future) throws Exception {		
+		
+	}
+	
+	/**
+	 * Fired when an asynch connect completes
+	 * @param connectedChannel The channel that connected
+	 */
+	protected void onConnect(Channel connectedChannel) {
+		channel = connectedChannel;
+		closeFuture = channel.getCloseFuture();
+		connected.set(true);		
+	}
+	
+	/**
+	 * Fired when a connected channel disconnects
+	 */
+	protected void onDisconnect() {
+		channel = null;
+		closeFuture = null;
+		connected.set(false);		
+	}
 	
 	/**
 	 * {@inheritDoc}
@@ -145,61 +213,56 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 		}
 		return pipeline;
 	}
-
+	
+	
 	/**
-	 * Returns the channel group for this agent listener
-	 * @return the agent listener channel group
-	 */
-	//@ManagedAttribute
-	public ChannelGroup getChannelGroup() {
-		return channelGroup;
-	}
-
-	/**
-	 * Returns the interface this listener is bound to 
-	 * @return the interface this listener is bound to
+	 * Returns the graphite server name or IP address
+	 * @return the graphite server name or IP address
 	 */
 	@ManagedAttribute
-	public String getBindHost() {
-		return bindHost;
+	public String getGraphiteHost() {
+		return graphiteHost;
+	}
+	
+	/**
+	 * Indicates if the graphite channel is connected
+	 * @return true if the graphite channel is connected, false otherwise
+	 */
+	@ManagedAttribute
+	public boolean isConnected() {
+		return connected.get();
 	}
 
 	/**
-	 * Sets the interface this listener is bound to 
-	 * @param bindHost the bindHost to set
+	 * Sets the graphite server name or IP address
+	 * @param graphiteHost the graphite server name or IP address
 	 */
 	@ManagedAttribute
-	public void setBindHost(String bindHost) {
-		if(isStarted()) throw new IllegalStateException("Cannot set the bind host once listener is bound", new Throwable());
-		this.bindHost = bindHost;
+	public void setGraphiteHost(String graphiteHost) {
+		if(isStarted()) throw new IllegalStateException("Cannot set the graphite host once listener is bound", new Throwable());
+		this.graphiteHost = graphiteHost;
 	}
 
+	/**
+	 * Sets the graphite server listening port
+	 * @param graphitePort the graphite server listening port
+	 */
+	@ManagedAttribute
+	public void setGraphitePort(int graphitePort) {
+		if(isStarted()) throw new IllegalStateException("Cannot set the graphite port once listener is bound", new Throwable());
+		this.graphitePort= graphitePort;
+	}
 
 
 
 	/**
-	 * Returns the port this listener is bound to 
-	 * @return the port this listener is bound to 
+	 * Returns the graphite port 
+	 * @return the graphite port 
 	 */
 	@ManagedAttribute
-	public int getBindPort() {
-		return bindPort;
+	public int getGraphitePort() {
+		return graphitePort;
 	}
-
-
-
-
-	/**
-	 * Sets the port this listener will bind to 
-	 * @param bindPort the port this listener will bind to 
-	 */
-	@ManagedAttribute
-	public void setBindPort(int bindPort) {
-		if(isStarted()) throw new IllegalStateException("Cannot set the bind port once listener is bound", new Throwable());
-		this.bindPort = bindPort;
-	}
-
-
 
 
 	/**
@@ -242,13 +305,20 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	}
 
 	/**
-	 * Sets the worker pool for this listener
-	 * @param workerPool the workerPool to set
+	 * Sets the worker pool for the graphite destination
+	 * @param workerPool the netty worker thread pool
 	 */
 	public void setWorkerPool(ExecutorService workerPool) {
 		this.workerPool = workerPool;
 	}
-
+	
+	/**
+	 * Sets the boss pool for the graphite destination
+	 * @param bossPool the netty boss thread pool
+	 */
+	public void setBossPool(ExecutorService bossPool) {
+		this.bossPool = bossPool;
+	}
 	
 	/**
 	 * Indicates if a logging handler is installed in the pipeline
@@ -277,7 +347,7 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	@ManagedOperation
 	public void addLoggingHandler(String after, String level, boolean hex) {
 		if(loggingHandlerInstalled.get()) return;
-		if(!isStarted()) throw new IllegalStateException("This operation can only be executed once the listener is started", new Throwable()); 
+		if(!isStarted()) throw new IllegalStateException("This operation can only be executed once the destination is started", new Throwable()); 
 		if(after==null || after.trim().isEmpty()) {
 			after = "first";
 		} else {
@@ -311,7 +381,7 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	@ManagedOperation
 	public void removeLoggingHandler() {
 		if(!loggingHandlerInstalled.get()) return;
-		if(!isStarted()) throw new IllegalStateException("This operation can only be executed once the listener is started", new Throwable());
+		if(!isStarted()) throw new IllegalStateException("This operation can only be executed once the destination is started", new Throwable());
 		String handlerName = getClass().getSimpleName() + "." + beanName + "Logger";
 		synchronized(resolvedHandlers) {
 			resolvedHandlers.remove(handlerName);
@@ -325,7 +395,7 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	 */
 	@ManagedAttribute
 	public long getChannelsCreated() {
-		return getMetricValue("channelsCreated");
+		return getMetricValue("ChannelsCreated");
 	}
 	
 	/**
@@ -334,7 +404,7 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	 */
 	@ManagedAttribute	
 	public long getChannelsClosed() {
-		return getMetricValue("channelsClosed");
+		return getMetricValue("ChannelsClosed");
 	}
 	
 	/**
@@ -347,8 +417,6 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	}
 	
 
-	
-
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
@@ -356,14 +424,65 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	@Override
 	public Set<String> getSupportedMetricNames() {
 		Set<String> metrics = new HashSet<String>(super.getSupportedMetricNames());
-		metrics.add("channelsCreated");
-		metrics.add("channelsClosed");
+		metrics.add("ChannelsCreated");
+		metrics.add("ChannelsClosed");
+		metrics.add("MetricsForwarded");
+		metrics.add("MetricsDropped");		
 		return metrics;
 	}
 
 	
-
-		
 	
+	/**
+	 * Creates a new GraphiteDestination
+	 * @param patterns The {@link IMetric} pattern this destination accepts
+	 */
+	public GraphiteDestination(String... patterns) {
+		super(patterns);
+	}
+
+	/**
+	 * Creates a new GraphiteDestination
+	 * @param patterns The {@link IMetric} pattern this destination accepts
+	 */
+	public GraphiteDestination(Collection<String> patterns) {
+		super(patterns);
+	}
+
+	/**
+	 * Creates a new GraphiteDestination
+	 */
+	public GraphiteDestination() {
+		
+	}
+
+	/**
+	 * Returns the frequency of reconnect attempts in ms.
+	 * @return the frequency of reconnect attempts 
+	 */
+	@ManagedAttribute
+	public long getReconnectPeriod() {
+		return reconnectPeriod;
+	}
+
+	/**
+	 * Sets the frequency of reconnect attempts in ms
+	 * @param reconnectPeriod the frequency of reconnect attempts
+	 */
+	@ManagedAttribute
+	public void setReconnectPeriod(long reconnectPeriod) {
+		this.reconnectPeriod = reconnectPeriod;
+	}
+
+	/**
+	 * Indicates if the client is currently in a reconnect loop
+	 * @return true if the client is currently in a reconnect loop, false otherwise
+	 */
+	public boolean getReconnecting() {
+		return reconnecting.get();
+	}
+
+	
+
 
 }
