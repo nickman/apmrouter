@@ -265,15 +265,16 @@ public class DirectMetricCollection implements Runnable {
     		writeInt(bb.limit()); //VS+= 4;
     		writeBytes(bb); //VS+= sz;     		
     	}
-    	if(metric.hasTXContext()) {
-    		writeByte(BYTE_ONE); //VS+= 1;
-    		byte[] tx = metric.getTXContext().encode();
-    		writeBytes(tx); //VS+= tx.length;
-    	} else {
-    		writeByte(BYTE_ZERO); //VS+= 1;
-    	}
+//    	if(metric.hasTXContext()) {
+//    		writeByte(BYTE_ONE); //VS+= 1;
+//    		byte[] tx = metric.getTXContext().encode();
+//    		writeBytes(tx); //VS+= tx.length;
+//    	} else {
+//    		writeByte(BYTE_ZERO); //VS+= 1;
+//    	}
     	int metricSize = size - currentSize;
-    	unsafe.putInt(address + currentSize, metricSize);    	
+    	unsafe.putInt(address + currentSize, metricSize);    
+    	//log("Record Size:" + metricSize);
     	// update the DMC size
     	setSize(size);
     	//log("Metric Size:" + metricSize + " New Buff Size:" + size + "  Size Offset:" + currentSize + "  GS:" + getSize() + " RS:" + unsafe.getInt(address + currentSize));
@@ -306,6 +307,7 @@ public class DirectMetricCollection implements Runnable {
     	DirectMetricCollection d = new DirectMetricCollection(bytes.length);
     	unsafe.copyMemory(bytes, BYTE_ARRAY_OFFSET, null, d.address, bytes.length);
     	d.size = bytes.length;
+    	d.setSize(bytes.length);
     	bytes = null;
     	return d;
     }
@@ -377,9 +379,9 @@ public class DirectMetricCollection implements Runnable {
 				ByteBuffer bb = r.readByteBuffer(byteLength);
 				cb.writeBytes(bb);  // the value bytes
 			}
-			if(r.readByte()==BYTE_ONE) {
-				cb.writeBytes(r.readBytes(TXContext.TXCONTEXT_SIZE));
-			}
+//			if(r.readByte()==BYTE_ONE) {
+//				cb.writeBytes(r.readBytes(TXContext.TXCONTEXT_SIZE));
+//			}
     	}
 //		byte[] bytes = new byte[size];
 //		unsafe.copyMemory(null, (address), bytes, BYTE_ARRAY_OFFSET, size);
@@ -617,8 +619,7 @@ public class DirectMetricCollection implements Runnable {
 		public IMetric next() {			
 			if(!_next()) throw new RuntimeException("Iterator fetched pass EOF", new Throwable());
 			IDelegateMetric dmetric = null;
-    		int recordSize = readInt(); // skip size    		
-    		//if(byteCount<1) throw new RuntimeException("Read a <= 1 byte count", new Throwable());
+    		int recordSize = readInt(); // skip size    	
     		byte typeOrdinal = readByte();
     		MetricType type = MetricType.valueOf(typeOrdinal);
     		byte isToken = readByte();
@@ -637,11 +638,12 @@ public class DirectMetricCollection implements Runnable {
 			} else {
 				ByteBuffer bb = readByteBuffer(readInt());
 				metric = ICEMetric.newMetric(time, bb, type, dmetric);		
-			}
-			readByte();
-			if(getRecordRemainingBytes()>=TXContext.TXCONTEXT_SIZE) {
-				metric.attachTXContext(TXContext.decode(readBytes(TXContext.TXCONTEXT_SIZE), getByteOrder()==BYTE_ZERO));
-			}
+			}		
+//			byte tp = readByte();
+//			log("Remaining Bytes:" + getRecordRemainingBytes());
+//			if(getRecordRemainingBytes()>=TXContext.TXCONTEXT_SIZE) {				
+//				metric.attachTXContext(TXContext.decode(readBytes(TXContext.TXCONTEXT_SIZE), getByteOrder()==BYTE_ZERO));
+//			}
 			return metric;
 		}
 
@@ -835,10 +837,10 @@ public class DirectMetricCollection implements Runnable {
 	
 	/**
 	 * Updates the total size field
-	 * @param s the new size
+	 * @param i the new size
 	 */
-	private void setSize(int s) {
-		unsafe.putInt(address+SIZE_OFFSET, s);
+	private void setSize(int i) {
+		unsafe.putInt(address+SIZE_OFFSET, getByteOrder()==BYTE_ZERO ? i : Integer.reverseBytes(i));
 	}
 
 

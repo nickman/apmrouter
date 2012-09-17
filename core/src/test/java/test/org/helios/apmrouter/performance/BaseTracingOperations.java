@@ -46,9 +46,9 @@ public class BaseTracingOperations extends BasePerformanceTestCase {
 	/** The size of the metric name and namespace segments */
 	public static final int WORD_SIZE = 10;
 	/** The number of times each metric is traced in the benchmark */
-	public static final int OP_COUNT = 100;
+	public static final int OP_COUNT = 1000;
 	/** The number of threads to execute tests in */
-	public static final int THREAD_COUNT = ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors()/2;
+	public static final int THREAD_COUNT = ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors();
 	/** The number of warmup loops to execute */
 	public static final int WARMUP_COUNT = 2;
 	/** The total number of profiled executions */

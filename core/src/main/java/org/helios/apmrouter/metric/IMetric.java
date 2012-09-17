@@ -28,6 +28,7 @@ import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.Map;
 
+import org.helios.apmrouter.router.Routable;
 import org.helios.apmrouter.trace.TXContext;
 
 /**
@@ -38,7 +39,7 @@ import org.helios.apmrouter.trace.TXContext;
  * <p><code>org.helios.apmrouter.metric.IMetric</code></p>
  */
 
-public interface IMetric {
+public interface IMetric extends Routable {
 	
 	/** The namespace delimiter */
 	public static final String NSDELIM = "/";
@@ -194,10 +195,6 @@ public interface IMetric {
 	 */
 	public abstract TXContext getTXContext();
 	
-	/**
-	 * Returns the routing key for this metric
-	 * @return the routing key
-	 */
-	public abstract CharSequence getRoutingKey();
+
 
 }

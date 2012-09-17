@@ -22,24 +22,16 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.router;
+package org.helios.apmrouter.server.net.listener.netty;
 
 /**
- * <p>Title: RouteDestination</p>
- * <p>Description: Defines a route destination that accepts routed {@link Routable} instances from a {@link PatternRouter} that matched
- * this destinations advertised patterns.</p> 
+ * <p>Title: TCPAgentListener</p>
+ * <p>Description: </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.router.RouteDestination</code></p>
- * @param <T> The expected type of the routables to receive
+ * <p><code>org.helios.apmrouter.server.net.listener.netty.TCPAgentListener</code></p>
  */
 
-public interface RouteDestination<T extends Routable> {
-	/**
-	 * Accepts a {@link Routable} instance from a {@link PatternRouter} 
-	 * @param routable The {@link Routable} that was routed to this destination 
-	 */
-	public void acceptRoute(T routable);
-	
-	
+public class TCPAgentListener {
+
 }

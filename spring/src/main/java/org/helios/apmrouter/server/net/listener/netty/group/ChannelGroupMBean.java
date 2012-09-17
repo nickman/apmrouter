@@ -22,24 +22,20 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.router;
+package org.helios.apmrouter.server.net.listener.netty.group;
+
+import javax.management.MXBean;
+
+import org.jboss.netty.channel.group.ChannelGroup;
 
 /**
- * <p>Title: RouteDestination</p>
- * <p>Description: Defines a route destination that accepts routed {@link Routable} instances from a {@link PatternRouter} that matched
- * this destinations advertised patterns.</p> 
+ * <p>Title: ChannelGroupMBean</p>
+ * <p>Description: </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.router.RouteDestination</code></p>
- * @param <T> The expected type of the routables to receive
+ * <p><code>org.helios.apmrouter.server.net.listener.netty.group.ChannelGroupMBean</code></p>
  */
-
-public interface RouteDestination<T extends Routable> {
-	/**
-	 * Accepts a {@link Routable} instance from a {@link PatternRouter} 
-	 * @param routable The {@link Routable} that was routed to this destination 
-	 */
-	public void acceptRoute(T routable);
-	
-	
+@MXBean
+public class ChannelGroupMBean  {
+	ChannelGroup cg;
 }

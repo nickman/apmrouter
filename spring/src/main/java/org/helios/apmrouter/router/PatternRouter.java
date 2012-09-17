@@ -25,8 +25,20 @@
 package org.helios.apmrouter.router;
 
 import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
+
+import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.server.ServerComponentBean;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedMetric;
+import org.springframework.jmx.support.MetricType;
 
 /**
  * <p>Title: PatternRouter</p>
@@ -34,35 +46,209 @@ import java.util.concurrent.ThreadPoolExecutor;
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.router.PatternRouter</code></p>
- * @param <T> The expected type of the routable
+ * FIXME:  This is supposed to be a generic class, it is temporarilly specific to IMetric.
  */
 
-public class PatternRouter<T extends Routable> {
+public class PatternRouter extends ServerComponentBean {
 	/** The worker thread pool that reads the routing queue */
-	protected final ThreadPoolExecutor threadPool;
+	protected ExecutorService threadPool;
+	/** The routing queue size */
+	protected int routingQueueSize = 1000;
+	/** The routing queue fairness */
+	protected boolean routingQueueFairness = false;
+	/** The number of routing worker threads */
+	protected int routingWorkers = 5;
+	/** The routing queue */
+	protected BlockingQueue<IMetric> routingQueue = null;
+	/** The subscribers */
+	protected final Set<RouteDestination<IMetric>> destinations = new CopyOnWriteArraySet<RouteDestination<IMetric>>();
 	
 	/**
-	 * Creates a new PatternRouter
-	 * @param threadPool The worker thread pool that reads the routing queue
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
 	 */
-	private PatternRouter(BlockingQueue<Runnable> routingQueue, ThreadPoolExecutor threadPool) {		
-		this.threadPool = threadPool;
+	@Override
+	protected void doStart() throws Exception {
+		super.doStart();
+		routingQueue = new ArrayBlockingQueue<IMetric>(routingQueueSize, routingQueueFairness);
+		for(int i = 0; i < routingWorkers; i++) {
+			threadPool.execute(new MatchingWorker());
+		}
+	}
+	
+	@Autowired(required=true)
+	public void setDestinations(Map<String, RouteDestination> initialDests) {
+		for(Map.Entry<String, RouteDestination> entry: initialDests.entrySet()) {
+			destinations.add(entry.getValue());
+			info("Registered [", entry.getKey(), "] as a Route Destination");
+		}
+	}
+	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStop()
+	 */
+	@Override
+	protected void doStop() {
+		
+		
+		super.doStop();
 	}
 	
 	/**
-	 * Routes an array of routables to their pattern matched endpoints
-	 * @param routables The routables to route
+	 * <p>Title: MatchingWorker</p>
+	 * <p>Description: Worker runnables for executing matches</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.router.PatternRouter.MatchingWorker</code></p>
+	 * FIXME: what do we do when the interrupted exception is caught ?
 	 */
-	public void route(T...routables) {
+	protected class MatchingWorker implements Runnable {
+		@Override
+		public void run() {
+			while(true) {
+				try {
+					IMetric metric = routingQueue.take();
+					for(RouteDestination<IMetric> destination: destinations) {
+						destination.acceptRoute(metric);
+					}
+				} catch (InterruptedException e) {
+					e.printStackTrace(System.err);
+				}
+			}
+		}
 		
+	}
+	
+	
+	/**
+	 * Routes an array of routables to their pattern matched endpoints
+	 * @param metrics The routables to route
+	 */
+	public void route(IMetric...metrics) {
+		for(IMetric metric: metrics) {
+			if(metric==null) continue;
+			if(routingQueue.offer(metric)) {
+				incr("CompletedRoutes");
+			} else {
+				incr("DroppedRoutes");
+			}			
+		}
 	}
 	
 	/**
 	 * Routes a collection of routables to their pattern matched endpoints
-	 * @param routables The routables to route
+	 * @param metrics The routables to route
 	 */
-	public void route(Collection<T> routables) {
-		
+	public void route(Collection<IMetric> metrics) {
+		for(IMetric metric: metrics) {
+			if(metric==null) continue;
+			if(routingQueue.offer(metric)) {
+				incr("CompletedRoutes");
+			} else {
+				incr("DroppedRoutes");
+			}			
+		}	
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
+	 */
+	@Override
+	public String[] getSupportedMetricNames() {		
+		return new String[]{"DroppedRoutes", "CompletedRoutes"};
+	}
+
+	/**
+	 * Returns the configured size of the routing queue
+	 * @return the routingQueueSize
+	 */
+	@ManagedAttribute
+	public int getRoutingQueueSize() {
+		return routingQueueSize;
+	}
+	
+	/**
+	 * Returns the number of metrics in the routing queue
+	 * @return the routingQueueSize
+	 */
+	@ManagedMetric(category="MetricRouter", metricType=MetricType.COUNTER, description="The number of metrics in the routing queue")
+	public long getRoutingQueueDepth() {
+		return routingQueue.size();
+	}
+	
+	
+	
+	/**
+	 * Returns the number of routed metrics
+	 * @return the number of routed metrics
+	 */
+	@ManagedMetric(category="MetricRouter", metricType=MetricType.COUNTER, description="The number of metrics routed")
+	public long getRoutedMetricCount() {
+		return getMetricValue("CompletedRoutes");
+	}
+	
+	/**
+	 * Returns the number of metrics dropped in routing
+	 * @return the number of metrics dropped in routing
+	 */
+	@ManagedMetric(category="MetricRouter", metricType=MetricType.COUNTER, description="The number of metrics dropped in routing")
+	public long getDroppedMetricCount() {
+		return getMetricValue("DroppedRoutes");
+	}
+	
+	
+
+	/**
+	 * Sets 
+	 * @param routingQueueSize the routingQueueSize to set
+	 */
+	public void setRoutingQueueSize(int routingQueueSize) {
+		this.routingQueueSize = routingQueueSize;
+	}
+
+	/**
+	 * Indicates if the routing queue is fair
+	 * @return true if the routing queue is fair, false otherwise
+	 */
+	@ManagedAttribute
+	public boolean isRoutingQueueFair() {
+		return routingQueueFairness;
+	}
+
+	/**
+	 * Indicates if the routing queue should be fair
+	 * @param routingQueueFairness the routingQueueFairness to set
+	 */
+	public void setRoutingQueueFair(boolean routingQueueFairness) {
+		this.routingQueueFairness = routingQueueFairness;
+	}
+
+	/**
+	 * Sets the routing thread pool
+	 * @param threadPool the threadPool to set
+	 */
+	public void setThreadPool(ExecutorService threadPool) {
+		this.threadPool = threadPool;
+	}
+
+	/**
+	 * Returns the number of routing worker threads
+	 * @return the number of routing worker threads
+	 */
+	@ManagedAttribute
+	public int getRoutingWorkers() {
+		return routingWorkers;
+	}
+
+	/**
+	 * Sets the number of routing worker threads
+	 * @param routingWorkers the number of routing worker threads to set
+	 */
+	public void setRoutingWorkers(int routingWorkers) {
+		this.routingWorkers = routingWorkers;
 	}
 	
 	

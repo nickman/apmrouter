@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:jms="http://www.springframework.org/schema/jms"
+
+       xmlns:lang="http://www.springframework.org/schema/lang"       
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/jms http://www.springframework.org/schema/jms/spring-jms.xsd
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+       http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+       
+       http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang.xsd
+       "  >
+	
+	
+	
+	
+	<context:annotation-config/>
+	<context:mbean-export/>
+	
+
+	
+	
+	<bean id="SpringEventPool" class="org.helios.apmrouter.util.thread.ManagedThreadPool">
+		<qualifier value="SpringEvent"/>
+		<constructor-arg>
+			<bean id="SpringEventPoolConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+				<property name="corePoolSize" value="1" />
+				<property name="maximumPoolSize" value="5" />
+				<property name="coreThreadsStarted" value="1" />
+			</bean>
+		</constructor-arg>
+	</bean>
+	
+	<bean id="UDPAgentListenerWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+		<constructor-arg>
+			<bean id="UDPAgentListenerWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+				<property name="corePoolSize" value="1" />
+				<property name="maximumPoolSize" value="100" />
+				<property name="coreThreadsStarted" value="1" />
+			</bean>
+		</constructor-arg>
+	</bean>
+ 
+ 
+ 	<bean id="MetricCatalog" class="org.helios.apmrouter.catalog.MetricCatalogInitializer">
+ 		<property name="catalogClassName" value="org.helios.apmrouter.metric.catalog.heap.StringKeyedHeapMetricCatalog" />
+ 	</bean>
+ 	
+ 	<bean id="AgentMetricHandler" class="org.helios.apmrouter.server.net.listener.netty.handlers.AgentMetricHandler">
+ 		<property name="metricCatalog" ref="MetricCatalog" />
+ 	</bean>
+ 	
+ 	<bean id="UDPAgentOperationRouter" class="org.helios.apmrouter.server.net.listener.netty.handlers.udp.UDPAgentOperationRouter" />
+ 	
+ 	<bean id="UDPAgentListener" class="org.helios.apmrouter.server.net.listener.netty.UDPAgentListener">
+ 		<property name="bindHost" value="0.0.0.0" />
+ 		<property name="bindPort" value="2094" />
+ 		<property name="channelHandlers">
+ 			<map>
+ 				<entry key="0" value="UDPAgentOperationRouter" />
+ 			</map>
+ 		</property>
+ 		<property name="workerPool" ref="UDPAgentListenerWorkers" />
+ 	</bean>
+ 	
+ 	<bean id="BaseDestination" class="org.helios.apmrouter.destination.BaseDestination" >
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>.*</value>	 			
+	 		</util:set>
+ 		</property>
+ 	</bean>
+ 	
+ 	<bean id="PatternRouter" class="org.helios.apmrouter.router.PatternRouter" >
+ 		<property name="routingQueueFair" value="true" />
+ 		<property name="routingQueueSize" value="5000" />
+ 		<property name="routingWorkers" value="8" />
+ 		<property name="threadPool" ref="PatternRouterWorkers" />
+ 	</bean>
+
+	<bean id="PatternRouterWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+		<constructor-arg>
+			<bean id="PatternRouterWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+				<property name="corePoolSize" value="8" />
+				<property name="maximumPoolSize" value="8" />
+				<property name="coreThreadsStarted" value="8" />
+			</bean>
+		</constructor-arg>
+	</bean>
+
+ 	
+</beans>
+

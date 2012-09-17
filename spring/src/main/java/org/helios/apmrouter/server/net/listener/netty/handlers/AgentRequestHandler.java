@@ -22,24 +22,35 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.router;
+package org.helios.apmrouter.server.net.listener.netty.handlers;
+
+import java.net.SocketAddress;
+
+import org.helios.apmrouter.SenderOpCode;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.channel.Channel;
 
 /**
- * <p>Title: RouteDestination</p>
- * <p>Description: Defines a route destination that accepts routed {@link Routable} instances from a {@link PatternRouter} that matched
- * this destinations advertised patterns.</p> 
+ * <p>Title: AgentRequestHandler</p>
+ * <p>Description: Defines a service that handles agent requests encoded in channel buffers</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.router.RouteDestination</code></p>
- * @param <T> The expected type of the routables to receive
+ * <p><code>org.helios.apmrouter.server.net.listener.netty.handlers.AgentRequestHandler</code></p>
  */
 
-public interface RouteDestination<T extends Routable> {
+public interface AgentRequestHandler {
 	/**
-	 * Accepts a {@link Routable} instance from a {@link PatternRouter} 
-	 * @param routable The {@link Routable} that was routed to this destination 
+	 * Processes a channel buffer containing the encoded agent request
+	 * @param opCode The agent request op code
+	 * @param buff The channel buffer containing the encoded agent request
+	 * @param remoteAddress The remote address of the agent that sent the request
+	 * @param channel The channel the request was received on
 	 */
-	public void acceptRoute(T routable);
+	public void processAgentRequest(SenderOpCode opCode, ChannelBuffer buff, SocketAddress remoteAddress, Channel channel);
 	
-	
+	/**
+	 * Returns the opcodes handled by this handler
+	 * @return the opcodes handled by this handler
+	 */
+	public SenderOpCode[] getHandledOpCodes();
 }

@@ -28,6 +28,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.jboss.netty.buffer.ChannelBuffer;
+
 
 
 /**
@@ -81,6 +83,16 @@ public enum SenderOpCode {
 	 */
 	public byte op() {
 		return (byte)ordinal();
+	}
+
+	/**
+	 * Determines the op Code of the request in the passed buffer
+	 * @param buff The buffer to read the op code from
+	 * @return The decoded op type
+	 */
+	public static SenderOpCode valueOf(ChannelBuffer buff) {
+		if(buff==null) throw new IllegalArgumentException("The passed buffer was null", new Throwable()); 
+		return valueOf(buff.getByte(0));
 	}
 	
 
