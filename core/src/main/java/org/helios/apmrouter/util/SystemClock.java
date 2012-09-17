@@ -58,6 +58,11 @@ public enum SystemClock {
 		return currentClock.get().getTime();
 	}
 	
+	public static long unixTime() {
+		return currentClock.get().unixTime();
+	}
+
+	
 	public static SystemClock currentClock() {
 		return currentClock.get();
 	}
@@ -422,6 +427,7 @@ public enum SystemClock {
 	 */
 	private static interface Clock {
 		long time();
+		long unixTime();
 	}
 	
 	/**
@@ -432,18 +438,28 @@ public enum SystemClock {
 		public long time() {
 			return System.currentTimeMillis();
 		}
+		public long unixTime() {
+			return TimeUnit.SECONDS.convert(time(), TimeUnit.MILLISECONDS);
+		}
 	}
 	
 	private static class NanoClock implements Clock {		
 		public long time() {
 			return TimeUnit.MILLISECONDS.convert(System.nanoTime(), TimeUnit.NANOSECONDS) + startTime;
 		}
+		public long unixTime() {
+			return TimeUnit.SECONDS.convert(time(), TimeUnit.MILLISECONDS);
+		}
+		
 	}
 	
 	private static class TestClock implements Clock {		
 		public long time() {
 			return testTime.get();
 		}
+		public long unixTime() {
+			return TimeUnit.SECONDS.convert(time(), TimeUnit.MILLISECONDS);
+		}		
 	}
 	
 	public static long setTestTime(long time) {
