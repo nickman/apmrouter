@@ -239,6 +239,17 @@ public abstract class ServerComponent {
 	}
 	
 	/**
+	 * Sets the named metric to the passed value
+	 * @param name The name of the metric
+	 * @param value The value to set to
+	 */
+	protected void set(String name, long value) {
+		if(name==null) return;
+		metrics.get(name).set(value);
+	}
+	
+	
+	/**
 	 * Increments the named metric by 1
 	 * @param name The name of the metric
 	 */
@@ -259,7 +270,7 @@ public abstract class ServerComponent {
 	 * Resets all the metrics
 	 */
 	@ManagedOperation
-	protected void resetMetrics() {
+	public void resetMetrics() {
 		for(Counter ctr: metrics.values()) {
 			ctr.set(0);
 		}

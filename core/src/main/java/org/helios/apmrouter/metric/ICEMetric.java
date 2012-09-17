@@ -404,7 +404,7 @@ public class ICEMetric implements IMetric {
 					1 +								// the type size (a byte)
 					(metricId.getType().isLong() ?
 						8 :							// the size of a long value
-						value.getValue().limit()+4 // the size of the bytebuffer +4 for the size
+						value.getRawValue().limit()+4 // the size of the bytebuffer +4 for the size
 					) + 
 					(hasTXContext() ? TXContext.TXCONTEXT_SIZE : 0);  // the size of the TXContext, if attached
 		} catch (Exception e) {
@@ -421,7 +421,7 @@ public class ICEMetric implements IMetric {
 	@Override
 	public ByteBuffer getRawValue() {
 		if(metricId.getType().isLong()) throw new RuntimeException("Call to getRawValue on a long type metric", new Throwable());
-		return value.getValue();
+		return value.getRawValue();
 	}
 
 	/**
@@ -448,7 +448,7 @@ public class ICEMetric implements IMetric {
 	 */
 	@Override
 	public CharSequence getRoutingKey() {
-		return String.format("%s-%s", getType().ordinal(), getFQN());
+		return String.format("%s-%s", getType().name(), getFQN());
 	}
 
 

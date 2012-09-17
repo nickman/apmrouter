@@ -101,9 +101,14 @@ public class ICEMetricValue {
 	 * Returns the value of this metricId
 	 * @return the value
 	 */
-	public ByteBuffer getValue() {
+	public Object getValue() {
+		return type.getDataAccessor().read(this);
+	}
+	
+	public ByteBuffer getRawValue() {
 		return value;
 	}
+	
 
 	/**
 	 * Returns the value as a long, or throws a RuntimeException if the type is not long based

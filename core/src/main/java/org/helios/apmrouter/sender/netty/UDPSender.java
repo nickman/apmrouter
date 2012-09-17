@@ -174,7 +174,7 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(1024));
 		socketAddress = new InetSocketAddress(serverURI.getHost(), serverURI.getPort());
 		//channel = (DatagramChannel) bstrap.connect(socketAddress).awaitUninterruptibly().getChannel();
-		channel = (DatagramChannel) bstrap.bind(new InetSocketAddress("localhost", 2095));
+		channel = (DatagramChannel) bstrap.bind(new InetSocketAddress("localhost", 0));
 		channel.getConfig().setBufferFactory(new DirectChannelBufferFactory());
 		channel.connect(socketAddress);
 		

@@ -230,7 +230,7 @@ public enum MetricType  implements IMetricDataAccessor {
 		 */
 		@Override
 		public CharSequence read(ICEMetricValue metricValue) {
-			ByteBuffer buff = metricValue.getValue();
+			ByteBuffer buff = metricValue.getRawValue();
 			buff.flip();
 			return buff.asCharBuffer().toString();
 		}
@@ -271,7 +271,7 @@ public enum MetricType  implements IMetricDataAccessor {
 		 */
 		@Override
 		public Throwable read(ICEMetricValue metricValue) {
-			return getThrowable(metricValue.getValue());
+			return getThrowable(metricValue.getRawValue());
 		}
 		
 		/**
@@ -364,7 +364,7 @@ public enum MetricType  implements IMetricDataAccessor {
 		 */
 		@Override
 		public Serializable read(ICEMetricValue metricValue) {
-			return (Serializable)IO.readFromByteBuffer(metricValue.getValue());
+			return (Serializable)IO.readFromByteBuffer(metricValue.getRawValue());
 		}		
 	}
 	
@@ -389,7 +389,7 @@ public enum MetricType  implements IMetricDataAccessor {
 
 		@Override
 		public org.snmp4j.PDU read(ICEMetricValue metricValue) {
-			return IO.readPDUFromByteBuffer(metricValue.getValue());
+			return IO.readPDUFromByteBuffer(metricValue.getRawValue());
 		}
 		
 	}

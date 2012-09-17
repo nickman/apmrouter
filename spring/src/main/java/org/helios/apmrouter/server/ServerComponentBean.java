@@ -27,9 +27,11 @@ package org.helios.apmrouter.server;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.jmx.JMXHelper;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.beans.factory.DisposableBean;
@@ -47,6 +49,7 @@ import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.core.Ordered;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedOperation;
+import org.springframework.jmx.export.naming.ObjectNamingStrategy;
 
 /**
  * <p>Title: ServerComponentBean</p>
@@ -61,6 +64,7 @@ public abstract class ServerComponentBean extends ServerComponent implements
 		BeanNameAware, 
 		SmartApplicationListener,
 		ApplicationEventMulticaster,
+		ObjectNamingStrategy,
 		InitializingBean,
 		DisposableBean {
 
@@ -88,6 +92,18 @@ public abstract class ServerComponentBean extends ServerComponent implements
 		debug("Received ApplicationEvent [", event, "]");
 
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.springframework.jmx.export.naming.ObjectNamingStrategy#getObjectName(java.lang.Object, java.lang.String)
+	 */
+	@Override
+	public ObjectName getObjectName(Object managedBean, String beanKey) throws MalformedObjectNameException {
+		StringBuilder b = new StringBuilder(getClass().getPackage().getName());
+		b.delete(b.lastIndexOf("."), b.length()-1);
+		objectName = JMXHelper.objectName(b.append(":service=ThreadPool,name=").append(beanName));
+		return objectName;
+	}	
 
 	/**
 	 * {@inheritDoc}

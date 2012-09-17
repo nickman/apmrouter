@@ -36,11 +36,13 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.helios.apmrouter.destination.BaseDestination;
 import org.helios.apmrouter.metric.IMetric;
 import org.jboss.netty.bootstrap.ClientBootstrap;
+import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -48,13 +50,19 @@ import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
+import org.jboss.netty.channel.SimpleChannelDownstreamHandler;
+import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLogLevel;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.export.annotation.ManagedOperation;
+import org.springframework.jmx.support.MetricType;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 /**
  * <p>Title: GraphiteDestination</p>
@@ -64,7 +72,7 @@ import org.springframework.jmx.export.annotation.ManagedOperation;
  * <p><code>org.helios.apmrouter.destination.graphite.GraphiteDestination</code></p>
  */
 
-public class GraphiteDestination extends BaseDestination implements ChannelPipelineFactory, ChannelFutureListener {
+public class GraphiteDestination extends BaseDestination implements Runnable, ChannelPipelineFactory, ChannelFutureListener {
 	/** The netty boss pool */
 	protected ExecutorService bossPool;
 	/** The nety worker pool */
@@ -103,8 +111,21 @@ public class GraphiteDestination extends BaseDestination implements ChannelPipel
 	protected final AtomicBoolean reconnecting = new AtomicBoolean(false);
 	/** The frequency in ms. of the reconnect loop attempts */
 	protected long reconnectPeriod = 10000;
+	/** The accumulation buffer */
+	protected final GraphiteMetricAccumulator accumulator = new GraphiteMetricAccumulator(10240);
+	/** The time based flush trigger in ms. */
+	protected long timeTrigger = 15000;
+	/** The size based flush trigger in number of metrics accumulated */
+	protected long sizeTrigger = 15000;
+	/** The injected task scheduler */
+	protected ThreadPoolTaskScheduler scheduler = null;
+	/** The flush future */
+	protected ScheduledFuture<?> flushScheduleHandle = null;
 	
 	
+	
+
+
 	/**
 	 * Starts this listener
 	 * {@inheritDoc}
@@ -127,6 +148,8 @@ public class GraphiteDestination extends BaseDestination implements ChannelPipel
 		bstrap = new ClientBootstrap(channelFactory);
 		bstrap.setOptions(channelOptions);
 		bstrap.setPipelineFactory(this);
+		doConnect();
+		flushScheduleHandle = scheduler.scheduleAtFixedRate(this, timeTrigger);
 	}
 	
 	/**
@@ -146,10 +169,16 @@ public class GraphiteDestination extends BaseDestination implements ChannelPipel
 	}
 	
 	/**
-	 * Sets the expected disconnect to true and disconnects the current channel
+	 * Handles a disconnect
 	 */
 	protected void doDisconnect() {
-		expectDisconnect.set(true);
+		connected.set(false);
+		if(expectDisconnect.get()) {
+			error("Unexpected disconnect from [", socketAddress , "]");
+			startReconnectLoop();
+		} else {
+			info("Disconnected from [", socketAddress , "]");
+		}
 	}
 	
 	protected void startReconnectLoop() {
@@ -163,11 +192,100 @@ public class GraphiteDestination extends BaseDestination implements ChannelPipel
 	 * @see org.helios.apmrouter.server.ServerComponentBean#doStop()
 	 */
 	@Override
-	protected void doStop() {		
+	protected void doStop() {	
+		if(flushScheduleHandle!=null) flushScheduleHandle.cancel(false);
+		channelGroup.close().awaitUninterruptibly();
+		channelFactory.releaseExternalResources();
+		channelFactory = null;
 		resolvedHandlers.clear();
 		socketAddress = null;
 		channelGroup = null;
 	}
+	
+	/**
+	 * <p>Flushes the accumulated buffer to the graphite server
+	 * {@inheritDoc}
+	 * @see java.lang.Runnable#run()
+	 */
+	public void run() {
+		int accumulatedCount = 0;
+		ChannelBuffer cb = null;
+		synchronized(accumulator) {
+			accumulatedCount = accumulator.size();
+			if(accumulatedCount > 0) { 
+				cb = accumulator.flush();
+			}
+		}	
+		if(accumulatedCount < 1) {
+			set("LastMetricsForwarded", 0);
+			return;
+		}
+		String s = new String(cb.array());
+		if(connected.get()) {
+			final int a = accumulatedCount;
+			channel.write(cb).addListener(new ChannelFutureListener() {
+				public void operationComplete(ChannelFuture f) throws Exception {
+					if(f.isSuccess()) {
+						incr("MetricsForwarded", a);
+						set("LastMetricsForwarded", a);
+					} else {
+						incr("MetricsForwardFailures", a);
+					}					
+				}
+			});
+			
+		} else {
+			incr("MetricsDropped", accumulatedCount);
+		}
+	}
+	
+	/**
+	 * Returns the number of metrics forwarded to Graphite
+	 * @return the number of metrics forwarded to Graphite
+	 */
+	@ManagedMetric(category="Graphite", metricType=MetricType.COUNTER, description="the number of metrics forwarded to Graphite")
+	public long getMetricsForwarded() {
+		return getMetricValue("MetricsForwarded");
+	}
+	
+	/**
+	 * Returns the number of metrics forwarded to Graphite in the last flush
+	 * @return the number of metrics forwarded to Graphite in the last flush
+	 */
+	@ManagedMetric(category="Graphite", metricType=MetricType.COUNTER, description="the number of metrics forwarded to Graphite in the last flush")
+	public long getLastMetricsForwarded() {
+		return getMetricValue("LastMetricsForwarded");
+	}
+	
+	
+	/**
+	 * Returns the number of metrics that failed on sending to Graphite
+	 * @return the number of metrics that failed on sending to Graphite
+	 */
+	@ManagedMetric(category="Graphite", metricType=MetricType.COUNTER, description="the number of metrics that failed on sending to Graphite")
+	public long getMetricsForwardFailures() {
+		return getMetricValue("MetricsForwardFailures");
+	}
+	
+	/**
+	 * Returns the number of metrics that were dropped because Graphite was down
+	 * @return the number of metrics that were dropped because Graphite was down
+	 */
+	@ManagedMetric(category="Graphite", metricType=MetricType.COUNTER, description="the number of metrics that were dropped because Graphite was down")
+	public long getMetricsDropped() {
+		return getMetricValue("MetricsDropped");
+	}
+	
+	/**
+	 * Accept Route additive for BaseDestination extensions
+	 * @param routable The metric to route
+	 */
+	protected void doAcceptRoute(IMetric routable) {
+		synchronized(accumulator) {
+			accumulator.append(routable);
+		}
+	}
+	
 	
 	/**
 	 * {@inheritDoc}
@@ -184,7 +302,13 @@ public class GraphiteDestination extends BaseDestination implements ChannelPipel
 	 */
 	protected void onConnect(Channel connectedChannel) {
 		channel = connectedChannel;
+		channelGroup.add(channel);
 		closeFuture = channel.getCloseFuture();
+		closeFuture.addListener(new ChannelFutureListener() {
+			public void operationComplete(ChannelFuture future) throws Exception {
+				doDisconnect();
+			}
+		});
 		connected.set(true);		
 	}
 	
@@ -204,13 +328,15 @@ public class GraphiteDestination extends BaseDestination implements ChannelPipel
 	@Override
 	public ChannelPipeline getPipeline() throws Exception {
 		ChannelPipeline pipeline = Channels.pipeline();
-		LinkedHashMap<String, ChannelHandler> tmpHandlers = null; 
-		synchronized(resolvedHandlers) {
-			tmpHandlers = new LinkedHashMap<String, ChannelHandler>(resolvedHandlers);
-		}
-		for(Map.Entry<String, ChannelHandler> entry: tmpHandlers.entrySet()) {
-			pipeline.addLast(entry.getKey(), entry.getValue());
-		}
+//		LinkedHashMap<String, ChannelHandler> tmpHandlers = null; 
+//		synchronized(resolvedHandlers) {
+//			tmpHandlers = new LinkedHashMap<String, ChannelHandler>(resolvedHandlers);
+//		}
+//		for(Map.Entry<String, ChannelHandler> entry: tmpHandlers.entrySet()) {
+//			pipeline.addLast(entry.getKey(), entry.getValue());
+//		}
+		pipeline.addLast("Up", new SimpleChannelUpstreamHandler());
+		pipeline.addLast("Down", new SimpleChannelDownstreamHandler());
 		return pipeline;
 	}
 	
@@ -423,12 +549,14 @@ public class GraphiteDestination extends BaseDestination implements ChannelPipel
 	 */
 	@Override
 	public Set<String> getSupportedMetricNames() {
-		Set<String> metrics = new HashSet<String>(super.getSupportedMetricNames());
-		metrics.add("ChannelsCreated");
-		metrics.add("ChannelsClosed");
-		metrics.add("MetricsForwarded");
-		metrics.add("MetricsDropped");		
-		return metrics;
+		Set<String> _metrics = new HashSet<String>(super.getSupportedMetricNames());
+		_metrics.add("ChannelsCreated");
+		_metrics.add("ChannelsClosed");
+		_metrics.add("MetricsForwarded");
+		_metrics.add("LastMetricsForwarded");
+		_metrics.add("MetricsDropped");		
+		_metrics.add("MetricsForwardFailures");
+		return _metrics;
 	}
 
 	
@@ -482,7 +610,50 @@ public class GraphiteDestination extends BaseDestination implements ChannelPipel
 		return reconnecting.get();
 	}
 
+	/**
+	 * Returns the time based flush trigger in ms.
+	 * @return the time based flush trigger
+	 */
+	@ManagedAttribute
+	public long getTimeTrigger() {
+		return timeTrigger;
+	}
+
+	/**
+	 * Sets the time based flush trigger
+	 * @param timeTrigger the frequency that the buffer is flushed in ms.
+	 */
+	@ManagedAttribute
+	public void setTimeTrigger(long timeTrigger) {
+		this.timeTrigger = timeTrigger;
+	}
+
+	/**
+	 * Returns the size based flush trigger
+	 * @return the size based flush trigger
+	 */
+	@ManagedAttribute
+	public long getSizeTrigger() {
+		return sizeTrigger;
+	}
+
+	/**
+	 * Sets the size based flush trigger
+	 * @param sizeTrigger the number of metrics to accumulate before they are flushed
+	 */
+	@ManagedAttribute
+	public void setSizeTrigger(long sizeTrigger) {
+		this.sizeTrigger = sizeTrigger;
+	}
 	
+	/**
+	 * Injects the scheduler
+	 * @param scheduler the platform scheduler
+	 */
+	@Autowired(required=true)
+	public void setScheduler(ThreadPoolTaskScheduler scheduler) {
+		this.scheduler = scheduler;
+	}
 
 
 }

@@ -95,6 +95,70 @@
 			</bean>
 		</constructor-arg>
 	</bean>
+	
+	<bean id="LocalTrapServer" class="org.helios.apmrouter.destination.snmp.CommunityTargetFactory">
+		<property name="address" value="tcp://127.0.0.1:1093" />
+	</bean>
+	
+	
+	
+	<bean id="SNMPDestination" class="org.helios.apmrouter.destination.snmp.SNMPDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>PDU.*</value>	 			
+	 		</util:set>
+ 		</property>
+	</bean>
+	
+	
+	<bean id="GraphiteDestination" class="org.helios.apmrouter.destination.graphite.GraphiteDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>[LONG-|DELTA-].*</value>	 			
+	 		</util:set>
+ 		</property>
+ 		<property name="graphiteHost" value="10.5.104.24" />
+ 		<property name="graphitePort" value="2003" />
+ 		<property name="reconnectPeriod" value="15000"/>
+ 		<property name="sizeTrigger" value="5"/>
+ 		<property name="timeTrigger" value="5000"/>
+ 		
+		<!-- 
+ 		<property name="channelHandlers">
+ 			<map>
+ 				<entry key="0" value="UDPAgentOperationRouter" />
+ 			</map>
+ 		</property>		
+		 --> 		
+ 		
+ 		<property name="workerPool" >
+			<bean id="GraphiteDestinationWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+				<constructor-arg>
+					<bean id="GraphiteDestinationWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+						<property name="corePoolSize" value="1" />
+						<property name="maximumPoolSize" value="100" />
+						<property name="coreThreadsStarted" value="1" />
+					</bean>
+				</constructor-arg>
+			</bean>
+ 		</property>
+ 		<property name="bossPool" >
+			<bean id="GraphiteDestinationBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+				<constructor-arg>
+					<bean id="GraphiteDestinationBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+						<property name="corePoolSize" value="1" />
+						<property name="maximumPoolSize" value="100" />
+						<property name="coreThreadsStarted" value="1" />
+					</bean>
+				</constructor-arg>
+			</bean>
+ 		</property>
+	</bean>
+	
+	<bean id="APMRouterScheduler" class="org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler" />
+	
+	
+	
 
  	
 </beans>

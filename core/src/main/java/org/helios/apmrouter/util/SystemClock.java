@@ -61,6 +61,10 @@ public enum SystemClock {
 	public static long unixTime() {
 		return currentClock.get().unixTime();
 	}
+	
+	public static long unixTime(long msTime) {
+		return TimeUnit.SECONDS.convert(msTime, TimeUnit.MILLISECONDS);
+	}
 
 	
 	public static SystemClock currentClock() {

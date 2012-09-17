@@ -27,6 +27,7 @@ package org.helios.apmrouter.destination.graphite;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.util.SystemClock;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
@@ -44,6 +45,11 @@ public class GraphiteMetricAccumulator {
 	protected final ChannelBuffer accum;
 	/** The number of accumulated graphite metrics */
 	protected final AtomicInteger metricCount = new AtomicInteger(0);
+	
+	/** The message format for the submission  */
+	public static final String METRIC_FORMAT = "%s %s %s \n";
+	
+
 	/**
 	 * Creates a new GraphiteMetricAccumulator
 	 * @param bufferSize The initial buffer size (in bytes) for the accumulation buffer
@@ -52,7 +58,42 @@ public class GraphiteMetricAccumulator {
 		 accum = ChannelBuffers.dynamicBuffer(bufferSize, new DirectChannelBufferFactory());
 	}
 	
+	/**
+	 * Appends the passed {@link IMetric}s to the accumulation buffer in graphite metric format
+	 * @param metrics The metrics to accumulate
+	 * @return The number of metrics accumulated
+	 */
 	public int append(IMetric...metrics) {
+		if(metrics!=null && metrics.length>0) {
+			for(IMetric metric: metrics) {
+				if(!metric.getType().isLong() || metric.isMapped()) continue;
+				accum.writeBytes(String.format(METRIC_FORMAT, metric.getFQN().replace('/', '.').replace(':', '.').replace(" ", ""), metric.getLongValue(), SystemClock.unixTime(metric.getTime())).getBytes());
+				metricCount.incrementAndGet();
+			}
+			
+		}
+		return metricCount.get();
+	}
+	
+	/**
+	 * Returns the number of accumulated graphite metrics
+	 * @return the number of accumulated graphite metrics
+	 */
+	public int size() {
+		return metricCount.get();
+	}
+	
+	/**
+	 * Copies the accumulated buffer into a new buffer, clears the accumulated buffer and returns the copy
+	 * @return the copied buffer to send to Graphite
+	 */
+	public ChannelBuffer flush() {
 		
+		//ChannelBuffer toSend = ChannelBuffers.directBuffer(accum.readableBytes());
+		ChannelBuffer toSend = ChannelBuffers.buffer(accum.readableBytes());
+		toSend.writeBytes(accum);
+		accum.clear();
+		metricCount.set(0);
+		return toSend;
 	}
 }

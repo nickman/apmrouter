@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.router;
 
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
@@ -50,7 +51,7 @@ import org.springframework.jmx.support.MetricType;
  * FIXME:  This is supposed to be a generic class, it is temporarilly specific to IMetric.
  */
 
-public class PatternRouter extends ServerComponentBean {
+public class PatternRouter extends ServerComponentBean implements UncaughtExceptionHandler  {
 	/** The worker thread pool that reads the routing queue */
 	protected ExecutorService threadPool;
 	/** The routing queue size */
@@ -63,7 +64,7 @@ public class PatternRouter extends ServerComponentBean {
 	protected BlockingQueue<IMetric> routingQueue = null;
 	/** The subscribers */
 	protected final Set<RouteDestination<IMetric>> destinations = new CopyOnWriteArraySet<RouteDestination<IMetric>>();
-	
+	protected final UncaughtExceptionHandler ucex = this;
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
@@ -72,9 +73,10 @@ public class PatternRouter extends ServerComponentBean {
 	protected void doStart() throws Exception {
 		super.doStart();
 		routingQueue = new ArrayBlockingQueue<IMetric>(routingQueueSize, routingQueueFairness);
-		for(int i = 0; i < routingWorkers; i++) {
-			threadPool.execute(new MatchingWorker());
-		}
+		
+//		for(int i = 0; i < routingWorkers; i++) {
+//			threadPool.execute(new MatchingWorker());
+//		}
 	}
 	
 	@Autowired(required=true)
@@ -108,6 +110,7 @@ public class PatternRouter extends ServerComponentBean {
 	protected class MatchingWorker implements Runnable {
 		@Override
 		public void run() {
+			Thread.currentThread().setUncaughtExceptionHandler(ucex);
 			while(true) {
 				try {
 					IMetric metric = routingQueue.take();
@@ -128,13 +131,27 @@ public class PatternRouter extends ServerComponentBean {
 	 * @param metrics The routables to route
 	 */
 	public void route(IMetric...metrics) {
-		for(IMetric metric: metrics) {
+		for(final IMetric metric: metrics) {
 			if(metric==null) continue;
-			if(routingQueue.offer(metric)) {
-				incr("CompletedRoutes");
-			} else {
-				incr("DroppedRoutes");
-			}			
+			this.threadPool.execute(new Runnable(){
+				public void run() {
+					try {
+						for(RouteDestination<IMetric> destination: destinations) {
+							destination.acceptRoute(metric);
+							incr("CompletedRoutes");
+						}
+					} catch (Exception e) {
+						incr("DroppedRoutes");
+						e.printStackTrace(System.err);
+					}
+					
+				}
+			});
+//			if(routingQueue.offer(metric)) {
+//				incr("CompletedRoutes");
+//			} else {
+//				incr("DroppedRoutes");
+//			}			
 		}
 	}
 	
@@ -253,6 +270,12 @@ public class PatternRouter extends ServerComponentBean {
 	 */
 	public void setRoutingWorkers(int routingWorkers) {
 		this.routingWorkers = routingWorkers;
+	}
+
+	@Override
+	public void uncaughtException(Thread t, Throwable e) {
+		warn("Uncaught exception [", t, "]", e);
+		
 	}
 	
 	

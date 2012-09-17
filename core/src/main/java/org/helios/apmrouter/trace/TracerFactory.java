@@ -152,8 +152,7 @@ public class TracerFactory {
 	}
 	
 	
-	public static void main(String[] args) {
-		log("Basic Tracing Test");
+	public static void main(String[] args) {		
 		TXContext.rollContext();
 		MetricType.setCompress(false);
 		MetricType.setDirect(false);
@@ -162,6 +161,7 @@ public class TracerFactory {
 		boolean traceString = false;
 		final int LOOPS = 100000;
 		final ITracer tracer = getTracer();
+		log("Basic Tracing Test: [" +  tracer.getHost() + "/" + tracer.getAgent() + "]");
 		for(int x = 0; x < 100; x++) {			
 			for(int i = 0; i < LOOPS; i++) {
 				if(traceBlob) tracer.traceBlob(new Date(), "foo", "date");

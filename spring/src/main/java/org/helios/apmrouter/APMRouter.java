@@ -35,16 +35,16 @@ import org.helios.apmrouter.util.io.RecursiveDirectorySearch;
 import org.springframework.context.support.GenericXmlApplicationContext;
 
 /**
- * <p>Title: Boot</p>
+ * <p>Title: APMRouter</p>
  * <p>Description: The main server bootstrap class.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.Boot</code></p>
+ * <p><code>org.helios.apmrouter.APMRouter</code></p>
  */
 
-public class Boot {
+public class APMRouter {
 	/** Static class logger */
-	private static final Logger LOG = Logger.getLogger(Boot.class);
+	private static final Logger LOG = Logger.getLogger(APMRouter.class);
 
 	/** The extension pattern for apmrouter config xml files */
 	public static final String APM_FILE_FILTER = ".apmrouter.xml";

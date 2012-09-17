@@ -87,6 +87,22 @@ public enum AgentIdentity {
 		if(hostName==null) {
 			hostName = "UNKNOWN";
 		}
+		hostName = cleanHostName(hostName).toLowerCase();
+	}
+	
+	
+	protected String cleanHostName(String hostName) {
+		if(hostName.contains(".")) {
+			String[] frags = hostName.split("\\.");
+			StringBuilder b = new StringBuilder();
+			for(int i = 0; i < frags.length; i++) {
+				b.insert(0, (frags[i] + "."));				
+			}
+			b.deleteCharAt(b.length()-1);
+			return b.toString();
+		}
+		
+		return hostName;
 	}
 	
 	/**

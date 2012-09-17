@@ -180,7 +180,8 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 				}							
 				drainQueue();
 			} finally {
-				lastFlush = SystemClock.time();								
+				lastFlush = SystemClock.time();
+				switchToQueue.compareAndSet(true, false);
 			}
 		}
 	}
