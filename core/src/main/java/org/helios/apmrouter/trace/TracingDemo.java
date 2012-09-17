@@ -60,7 +60,7 @@ public class TracingDemo {
 				.build(), "HeapUsage", "JVM", "Memory"
 		);
 		usage = ManagementFactory.getMemoryMXBean().getNonHeapMemoryUsage();
-		tracer.tracePDU(PDUBuilder.builder(PDU.TRAP, ".1.3.6.1.4.1.42.2.145.3.163.1.1.2.")
+		tracer.tracePDU(PDUBuilder.builder(PDU.NOTIFICATION, ".1.3.6.1.4.1.42.2.145.3.163.1.1.2.")
 				.counter64("20", usage.getInit())
 				.counter64("21", usage.getUsed())
 				.counter64("22", usage.getCommitted())

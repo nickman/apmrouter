@@ -29,6 +29,7 @@ import java.net.URI;
 
 import org.snmp4j.CommunityTarget;
 import org.snmp4j.TransportMapping;
+import org.snmp4j.mp.SnmpConstants;
 import org.snmp4j.smi.Address;
 import org.snmp4j.smi.OctetString;
 import org.snmp4j.smi.TcpAddress;
@@ -98,6 +99,7 @@ public class CommunityTargetFactory implements InitializingBean {
 	@Override
 	public void afterPropertiesSet() throws Exception {		
 		target = new CommunityTarget(taddress, new OctetString(communityName));
+		target.setVersion(SnmpConstants.version2c);
 		transport = TransportMappings.getInstance().createTransportMapping(taddress);
 	}
 	
