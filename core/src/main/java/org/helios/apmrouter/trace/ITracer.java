@@ -153,6 +153,15 @@ public interface ITracer {
 	 * @return the created {@link ICEMetric}
 	 */
 	public ICEMetric tracePDU(PDU pdu, CharSequence name, CharSequence...namespace);
+
+	/**
+	 * Traces an SNMP PDU type directly
+	 * @param pdu The SNMP PDU
+	 * @param name The name of the metric
+	 * @param namespace The optional namespace of the metric
+	 * @return the created {@link ICEMetric}
+	 */
+	public ICEMetric tracePDUDirect(PDU pdu, CharSequence name, CharSequence...namespace);
 	
 	
 	/**

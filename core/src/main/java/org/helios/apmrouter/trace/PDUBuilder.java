@@ -29,12 +29,15 @@ import static org.helios.apmrouter.util.Methods.nvl;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.helios.apmrouter.util.SystemClock;
 import org.snmp4j.PDU;
+import org.snmp4j.mp.SnmpConstants;
 import org.snmp4j.smi.Counter32;
 import org.snmp4j.smi.Counter64;
 import org.snmp4j.smi.Gauge32;
 import org.snmp4j.smi.OID;
 import org.snmp4j.smi.OctetString;
+import org.snmp4j.smi.TimeTicks;
 import org.snmp4j.smi.VariableBinding;
 
 /**
@@ -147,10 +150,81 @@ public class PDUBuilder {
 	 */
 	public PDUBuilder gauge32(CharSequence oid, long value) {
 		nvl(oid, "OID");
-		nvl(value, "Variable Value");
 		bindings.add(new VariableBinding(new OID(oidPrefix + oid.toString()), new Gauge32(value)));
 		return this;
 	}
+	
+	/**
+	 * Adds a new {@link TimeTicks} based variable binding to the PDU.
+	 * @param oid The OID of the variable binding
+	 * @param value A long representing the time in <b><code>1/100</code></b> seconds 
+	 * @return this builder
+	 */
+	public PDUBuilder timeTick(CharSequence oid, long value) {
+		nvl(oid, "OID");
+		bindings.add(new VariableBinding(new OID(oidPrefix + oid.toString()), new TimeTicks(value)));
+		return this;
+	}
+	
+	/**
+	 * Adds a new {@link TimeTicks} based variable binding to the PDU using the current time as the binding value
+	 * @param oid The OID of the variable binding
+	 * @return this builder
+	 */
+	public PDUBuilder timeTick(CharSequence oid) {
+		return timeTick(oid, SystemClock.timeTick());
+	}
+	
+	
+	/**
+	 * Sets the trap OID for this PDU
+	 * @param oid The trap OID
+	 * @return this builder
+	 */
+	public PDUBuilder trapOID(CharSequence oid) {
+		nvl(oid, "OID");
+		bindings.add(new VariableBinding(SnmpConstants.snmpTrapOID, new OID(oidPrefix + oid.toString())));
+		return this;		
+	}
+	
+	/**
+	 * Adds the system uptime variable binding to this PDU
+	 * @return this builder
+	 */
+	public PDUBuilder sysUpTime() {
+		return timeTick(SnmpConstants.sysUpTime.toString(), SystemClock.toTimeTicks(SystemClock.upTime()));		
+	}
+	
+	/**
+	 * Sets the system description in this PDU
+	 * @param sysDescr the system description
+	 * @return this builder
+	 */
+	public PDUBuilder sysDescr(CharSequence sysDescr) {
+		nvl(sysDescr, "SysDescr");
+		bindings.add(new VariableBinding(SnmpConstants.sysDescr, new OctetString(sysDescr.toString())));
+		return this;		
+	}
+	
+	/**
+	 * Sets the system description in this PDU to the apmrouter host/agent
+	 * @return this builder
+	 */
+	public PDUBuilder sysDescr() {
+		return sysDescr(new StringBuilder(TracerFactory.getTracer().getHost()).append("/").append(TracerFactory.getTracer().getAgent()));		
+	}
+	
+	/**
+	 * Creates a coldstart PDU using the apmrouter host name and agent as the <code>sysDescr</code>.
+	 * @return the coldstart PDU
+	 * FIXME: What's the value of the varbinding when the OID is coldstart ?
+	 */
+	public static PDU coldStart() {
+		return PDUBuilder.builder(PDU.TRAP)
+				.sysDescr()
+				.build();
+	}
+	
 	
 	
 	

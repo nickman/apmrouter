@@ -71,6 +71,7 @@ import org.slf4j.LoggerFactory;
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.sender.netty.UDPSender</code></p>
+ * FIXME:  Where to start ......  1. Listen on channel closed exceptions, start reconnect loop, count dropped metrics in the interrim
  */
 
 public class UDPSender extends AbstractSender implements ChannelPipelineFactory {

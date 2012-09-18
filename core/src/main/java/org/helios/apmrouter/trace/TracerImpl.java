@@ -178,6 +178,14 @@ public class TracerImpl implements ITracer {
 	public ICEMetric traceDirect(Object value, CharSequence name, MetricType type, CharSequence...namespace) {
 		return traceDirect(TracerFactory.DIRECT_TIMEOUT, TimeUnit.MILLISECONDS, value, name, type, namespace);
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#tracePDUDirect(org.snmp4j.PDU, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	public ICEMetric tracePDUDirect(PDU pdu, CharSequence name, CharSequence...namespace) {
+		return traceDirect(TracerFactory.DIRECT_TIMEOUT, TimeUnit.MILLISECONDS, pdu, name, MetricType.PDU, namespace);
+	}
 
 //	/**
 //	 * {@inheritDoc}

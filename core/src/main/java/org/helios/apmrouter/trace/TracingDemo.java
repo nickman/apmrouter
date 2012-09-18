@@ -14,19 +14,19 @@ import org.snmp4j.PDU;
 public class TracingDemo {
 
 	public static void main(String[] args) {		
-		final int LOOPS = 100000;
-		final int SLEEP = 5000;
+		final int LOOPS = 5;
+		final int SLEEP = 15000;
 		final ITracer tracer = TracerFactory.getTracer();
 		HeliosSigar sigar = HeliosSigar.getInstance();
 		log("Basic Tracing Test: [" +  tracer.getHost() + "/" + tracer.getAgent() + "]");
 		for(int i = 0; i < LOOPS; i++) {
-			for(GarbageCollectorMXBean gc: ManagementFactory.getGarbageCollectorMXBeans()) {
-				tracer.traceDelta(gc.getCollectionCount(), "CollectionCount", "JVM", "Memory", "GC", gc.getName());
-				tracer.traceDelta(gc.getCollectionTime(), "CollectionTime", "JVM", "Memory", "GC", gc.getName());
-			}
-			traceCpuUsages(tracer, sigar);
-			traceTotalCpuUsage(tracer, sigar);
-			traceDiskUsage(tracer, sigar);
+//			for(GarbageCollectorMXBean gc: ManagementFactory.getGarbageCollectorMXBeans()) {
+//				tracer.traceDelta(gc.getCollectionCount(), "CollectionCount", "JVM", "Memory", "GC", gc.getName());
+//				tracer.traceDelta(gc.getCollectionTime(), "CollectionTime", "JVM", "Memory", "GC", gc.getName());
+//			}
+//			traceCpuUsages(tracer, sigar);
+//			traceTotalCpuUsage(tracer, sigar);
+//			traceDiskUsage(tracer, sigar);
 			traceMemorySpacesSNMP(tracer, sigar);
 			if(i%100==0) log("Loop:" + i);
 			SystemClock.sleep(SLEEP);
@@ -52,7 +52,7 @@ public class TracingDemo {
 	
 	public static void traceMemorySpacesSNMP(ITracer tracer, HeliosSigar sigar) {
 		MemoryUsage usage = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		tracer.tracePDU(PDUBuilder.builder(PDU.NOTIFICATION, ".1.3.6.1.4.1.42.2.145.3.163.1.1.2.")
+		tracer.tracePDUDirect(PDUBuilder.builder(PDU.NOTIFICATION, ".1.3.6.1.4.1.42.2.145.3.163.1.1.2.")
 				.counter64("10", usage.getInit())
 				.counter64("11", usage.getUsed())
 				.counter64("12", usage.getCommitted())
@@ -60,7 +60,7 @@ public class TracingDemo {
 				.build(), "HeapUsage", "JVM", "Memory"
 		);
 		usage = ManagementFactory.getMemoryMXBean().getNonHeapMemoryUsage();
-		tracer.tracePDU(PDUBuilder.builder(PDU.NOTIFICATION, ".1.3.6.1.4.1.42.2.145.3.163.1.1.2.")
+		tracer.tracePDUDirect(PDUBuilder.builder(PDU.NOTIFICATION, ".1.3.6.1.4.1.42.2.145.3.163.1.1.2.")
 				.counter64("20", usage.getInit())
 				.counter64("21", usage.getUsed())
 				.counter64("22", usage.getCommitted())

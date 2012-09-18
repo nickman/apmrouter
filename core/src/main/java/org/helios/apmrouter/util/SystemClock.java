@@ -34,6 +34,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.snmp4j.smi.TimeTicks;
+
 /**
  * <p>Title: SystemClock</p>
  * <p>Description: </p> 
@@ -48,6 +50,8 @@ public enum SystemClock {
 	TEST(new TestClock());
 	
 	
+
+	
 	private SystemClock(Clock clock) {
 		this.clock = clock;
 	}
@@ -61,6 +65,20 @@ public enum SystemClock {
 	public static long unixTime() {
 		return currentClock.get().unixTime();
 	}
+	
+	public static long timeTick() {
+		return currentClock.get().timeTick();
+	}
+	
+	public static long upTime() {
+		return ManagementFactory.getRuntimeMXBean().getUptime();
+	}
+	
+	public static long toTimeTicks(long time) {
+		long tt = time/100;
+		return tt;
+	}
+	
 	
 	public static long unixTime(long msTime) {
 		return TimeUnit.SECONDS.convert(msTime, TimeUnit.MILLISECONDS);
@@ -430,8 +448,21 @@ public enum SystemClock {
 	 * <p>Description: Defines a clock impl.</p> 
 	 */
 	private static interface Clock {
+		/**
+		 * Returns the current time in ms.
+		 * @return the current time in ms.
+		 */
 		long time();
+		/**
+		 * Returns the current UNIX time in s.
+		 * @return the current UNIX time in s.
+		 */
 		long unixTime();
+		/**
+		 * Returns the current time in SNMP {@link TimeTicks} equivalent or <b><code>1/100th</code></b> seconds
+		 * @return the current time in SNMP {@link TimeTicks} 
+		 */
+		long timeTick();
 	}
 	
 	/**
@@ -445,6 +476,10 @@ public enum SystemClock {
 		public long unixTime() {
 			return TimeUnit.SECONDS.convert(time(), TimeUnit.MILLISECONDS);
 		}
+		public long timeTick() {
+			long tt = time()/100;
+			return tt;
+		}
 	}
 	
 	private static class NanoClock implements Clock {		
@@ -453,6 +488,10 @@ public enum SystemClock {
 		}
 		public long unixTime() {
 			return TimeUnit.SECONDS.convert(time(), TimeUnit.MILLISECONDS);
+		}
+		public long timeTick() {
+			long tt = time()/100;
+			return tt;
 		}
 		
 	}
@@ -463,7 +502,12 @@ public enum SystemClock {
 		}
 		public long unixTime() {
 			return TimeUnit.SECONDS.convert(time(), TimeUnit.MILLISECONDS);
-		}		
+		}
+		public long timeTick() {
+			long tt = time()/100;
+			return tt;
+		}
+		
 	}
 	
 	public static long setTestTime(long time) {
