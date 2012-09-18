@@ -14,20 +14,20 @@ import org.snmp4j.PDU;
 public class TracingDemo {
 
 	public static void main(String[] args) {		
-		final int LOOPS = 5;
-		final int SLEEP = 15000;
+		final int LOOPS = 5000000;
+		final int SLEEP = 500;
 		final ITracer tracer = TracerFactory.getTracer();
 		HeliosSigar sigar = HeliosSigar.getInstance();
 		log("Basic Tracing Test: [" +  tracer.getHost() + "/" + tracer.getAgent() + "]");
 		for(int i = 0; i < LOOPS; i++) {
-//			for(GarbageCollectorMXBean gc: ManagementFactory.getGarbageCollectorMXBeans()) {
-//				tracer.traceDelta(gc.getCollectionCount(), "CollectionCount", "JVM", "Memory", "GC", gc.getName());
-//				tracer.traceDelta(gc.getCollectionTime(), "CollectionTime", "JVM", "Memory", "GC", gc.getName());
-//			}
-//			traceCpuUsages(tracer, sigar);
-//			traceTotalCpuUsage(tracer, sigar);
-//			traceDiskUsage(tracer, sigar);
-			traceMemorySpacesSNMP(tracer, sigar);
+			for(GarbageCollectorMXBean gc: ManagementFactory.getGarbageCollectorMXBeans()) {
+				tracer.traceDelta(gc.getCollectionCount(), "CollectionCount", "JVM", "Memory", "GC", gc.getName());
+				tracer.traceDelta(gc.getCollectionTime(), "CollectionTime", "JVM", "Memory", "GC", gc.getName());
+			}
+			traceCpuUsages(tracer, sigar);
+			traceTotalCpuUsage(tracer, sigar);
+			traceDiskUsage(tracer, sigar);
+//			traceMemorySpacesSNMP(tracer, sigar);
 			if(i%100==0) log("Loop:" + i);
 			SystemClock.sleep(SLEEP);
 		}

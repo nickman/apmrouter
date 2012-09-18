@@ -50,7 +50,7 @@ import org.springframework.jmx.support.MetricType;
  */
 public class SNMPDestination extends BaseDestination {
 	/** The targets for this destination to forward to  */
-	protected final Set<CommunityTargetFactory> targets = new CopyOnWriteArraySet<CommunityTargetFactory>();
+	protected final Set<SNMPManager> targets = new CopyOnWriteArraySet<SNMPManager>();
 	
 	/**
 	 * Creates a new SNMPDestination
@@ -80,8 +80,8 @@ public class SNMPDestination extends BaseDestination {
 	 * @param targets a collection fo targets
 	 */
 	@Autowired(required=true)
-	public void setTargets(Collection<CommunityTargetFactory> targets) {
-		for(CommunityTargetFactory ctf: targets) {
+	public void setTargets(Collection<SNMPManager> targets) {
+		for(SNMPManager ctf: targets) {
 			this.targets.add(ctf);
 			info("SNMP Endpoint:", ctf);
 		}
@@ -92,7 +92,7 @@ public class SNMPDestination extends BaseDestination {
 		super.acceptRoute(routable);
 		if(!routable.getType().name().equals("PDU")) return;
 		PDU pdu = (PDU)routable.getValue();
-		for(CommunityTargetFactory ctf: targets) {
+		for(SNMPManager ctf: targets) {
 			try {
 				ctf.send(pdu);
 				//snmp.sendPDU();

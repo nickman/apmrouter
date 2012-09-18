@@ -39,6 +39,8 @@ import org.snmp4j.mp.SnmpConstants;
 import org.snmp4j.smi.Address;
 import org.snmp4j.smi.GenericAddress;
 import org.snmp4j.smi.OctetString;
+import org.snmp4j.smi.UdpAddress;
+import org.snmp4j.transport.DefaultTcpTransportMapping;
 import org.snmp4j.transport.DefaultUdpTransportMapping;
 import org.snmp4j.util.MultiThreadedMessageDispatcher;
 import org.snmp4j.util.ThreadPool;
@@ -46,13 +48,13 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 
 /**
- * <p>Title: CommunityTargetFactory</p>
+ * <p>Title: SNMPManager</p>
  * <p>Description: Builder for an SNMP community target</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.destination.snmp.CommunityTargetFactory</code></p>
+ * <p><code>org.helios.apmrouter.destination.snmp.SNMPManager</code></p>
  */
-public class CommunityTargetFactory extends ServerComponentBean implements InitializingBean {
+public class SNMPManager extends ServerComponentBean implements InitializingBean {
 
 	/** The transport address */
 	protected Address taddress;
@@ -150,7 +152,11 @@ public class CommunityTargetFactory extends ServerComponentBean implements Initi
 		target.setVersion(SnmpConstants.version2c);
 		target.setTimeout(1500);
 		target.setRetries(retryCount);
-		transport = new DefaultUdpTransportMapping();
+		if(taddress instanceof UdpAddress) {
+			transport = new DefaultUdpTransportMapping();
+		} else {
+			transport = new DefaultTcpTransportMapping();			
+		}
 		MessageDispatcher dispatcher = new MessageDispatcherImpl();
 		if(dispatcherThreadCount>1) {
 			msgDispatcher = new MultiThreadedMessageDispatcher(ThreadPool.create(beanName, 5), dispatcher);
@@ -171,13 +177,14 @@ public class CommunityTargetFactory extends ServerComponentBean implements Initi
 	 * @throws IOException thrown on a send exception
 	 */
 	public void send(PDU pdu) throws IOException {
+		transport.removeTransportListener(msgDispatcher);
 		snmp.send(pdu, target, null, null);
 	}
 	
 	@Override
 	public String toString() {
 		return String.format(
-				"CommunityTargetFactory [address=%s, communityName=%s]",
+				"SNMPManager [address=%s, communityName=%s]",
 				taddress, communityName);
 	}
 

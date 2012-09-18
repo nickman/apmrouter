@@ -96,8 +96,25 @@
 		</constructor-arg>
 	</bean>
 	
-	<bean id="LocalTrapServer" class="org.helios.apmrouter.destination.snmp.CommunityTargetFactory">
-		<property name="address" value="udp:127.0.0.1/1093" />
+	<!-- 
+	<bean id="LocalTrapServer" class="org.helios.apmrouter.destination.snmp.SNMPManager">
+		<property name="address" value="udp:10.230.13.67/162" />
+		<property name="communityName" value="public" />
+		<property name="dispatcherThreadCount" value="2" />
+		<property name="retryCount" value="3" />
+	</bean>
+	
+	<bean id="ORDSpectrum" class="org.helios.apmrouter.destination.snmp.SNMPManager">
+		<property name="address" value="udp:10.6.105.61/162" />
+		<property name="communityName" value="public" />
+		<property name="dispatcherThreadCount" value="2" />
+		<property name="retryCount" value="3" />
+	</bean>
+	-->
+	
+	
+	<bean id="PDK3Tunnel" class="org.helios.apmrouter.destination.snmp.SNMPManager">
+		<property name="address" value="tcp:cube/1053" />
 		<property name="communityName" value="public" />
 		<property name="dispatcherThreadCount" value="2" />
 		<property name="retryCount" value="3" />
@@ -157,6 +174,47 @@
 			</bean>
  		</property>
 	</bean>
+	
+	<bean id="CubeDestination" class="org.helios.apmrouter.destination.cube.CubeDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>[LONG-|DELTA-].*</value>	 			
+	 		</util:set>
+ 		</property>
+ 		<property name="cubeUri" value="ws://cube:1080/1.0/event/put" />
+ 		
+		<!-- 
+ 		<property name="channelHandlers">
+ 			<map>
+ 				<entry key="0" value="UDPAgentOperationRouter" />
+ 			</map>
+ 		</property>		
+		 --> 		
+ 		
+ 		<property name="workerPool" >
+			<bean id="CubeDestinationWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+				<constructor-arg>
+					<bean id="CubeDestinationWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+						<property name="corePoolSize" value="1" />
+						<property name="maximumPoolSize" value="100" />
+						<property name="coreThreadsStarted" value="1" />
+					</bean>
+				</constructor-arg>
+			</bean>
+ 		</property>
+ 		<property name="bossPool" >
+			<bean id="CubeDestinationBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+				<constructor-arg>
+					<bean id="CubeDestinationBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+						<property name="corePoolSize" value="1" />
+						<property name="maximumPoolSize" value="100" />
+						<property name="coreThreadsStarted" value="1" />
+					</bean>
+				</constructor-arg>
+			</bean>
+ 		</property>
+	</bean>
+	
 	
 	<bean id="APMRouterScheduler" class="org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler" />
 	
