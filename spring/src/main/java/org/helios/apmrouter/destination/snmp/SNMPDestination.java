@@ -51,8 +51,7 @@ import org.springframework.jmx.support.MetricType;
 public class SNMPDestination extends BaseDestination {
 	/** The targets for this destination to forward to  */
 	protected final Set<CommunityTargetFactory> targets = new CopyOnWriteArraySet<CommunityTargetFactory>();
-	/** The SNMP instance */
-	protected final Snmp snmp = new Snmp();
+	
 	/**
 	 * Creates a new SNMPDestination
 	 * @param patterns The {@link IMetric} pattern this destination accepts
@@ -95,9 +94,12 @@ public class SNMPDestination extends BaseDestination {
 		PDU pdu = (PDU)routable.getValue();
 		for(CommunityTargetFactory ctf: targets) {
 			try {
-				snmp.notify(pdu, ctf.getTarget());				
+				ctf.send(pdu);
+				//snmp.sendPDU();
+				//snmp.notify(pdu, ctf.getTarget());
 				incr("PDUSendsCompleted");
 			} catch (IOException e) {
+				e.printStackTrace(System.err);
 				incr("PDUSendsFailed");
 				error("Failed to send PDU to " + ctf, e);
 			}

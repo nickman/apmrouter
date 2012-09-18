@@ -24,19 +24,26 @@
  */
 package org.helios.apmrouter.destination.snmp;
 
-import java.net.InetAddress;
-import java.net.URI;
+import java.io.IOException;
 
+import org.helios.apmrouter.server.ServerComponentBean;
 import org.snmp4j.CommunityTarget;
+import org.snmp4j.MessageDispatcher;
+import org.snmp4j.MessageDispatcherImpl;
+import org.snmp4j.PDU;
+import org.snmp4j.Snmp;
 import org.snmp4j.TransportMapping;
+import org.snmp4j.mp.MPv1;
+import org.snmp4j.mp.MPv2c;
 import org.snmp4j.mp.SnmpConstants;
 import org.snmp4j.smi.Address;
+import org.snmp4j.smi.GenericAddress;
 import org.snmp4j.smi.OctetString;
-import org.snmp4j.smi.TcpAddress;
-import org.snmp4j.smi.TransportIpAddress;
-import org.snmp4j.smi.UdpAddress;
-import org.snmp4j.transport.TransportMappings;
+import org.snmp4j.transport.DefaultUdpTransportMapping;
+import org.snmp4j.util.MultiThreadedMessageDispatcher;
+import org.snmp4j.util.ThreadPool;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.jmx.export.annotation.ManagedAttribute;
 
 /**
  * <p>Title: CommunityTargetFactory</p>
@@ -45,16 +52,26 @@ import org.springframework.beans.factory.InitializingBean;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.destination.snmp.CommunityTargetFactory</code></p>
  */
-public class CommunityTargetFactory implements InitializingBean {
+public class CommunityTargetFactory extends ServerComponentBean implements InitializingBean {
 
 	/** The transport address */
-	protected TransportIpAddress taddress;
+	protected Address taddress;
 	/** The community name */
 	protected String communityName = "public";
 	/** The community target */
 	protected CommunityTarget target = null;
 	/** The transport mapping */
 	protected TransportMapping transport = null;
+	/** The message dispatcher */
+	protected MessageDispatcher msgDispatcher = null;
+	/** The Snmp instances to send to this community */
+	protected Snmp snmp = null;
+	/** The send retry count */
+	protected int retryCount = 2;
+	/** The thread pool size for the MultiThreadedMessageDispatcher */
+	protected int dispatcherThreadCount = 1;
+	
+	
 	
 	/**
 	 * Returns the transport mapping for this target
@@ -67,40 +84,94 @@ public class CommunityTargetFactory implements InitializingBean {
 	 * Sets the community address
 	 * @param address the community address
 	 */
+	@ManagedAttribute
 	public void setAddress(String address) {
 		try {
-			URI uri  = new URI(address);
-			InetAddress addr = InetAddress.getByName(uri.getHost());
-			if("UDP".equalsIgnoreCase(uri.getScheme())) {
-				taddress = new UdpAddress(addr, uri.getPort());
-			} else {
-				taddress = new TcpAddress(addr, uri.getPort());
+			taddress = GenericAddress.parse(address);
+			if(target!=null) {
+				target.setAddress(taddress);
 			}
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
 	}
+	
+	/**
+	 * Returns the address as a string
+	 * @return the address
+	 */
+	@ManagedAttribute
+	public String getAddress() {
+		return taddress.toString();
+	}
+	
 	/**
 	 * Sets the community name
 	 * @param communityName the community name 
 	 */
+	@ManagedAttribute
 	public void setCommunityName(String communityName) {
 		this.communityName = communityName;
+		if(target!=null) {
+			target.setCommunity(new OctetString(this.communityName));
+		}
+		
 	}
+	
+	/**
+	 * Returns the community name
+	 * @return the community name
+	 */
+	@ManagedAttribute
+	public String getCommunityName() {
+		return communityName;
+	}
+	
+	
 	
 	/**
 	 * Returns the target for this factory
 	 * @return the target
 	 */
+	@ManagedAttribute
 	public CommunityTarget getTarget() {
 		return target;
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
+	 */
 	@Override
-	public void afterPropertiesSet() throws Exception {		
-		target = new CommunityTarget(taddress, new OctetString(communityName));
+	protected void doStart() throws Exception {		
+		target = new CommunityTarget();
+		target.setCommunity(new OctetString(communityName));
+		target.setAddress(taddress);
 		target.setVersion(SnmpConstants.version2c);
-		transport = TransportMappings.getInstance().createTransportMapping(taddress);
+		target.setTimeout(1500);
+		target.setRetries(retryCount);
+		transport = new DefaultUdpTransportMapping();
+		MessageDispatcher dispatcher = new MessageDispatcherImpl();
+		if(dispatcherThreadCount>1) {
+			msgDispatcher = new MultiThreadedMessageDispatcher(ThreadPool.create(beanName, 5), dispatcher);
+		} else {
+			msgDispatcher = dispatcher;
+		}
+		msgDispatcher.addMessageProcessingModel(new MPv2c());
+		msgDispatcher.addMessageProcessingModel(new MPv1());			
+		
+		snmp = new Snmp(msgDispatcher, transport);
+	}
+	
+	
+	
+	/**
+	 * Sends the passed PDU to this community
+	 * @param pdu the pdu to send
+	 * @throws IOException thrown on a send exception
+	 */
+	public void send(PDU pdu) throws IOException {
+		snmp.send(pdu, target, null, null);
 	}
 	
 	@Override
@@ -108,6 +179,52 @@ public class CommunityTargetFactory implements InitializingBean {
 		return String.format(
 				"CommunityTargetFactory [address=%s, communityName=%s]",
 				taddress, communityName);
+	}
+
+	/**
+	 * Returns the Snmp used to send to this community
+	 * @return the snmp the Snmp used to send to this community
+	 */
+	public Snmp getSnmp() {
+		return snmp;
+	}
+
+	/**
+	 * Returns the sender rety count
+	 * @return the retryCount
+	 */
+	@ManagedAttribute
+	public int getRetryCount() {
+		return retryCount;
+	}
+
+	/**
+	 * Sets the sender rety count
+	 * @param retryCount the retryCount to set
+	 */
+	@ManagedAttribute
+	public void setRetryCount(int retryCount) {
+		this.retryCount = retryCount;
+		if(target!=null) {
+			target.setRetries(retryCount);
+		}
+	}
+
+	/**
+	 * Returns the number of threads allocated to the message dispatcher
+	 * @return the dispatcherThreadCount
+	 */
+	@ManagedAttribute
+	public int getDispatcherThreadCount() {
+		return dispatcherThreadCount;
+	}
+
+	/**
+	 * Sets the number of threads allocated to the message dispatcher
+	 * @param dispatcherThreadCount the dispatcherThreadCount to set
+	 */
+	public void setDispatcherThreadCount(int dispatcherThreadCount) {
+		this.dispatcherThreadCount = dispatcherThreadCount;
 	}
 	
 }

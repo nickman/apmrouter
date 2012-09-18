@@ -97,7 +97,10 @@
 	</bean>
 	
 	<bean id="LocalTrapServer" class="org.helios.apmrouter.destination.snmp.CommunityTargetFactory">
-		<property name="address" value="tcp://127.0.0.1:1093" />
+		<property name="address" value="udp:127.0.0.1/1093" />
+		<property name="communityName" value="public" />
+		<property name="dispatcherThreadCount" value="2" />
+		<property name="retryCount" value="3" />
 	</bean>
 	
 	
