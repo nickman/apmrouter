@@ -89,6 +89,8 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	protected final InetSocketAddress socketAddress;
 	/** The metric catalog for token updates */
 	protected final IMetricCatalog metricCatalog;
+	/** The channel close future */
+	protected ChannelFuture closeFuture = null;
 	/** The logging handler for debug */
 	private LoggingHandler loggingHandler;
 	/** A discard handler used for discarding self-sent messages */
@@ -178,6 +180,14 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 		channel = (DatagramChannel) bstrap.bind(new InetSocketAddress("localhost", 0));
 		channel.getConfig().setBufferFactory(new DirectChannelBufferFactory());
 		channel.connect(socketAddress);
+		closeFuture = channel.getCloseFuture();
+		closeFuture.addListener(new ChannelFutureListener() {
+			@Override
+			public void operationComplete(ChannelFuture future) throws Exception {
+				// TODO Auto-generated method stub
+				
+			}
+		});
 		
 		//socketAddress = new InetSocketAddress("239.192.74.66", 25826);
 	}

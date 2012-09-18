@@ -214,6 +214,8 @@ public class PDUBuilder {
 		return sysDescr(new StringBuilder(TracerFactory.getTracer().getHost()).append("/").append(TracerFactory.getTracer().getAgent()));		
 	}
 	
+	
+	
 	/**
 	 * Creates a coldstart PDU using the apmrouter host name and agent as the <code>sysDescr</code>.
 	 * @return the coldstart PDU
@@ -221,11 +223,34 @@ public class PDUBuilder {
 	 */
 	public static PDU coldStart() {
 		return PDUBuilder.builder(PDU.TRAP)
+				.trapOID(SnmpConstants.coldStart.toString())
 				.sysDescr()
 				.build();
 	}
 	
+	/**
+	 * Sets the enterprise trap OID
+	 * @param enterprise The enterprise variable binding
+	 * @return this builder
+	 */
+	public PDUBuilder enterprise(CharSequence enterprise) {
+		nvl(enterprise, "Enterprise");
+		bindings.add(new VariableBinding(SnmpConstants.snmpTrapEnterprise, new OctetString(enterprise.toString())));
+		return this;		
+	}
 	
 	
+/*
+ * TODO:
+ * pre-define enterprise so it can be reused
+ * pre-define appName ? use agent name ?	
+ */
+//	 static OID 	snmpInvalidMsgs
+//	 static OID 	snmpProxyDrops
+//	 static OID 	snmpSetSerialNo
+//	 static OID 	snmpSilentDrops
+//	 static OID 	snmpTrapAddress
+//	 static OID 	snmpTrapCommunity
+//	 static OID 	snmpTrapEnterprise 	
 	
 }
