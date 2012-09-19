@@ -30,12 +30,13 @@ package org.helios.apmrouter.destination.logstash;
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.destination.logstash.LogstashSender</code></p>
+ * @param <T> The logging event type
  */
 
-public interface LogstashSender {
+public interface LogstashSender<T> {
 	/**
 	 * Dispatches the passed stashees to logstash
 	 * @param stashees The objects to be 'stashed
 	 */
-	public void stash(Object...stashees);
+	public void stash(T...stashees);
 }

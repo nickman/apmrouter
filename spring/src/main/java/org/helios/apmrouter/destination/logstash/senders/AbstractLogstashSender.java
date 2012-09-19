@@ -24,7 +24,11 @@
  */
 package org.helios.apmrouter.destination.logstash.senders;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.helios.apmrouter.destination.logstash.LogstashSender;
+import org.helios.apmrouter.server.ServerComponent;
 
 /**
  * <p>Title: AbstractLogstashSender</p>
@@ -32,20 +36,22 @@ import org.helios.apmrouter.destination.logstash.LogstashSender;
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.destination.logstash.senders.AbstractLogstashSender</code></p>
+ * @param <T> The logging event type
  */
 
-public abstract class AbstractLogstashSender implements LogstashSender {
+public abstract class AbstractLogstashSender<T> extends ServerComponent implements LogstashSender<T> {
 
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.destination.logstash.LogstashSender#stash(java.lang.Object[])
 	 */
 	@Override
-	public void stash(Object... stashees) {		
+	public void stash(T... stashees) {		
 		if(stashees!=null && stashees.length>0) {
-			for(Object o: stashees) {
+			for(T o: stashees) {
 				if(o==null) continue;
 				doStash(o);
+				incr("AcceptedStashes");
 			}
 		}
 	}
@@ -54,6 +60,20 @@ public abstract class AbstractLogstashSender implements LogstashSender {
 	 * Concrete impl. of stashing one object
 	 * @param stashee The object to stash
 	 */
-	protected abstract void doStash(Object stashee);
+	protected abstract void doStash(T stashee);
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
+	 */
+	@Override
+	public Set<String> getSupportedMetricNames() {
+		Set<String> metrics = new HashSet<String>(super.getSupportedMetricNames());
+		metrics.add("AcceptedStashes");
+		metrics.add("FailedStashes");
+		metrics.add("DroppedStashes");
+		return metrics;
+	}
+
 
 }

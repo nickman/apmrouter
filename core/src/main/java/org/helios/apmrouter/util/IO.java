@@ -138,7 +138,45 @@ public class IO {
 	}
 	
 	
-	
+	/**
+	 * Returns an input stream for the passed ByteBuffer
+	 * @param buff the ByteBuffer to read from
+	 * @return an InputStream that reads from the passed ByteBuffer
+	 * FIXME: Needs to support testing the compression byte and adding a decompressor if required.
+	 */
+	public static InputStream read(final ByteBuffer buff) {
+		return 	Channels.newInputStream(new ReadableByteChannel(){
+			protected boolean open = true;
+			@Override
+			public boolean isOpen() {
+				return open;
+			}
+
+			@Override
+			public void close() throws IOException {
+				open = false;
+			}
+
+			@Override
+			public int read(ByteBuffer dst) throws IOException {
+				
+				try {
+					if(buff.remaining()<1) return -1;
+					int bytes = 0;
+					while(buff.remaining()>0 && dst.position()<dst.limit()) {
+						dst.put(								
+								buff.get()
+						);
+						bytes++;
+					}					
+					return bytes;
+				} catch (Exception e) {
+					e.printStackTrace(System.err);
+					throw new IOException(e);
+				}
+			}			
+		});
+	}
 	
 	/**
 	 * Serializes an object to a byte buffer

@@ -35,7 +35,7 @@ import org.apache.log4j.spi.LoggingEvent;
  * <p><code>org.helios.apmrouter.destination.logstash.senders.Log4jLogstashSender</code></p>
  */
 
-public class Log4jLogstashSender extends AbstractLogstashSender {
+public class Log4jLogstashSender extends AbstractLogstashSender<LoggingEvent> {
 	/** The name of the logger that sends to logstash */
 	protected String loggerName = null;
 	/** The logger that sends to logstash */
@@ -47,12 +47,8 @@ public class Log4jLogstashSender extends AbstractLogstashSender {
 	 * @see org.helios.apmrouter.destination.logstash.senders.AbstractLogstashSender#doStash(java.lang.Object)
 	 */
 	@Override
-	protected void doStash(Object stashee) {
-		if(stashee instanceof LoggingEvent) {
-			stashLogger.callAppenders((LoggingEvent)stashee);
-		} else {
-			stashLogger.info(stashee);
-		}
+	protected void doStash(LoggingEvent stashee) {
+		stashLogger.callAppenders(stashee);
 	}
 	/**
 	 * Returns the name of the logger that sends to logstash

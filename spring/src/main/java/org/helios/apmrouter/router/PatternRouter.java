@@ -33,8 +33,9 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 
+import org.helios.apmrouter.metric.ExpandedMetric;
+import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -114,6 +115,9 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 			while(true) {
 				try {
 					IMetric metric = routingQueue.take();
+					if(metric.getType()==org.helios.apmrouter.metric.MetricType.BLOB) {
+						metric = new ExpandedMetric((ICEMetric)metric);
+					}
 					for(RouteDestination<IMetric> destination: destinations) {
 						destination.acceptRoute(metric);
 					}
