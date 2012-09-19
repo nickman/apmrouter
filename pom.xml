@@ -23,6 +23,7 @@
 		<hbase.version>1.2.0</hbase.version>
 		<async.version>1.2.0</async.version>
 		<high-scale-lib.version>1.1.4</high-scale-lib.version>
+		<netty-tools.version>1.3.1-SNAPSHOT</netty-tools.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -116,9 +117,12 @@
 			  <artifactId>async</artifactId>
 			  <version>${async.version}</version>
 			</dependency>
-
-
-
+			<dependency>
+			 <groupId>com.cgbystrom</groupId>
+			 <artifactId>netty-tools</artifactId>
+			 <version>${netty-tools.version}</version>
+			</dependency>
+			
 		</dependencies>
 	</dependencyManagement>
 </project>

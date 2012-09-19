@@ -68,6 +68,11 @@
 				<groupId>org.javassist</groupId>
 				<artifactId>javassist</artifactId>
 			</dependency>		
+			<dependency>
+			 <groupId>com.cgbystrom</groupId>
+			 <artifactId>netty-tools</artifactId>
+			</dependency>
+			
 		<!-- testing -->
 		<dependency>
 			<groupId>org.apache.camel</groupId>

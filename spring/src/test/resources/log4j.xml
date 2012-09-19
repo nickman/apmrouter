@@ -10,6 +10,14 @@
          <param name="ConversionPattern" value="%d{ABSOLUTE} %-5p [%c{3}] %m%n"/>
       </layout>
    </appender>
+   
+	 <appender name="SOCKET" class="org.apache.log4j.net.SocketAppender">
+	        <param name="Port" value="9409" />
+	        <param name="RemoteHost" value="localhost" />
+	        <param name="ReconnectionDelay" value="5000" />
+	        <param name="Threshold" value="INFO" />
+	 </appender>
+   
 
 <!--  
   <appender name="SOCKET" class="org.apache.log4j.net.SocketAppender">
@@ -43,6 +51,11 @@
   <category name="org.mortbay.log"   additivity="false">
      <priority value="INFO"/>
      <appender-ref ref="CONSOLE"/>
+   </category>
+
+   <category name="LOGSTASH" additivity="false">
+      <priority value="INFO"/>
+      <appender-ref ref="SOCKET"  />
    </category>
    
 
