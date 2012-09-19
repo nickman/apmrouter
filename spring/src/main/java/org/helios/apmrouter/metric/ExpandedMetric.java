@@ -45,6 +45,8 @@ public class ExpandedMetric extends ICEMetric {
 	protected final String valueClassName;
 	/** The metric's value type */
 	protected final Class<?> valueType;
+	/** The metric's value if a blob */
+	protected Object blobValue;
 	
 	/**
 	 * Creates a new ExpandedMetric
@@ -53,6 +55,11 @@ public class ExpandedMetric extends ICEMetric {
 	public ExpandedMetric(ICEMetric metric) {
 		this(metric.value, metric.metricId);
 		this.txContext = metric.txContext;
+	}
+	
+	public Object getValue() {
+		if(getType()==MetricType.BLOB) return blobValue;
+		return super.getValue();
 	}
 	
 	
@@ -65,7 +72,9 @@ public class ExpandedMetric extends ICEMetric {
 		super(value, metricId);
 		switch (getType()) {
 		case BLOB:
-			valueClassName = extractClassName(value);
+			blobValue = extractValue(value);
+			valueClassName = blobValue.getClass().getName();
+			//valueType = blobValue.getClass();
 			break;
 		case ERROR:
 			valueClassName = Throwable.class.getName();
@@ -170,8 +179,8 @@ public class ExpandedMetric extends ICEMetric {
 	 * @param value a BLOB type metric value
 	 * @return the classname of the BLOB metric's value
 	 */
-	protected static String extractClassName(ICEMetricValue value) {
-		return ClassNameReader.getClassName(value.getRawValue());
+	protected static Object extractValue(ICEMetricValue value) {
+		return value.getValue();
 	}
 
 }

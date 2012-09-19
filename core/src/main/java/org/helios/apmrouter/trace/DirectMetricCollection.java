@@ -29,6 +29,7 @@ import java.io.DataInputStream;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.LongBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -262,16 +263,23 @@ public class DirectMetricCollection implements Runnable {
     	} else {
     		ByteBuffer bb = metric.getRawValue();
     		int sz = bb.limit();
-    		writeInt(bb.limit()); //VS+= 4;
+    		writeInt(sz); //VS+= 4;
     		writeBytes(bb); //VS+= sz;     		
     	}
-//    	if(metric.hasTXContext()) {
-//    		writeByte(BYTE_ONE); //VS+= 1;
-//    		byte[] tx = metric.getTXContext().encode();
-//    		writeBytes(tx); //VS+= tx.length;
-//    	} else {
-//    		writeByte(BYTE_ZERO); //VS+= 1;
-//    	}
+    	// ==========================================================
+    	//		TXCONTEXT
+    	// ==========================================================
+    	if(metric.hasTXContext()) {
+    		writeByte(BYTE_ONE); //VS+= 1;
+    		TXContext tx = metric.getTXContext();
+    		writeLong(tx.getTxId());
+    		writeInt(tx.getTxQualifier());
+    		writeInt(tx.getTxThreadId());
+    		log("Attached TX Context " + metric.getTXContext());
+    	} else {
+    		writeByte(BYTE_ZERO); //VS+= 1;
+    	}
+    	// ==========================================================
     	int metricSize = size - currentSize;
     	unsafe.putInt(address + currentSize, metricSize);    
     	//log("Record Size:" + metricSize);
@@ -379,9 +387,20 @@ public class DirectMetricCollection implements Runnable {
 				ByteBuffer bb = r.readByteBuffer(byteLength);
 				cb.writeBytes(bb);  // the value bytes
 			}
-//			if(r.readByte()==BYTE_ONE) {
-//				cb.writeBytes(r.readBytes(TXContext.TXCONTEXT_SIZE));
-//			}
+			// ==========================================================
+			//		TXCONTEXT
+			// ==========================================================
+			if(r.readByte()==BYTE_ONE) {
+				long txId = r.readLong();
+				int txQualifier = r.readInt();
+				int txThreadId = r.readInt();
+				
+				cb.writeLong(txId);
+				cb.writeInt(txQualifier);
+				cb.writeInt(txThreadId);
+				log("Wrote TXContext to ChannelBuffer" + String.format("[%s-%s-%s]", txId, txQualifier, txThreadId));
+//				cb.writeBytes(r.readBytes(TXContext.TXCONTEXT_SIZE));txId, 
+			}
     	}
 //		byte[] bytes = new byte[size];
 //		unsafe.copyMemory(null, (address), bytes, BYTE_ARRAY_OFFSET, size);
@@ -636,14 +655,27 @@ public class DirectMetricCollection implements Runnable {
 				long value = readLong();
 				metric = ICEMetric.newMetric(time, value, type, dmetric);
 			} else {
-				ByteBuffer bb = readByteBuffer(readInt());
+				int bbSize = readInt();
+				ByteBuffer bb = readByteBuffer(bbSize);
 				metric = ICEMetric.newMetric(time, bb, type, dmetric);		
 			}		
-//			byte tp = readByte();
-//			log("Remaining Bytes:" + getRecordRemainingBytes());
-//			if(getRecordRemainingBytes()>=TXContext.TXCONTEXT_SIZE) {				
-//				metric.attachTXContext(TXContext.decode(readBytes(TXContext.TXCONTEXT_SIZE), getByteOrder()==BYTE_ZERO));
-//			}
+			// ==========================================================
+			//      TXCONTEXT
+			// ==========================================================
+			byte tp = readByte();
+			log("\nRead Byte: [" + tp + "]\nRemaining Bytes:" + getRecordRemainingBytes() + "\nValue:" + metric.getLongValue());
+			if(getRecordRemainingBytes()>=TXContext.TXCONTEXT_SIZE) {		
+				
+				ByteBuffer bb = ByteBuffer.allocate(8).putLong(readLong());
+				bb.flip();
+				long txId = bb.getLong(); 
+				int txQualifier = readInt();
+				int txThreadId = readInt();
+				TXContext tx = new TXContext(txId, txQualifier, txThreadId);
+				metric.attachTXContext(tx);
+				log("Attached TX Context " + metric.getTXContext());
+			}
+			// ==========================================================
 			return metric;
 		}
 

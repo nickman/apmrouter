@@ -41,7 +41,10 @@ public enum ReceiverOpCode {
 	/** A return of a metric's token value back to a client that sent an untokenized metric */
 	SEND_METRIC_TOKEN,
 	/** A direct metric trace handshake */
-	CONFIRM_METRIC;
+	CONFIRM_METRIC,
+	/** A direct metric trace handshake */
+	PING_RESPONSE;
+	
 	
 	/** Map of OpCodes keyed by the ordinal */
 	private static final Map<Byte, ReceiverOpCode> ORD2ENUM;

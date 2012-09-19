@@ -27,8 +27,8 @@ package org.helios.apmrouter.destination.logstash.senders;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.helios.apmrouter.destination.logstash.LogstashSender;
 import org.helios.apmrouter.server.ServerComponent;
+import org.springframework.jmx.export.annotation.ManagedAttribute;
 
 /**
  * <p>Title: AbstractLogstashSender</p>
@@ -43,17 +43,13 @@ public abstract class AbstractLogstashSender<T> extends ServerComponent implemen
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.logstash.LogstashSender#stash(java.lang.Object[])
+	 * @see org.helios.apmrouter.destination.logstash.senders.LogstashSender#stash(java.lang.Object)
 	 */
 	@Override
-	public void stash(T... stashees) {		
-		if(stashees!=null && stashees.length>0) {
-			for(T o: stashees) {
-				if(o==null) continue;
-				doStash(o);
-				incr("AcceptedStashes");
-			}
-		}
+	public void stash(T stashee) {		
+		if(stashee==null) return;
+		doStash(stashee);
+		incr("AcceptedStashes");
 	}
 	
 	/**
@@ -68,12 +64,22 @@ public abstract class AbstractLogstashSender<T> extends ServerComponent implemen
 	 */
 	@Override
 	public Set<String> getSupportedMetricNames() {
-		Set<String> metrics = new HashSet<String>(super.getSupportedMetricNames());
-		metrics.add("AcceptedStashes");
-		metrics.add("FailedStashes");
-		metrics.add("DroppedStashes");
-		return metrics;
+		Set<String> _metrics = new HashSet<String>(super.getSupportedMetricNames());
+		_metrics.add("AcceptedStashes");
+		_metrics.add("FailedStashes");
+		_metrics.add("DroppedStashes");
+		return _metrics;
 	}
+	
+	/**
+	 * Returns the name of the logged type
+	 * @return the name of the logged type
+	 */
+	@ManagedAttribute
+	public String getLoggedType() {
+		return getAcceptedType().getName();
+	}
+	
 
 
 }

@@ -24,7 +24,6 @@
  */
 package org.helios.apmrouter.destination.snmp;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -32,11 +31,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.helios.apmrouter.destination.BaseDestination;
 import org.helios.apmrouter.metric.IMetric;
-import org.snmp4j.CommunityTarget;
+import org.snmp4j.MessageException;
 import org.snmp4j.PDU;
-import org.snmp4j.Snmp;
-import org.snmp4j.TransportMapping;
-import org.snmp4j.transport.TransportMappings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.support.MetricType;
@@ -94,11 +90,17 @@ public class SNMPDestination extends BaseDestination {
 		PDU pdu = (PDU)routable.getValue();
 		for(SNMPManager ctf: targets) {
 			try {
-				ctf.send(pdu);
+				try {
+					ctf.send(pdu);
+				} catch (MessageException e) {
+					if("Port already listening".equalsIgnoreCase(e.getMessage())) {
+						ctf.send(pdu);						
+					}
+				}
 				//snmp.sendPDU();
 				//snmp.notify(pdu, ctf.getTarget());
 				incr("PDUSendsCompleted");
-			} catch (IOException e) {
+			} catch (Exception e) {
 				e.printStackTrace(System.err);
 				incr("PDUSendsFailed");
 				error("Failed to send PDU to " + ctf, e);

@@ -228,6 +228,15 @@ public abstract class ServerComponent {
 		}
 	}
 	
+	protected Counter mget(String name) {
+		Counter ctr = metrics.get(name);
+		if(ctr==null) {
+			ctr = new Counter();
+			metrics.put(name, ctr);
+		}		
+		return ctr;
+	}
+	
 	/**
 	 * Increments the named metric by the passed value
 	 * @param name The name of the metric
@@ -235,7 +244,7 @@ public abstract class ServerComponent {
 	 */
 	protected void incr(String name, long delta) {
 		if(name==null) return;
-		metrics.get(name).add(delta);
+		mget(name).add(delta);
 	}
 	
 	/**
@@ -245,7 +254,7 @@ public abstract class ServerComponent {
 	 */
 	protected void set(String name, long value) {
 		if(name==null) return;
-		metrics.get(name).set(value);
+		mget(name).set(value);
 	}
 	
 	
@@ -263,7 +272,7 @@ public abstract class ServerComponent {
 	 * @return the value of the named metric
 	 */
 	protected long getMetricValue(String name) {
-		return metrics.get(name).get();
+		return mget(name).get();
 	}
 	
 	/**

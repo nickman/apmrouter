@@ -266,11 +266,12 @@ public class IO {
 			if(compress) {						
 				zipOutputStream = new GZIPOutputStream(channelOutputStream);
 				ois = new ObjectOutputStream(zipOutputStream);
-				channelOutputStream.write(1);
+//				channelOutputStream.write(1);
 			} else {			
 				ois = new ObjectOutputStream(channelOutputStream);
-				channelOutputStream.write(0);
+//				channelOutputStream.write(0);				
 			}
+//			channelOutputStream.flush();
 			ois.writeObject(value);
 			ois.flush();
 			if(compress) zipOutputStream.finish();
@@ -278,12 +279,13 @@ public class IO {
 			ByteBuffer bb = null;
 			byte[] bytes = channelOutputStream.toByteArray();
 			if(direct) {
-				bb = ByteBuffer.allocateDirect(bytes.length);
-				bb.put(bytes);
+				bb = ByteBuffer.allocateDirect(bytes.length+1);				
 			} else {
-				bb = ByteBuffer.wrap(bytes);
+				bb = ByteBuffer.allocate(bytes.length+1);				
 			}
-			bb.flip();
+			bb.put((byte) (compress ? 1 : 0));
+			bb.put(bytes);
+			//bb.flip();
 			return bb;
 		} catch (Throwable e) {
 			e.printStackTrace(System.err);

@@ -27,6 +27,7 @@ package org.helios.apmrouter.util.thread;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -542,7 +543,21 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 		return Collections.emptySet();
 	}
 
-
+	/**
+	 * Returns an array of thread details for this pool
+	 * @return an array of strings
+	 */
+	@ManagedAttribute
+	public String[] getThreadStats() {
+		Set<String> threadNames = new HashSet<String>();
+		Thread[] threads = new Thread[inner.getMaximumPoolSize()];
+		int threadCount = threadGroup.enumerate(threads);
+		for(int i = 0; i < threadCount; i++) {
+			Thread t = threads[i];
+			threadNames.add(String.format("%s(%s) [%s]", t.getName(), t.getId(), t.getState().name()));
+		}
+		return  threadNames.toArray(new String[threadNames.size()]);
+	}
 
 	
 

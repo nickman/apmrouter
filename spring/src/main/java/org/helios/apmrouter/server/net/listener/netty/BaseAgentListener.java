@@ -38,12 +38,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroup;
+import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
+import org.jboss.netty.handler.execution.ExecutionHandler;
 import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLogLevel;
 import org.jboss.netty.logging.InternalLoggerFactory;
@@ -64,7 +67,7 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	/** The netty channel factory's worker thread pool */
 	protected ExecutorService workerPool = null;
 	/** The managed channel group */
-	protected ChannelGroup channelGroup = null;
+	protected ManagedChannelGroup channelGroup = null;
 	/** The interface that this listener will bind to */
 	protected String bindHost = null;
 	/** The port that this listener will bind to */
@@ -85,7 +88,10 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	protected final AtomicBoolean loggingHandlerInstalled = new AtomicBoolean(false);
 	/** The relative location of the logging handler */
 	protected String loggingHandlerLocation = null;
-
+	/** The channel close future */
+	protected ChannelFuture closeFuture = null;
+	/** Indicates if the main channel is open */
+	protected final AtomicBoolean connected = new AtomicBoolean(false);
 	
 	
 	
@@ -102,17 +108,25 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	 */
 	@Override
 	protected void doStart() throws Exception {
+		channelGroup = new ManagedChannelGroup(beanName);
 		info("Resolving Channel Handlers");
 		resolvedHandlers.clear();
-		for(Map.Entry<Integer, String> entry: channelHandlers.entrySet()) {
-			ChannelHandler handler = applicationContext.getBean(entry.getValue(), ChannelHandler.class);
-			debug("Resolved Channel Handler [", entry.getValue(), "]");
-			resolvedHandlers.put(beanName, handler);
+		try {
+			for(Map.Entry<Integer, String> entry: channelHandlers.entrySet()) {
+				ChannelHandler handler = applicationContext.getBean(entry.getValue(), ChannelHandler.class);
+				if(handler instanceof ChannelGroupAware) {
+					((ChannelGroupAware)handler).setChannelGroup(channelGroup);
+				}
+				debug("Resolved Channel Handler [", entry.getValue(), "]");
+				resolvedHandlers.put(beanName, handler);
+			}
+			info("Resolved [", resolvedHandlers.size(), "] Channel Handlers");
+			socketAddress = new InetSocketAddress(bindHost, bindPort);
+			info("Socket Address:", socketAddress);			
+		} catch (Exception e) {
+			error("Failed to resolve channel handlers", e);
+			throw e;
 		}
-		info("Resolved [", resolvedHandlers.size(), "] Channel Handlers");
-		socketAddress = new InetSocketAddress(bindHost, bindPort);
-		info("Socket Address:", socketAddress);
-		channelGroup = new DefaultChannelGroup(beanName);
 		
 	}
 	
@@ -122,10 +136,15 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	 * @see org.helios.apmrouter.server.ServerComponentBean#doStop()
 	 */
 	@Override
-	protected void doStop() {		
+	protected void doStop() {
+		for(ChannelHandler handler: resolvedHandlers.values()) {
+			if(handler instanceof ExecutionHandler) {
+				info("Stopping Execution Handler....");
+				((ExecutionHandler)handler).releaseExternalResources();
+			}
+		}
 		resolvedHandlers.clear();
-		socketAddress = null;
-		channelGroup = null;
+		socketAddress = null;		
 	}
 	
 	
@@ -258,6 +277,15 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	public boolean isLoggingHandlerInstalled() {
 		return loggingHandlerInstalled.get();
 	}
+	
+	/**
+	 * Indicates if the main channel is connected
+	 * @return true if the main channel is connected, false otherwise
+	 */
+	@ManagedAttribute
+	public boolean isConnected() {
+		return connected.get();
+	}	
 	
 	/**
 	 * Returns the logging handler location

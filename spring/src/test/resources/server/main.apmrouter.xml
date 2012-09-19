@@ -60,16 +60,32 @@
  	
  	<bean id="UDPAgentOperationRouter" class="org.helios.apmrouter.server.net.listener.netty.handlers.udp.UDPAgentOperationRouter" />
  	
+ 	<bean id="UDPExecutionHandler" class="org.jboss.netty.handler.execution.ExecutionHandler">
+ 		<constructor-arg>
+		 	<bean id="UDPMemoryAwareThreadPoolExecutor" class="org.jboss.netty.handler.execution.MemoryAwareThreadPoolExecutor" >
+		 		<constructor-arg value="10" />
+		 		<constructor-arg value="1048576" />
+		 		<constructor-arg value="1048576" />
+		 	</bean> 		
+ 		</constructor-arg>
+ 	</bean>
+ 	
+ 	
+ 	
+ 	
  	<bean id="UDPAgentListener" class="org.helios.apmrouter.server.net.listener.netty.UDPAgentListener">
  		<property name="bindHost" value="0.0.0.0" />
  		<property name="bindPort" value="2094" />
  		<property name="channelHandlers">
  			<map>
- 				<entry key="0" value="UDPAgentOperationRouter" />
+ 				<entry key="0" value="UDPExecutionHandler" />
+ 				<entry key="1" value="UDPAgentOperationRouter" />
  			</map>
  		</property>
  		<property name="workerPool" ref="UDPAgentListenerWorkers" />
  	</bean>
+ 	
+ 	
  	
  	<bean id="BaseDestination" class="org.helios.apmrouter.destination.BaseDestination" >
  		<property name="matchPatterns">
@@ -134,7 +150,7 @@
 	<bean id="GraphiteDestination" class="org.helios.apmrouter.destination.graphite.GraphiteDestination">
  		<property name="matchPatterns">
 	 		<util:set>
-				<value>[LONG-|DELTA-].*</value>	 			
+				<value>LONG-.*|DELTA-.*</value>	 			
 	 		</util:set>
  		</property>
  		<property name="graphiteHost" value="10.5.104.24" />
@@ -178,7 +194,7 @@
 	<bean id="CubeDestination" class="org.helios.apmrouter.destination.cube.CubeDestination">
  		<property name="matchPatterns">
 	 		<util:set>
-				<value>[LONG-|DELTA-].*</value>	 			
+				<value>LONG-.*|DELTA-.*</value>	 			
 	 		</util:set>
  		</property>
  		<property name="cubeUri" value="ws://cube:1080/1.0/event/put" />
@@ -218,6 +234,13 @@
 	
 	<bean id="APMRouterScheduler" class="org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler" />
 	
+	<bean id="LogstashDestination" class="org.helios.apmrouter.destination.logstash.LogstashDestination">
+		
+	</bean>
+	
+	<bean id="Log4jLogstashSender" class="org.helios.apmrouter.destination.logstash.senders.Log4jLogstashSender">
+		<property name="loggerName" value="LOGSTASH"/>
+	</bean>
 	
 	
 

@@ -186,6 +186,14 @@ public class TracerImpl implements ITracer {
 	public ICEMetric tracePDUDirect(PDU pdu, CharSequence name, CharSequence...namespace) {
 		return traceDirect(TracerFactory.DIRECT_TIMEOUT, TimeUnit.MILLISECONDS, pdu, name, MetricType.PDU, namespace);
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceBlobDirect(java.io.Serializable, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	public ICEMetric traceBlobDirect(Serializable value, CharSequence name, CharSequence...namespace) {
+		return traceDirect(TracerFactory.DIRECT_TIMEOUT, TimeUnit.MILLISECONDS, value, name, MetricType.BLOB, namespace);
+	}
 
 //	/**
 //	 * {@inheritDoc}

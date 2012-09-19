@@ -22,21 +22,21 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.destination.logstash;
+package org.helios.apmrouter.server.net.listener.netty;
+
+import org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroup;
 
 /**
- * <p>Title: LogstashSender</p>
- * <p>Description: Defines the basics of a logstash sender which accepts a logging event and forwards it to logstash</p> 
+ * <p>Title: ChannelGroupAware</p>
+ * <p>Description: Defines a handler that wants a reference to the ChannelGroup </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.destination.logstash.LogstashSender</code></p>
- * @param <T> The logging event type
+ * <p><code>org.helios.apmrouter.server.net.listener.netty.ChannelGroupAware</code></p>
  */
-
-public interface LogstashSender<T> {
+public interface ChannelGroupAware {
 	/**
-	 * Dispatches the passed stashees to logstash
-	 * @param stashees The objects to be 'stashed
+	 * Sets the channel group
+	 * @param channelGroup the channel group
 	 */
-	public void stash(T...stashees);
+	public void setChannelGroup(ManagedChannelGroup channelGroup);
 }

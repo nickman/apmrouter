@@ -31,6 +31,8 @@ import java.util.Set;
 
 import org.helios.apmrouter.SenderOpCode;
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.server.net.listener.netty.ChannelGroupAware;
+import org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroup;
 import org.helios.apmrouter.server.net.listener.netty.handlers.AgentRequestHandler;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.ChannelEvent;
@@ -38,7 +40,6 @@ import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelUpstreamHandler;
 import org.jboss.netty.channel.MessageEvent;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.support.MetricType;
 
@@ -50,8 +51,14 @@ import org.springframework.jmx.support.MetricType;
  * <p><code>org.helios.apmrouter.server.net.listener.netty.handlers.udp.UDPAgentOperationRouter</code></p>
  */
 
-public class UDPAgentOperationRouter extends ServerComponentBean implements ChannelUpstreamHandler {
+public class UDPAgentOperationRouter extends ServerComponentBean implements ChannelUpstreamHandler, ChannelGroupAware {
+	/** The channel group */
+	protected ManagedChannelGroup channelGroup = null;
 	
+	
+
+
+
 	/** A map of agent request handlers keyed by the opcode */
 	protected final EnumMap<SenderOpCode, AgentRequestHandler> handlers = new EnumMap<SenderOpCode, AgentRequestHandler>(SenderOpCode.class);
 	
@@ -138,7 +145,18 @@ public class UDPAgentOperationRouter extends ServerComponentBean implements Chan
 	
 	
 	
-
+	/**
+	 * Sets the channel group
+	 * @param channelGroup the injected channel group
+	 */
+	public void setChannelGroup(ManagedChannelGroup channelGroup) {
+		this.channelGroup = channelGroup;
+		for(AgentRequestHandler arh: handlers.values()) {
+			if(arh instanceof ChannelGroupAware) {
+				((ChannelGroupAware)arh).setChannelGroup(channelGroup);
+			}
+		}
+	}
 
 
 }

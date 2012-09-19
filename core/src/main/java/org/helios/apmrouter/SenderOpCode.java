@@ -43,7 +43,9 @@ public enum SenderOpCode {
 	/** An asynch send of a metric payload */
 	SEND_METRIC,
 	/** A synchronous send of a single metric payload */
-	SEND_METRIC_DIRECT;
+	SEND_METRIC_DIRECT,
+	/** A synchronous send of a ping */
+	PING;	
 	
 	/** Map of OpCodes keyed by the ordinal */
 	private static final Map<Byte, SenderOpCode> ORD2ENUM;

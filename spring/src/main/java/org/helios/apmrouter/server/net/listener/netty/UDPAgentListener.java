@@ -26,6 +26,8 @@ package org.helios.apmrouter.server.net.listener.netty;
 
 import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.FixedReceiveBufferSizePredictorFactory;
 import org.jboss.netty.channel.socket.nio.NioDatagramChannel;
 import org.jboss.netty.channel.socket.nio.NioDatagramChannelFactory;
@@ -60,8 +62,15 @@ public class UDPAgentListener extends BaseAgentListener {
 		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(1024));
 		bstrap.setPipelineFactory(this);
 		serverChannel = (NioDatagramChannel)bstrap.bind(socketAddress);
+		closeFuture = serverChannel.getCloseFuture();
+		closeFuture.addListener(new ChannelFutureListener() {
+			public void operationComplete(ChannelFuture future) throws Exception {
+				connected.set(false);
+			}
+		});
 		channelGroup.add(serverChannel);
 		serverChannel.getConfig().setBufferFactory(new DirectChannelBufferFactory());
+		connected.set(true);
 		info("Started UDP listener on [", socketAddress , "]");		
 	}
 	

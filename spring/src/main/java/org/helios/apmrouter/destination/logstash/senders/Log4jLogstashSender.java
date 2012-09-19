@@ -24,8 +24,11 @@
  */
 package org.helios.apmrouter.destination.logstash.senders;
 
+
 import org.apache.log4j.Logger;
 import org.apache.log4j.spi.LoggingEvent;
+import org.springframework.jmx.export.annotation.ManagedResource;
+import org.springframework.jmx.export.annotation.ManagedAttribute;
 
 /**
  * <p>Title: Log4jLogstashSender</p>
@@ -34,7 +37,7 @@ import org.apache.log4j.spi.LoggingEvent;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.destination.logstash.senders.Log4jLogstashSender</code></p>
  */
-
+@ManagedResource
 public class Log4jLogstashSender extends AbstractLogstashSender<LoggingEvent> {
 	/** The name of the logger that sends to logstash */
 	protected String loggerName = null;
@@ -54,9 +57,11 @@ public class Log4jLogstashSender extends AbstractLogstashSender<LoggingEvent> {
 	 * Returns the name of the logger that sends to logstash
 	 * @return the loggerName
 	 */
+	@ManagedAttribute
 	public String getLoggerName() {
 		return loggerName;
 	}
+	
 	
 	/**
 	 * Sets the name of the logger that sends to logstasher
@@ -67,4 +72,12 @@ public class Log4jLogstashSender extends AbstractLogstashSender<LoggingEvent> {
 		stashLogger = Logger.getLogger(loggerName);
 	}
 
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.destination.logstash.senders.LogstashSender#getAcceptedType()
+	 */
+	public Class<LoggingEvent> getAcceptedType() {
+		return LoggingEvent.class;
+	}
+	
 }

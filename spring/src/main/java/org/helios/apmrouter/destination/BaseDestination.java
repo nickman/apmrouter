@@ -148,6 +148,9 @@ public class BaseDestination extends ServerComponentBean implements RouteDestina
 	 */
 	@Override
 	public void acceptRoute(IMetric routable) {
+		if(routable.hasTXContext()) {
+			//info("TXContext[", routable.getTXContext(), "]");
+		}
 		if(pmg.matches(routable.getRoutingKey())) {
 			incr("AcceptedRoutes");
 			doAcceptRoute(routable);

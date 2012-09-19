@@ -91,7 +91,7 @@ public abstract class AbstractSender implements ISender {
 		timeoutMap.put(key, latch, timeout);
 		try {
 			if(!latch.await(timeout, TimeUnit.MILLISECONDS)) {
-				throw new TimeoutException("Direct Metric Trace timed out after " + timeout + " ms. [" + metric + "]");
+				throw new TimeoutException("Direct Metric Trace timed out after " + timeout + " ms. "); //[" + metric + "]");
 			}
 		} catch (InterruptedException e) {
 			throw new RuntimeException("Thread interrupted while waiting for Direct Metric Trace confirm for " + timeout + " ms. [" + metric + "]", e);

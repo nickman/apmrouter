@@ -24,10 +24,21 @@
  */
 package org.helios.apmrouter.destination.logstash;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.helios.apmrouter.destination.BaseDestination;
+import org.helios.apmrouter.destination.logstash.senders.LogstashSender;
+import org.helios.apmrouter.metric.ExpandedMetric;
+import org.helios.apmrouter.metric.IMetric;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedMetric;
+import org.springframework.jmx.support.MetricType;
 
 /**
  * <p>Title: LogstashDestination</p>
@@ -38,8 +49,104 @@ import org.helios.apmrouter.destination.BaseDestination;
  */
 
 public class LogstashDestination extends BaseDestination {
-	/** A set of logstash senders, each of which will be passed objects to 'stash */
-	protected Set<LogstashSender> senders = new CopyOnWriteArraySet<LogstashSender>();
+	/** A map of logstash senders keyed by the class name of the type they 'stash */
+	protected Map<String, LogstashSender<Object>> senders = new ConcurrentHashMap<String, LogstashSender<Object>>();
+	
+	@Override
+	protected void doStart() throws Exception {
+		StringBuilder b = new StringBuilder();
+		for(String c: senders.keySet()) {
+			b.append(c).append("-BLOB.*|");
+		}
+		if(b.charAt(b.length()-1)=='|') {
+			b.deleteCharAt(b.length()-1);
+		}
+		setMatchPatterns(Collections.singleton(b.toString()));
+		super.doStart();
+	}
+	
+	/**
+	 * Accept Route additive for BaseDestination extensions
+	 * @param routable The metric to route
+	 */
+	protected void doAcceptRoute(IMetric routable) {
+		if(!(routable instanceof ExpandedMetric)) {
+			incr("Discarded");
+			return;
+		}
+		ExpandedMetric em = (ExpandedMetric)routable;
+		LogstashSender<Object> sender = senders.get(em.getValueClassName());
+		if(sender==null) {
+			incr("NoSender");
+			return;
+		}
+		sender.stash(em.getValue());
+		incr("AcceptedStashes");
+	}	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
+	 */
+	@Override
+	public Set<String> getSupportedMetricNames() {
+		Set<String> _metrics = new HashSet<String>(super.getSupportedMetricNames());
+		_metrics.add("AcceptedStashes");		
+		_metrics.add("Discarded");
+		_metrics.add("NoSender");
+		return _metrics;
+	}
+	
+	/**
+	 * Returns the number of discarded stashes because they were not expanded metrics
+	 * @return the number of discarded stashes
+	 */
+	@ManagedMetric(category="Logstash", metricType=MetricType.COUNTER, description="the number of discarded stashes because they were not expanded metrics")
+	public long getDiscarded() {
+		return getMetricValue("Discarded");
+	}	
+	
+	/**
+	 * Returns the number of discarded stashes because there was no sender registered for the passed event
+	 * @return the number of discarded stashes
+	 */
+	@ManagedMetric(category="Logstash", metricType=MetricType.COUNTER, description="the number of discarded stashes because there was no sender registered for the passed event")
+	public long getNoSender() {
+		return getMetricValue("NoSender");
+	}	
+	
+	/**
+	 * Returns the number of forwarded stashes
+	 * @return the number of forwarded stashes
+	 */
+	@ManagedMetric(category="Logstash", metricType=MetricType.COUNTER, description="the number of forwarded stashes")
+	public long getAcceptedStashes() {
+		return getMetricValue("AcceptedStashes");
+	}	
+	
+	/**
+	 * Returns the number of registered senders
+	 * @return the number of registered senders
+	 */
+	@ManagedAttribute
+	public int getSenderCount() {
+		return senders.size();
+	}
 	
 	
+	
+	/**
+	 * Adds the passed senders to this destinations sender relays
+	 * @param senders A collection of logstash senders
+	 */
+	@Autowired(required=true)
+	public void setSenders(Collection<LogstashSender<Object>> senders) {
+		if(senders!=null) {
+			for(LogstashSender<Object> sender: senders) {
+				if(sender!=null) {
+					this.senders.put(sender.getAcceptedType().getName(), sender);
+				}
+			}
+		}
+	}
 }

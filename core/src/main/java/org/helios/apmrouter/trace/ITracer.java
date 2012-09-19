@@ -146,6 +146,16 @@ public interface ITracer {
 	public ICEMetric traceBlob(Serializable value, CharSequence name, CharSequence...namespace);
 	
 	/**
+	 * Traces a blob long type directly
+	 * @param value The serializable value
+	 * @param name The name of the metric
+	 * @param namespace The optional namespace of the metric
+	 * @return the created {@link ICEMetric}
+	 */
+	public ICEMetric traceBlobDirect(Serializable value, CharSequence name, CharSequence...namespace);
+	
+	
+	/**
 	 * Traces an SNMP PDU  type
 	 * @param pdu The SNMP PDU
 	 * @param name The name of the metric

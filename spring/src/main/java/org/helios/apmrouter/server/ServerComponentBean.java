@@ -49,7 +49,8 @@ import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.core.Ordered;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedOperation;
-import org.springframework.jmx.export.naming.ObjectNamingStrategy;
+import org.springframework.jmx.export.annotation.ManagedResource;
+import org.springframework.jmx.export.naming.SelfNaming;
 
 /**
  * <p>Title: ServerComponentBean</p>
@@ -58,13 +59,13 @@ import org.springframework.jmx.export.naming.ObjectNamingStrategy;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.ServerComponentBean</code></p>
  */
-
+@ManagedResource
 public abstract class ServerComponentBean extends ServerComponent implements 
 		ApplicationContextAware, 
 		BeanNameAware, 
 		SmartApplicationListener,
 		ApplicationEventMulticaster,
-		ObjectNamingStrategy,
+		SelfNaming,
 		InitializingBean,
 		DisposableBean {
 
@@ -97,13 +98,20 @@ public abstract class ServerComponentBean extends ServerComponent implements
 	 * {@inheritDoc}
 	 * @see org.springframework.jmx.export.naming.ObjectNamingStrategy#getObjectName(java.lang.Object, java.lang.String)
 	 */
-	@Override
+	
 	public ObjectName getObjectName(Object managedBean, String beanKey) throws MalformedObjectNameException {
 		StringBuilder b = new StringBuilder(getClass().getPackage().getName());
 		b.delete(b.lastIndexOf("."), b.length()-1);
-		objectName = JMXHelper.objectName(b.append(":service=ThreadPool,name=").append(beanName));
+		objectName = JMXHelper.objectName(b.append(":service=").append(getClass().getSimpleName()).append(",name=").append(beanName));
 		return objectName;
 	}	
+	
+	public ObjectName getObjectName() {
+		StringBuilder b = new StringBuilder(getClass().getPackage().getName());
+		b.delete(b.lastIndexOf("."), b.length());
+		objectName = JMXHelper.objectName(b.append(":service=").append(getClass().getSimpleName()).append(",name=").append(beanName));
+		return objectName;		
+	}
 
 	/**
 	 * {@inheritDoc}
@@ -246,12 +254,17 @@ public abstract class ServerComponentBean extends ServerComponent implements
 	@Override
 	@ManagedOperation
 	public final void start() throws Exception {
-		super.start();
-		if(isStarted()) throw new IllegalStateException("Cannot start component once it is started", new Throwable());
-		info(banner("Starting [", beanName, "]"));
-		doStart();
-		started.set(true);
-		info(banner("Started [", beanName, "]"));
+		try {
+			super.start();
+			if(isStarted()) throw new IllegalStateException("Cannot start component once it is started", new Throwable());
+			info(banner("Starting [", beanName, "]"));
+			doStart();
+			started.set(true);
+			info(banner("Started [", beanName, "]"));
+		} catch (Exception e) {
+			error("Failed to start [", beanName, "]", e);
+			throw e;
+		}
 	}
 	
 	/**
@@ -313,7 +326,7 @@ public abstract class ServerComponentBean extends ServerComponent implements
 	 * Returns this components JMX ObjectName
 	 * @return the objectName
 	 */
-	public ObjectName getObjectName() {
+	public ObjectName getComponentObjectName() {
 		return objectName;
 	}
 

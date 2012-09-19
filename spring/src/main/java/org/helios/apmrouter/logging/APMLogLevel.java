@@ -83,7 +83,7 @@ public enum APMLogLevel {
 	 * @return true if enabled, false otherwise
 	 */
 	public boolean isEnabledFor(APMLogLevel level) {
-		return ordinal() >= level.ordinal();
+		return level.ordinal() >= ordinal();
 	}
 	
 	/**

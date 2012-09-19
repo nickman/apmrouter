@@ -15,6 +15,7 @@ import org.helios.apmrouter.SenderOpCode;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
+import org.helios.apmrouter.sender.netty.UDPSender;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.helios.apmrouter.util.SystemClock;
 import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
@@ -65,7 +66,7 @@ public class UDPListener implements  ChannelPipelineFactory {
 		bstrap.setOption("broadcast", false);
 		BasicConfigurator.configure();
 		InternalLoggerFactory.setDefaultFactory(new Log4JLoggerFactory());		
-		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(1024));
+		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(UDPSender.MAXSIZE));
 		loggingHandler = new LoggingHandler(InternalLogLevel.DEBUG, true);
 		bstrap.setPipelineFactory(this);
 		metricCatalog = ICEMetricCatalog.getInstance();

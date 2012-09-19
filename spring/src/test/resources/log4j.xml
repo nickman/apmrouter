@@ -13,9 +13,9 @@
    
 	 <appender name="SOCKET" class="org.apache.log4j.net.SocketAppender">
 	        <param name="Port" value="9409" />
-	        <param name="RemoteHost" value="localhost" />
+	        <param name="RemoteHost" value="cube" />
 	        <param name="ReconnectionDelay" value="5000" />
-	        <param name="Threshold" value="INFO" />
+	        <param name="Threshold" value="DEBUG" />
 	 </appender>
    
 
@@ -37,7 +37,7 @@
    </category>
 -->
 
-   <category name="org.helios" additivity="false">
+   <category name="org.helios">
       <priority value="INFO"/>
       <appender-ref ref="CONSOLE"  />
    </category>
@@ -54,7 +54,7 @@
    </category>
 
    <category name="LOGSTASH" additivity="false">
-      <priority value="INFO"/>
+      <priority value="DEBUG"/>
       <appender-ref ref="SOCKET"  />
    </category>
    

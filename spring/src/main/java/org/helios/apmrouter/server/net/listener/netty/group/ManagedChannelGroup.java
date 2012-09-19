@@ -45,6 +45,20 @@ public class ManagedChannelGroup implements ChannelGroup {
 	/** The delegate channel group */
 	protected final ChannelGroup channelGroup;
 	
+	
+	/**
+	 * Finds the first channel in this group that has the passed remote address
+	 * @param address The remote address to find
+	 * @return the first matching channel or null if one was not found
+	 */
+	public Channel findRemote(SocketAddress address) {
+		if(address==null) return null;
+		for(Channel channel: channelGroup) {
+			if(address.equals(channel.getRemoteAddress())) return channel;			
+		}
+		return null;
+	}
+
 	/**
 	 * Creates a new ManagedChannelGroup
 	 * @param name The name of this group
@@ -147,6 +161,7 @@ public class ManagedChannelGroup implements ChannelGroup {
 	public Channel find(Integer id) {
 		return channelGroup.find(id);
 	}
+	
 
 	/**
 	 * @return

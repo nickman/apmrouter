@@ -140,8 +140,12 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 			this.threadPool.execute(new Runnable(){
 				public void run() {
 					try {
+						IMetric routableMetric = metric;
+						if(metric.getType()==org.helios.apmrouter.metric.MetricType.BLOB) {
+							routableMetric = new ExpandedMetric((ICEMetric)metric);
+						}						
 						for(RouteDestination<IMetric> destination: destinations) {
-							destination.acceptRoute(metric);
+							destination.acceptRoute(routableMetric);
 							incr("CompletedRoutes");
 						}
 					} catch (Exception e) {

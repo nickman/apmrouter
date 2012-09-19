@@ -30,11 +30,10 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.BasicConfigurator;
 import org.helios.apmrouter.ReceiverOpCode;
-import org.helios.apmrouter.SenderOpCode;
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
@@ -42,7 +41,6 @@ import org.helios.apmrouter.sender.AbstractSender;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.helios.apmrouter.trace.DirectMetricCollection.SplitDMC;
 import org.helios.apmrouter.trace.DirectMetricCollection.SplitReader;
-import org.helios.apmrouter.util.TimeoutQueueMap;
 import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
@@ -75,6 +73,9 @@ import org.slf4j.LoggerFactory;
  */
 
 public class UDPSender extends AbstractSender implements ChannelPipelineFactory {
+	
+	public static final int MAXSIZE = 1024;
+	
 	/** Static class logger */
 	protected static final Logger LOG = LoggerFactory.getLogger(UDPSender.class);	
 	/** The netty server worker pool */
@@ -91,6 +92,9 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	protected final IMetricCatalog metricCatalog;
 	/** The channel close future */
 	protected ChannelFuture closeFuture = null;
+	/** Indicates if the sender is connected */
+	protected final AtomicBoolean connected = new AtomicBoolean(false);
+	
 	/** The logging handler for debug */
 	private LoggingHandler loggingHandler;
 	/** A discard handler used for discarding self-sent messages */
@@ -116,6 +120,9 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 								latch.countDown();
 							}
 							break;
+						case PING_RESPONSE:							
+							long pingKey = buff.readLong();
+							break;							
 						case SEND_METRIC_TOKEN:
 							int fqnLength = buff.readInt();
 							byte[] bytes = new byte[fqnLength];
@@ -174,18 +181,22 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 		bstrap = new ConnectionlessBootstrap(channelFactory);
 		bstrap.setPipelineFactory(this);
 		bstrap.setOption("broadcast", true);
-		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(1024));
+		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(MAXSIZE));
 		socketAddress = new InetSocketAddress(serverURI.getHost(), serverURI.getPort());
 		//channel = (DatagramChannel) bstrap.connect(socketAddress).awaitUninterruptibly().getChannel();
 		channel = (DatagramChannel) bstrap.bind(new InetSocketAddress("localhost", 0));
 		channel.getConfig().setBufferFactory(new DirectChannelBufferFactory());
-		channel.connect(socketAddress);
+		channel.connect(socketAddress).addListener(new ChannelFutureListener() {
+			@Override
+			public void operationComplete(ChannelFuture future) throws Exception {
+				connected.set(true);	
+			}
+		});
 		closeFuture = channel.getCloseFuture();
 		closeFuture.addListener(new ChannelFutureListener() {
 			@Override
 			public void operationComplete(ChannelFuture future) throws Exception {
-				// TODO Auto-generated method stub
-				
+				connected.set(false);				
 			}
 		});
 		
@@ -217,8 +228,15 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	 */
 	@Override
 	public void send(final DirectMetricCollection dcm) {
+		if(!connected.get()) {
+			if(dcm!=null) {
+				int mc = dcm.getMetricCount();
+				dropped.addAndGet(mc);
+				System.err.println("Sender down. Dropped [" + mc + "] metrics");
+			}
+		}
 //		System.out.println("Received [" + dcm.getMetricCount() + "]");
-//		SplitReader sr = dcm.newSplitReader(1024);
+//		SplitReader sr = dcm.newSplitReader(MAXSIZE);
 //		int cnt = 0;
 //		for(DirectMetricCollection d: sr) {
 //			cnt += d.getMetricCount();
@@ -226,8 +244,9 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 //		}
 //		dcm.destroy();
 //		System.out.println("Sending [" + cnt + "] Dropped:" + sr.getDrops());
+		log("DCM Size:" + dcm.getSize());
 		
-		if(dcm.getSize()<1024) {
+		if(dcm.getSize()<MAXSIZE) {
 			final int mcount = dcm.getMetricCount();
 			ChannelFuture channelFuture = channel.write(dcm);
 			//System.out.println("Sent to [" + socketAddress + "]");
@@ -247,7 +266,7 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 		
 		
 		
-		SplitDMC sr = dcm.newSplitReader(1024);
+		SplitDMC sr = dcm.newSplitReader(MAXSIZE);
 		for(final DirectMetricCollection d: sr) {
 			final boolean last = !sr.hasNext();
 			final int mcount = d.getMetricCount();

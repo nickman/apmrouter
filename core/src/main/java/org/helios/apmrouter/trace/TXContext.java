@@ -48,7 +48,7 @@ public class TXContext {
 	private final int txThreadId;
 	
 	/** The size of a TXContext in bytes */
-	public static final int TXCONTEXT_SIZE = 8 + 4 + 4 + 1;
+	public static final int TXCONTEXT_SIZE = 8 + 4 + 4;
     /** Zero byte literal */
     public static final byte BYTE_ZERO = 0;
     /** One byte literal */
@@ -126,7 +126,7 @@ public class TXContext {
 	 * @param txQualifier The TXContext qualifier for this instance
 	 * @param txThreadId The TXContext thread qualifier for this instance 
 	 */
-	private TXContext(long txId, int txQualifier, int txThreadId) {
+	TXContext(long txId, int txQualifier, int txThreadId) {
 		this.txId = txId;
 		this.txQualifier = txQualifier;
 		this.txThreadId = txThreadId;
@@ -297,9 +297,11 @@ public class TXContext {
 		if(bytes==null || bytes.length!=TXCONTEXT_SIZE) throw new IllegalArgumentException("Byte size not valid for an encoded TXContext [" + (bytes==null ? "<null>" : bytes.length) + "]");
 		ByteBuffer bb = null;
 		if(reverse) {
+			
 			bb= ByteBuffer.wrap(bytes).order(bytes[0]==BYTE_ZERO ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN);
 		} else {
 			bb = ByteBuffer.wrap(bytes).order(bytes[0]==BYTE_ZERO ? ByteOrder.LITTLE_ENDIAN : ByteOrder.BIG_ENDIAN);
+			
 		}		
 		bb.get();
 		return new TXContext(bb.getLong(), bb.getInt(), bb.getInt());

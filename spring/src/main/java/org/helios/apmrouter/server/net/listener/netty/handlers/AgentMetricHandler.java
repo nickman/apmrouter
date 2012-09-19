@@ -34,12 +34,18 @@ import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.router.PatternRouter;
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.server.net.listener.netty.ChannelGroupAware;
+import org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroup;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
+import org.jboss.netty.channel.Channels;
+import org.jboss.netty.channel.group.ChannelGroup;
+import org.jboss.netty.handler.logging.LoggingHandler;
+import org.jboss.netty.logging.InternalLogLevel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 
@@ -51,11 +57,13 @@ import org.springframework.jmx.export.annotation.ManagedAttribute;
  * <p><code>org.helios.apmrouter.server.net.listener.netty.handlers.AgentMetricHandler</code></p>
  */
 
-public class AgentMetricHandler extends ServerComponentBean implements AgentRequestHandler {
+public class AgentMetricHandler extends ServerComponentBean implements AgentRequestHandler, ChannelGroupAware {
 	/** The metric catalog */
 	protected IMetricCatalog metricCatalog = null;
 	/** The pattern router for handing off metrics to */
 	protected PatternRouter router = null;
+	/** The channel group */
+	protected ManagedChannelGroup channelGroup = null;	
 	
 	/** The OpCodes this handler accepts */
 	protected final SenderOpCode[] OP_CODES = new SenderOpCode[]{ SenderOpCode.SEND_METRIC, SenderOpCode.SEND_METRIC_DIRECT };
@@ -68,6 +76,15 @@ public class AgentMetricHandler extends ServerComponentBean implements AgentRequ
 	public SenderOpCode[] getHandledOpCodes() {
 		return OP_CODES;
 	}	
+	
+	/**
+	 * Sets the channel group
+	 * @param channelGroup the injected channel group
+	 */
+	public void setChannelGroup(ManagedChannelGroup channelGroup) {
+		this.channelGroup = channelGroup;
+	}
+	
 	
 	/**
 	 * Processes a channel buffer containing agent submitted metrics
@@ -102,37 +119,69 @@ public class AgentMetricHandler extends ServerComponentBean implements AgentRequ
 		router.route(metrics);
 	}
 	
+	private static final LoggingHandler clientConnLogHandler = new LoggingHandler("org.helios.AgentMetricHandler", InternalLogLevel.DEBUG, true);
+	
+	/**
+	 * Acquires a channel connected to the provided remote address
+	 * @param incoming The incoming channel to acquire a new channel from, if required
+	 * @param remoteAddress The remote address to connect to
+	 * @return a channel connected to the remote address
+	 * FIXME: Need configurable timeout on remote connect
+	 */
+	protected Channel getChannelForRemote(final Channel incoming, final SocketAddress remoteAddress) {
+		Channel channel = channelGroup.findRemote(remoteAddress);
+		if(channel==null) {
+			synchronized(channelGroup) {
+				channel = channelGroup.findRemote(remoteAddress);
+				if(channel==null) {
+					channel = incoming.getFactory().newChannel(Channels.pipeline(clientConnLogHandler));
+					try {
+						if(!channel.connect(remoteAddress).await(1000)) throw new Exception();
+					} catch (Exception  e) {
+						throw new RuntimeException("Failed to acquire remote connection to [" + remoteAddress + "]", e);
+					}
+					final ChannelGroup cg = channelGroup;
+					channel.getCloseFuture().addListener(new ChannelFutureListener() {
+						@Override
+						public void operationComplete(ChannelFuture future) throws Exception {
+							System.err.println("Client Channel Closed. Did Agent Go Away ?");
+							cg.remove(future.getChannel());
+						}
+					});
+					channelGroup.add(channel);
+				}
+			}
+		}
+		return channel;
+	}
+	
 	/**
 	 * Confirms the receipt of a direct metric
-	 * @param channel The channel on which the metric was received
+	 * @param incoming The channel on which the metric was received
 	 * @param remoteAddress The remote address of the sender
 	 * @param metric The direct metric
 	 */
-	protected void sendConfirm(Channel channel, SocketAddress remoteAddress, final IMetric metric) {
+	protected void sendConfirm(final Channel incoming, final SocketAddress remoteAddress, final IMetric metric) {
 		String key = new StringBuilder(metric.getFQN()).append(metric.getTime()).toString();
 		byte[] bytes = key.getBytes();
 		// Buffer size:  OpCode, key size, key bytes
-		ChannelBuffer cb = ChannelBuffers.directBuffer(1 + 4 + bytes.length);
+		final ChannelBuffer cb = ChannelBuffers.directBuffer(1 + 4 + bytes.length);
 		cb.writeByte(ReceiverOpCode.CONFIRM_METRIC.op());
 		cb.writeInt(bytes.length);
 		cb.writeBytes(bytes);		
 		
-		if(!channel.isConnected()) channel.connect(remoteAddress).awaitUninterruptibly(); 
-		channel.write(cb, remoteAddress).addListener(new ChannelFutureListener() {
+		getChannelForRemote(incoming, remoteAddress).write(cb, remoteAddress).addListener(new ChannelFutureListener() {
 			@Override
 			public void operationComplete(ChannelFuture future) throws Exception {
 				if(future.isSuccess()) {
 					incr("ConfirmsSent");
-					//System.out.println("Sent Token for [" + metric.getFQN() + "]");
 				} else {
 					System.err.println("Failed to send confirm for direct metric [" + metric + "]");
 					future.getCause().printStackTrace(System.err);
 				}
 				
 			}
-		});
-		
-		
+		});					
 	}
 	
 	
@@ -144,35 +193,32 @@ public class AgentMetricHandler extends ServerComponentBean implements AgentRequ
 	 *  <li>The metric FQN's bytes  (n bytes)</li>
 	 *  <li>The metric token (1 long)</li>
 	 * </ol>
-	 * @param channel The channel on which the untokenized metric was received
-	 * @param address The remote address of the sender
+	 * @param incoming The channel on which the untokenized metric was received
+	 * @param remoteAddress The remote address of the sender
 	 * @param metric The untokenized metric
 	 */
-	protected void sendToken(final Channel channel, final SocketAddress address, final IMetric metric) {
+	protected void sendToken(final Channel incoming, final SocketAddress remoteAddress, final IMetric metric) {
 		final long token = metricCatalog.setToken(metric);		
 		byte[] bytes = metric.getFQN().getBytes();
 		// Buffer size:  OpCode, fqn size, fqn bytes, token
-		ChannelBuffer cb = ChannelBuffers.directBuffer(1 + 4 + bytes.length + 8 );
+		final ChannelBuffer cb = ChannelBuffers.directBuffer(1 + 4 + bytes.length + 8 );
 		cb.writeByte(ReceiverOpCode.SEND_METRIC_TOKEN.op());
 		cb.writeInt(bytes.length);
 		cb.writeBytes(bytes);
 		cb.writeLong(token);
 		
-		if(!channel.isConnected()) channel.connect(address).awaitUninterruptibly(); 
-		channel.write(cb, address).addListener(new ChannelFutureListener() {
+		getChannelForRemote(incoming, remoteAddress).write(cb, remoteAddress).addListener(new ChannelFutureListener() {
 			@Override
 			public void operationComplete(ChannelFuture future) throws Exception {
 				if(future.isSuccess()) {
-					//System.out.println("Sent Token for [" + metric.getFQN() + "]");
 					incr("TokensSent");
 				} else {
-					System.err.println("Failed to send token for [" + metric.getFQN() + "]");
+					System.err.println("Failed to send roken for direct metric [" + metric + "]");
 					future.getCause().printStackTrace(System.err);
 				}
 				
 			}
-		});
-		
+		});					
 	}
 
 	/**

@@ -69,7 +69,7 @@ public class ICEMetric implements IMetric {
 	
 	/**
 	 * Creates a new ICEMetric
-	 * @param timestamp THe metric value timestamp
+	 * @param timestamp The metric value timestamp
 	 * @param value The non-long value of the metric
 	 * @param type The type of the metric
 	 * @param dmetric The metric ID
@@ -85,6 +85,17 @@ public class ICEMetric implements IMetric {
 	 */
 	public void attachTXContext(TXContext txContext) {
 		this.txContext = txContext;
+	}
+	
+	/**
+	 * Checks the TXContext and attaches it if one exists
+	 * @return this ICEMetric
+	 */
+	public ICEMetric attachTXContext() {
+		if(TXContext.hasContext()) {
+			attachTXContext(TXContext.rollContext());
+		}
+		return this;
 	}
 	
 	
@@ -115,7 +126,7 @@ public class ICEMetric implements IMetric {
 			return new ICEMetric(
 				type.write(value), 
 				ICEMetricCatalog.getInstance().get(host, agent, name, type, namespace)
-			);
+			).attachTXContext();
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to create ICEMetricBuilder", e);
 		}
@@ -137,7 +148,7 @@ public class ICEMetric implements IMetric {
 			return new ICEMetric(
 				new ICEMetricValue(type, value.longValue()),
 				ICEMetricCatalog.getInstance().get(host, agent, name, type, namespace)
-			);
+			).attachTXContext();
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to create ICEMetricBuilder", e);
 		}
@@ -159,7 +170,7 @@ public class ICEMetric implements IMetric {
 			return new ICEMetric(
 				new ICEMetricValue(type, value),
 				ICEMetricCatalog.getInstance().get(host, agent, name, type, namespace)
-			);
+			).attachTXContext();
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to create ICEMetricBuilder", e);
 		}
