@@ -19,7 +19,7 @@ public class TracingDemo {
 
 	public static void main(String[] args) {		
 		final int LOOPS = 100000;
-		final int SLEEP = 10000;
+		final int SLEEP = 500;
 		BasicConfigurator.configure();
 		final ITracer tracer = TracerFactory.getTracer();
 		Logger traceLogger = Logger.getLogger(TracingDemo.class);
@@ -30,19 +30,19 @@ public class TracingDemo {
 		TXContext.rollContext();
 		log("Basic Tracing Test: [" +  tracer.getHost() + "/" + tracer.getAgent() + "]");
 		for(int i = 0; i < LOOPS; i++) {
-			tracer.traceLong(i, "TXTest", "Foo", "Bar");
-//			for(GarbageCollectorMXBean gc: ManagementFactory.getGarbageCollectorMXBeans()) {
-//				tracer.traceDelta(gc.getCollectionCount(), "CollectionCount", "JVM", "Memory", "GC", gc.getName());
-//				tracer.traceDelta(gc.getCollectionTime(), "CollectionTime", "JVM", "Memory", "GC", gc.getName());
-//			}
-//			traceCpuUsages(tracer, sigar);
-//			traceTotalCpuUsage(tracer, sigar);
-//			traceDiskUsage(tracer, sigar);
-//			traceMemorySpacesSNMP(tracer, sigar);
-//			try {
-//				traceLogger.info("Hello World [" + i + "]");
-//				//traceLogger.info("Hello Pluto [" + i + "]", new Throwable());
-//			} catch (Exception e) {}
+			//tracer.traceLong(i, "TXTest", "Foo", "Bar");
+			for(GarbageCollectorMXBean gc: ManagementFactory.getGarbageCollectorMXBeans()) {
+				tracer.traceDelta(gc.getCollectionCount(), "CollectionCount", "JVM", "Memory", "GC", gc.getName());
+				tracer.traceDelta(gc.getCollectionTime(), "CollectionTime", "JVM", "Memory", "GC", gc.getName());
+			}
+			traceCpuUsages(tracer, sigar);
+			traceTotalCpuUsage(tracer, sigar);
+			traceDiskUsage(tracer, sigar);
+			traceMemorySpacesSNMP(tracer, sigar);
+			try {
+				traceLogger.info("Hello World [" + i + "]");
+				//traceLogger.info("Hello Pluto [" + i + "]", new Throwable());
+			} catch (Exception e) {}
 			if(i%100==0) log("Loop:" + i);
 			SystemClock.sleep(SLEEP);
 		}

@@ -24,15 +24,17 @@
  */
 package org.helios.apmrouter.trace;
 
+import static org.helios.apmrouter.util.Methods.nvl;
+
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.LongBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
@@ -46,8 +48,6 @@ import org.helios.apmrouter.sender.ISender;
 import org.helios.apmrouter.sender.Sender;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
-
-import static org.helios.apmrouter.util.Methods.nvl;
 
 import sun.misc.Unsafe;
 import sun.nio.ch.DirectBuffer;
@@ -240,54 +240,114 @@ public class DirectMetricCollection implements Runnable {
      * @return the number of metrics in the collection after this operation completes
      */
     protected int _append(IMetric metric) {
+    	return _appendOpt(metric);
+    }
+    
+	/**
+     * Loads an IMetric
+     * @param metric the metric to load
+     * @return the number of metrics in the collection after this operation completes
+     */
+    private int _appendDebug(IMetric metric) {
     	while(size + metric.getSerSize()+6 > capacity) extend();    	
     	long token = metric.getToken();
     	final int currentSize = size;    
-    	//int VS = 0;
+    	int VS = 0;
     	// write the place-holder for the size
-    	writeInt(0); //VS+= 4; 
+    	writeInt(0); VS+= 4; 
     	// write the type code
-    	writeByte((byte)metric.getType().ordinal()); //VS+= 1; 
+    	writeByte((byte)metric.getType().ordinal()); VS+= 1; 
     	if(token!=-1) {
-    		writeByte(BYTE_ONE);  //VS+= 1;
-    		writeLong(token); //VS+= 8;
+    		writeByte(BYTE_ONE);  VS+= 1;
+    		writeLong(token); VS+= 8;
     	} else {
-    		writeByte(BYTE_ZERO);   //VS+= 1;  		    		
+    		writeByte(BYTE_ZERO);   VS+= 1;  		    		
     		byte[] fqnBytes = metric.getFQN().getBytes();
-    		writeInt(fqnBytes.length); //VS+= 4;
-    		writeBytes(fqnBytes); //VS+= fqnBytes.length;
+    		writeInt(fqnBytes.length); VS+= 4;
+    		writeBytes(fqnBytes); VS+= fqnBytes.length;
     	}
-    	writeLong(metric.getTime()); //VS+= 8;
+    	writeLong(metric.getTime()); VS+= 8;
     	if(metric.getType().isLong()) {
-    		writeLong(metric.getLongValue()); //VS+= 8; 
+    		writeLong(metric.getLongValue()); VS+= 8; 
     	} else {
     		ByteBuffer bb = metric.getRawValue();
     		int sz = bb.limit();
-    		writeInt(sz); //VS+= 4;
-    		writeBytes(bb); //VS+= sz;     		
+    		writeInt(sz); VS+= 4;
+    		writeBytes(bb); VS+= sz;     		
+    	}
+    	// ==========================================================
+    	//		TXCONTEXT
+//    	PreTXByte:64/54
+//    	PostTXByte:65/55    	
+    	// ==========================================================
+    	if(metric.hasTXContext()) {
+    		log("PreTXByte:" + size + "/" + VS);
+    		writeByte(BYTE_ONE); VS+= 1;
+    		log("PostTXByte:" + size + "/" + VS);
+    		TXContext tx = metric.getTXContext();
+    		writeLong(tx.getTxId()); VS+= 8;
+    		writeInt(tx.getTxQualifier()); VS+= 4;
+    		writeInt(tx.getTxThreadId()); VS+= 4;
+    		log("Attached TX Context " + metric.getTXContext());
+    	} else {
+    		writeByte(BYTE_ZERO); VS+= 1;
+    	}
+    	// ==========================================================
+    	int metricSize = size - currentSize;
+    	unsafe.putInt(address + currentSize, metricSize);    
+    	log("Record Size:" + metricSize);
+    	// update the DMC size
+    	setSize(size);
+    	log("Metric Size:" + metricSize + " New Buff Size:" + size + "  Size Offset:" + currentSize + "  GS:" + getSize() + " RS:" + unsafe.getInt(address + currentSize) + "  VS:" + VS);
+    	return updateCount();
+    }
+    
+    private int _appendOpt(IMetric metric) {
+    	while(size + metric.getSerSize()+6 > capacity) extend();    	
+    	long token = metric.getToken();
+    	final int currentSize = size;    
+    	// write the place-holder for the size
+    	writeInt(0);  
+    	// write the type code
+    	writeByte((byte)metric.getType().ordinal());  
+    	if(token!=-1) {
+    		writeByte(BYTE_ONE);  
+    		writeLong(token); 
+    	} else {
+    		writeByte(BYTE_ZERO);     		    		
+    		byte[] fqnBytes = metric.getFQN().getBytes();
+    		writeInt(fqnBytes.length); 
+    		writeBytes(fqnBytes); 
+    	}
+    	writeLong(metric.getTime()); 
+    	if(metric.getType().isLong()) {
+    		writeLong(metric.getLongValue());  
+    	} else {
+    		ByteBuffer bb = metric.getRawValue();
+    		int sz = bb.limit();
+    		writeInt(sz); 
+    		writeBytes(bb); 
     	}
     	// ==========================================================
     	//		TXCONTEXT
     	// ==========================================================
     	if(metric.hasTXContext()) {
-    		writeByte(BYTE_ONE); //VS+= 1;
+    		writeByte(BYTE_ONE); 
     		TXContext tx = metric.getTXContext();
-    		writeLong(tx.getTxId());
-    		writeInt(tx.getTxQualifier());
-    		writeInt(tx.getTxThreadId());
-    		log("Attached TX Context " + metric.getTXContext());
+    		writeLong(tx.getTxId()); 
+    		writeInt(tx.getTxQualifier()); 
+    		writeInt(tx.getTxThreadId()); 
     	} else {
-    		writeByte(BYTE_ZERO); //VS+= 1;
+    		writeByte(BYTE_ZERO); 
     	}
     	// ==========================================================
     	int metricSize = size - currentSize;
     	unsafe.putInt(address + currentSize, metricSize);    
-    	//log("Record Size:" + metricSize);
     	// update the DMC size
     	setSize(size);
-    	//log("Metric Size:" + metricSize + " New Buff Size:" + size + "  Size Offset:" + currentSize + "  GS:" + getSize() + " RS:" + unsafe.getInt(address + currentSize));
     	return updateCount();
     }
+    
     
     /**
      * Decodes this DMC back into an array of IMetrics
@@ -390,7 +450,9 @@ public class DirectMetricCollection implements Runnable {
 			// ==========================================================
 			//		TXCONTEXT
 			// ==========================================================
-			if(r.readByte()==BYTE_ONE) {
+			byte tx = r.readByte();
+			cb.writeByte(tx);
+			if(tx==BYTE_ONE) {
 				long txId = r.readLong();
 				int txQualifier = r.readInt();
 				int txThreadId = r.readInt();
@@ -398,7 +460,7 @@ public class DirectMetricCollection implements Runnable {
 				cb.writeLong(txId);
 				cb.writeInt(txQualifier);
 				cb.writeInt(txThreadId);
-				log("Wrote TXContext to ChannelBuffer" + String.format("[%s-%s-%s]", txId, txQualifier, txThreadId));
+				//log("Wrote TXContext to ChannelBuffer" + String.format("[%s-%s-%s]", txId, txQualifier, txThreadId));
 //				cb.writeBytes(r.readBytes(TXContext.TXCONTEXT_SIZE));txId, 
 			}
     	}
@@ -629,6 +691,7 @@ public class DirectMetricCollection implements Runnable {
      * <p><code>org.helios.apmrouter.trace.DirectMetricCollection.MetricReader</code></p>
      */
     protected class MetricReader extends Reader implements Iterator<IMetric>, Iterable<IMetric> {
+    	
 		/**
 		 * {@inheritDoc}
 		 * @see java.util.Iterator#next()
@@ -636,9 +699,72 @@ public class DirectMetricCollection implements Runnable {
 		@SuppressWarnings("unused")
 		@Override
 		public IMetric next() {			
+			return nextOpt();
+		}
+
+		private IMetric nextDebug() {
+			log("Reading next IMetric");
 			if(!_next()) throw new RuntimeException("Iterator fetched pass EOF", new Throwable());
 			IDelegateMetric dmetric = null;
-    		int recordSize = readInt(); // skip size    	
+    		int recordSize = readInt(); // skip size
+    		log("\tRecord Size:" + recordSize + "   Offset:" + getReaderRecordOffset());
+    		byte typeOrdinal = readByte();
+    		log("\tType Ord:" + typeOrdinal + "   Offset:" + getReaderRecordOffset());
+    		MetricType type = MetricType.valueOf(typeOrdinal);
+    		byte isToken = readByte();
+    		log("\tisToken:" + isToken + "   Offset:" + getReaderRecordOffset());
+    		if(BYTE_ONE==isToken) {
+    			long token =  readLong();
+    			log("\tToken:" + token + "   Offset:" + getReaderRecordOffset());
+    			dmetric = ICEMetricCatalog.getInstance().get(token);    			
+    		} else {    			
+				String fqn = readString();
+				log("\tFQN:" + fqn + "   Offset:" + getReaderRecordOffset());
+				dmetric = ICEMetricCatalog.getInstance().build(fqn, type);
+    		}
+    		long time = readLong();
+    		log("\tTime:" + new Date(time) + "   Offset:" + getReaderRecordOffset());
+    		ICEMetric metric = null;
+			if(type.isLong()) {
+				long value = readLong();
+				log("\tLong Value:" + value + "   Offset:" + getReaderRecordOffset());
+				metric = ICEMetric.newMetric(time, value, type, dmetric);
+			} else {
+				int bbSize = readInt();
+				log("\tBB Size:" + bbSize + "   Offset:" + getReaderRecordOffset());
+				ByteBuffer bb = readByteBuffer(bbSize);
+				log("\tBB:" + bb.toString() + "   Offset:" + getReaderRecordOffset());
+				metric = ICEMetric.newMetric(time, bb, type, dmetric);		
+			}		
+			// ==========================================================
+			//      TXCONTEXT
+			// ==========================================================
+			byte tp = readByte();
+			log("\tTP:" + tp + "   Offset:" + getReaderRecordOffset());
+			//log("\nRead Byte: [" + tp + "]\nRemaining Bytes:" + getRecordRemainingBytes() + "\nValue:" + metric.getLongValue());
+			if(getRecordRemainingBytes()>=TXContext.TXCONTEXT_SIZE) {		
+				
+				
+				
+				long txId = readLong();
+				log("\tTXID:" + txId + "   Offset:" + getReaderRecordOffset());
+				int txQualifier = readInt();
+				log("\tTXQual:" + txQualifier + "   Offset:" + getReaderRecordOffset());
+				int txThreadId = readInt();
+				log("\tTXThreadID:" + txThreadId + "   Offset:" + getReaderRecordOffset());
+				TXContext tx = new TXContext(txId, txQualifier, txThreadId);
+				metric.attachTXContext(tx);
+				log("Attached TX Context " + metric.getTXContext());
+			}
+			// ==========================================================
+			log("\tRemaining Bytes:" + getRecordRemainingBytes());
+			return metric;
+		}
+		
+		private IMetric nextOpt() {
+			if(!_next()) throw new RuntimeException("Iterator fetched pass EOF", new Throwable());
+			IDelegateMetric dmetric = null;
+    		readInt(); // skip size
     		byte typeOrdinal = readByte();
     		MetricType type = MetricType.valueOf(typeOrdinal);
     		byte isToken = readByte();
@@ -663,21 +789,18 @@ public class DirectMetricCollection implements Runnable {
 			//      TXCONTEXT
 			// ==========================================================
 			byte tp = readByte();
-			log("\nRead Byte: [" + tp + "]\nRemaining Bytes:" + getRecordRemainingBytes() + "\nValue:" + metric.getLongValue());
+			//log("\nRead Byte: [" + tp + "]\nRemaining Bytes:" + getRecordRemainingBytes() + "\nValue:" + metric.getLongValue());
 			if(getRecordRemainingBytes()>=TXContext.TXCONTEXT_SIZE) {		
-				
-				ByteBuffer bb = ByteBuffer.allocate(8).putLong(readLong());
-				bb.flip();
-				long txId = bb.getLong(); 
+				long txId = readLong();
 				int txQualifier = readInt();
 				int txThreadId = readInt();
 				TXContext tx = new TXContext(txId, txQualifier, txThreadId);
 				metric.attachTXContext(tx);
-				log("Attached TX Context " + metric.getTXContext());
 			}
 			// ==========================================================
 			return metric;
 		}
+		
 
 		/**
 		 * {@inheritDoc}

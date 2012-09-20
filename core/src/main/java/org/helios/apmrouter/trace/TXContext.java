@@ -48,7 +48,7 @@ public class TXContext {
 	private final int txThreadId;
 	
 	/** The size of a TXContext in bytes */
-	public static final int TXCONTEXT_SIZE = 8 + 4 + 4;
+	public static final int TXCONTEXT_SIZE = 8 + 4 + 4 ;
     /** Zero byte literal */
     public static final byte BYTE_ZERO = 0;
     /** One byte literal */
