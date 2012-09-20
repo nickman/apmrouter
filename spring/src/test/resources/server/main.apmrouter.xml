@@ -197,7 +197,7 @@
 				<value>LONG-.*|DELTA-.*</value>	 			
 	 		</util:set>
  		</property>
- 		<property name="cubeUri" value="ws://localhost:1080/1.0/event/put" />
+ 		<property name="cubeUri" value="ws://cube:1080/1.0/event/put" />
  		
 		<!-- 
  		<property name="channelHandlers">

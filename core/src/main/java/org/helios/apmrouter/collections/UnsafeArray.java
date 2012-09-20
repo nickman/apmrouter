@@ -267,8 +267,17 @@ public abstract class UnsafeArray {
      * @param index The index to check
      */
     protected void _check(int index) {
-    	if(index<0 || index > (size-1)) throw new IllegalArgumentException("The passed index was invalid [" + index + "]. Valid ranges are 0 - " + (size-1), new Throwable());
+    	if(index<0 || index > (size-1)) {
+    		throw new IllegalArgumentException("The passed index was invalid [" + index + "]. Valid ranges are 0 - " + (size-1), new Throwable());
+    	}
     }
+    
+    protected void _checkc(int index) {
+    	if(index<0 || index > (capacity-1)) {
+    		throw new IllegalArgumentException("The passed index was invalid [" + index + "]. Valid ranges are 0 - " + (capacity-1), new Throwable());
+    	}
+    }
+    
     
     /**
      * Extends the allocated memory for the passed number of items in increments of the configured allocation increment size.
@@ -335,7 +344,7 @@ public abstract class UnsafeArray {
      * @return false if the rightmost item was dropped to make room for the new value, true otherwise
      */
     protected boolean rollRight(int index) {
-    	_check(); _check(index);
+    	_check(); _checkc(index);
     	final int numberOfSlotsToMove;
     	final boolean incrSize;
     	if(size==capacity) {

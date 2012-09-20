@@ -25,13 +25,20 @@
 package org.helios.apmrouter.sentry;
 
 /**
- * <p>Title: PollingSentryWatchTask</p>
- * <p>Description: Sentry watch task that requires sentry to periodically check the state of the watched object</p> 
+ * <p>Title: CallbackSentryWatched</p>
+ * <p>Description: Defines sentry watched objects that can detect their own state changes</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.sentry.PollingSentryWatchTask</code></p>
+ * <p><code>org.helios.apmrouter.sentry.CallbackSentryWatched</code></p>
  */
 
-public interface PollingSentryWatchTask extends SentryWatchTask {
-
+public interface CallbackSentryWatched extends SentryWatched {
+	/**
+	 * Directive from the sentry to attempt to re-acquire desired state
+	 * @param attempt the sequence number of the attempt to connect
+	 * @return If true, sentry will cancel the connect loop, if false, continues connect attempts on the watched specified period
+	 */
+	public boolean connect(int attempt);
+	
+	
 }

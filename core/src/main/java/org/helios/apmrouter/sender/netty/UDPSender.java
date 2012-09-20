@@ -28,6 +28,7 @@ import static org.helios.apmrouter.util.Methods.nvl;
 
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,6 +39,12 @@ import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.sender.AbstractSender;
+import org.helios.apmrouter.sender.netty.handler.ChannelStateAware;
+import org.helios.apmrouter.sender.netty.handler.ChannelStateListener;
+import org.helios.apmrouter.sentry.CallbackSentryWatched;
+import org.helios.apmrouter.sentry.Sentry;
+import org.helios.apmrouter.sentry.SentryState;
+import org.helios.apmrouter.sentry.SentryStateControl;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.helios.apmrouter.trace.DirectMetricCollection.SplitDMC;
 import org.helios.apmrouter.trace.DirectMetricCollection.SplitReader;
@@ -50,11 +57,14 @@ import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
+import org.jboss.netty.channel.ChannelState;
+import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.Channels;
+import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.FixedReceiveBufferSizePredictorFactory;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
-import org.jboss.netty.channel.socket.DatagramChannel;
+import org.jboss.netty.channel.socket.nio.NioDatagramChannel;
 import org.jboss.netty.channel.socket.nio.NioDatagramChannelFactory;
 import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLogLevel;
@@ -72,8 +82,9 @@ import org.slf4j.LoggerFactory;
  * FIXME:  Where to start ......  1. Listen on channel closed exceptions, start reconnect loop, count dropped metrics in the interrim
  */
 
-public class UDPSender extends AbstractSender implements ChannelPipelineFactory {
+public class UDPSender extends AbstractSender implements ChannelPipelineFactory, ChannelStateAware, CallbackSentryWatched {
 	
+	/** The maximum size of the payload this sender can reliably expect to be transmitted */
 	public static final int MAXSIZE = 1024;
 	
 	/** Static class logger */
@@ -84,21 +95,34 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	protected final ConnectionlessBootstrap bstrap;
 	/** The netty channel factory */
 	protected final ChannelFactory channelFactory;
-	/** The connected channel */
-	protected final DatagramChannel channel;
+	/** The sending channel */
+	protected NioDatagramChannel senderChannel;
+	
 	/** The server socket to send to */
 	protected final InetSocketAddress socketAddress;
+	/** The server socket to listen on */
+	protected final InetSocketAddress listeningSocketAddress;
+	
 	/** The metric catalog for token updates */
 	protected final IMetricCatalog metricCatalog;
 	/** The channel close future */
 	protected ChannelFuture closeFuture = null;
 	/** Indicates if the sender is connected */
 	protected final AtomicBoolean connected = new AtomicBoolean(false);
+	/** The sentry state of the sender channel */
+	protected final SentryStateControl sentryState;
+	
+	
+	/** The channel state listener */
+	private final ChannelStateListener channelStateListener = new ChannelStateListener();
 	
 	/** The logging handler for debug */
 	private LoggingHandler loggingHandler;
-	/** A discard handler used for discarding self-sent messages */
-	protected final SimpleChannelUpstreamHandler discard = new SimpleChannelUpstreamHandler() {
+	/** The listener handle to handle requests/responses from the server */
+	protected final SimpleChannelUpstreamHandler listenerHandler = new SimpleChannelUpstreamHandler() {
+		public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) {
+			log("[Listener] Caught exception event [" + e.getCause() + "]");
+		}
 		@Override
 		public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
 			if(e.getChannel().getLocalAddress().equals(e.getRemoteAddress())) {
@@ -148,6 +172,15 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	}
 	
 	/**
+	 * Executed when a disconnect is detected
+	 */
+	protected void processDisconnect() {
+		connected.set(false);
+		senderChannel = null;
+		sentryState.setState(SentryState.DISCONNECTED);
+	}
+	
+	/**
 	 * Returns a built instance of a UDPSender for the passed URI
 	 * @param serverURI The host/port to send to in the form of a URI. e.g. <b><code>udp://myhostname:2094</code></b>.
 	 * @return a UDPSender
@@ -173,9 +206,12 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	private UDPSender(URI serverURI) {
 		super(serverURI);
 		BasicConfigurator.configure();
+		
+				
 		InternalLoggerFactory.setDefaultFactory(new Log4JLoggerFactory());
 		metricCatalog = ICEMetricCatalog.getInstance();
-		loggingHandler = new LoggingHandler(InternalLogLevel.INFO, true);
+		channelStateListener.addChannelStateAware(this);
+		loggingHandler = new LoggingHandler(InternalLogLevel.DEBUG, true);
 		workerPool =  ThreadPoolFactory.newCachedThreadPool(getClass().getPackage().getName(), "UDPSenderWorker/" + serverURI.getHost() + "/" + serverURI.getPort());
 		channelFactory = new NioDatagramChannelFactory(workerPool);
 		bstrap = new ConnectionlessBootstrap(channelFactory);
@@ -183,24 +219,54 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 		bstrap.setOption("broadcast", true);
 		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(MAXSIZE));
 		socketAddress = new InetSocketAddress(serverURI.getHost(), serverURI.getPort());
-		//channel = (DatagramChannel) bstrap.connect(socketAddress).awaitUninterruptibly().getChannel();
-		channel = (DatagramChannel) bstrap.bind(new InetSocketAddress("localhost", 0));
-		channel.getConfig().setBufferFactory(new DirectChannelBufferFactory());
-		channel.connect(socketAddress).addListener(new ChannelFutureListener() {
-			@Override
-			public void operationComplete(ChannelFuture future) throws Exception {
-				connected.set(true);	
+		listeningSocketAddress = new InetSocketAddress("0.0.0.0", 0);
+		sentryState = Sentry.getInstance().register(this);		
+		senderChannel = (NioDatagramChannel) channelFactory.newChannel(getPipeline());
+		senderChannel.bind(listeningSocketAddress).addListener(new ChannelFutureListener() {
+			public void operationComplete(ChannelFuture f) throws Exception {
+				if(f.isSuccess()) {
+					log("Listening on [" + listeningSocketAddress + "]");
+				} else {
+					log("Failed to start listener. Stack trace follows");
+					f.getCause().printStackTrace(System.err);
+					
+				}
+				
 			}
 		});
-		closeFuture = channel.getCloseFuture();
-		closeFuture.addListener(new ChannelFutureListener() {
-			@Override
-			public void operationComplete(ChannelFuture future) throws Exception {
-				connected.set(false);				
-			}
-		});
+		senderChannel.getConfig().setBufferFactory(new DirectChannelBufferFactory());
+//		senderChannel.connect(socketAddress).addListener(new ChannelFutureListener() {
+//			@Override
+//			public void operationComplete(ChannelFuture future) throws Exception {
+//				connected.set(true);	
+//				sentryState.setState(SentryState.CALLBACK);
+//			}
+//		});
+		
 		
 		//socketAddress = new InetSocketAddress("239.192.74.66", 25826);
+	}
+	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.netty.handler.ChannelStateAware#getInterestedChannelStates()
+	 */
+	@Override
+	public ChannelState[] getInterestedChannelStates() {
+		return new ChannelState[]{ChannelState.CONNECTED};
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.netty.handler.ChannelStateAware#onChannelStateEvent(boolean, org.jboss.netty.channel.ChannelStateEvent)
+	 */
+	@Override
+	public void onChannelStateEvent(boolean upstream, ChannelStateEvent stateEvent) {
+		if(upstream && stateEvent.getValue().equals(Boolean.FALSE)) {
+			processDisconnect();
+			log("Channel Disconnected");
+		}
 	}
 	
 
@@ -213,11 +279,11 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	 */
 	@Override
 	public ChannelPipeline getPipeline()  {
-		ChannelPipeline pipeline = Channels.pipeline();
-		
-		//pipeline.addLast("logging", loggingHandler);
-		pipeline.addLast("discard", discard);
+		ChannelPipeline pipeline = Channels.pipeline();		
+		pipeline.addLast("logging", loggingHandler);		
 		pipeline.addLast("metric-encoder", metricEncoder);
+		pipeline.addLast("listener", listenerHandler);
+		
 		return pipeline;
 	}
 	
@@ -228,73 +294,129 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory 
 	 */
 	@Override
 	public void send(final DirectMetricCollection dcm) {
-		if(!connected.get()) {
-			if(dcm!=null) {
-				int mc = dcm.getMetricCount();
-				dropped.addAndGet(mc);
-				System.err.println("Sender down. Dropped [" + mc + "] metrics");
+		
+		if(dcm==null) return;
+		final int METRIC_COUNT = dcm.getMetricCount(); 
+		try {
+			if(dcm.getSize()<MAXSIZE) {
+				final int mcount = dcm.getMetricCount();
+				ChannelFuture channelFuture = senderChannel.write(dcm, socketAddress);
+				//System.out.println("Sent to [" + socketAddress + "]");
+				channelFuture.addListener(new ChannelFutureListener() {
+					public void operationComplete(ChannelFuture future) throws Exception {					
+						if(future.isSuccess()) {
+							sent.addAndGet(mcount);
+						} else {
+							//long d = failed.addAndGet(mcount);
+							//System.err.println("Sender Fails:" + d );
+							if(future.getCause()!=null) {
+								if(future.getCause() instanceof ClosedChannelException) {
+									log("Sender Channel Disconnected");
+									processDisconnect();
+								} else {
+									future.getCause().printStackTrace(System.err);
+								}
+							}
+						}					
+					}
+				});
+				return;
+			}
+			
+			
+			
+			SplitDMC sr = dcm.newSplitReader(MAXSIZE);
+			for(final DirectMetricCollection d: sr) {
+				final boolean last = !sr.hasNext();
+				final int mcount = d.getMetricCount();
+				ChannelFuture channelFuture = senderChannel.write(d, socketAddress);
+				channelFuture.addListener(new ChannelFutureListener() {
+					public void operationComplete(ChannelFuture future) throws Exception {					
+						if(future.isSuccess()) {
+							sent.addAndGet(mcount);
+						} else {
+							//long d = failed.addAndGet(mcount);
+							//System.err.println("Sender Fails:" + d );
+							if(future.getCause()!=null) {
+								if(future.getCause() instanceof ClosedChannelException) {
+									log("Sender Channel Disconnected");
+									processDisconnect();
+								} else {
+									future.getCause().printStackTrace(System.err);
+								}
+							}
+						}
+					}
+				});
+				if(last) channelFuture.addListener(new ChannelFutureListener() {
+					@Override
+					public void operationComplete(ChannelFuture future) throws Exception {
+						//ch.close();
+					}
+				});
+			}
+			dcm.destroy();
+			dropped.addAndGet(((SplitReader)sr).getDrops());
+		} catch (Exception cce) {
+			if(cce instanceof ClosedChannelException) {
+				log("Sender Channel Disconnected");
+				processDisconnect();
+			} else {
+				cce.printStackTrace(System.err);
 			}
 		}
-//		System.out.println("Received [" + dcm.getMetricCount() + "]");
-//		SplitReader sr = dcm.newSplitReader(MAXSIZE);
-//		int cnt = 0;
-//		for(DirectMetricCollection d: sr) {
-//			cnt += d.getMetricCount();
-//			d.destroy();
-//		}
-//		dcm.destroy();
-//		System.out.println("Sending [" + cnt + "] Dropped:" + sr.getDrops());
-		log("DCM Size:" + dcm.getSize());
-		
-		if(dcm.getSize()<MAXSIZE) {
-			final int mcount = dcm.getMetricCount();
-			ChannelFuture channelFuture = channel.write(dcm);
-			//System.out.println("Sent to [" + socketAddress + "]");
-			channelFuture.addListener(new ChannelFutureListener() {
-				public void operationComplete(ChannelFuture future) throws Exception {					
-					if(future.isSuccess()) {
-						sent.addAndGet(mcount);
-					} else {
-						long d = failed.addAndGet(mcount);
-						System.err.println("Sender Fails:" + d );
-						if(future.getCause()!=null) future.getCause().printStackTrace(System.err);
-					}					
-				}
-			});
-			return;
-		}
-		
-		
-		
-		SplitDMC sr = dcm.newSplitReader(MAXSIZE);
-		for(final DirectMetricCollection d: sr) {
-			final boolean last = !sr.hasNext();
-			final int mcount = d.getMetricCount();
-			ChannelFuture channelFuture = channel.write(d);
-			channelFuture.addListener(new ChannelFutureListener() {
-				public void operationComplete(ChannelFuture future) throws Exception {					
-					if(future.isSuccess()) {
-						sent.addAndGet(mcount);
-					} else {
-						long d = failed.addAndGet(mcount);
-						System.err.println("Sender Fails:" + d );
-						if(future.getCause()!=null) future.getCause().printStackTrace(System.err);
-					}
-				}
-			});
-			if(last) channelFuture.addListener(new ChannelFutureListener() {
-				@Override
-				public void operationComplete(ChannelFuture future) throws Exception {
-					//ch.close();
-				}
-			});
-		}
-		dcm.destroy();
-		dropped.addAndGet(((SplitReader)sr).getDrops());
 		
 		
 		
 		
+	}
+	
+	
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sentry.SentryWatched#getName()
+	 */
+	@Override
+	public String getName() {
+		return "UDPSender[" + socketAddress.getHostName() + ":" + socketAddress.getPort() + "]";
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sentry.SentryWatched#getSentryState()
+	 */
+	@Override
+	public SentryState getSentryState() {
+		return sentryState.getState();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sentry.SentryWatched#getPeriod()
+	 */
+	@Override
+	public long getPeriod() {
+		return 5000;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sentry.CallbackSentryWatched#connect(int)
+	 */
+	@Override
+	public boolean connect(int attempt) {
+		try {
+			senderChannel = (NioDatagramChannel) channelFactory.newChannel(getPipeline());
+			senderChannel.connect(socketAddress).awaitUninterruptibly();
+			if(senderChannel.isConnected()) {
+				connected.set(true);
+				sentryState.setState(SentryState.CALLBACK);
+				return true;
+			}
+			senderChannel = null;
+		} catch (Exception e) {}
+		return false;		
 	}
 
 }

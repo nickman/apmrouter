@@ -25,13 +25,22 @@
 package org.helios.apmrouter.sentry;
 
 /**
- * <p>Title: SentryWatchTask</p>
- * <p>Description: Base interface for sentry watch tasks</p> 
+ * <p>Title: PollingSentryWatched</p>
+ * <p>Description: Defines sentry watched objects that cannot detect their own state changes and require sentry polling to verify</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.sentry.SentryWatchTask</code></p>
+ * <p><code>org.helios.apmrouter.sentry.PollingSentryWatched</code></p>
  */
 
-public interface SentryWatchTask extends Runnable {
-
+public interface PollingSentryWatched extends SentryWatched {
+	/**
+	 * Called by the sentry on the watched object specified period, requesting that the watched check its state.
+	 * @return true if the watched object still has its required state, false otherwise
+	 */
+	public boolean sentryPoll();
+	
+	/**
+	 * Callback when a sentry poll fails
+	 */
+	public void sentryPollFailed();
 }

@@ -25,23 +25,27 @@
 package org.helios.apmrouter.sentry;
 
 import java.lang.management.ManagementFactory;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * <p>Title: SentryScheduler</p>
+ * <p>Title: Sentry</p>
  * <p>Description: Singleton scheduler for managing sentry scheduled task executions</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.sentry.SentryScheduler</code></p>
+ * <p><code>org.helios.apmrouter.sentry.Sentry</code></p>
  */
 
-public class SentryScheduler implements ThreadFactory, RejectedExecutionHandler, Thread.UncaughtExceptionHandler {
+public class Sentry implements ThreadFactory, RejectedExecutionHandler, Thread.UncaughtExceptionHandler {
 	/** The singleton instance */
-	private static volatile SentryScheduler instance = null;
+	private static volatile Sentry instance = null;
 	/** The singleton instance ctor lock */
 	private static final Object lock = new Object();
 
@@ -52,24 +56,92 @@ public class SentryScheduler implements ThreadFactory, RejectedExecutionHandler,
 	/** The sentry scheduled thread pool */
 	private final ScheduledThreadPoolExecutor scheduler; 
 	
+	/** A map of sentry triggers keyed by the watched object the trigger was created for */
+	private final Map<SentryWatched, SentryTrigger> watches = new ConcurrentHashMap<SentryWatched, SentryTrigger>();
+	
 	/**
-	 * Returns the SentryScheduler instance
-	 * @return the SentryScheduler instance
+	 * Returns the Sentry instance
+	 * @return the Sentry instance
 	 */
-	public static SentryScheduler getInstance() {
+	public static Sentry getInstance() {
 		if(instance==null) {
 			synchronized(lock) {
 				if(instance==null) {
-					instance = new SentryScheduler();
+					instance = new Sentry();
 				}
 			}
 		}
 		return instance;
 	}
 	
-	private SentryScheduler() {
+	private Sentry() {
 		scheduler = new ScheduledThreadPoolExecutor(ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors(), this, this);
 	}
+	
+	/**
+	 * Registers a new watched object 
+	 * @param watched The object to watch
+	 * @return A state control that allows the watched object (or someone else) to change the state of the watched object 
+	 * and trigger events in the sentry.
+	 */
+	public SentryStateControl register(SentryWatched watched) {
+		if(watched==null) throw new IllegalArgumentException("The passed watched object was null", new Throwable());
+		SentryTrigger trigger = watches.get(watched);
+		if(trigger==null) {
+			synchronized(watches) {
+				trigger = watches.get(watched);
+				if(trigger==null) {
+					trigger = new SentryTrigger(this, new SentryTask(watched), SentryState.PENDING);
+				}
+			}
+		}
+		return trigger;
+	}
+	
+	/**
+	 * Processes state changes based on sets in the registered {@link SentryStateControl}s
+	 * @param oldState The prior sentry state
+	 * @param newState The new sentry state
+	 * @param task The task reference for the state changed watched object
+	 */
+	void onStateChange(SentryState oldState, SentryState newState, SentryTask task) {
+		log("Task [" + task.getWatched().getName() + "] switched from " + oldState + "-->" + newState);
+		if(newState==SentryState.CANCELLED) {
+			if(task.getScheduleHandle()!=null) {
+				task.getScheduleHandle().cancel(true);
+				task.setScheduleHandle(null);
+			}
+			watches.remove(task.getWatched());
+		}
+		if(task.isPolled()) {
+			if(newState==SentryState.POLLING) {
+				ScheduledFuture<?> sf = scheduler.scheduleAtFixedRate(task, task.getPeriod(), task.getPeriod(), TimeUnit.MILLISECONDS);
+				task.setScheduleHandle(sf);
+				log("Scheduled Poller for [" + task.getWatched().getName() +  "]");
+			}
+		} else {
+			if(newState==SentryState.CALLBACK) {
+				if(task.getScheduleHandle()!=null) {
+					task.getScheduleHandle().cancel(true);
+					task.setScheduleHandle(null);
+				}
+			} else if(newState==SentryState.DISCONNECTED) {
+				log("Task [" + task.getWatched().getName() +  "] disconnected. Attempting immediate reconnect");
+				if(!((CallbackSentryWatched)task.getWatched()).connect(-1)) {				
+					ScheduledFuture<?> sf = scheduler.scheduleAtFixedRate(task, task.getPeriod(), task.getPeriod(), TimeUnit.MILLISECONDS);
+					task.setScheduleHandle(sf);								
+					log("Task [" + task.getWatched().getName() +  "] immediate reconnect failed. Scheduled reconnected loop");
+				}
+			}
+		}
+	}
+	
+	
+	
+    public static void log(Object msg) {
+    	System.out.println("[Sentry]" + msg);
+    }
+    
 
 	/**
 	 * {@inheritDoc}

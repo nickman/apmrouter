@@ -25,13 +25,29 @@
 package org.helios.apmrouter.sentry;
 
 /**
- * <p>Title: CallbackSentryWatchTask</p>
- * <p>Description: Sentry task watcher for callback based objects</p> 
+ * <p>Title: SentryWatched</p>
+ * <p>Description: Base definition for a class requiring sentry watches</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.sentry.CallbackSentryWatchTask</code></p>
+ * <p><code>org.helios.apmrouter.sentry.SentryWatched</code></p>
  */
 
-public interface CallbackSentryWatchTask extends SentryWatchTask {
-
+public interface SentryWatched {
+	/**
+	 * Returns the watched object name
+	 * @return the watched object name
+	 */
+	public String getName();
+	
+	/**
+	 * Returns the {@link SentryState} of the watched object
+	 * @return the {@link SentryState} of the watched object
+	 */
+	public SentryState getSentryState();
+	
+	/**
+	 * Returns the sentry action period for the watched object in ms.
+	 * @return the sentry action period for the watched object in ms.
+	 */
+	public long getPeriod();
 }

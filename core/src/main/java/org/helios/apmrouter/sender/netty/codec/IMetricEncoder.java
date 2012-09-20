@@ -30,6 +30,7 @@ import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.handler.codec.oneone.OneToOneEncoder;
 
 /**
@@ -55,7 +56,14 @@ public class IMetricEncoder extends OneToOneEncoder {
 		return null;
 	}
 	
-	
+	/**
+	 * @param ctx
+	 * @param e
+	 */
+	public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) {
+		System.err.println("[MetricEncoder] Caught exception event [" + e.getCause() + "]");
+	}
+
 	
 	/**
 	 * Writes the metric's metricId if it has not been tokenized yet

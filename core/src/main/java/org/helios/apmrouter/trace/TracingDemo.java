@@ -8,6 +8,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.jzab.plugin.nativex.HeliosSigar;
 import org.hyperic.sigar.CpuPerc;
@@ -27,7 +28,8 @@ public class TracingDemo {
 		traceLogger.removeAllAppenders();
 		traceLogger.addAppender(new LogTracer());
 		HeliosSigar sigar = HeliosSigar.getInstance();
-		TXContext.rollContext();
+		//TXContext.rollContext();
+		MetricType.setCompress(true);
 		log("Basic Tracing Test: [" +  tracer.getHost() + "/" + tracer.getAgent() + "]");
 		for(int i = 0; i < LOOPS; i++) {
 			//tracer.traceLong(i, "TXTest", "Foo", "Bar");
@@ -41,7 +43,7 @@ public class TracingDemo {
 			traceMemorySpacesSNMP(tracer, sigar);
 			try {
 				traceLogger.info("Hello World [" + i + "]");
-				//traceLogger.info("Hello Pluto [" + i + "]", new Throwable());
+				traceLogger.info("Hello Pluto [" + i + "]", new Throwable());
 			} catch (Exception e) {}
 			if(i%100==0) log("Loop:" + i);
 			SystemClock.sleep(SLEEP);
@@ -77,7 +79,7 @@ public class TracingDemo {
 		);
 		usage = ManagementFactory.getMemoryMXBean().getNonHeapMemoryUsage();
 		try {
-			tracer.tracePDUDirect(PDUBuilder.builder(PDU.NOTIFICATION, ".1.3.6.1.4.1.42.2.145.3.163.1.1.2.")
+			tracer.tracePDU(PDUBuilder.builder(PDU.NOTIFICATION, ".1.3.6.1.4.1.42.2.145.3.163.1.1.2.")
 					.counter64("20", usage.getInit())
 					.counter64("21", usage.getUsed())
 					.counter64("22", usage.getCommitted())

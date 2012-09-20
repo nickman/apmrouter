@@ -60,7 +60,9 @@ public class LongSlidingWindow {
 	 */
 	public LongSlidingWindow(int size, long[] values) {
 		array = UnsafeArrayBuilder.newBuilder().sorted(true).fixed(true).maxCapacity(size).buildLongArray();
-		array.insert(values);
+		for(long v: values) {
+			array.rollRight(0, v);
+		}
 	}
 	
 	/**
@@ -69,7 +71,7 @@ public class LongSlidingWindow {
 	 */
 	public void insert(long...values) {
 		for(long v: values) {
-			array.insert(v);
+			array.rollRight(0, v);
 		}
 	}
 	

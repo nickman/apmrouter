@@ -16,6 +16,8 @@ import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.sender.netty.UDPSender;
+import org.helios.apmrouter.sender.netty.handler.ChannelStateAware;
+import org.helios.apmrouter.sender.netty.handler.ChannelStateListener;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.helios.apmrouter.util.SystemClock;
 import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
@@ -29,6 +31,8 @@ import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
+import org.jboss.netty.channel.ChannelState;
+import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.FixedReceiveBufferSizePredictorFactory;
@@ -48,13 +52,14 @@ import org.jboss.netty.logging.Log4JLoggerFactory;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>test.org.helios.apmrouter.netty.UDPListener</code></p>
  */
-public class UDPListener implements  ChannelPipelineFactory {
+public class UDPListener implements  ChannelPipelineFactory, ChannelStateAware {
 	private final InetSocketAddress isock = new InetSocketAddress(2094);
 	private final NioDatagramChannelFactory channelFactory = new NioDatagramChannelFactory(Executors.newCachedThreadPool());
 	private final ConnectionlessBootstrap bstrap = new ConnectionlessBootstrap(channelFactory);
 	private final ChannelHandler handler = new TestHandler();
 	private NioDatagramChannel serverChannel;
 	private LoggingHandler loggingHandler;
+	private final ChannelStateListener channelStateListener = new ChannelStateListener(); 
 	
 	private AtomicLong receivedBytes = new AtomicLong(0);
 	private AtomicLong receivedMetrics = new AtomicLong(0);
@@ -62,16 +67,40 @@ public class UDPListener implements  ChannelPipelineFactory {
 	private final IMetricCatalog metricCatalog;
 	
 	
+	/**
+	 * Creates a new UDPListener
+	 */
 	public UDPListener() {		
+		channelStateListener.addChannelStateAware(this);
 		bstrap.setOption("broadcast", false);
 		BasicConfigurator.configure();
 		InternalLoggerFactory.setDefaultFactory(new Log4JLoggerFactory());		
 		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(UDPSender.MAXSIZE));
 		loggingHandler = new LoggingHandler(InternalLogLevel.DEBUG, true);
 		bstrap.setPipelineFactory(this);
-		metricCatalog = ICEMetricCatalog.getInstance();
-		
+		metricCatalog = ICEMetricCatalog.getInstance();		
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.netty.handler.ChannelStateAware#getInterestedChannelStates()
+	 */
+	@Override
+	public ChannelState[] getInterestedChannelStates() {
+		return new ChannelState[]{ChannelState.CONNECTED};
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.netty.handler.ChannelStateAware#onChannelStateEvent(boolean, org.jboss.netty.channel.ChannelStateEvent)
+	 */
+	@Override
+	public void onChannelStateEvent(boolean upstream, ChannelStateEvent stateEvent) {
+		if(upstream && stateEvent.getValue().equals(Boolean.FALSE)) {
+			
+		}
+	}
+	
 	
 	public void start() {
 		serverChannel = (NioDatagramChannel)bstrap.bind(isock);
@@ -121,8 +150,8 @@ public class UDPListener implements  ChannelPipelineFactory {
 
 	@Override
 	public ChannelPipeline getPipeline() throws Exception {		
-		return Channels.pipeline(loggingHandler, handler);
-//		return Channels.pipeline(handler);
+//		return Channels.pipeline(loggingHandler, channelStateListener, handler);
+		return Channels.pipeline(channelStateListener, handler);
 	}
 	
 	
@@ -235,6 +264,7 @@ public class UDPListener implements  ChannelPipelineFactory {
 		});
 		
 	}
+
 	
 
 }

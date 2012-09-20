@@ -34,10 +34,13 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 
+import org.helios.apmrouter.collections.LongSlidingWindow;
 import org.helios.apmrouter.metric.ExpandedMetric;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.util.SystemClock;
+import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
@@ -66,6 +69,12 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 	/** The subscribers */
 	protected final Set<RouteDestination<IMetric>> destinations = new CopyOnWriteArraySet<RouteDestination<IMetric>>();
 	protected final UncaughtExceptionHandler ucex = this;
+	
+	/** Sliding windows of route elapsed times in ns. */
+	protected final LongSlidingWindow elapsedTimesNs = new LongSlidingWindow(15);
+	/** Sliding windows of route elapsed times in ms. */
+	protected final LongSlidingWindow elapsedTimesMs = new LongSlidingWindow(15); 
+	
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
@@ -140,6 +149,7 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 			this.threadPool.execute(new Runnable(){
 				public void run() {
 					try {
+						SystemClock.startTimer();
 						IMetric routableMetric = metric;
 						if(metric.getType()==org.helios.apmrouter.metric.MetricType.BLOB) {
 							routableMetric = new ExpandedMetric((ICEMetric)metric);
@@ -148,7 +158,11 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 							destination.acceptRoute(routableMetric);
 							incr("CompletedRoutes");
 						}
-					} catch (Exception e) {
+						ElapsedTime et = SystemClock.endTimer();
+						elapsedTimesNs.insert(et.elapsedNs);
+						elapsedTimesMs.insert(et.elapsedMs);
+					} catch (Throwable e) {
+						SystemClock.endTimer();
 						incr("DroppedRoutes");
 						e.printStackTrace(System.err);
 					}
@@ -206,6 +220,24 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 	@ManagedMetric(category="MetricRouter", metricType=MetricType.COUNTER, description="The number of metrics in the routing queue")
 	public long getRoutingQueueDepth() {
 		return routingQueue.size();
+	}
+	
+	/**
+	 * Returns the sliding average elapsed time in ns. of the last 15 route events
+	 * @return the sliding average elapsed time in ns. of the last 15 route events
+	 */
+	@ManagedMetric(category="MetricRouter", metricType=MetricType.GAUGE, description="The sliding average elapsed time in ns. of the last 15 route events")
+	public long getAverageRouteTimeNs() {
+		return elapsedTimesNs.avg();
+	}
+	
+	/**
+	 * Returns the sliding average elapsed time in ms. of the last 15 route events
+	 * @return the sliding average elapsed time in ms. of the last 15 route events
+	 */
+	@ManagedMetric(category="MetricRouter", metricType=MetricType.GAUGE, description="The sliding average elapsed time in ms. of the last 15 route events")
+	public long getAverageRouteTimeMs() {
+		return elapsedTimesMs.avg();
 	}
 	
 	
