@@ -132,6 +132,7 @@ public class LongSortedSet {
 	 * {@inheritDoc}
 	 * @see java.lang.Object#toString()
 	 */
+	@Override
 	public String toString() {
 		return array.toString();
 	}
@@ -140,6 +141,7 @@ public class LongSortedSet {
 	 * {@inheritDoc}
 	 * @see java.lang.Object#clone()
 	 */
+	@Override
 	public LongSortedSet clone() {
 		return new LongSortedSet(array.clone());
 	}
