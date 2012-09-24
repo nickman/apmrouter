@@ -34,14 +34,14 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.BasicConfigurator;
-import org.helios.apmrouter.ReceiverOpCode;
+import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.sender.AbstractSender;
 import org.helios.apmrouter.sender.netty.handler.ChannelStateAware;
 import org.helios.apmrouter.sender.netty.handler.ChannelStateListener;
-import org.helios.apmrouter.sentry.CallbackSentryWatched;
+import org.helios.apmrouter.sentry.PollingSentryWatched;
 import org.helios.apmrouter.sentry.Sentry;
 import org.helios.apmrouter.sentry.SentryState;
 import org.helios.apmrouter.sentry.SentryStateControl;
@@ -50,6 +50,7 @@ import org.helios.apmrouter.trace.DirectMetricCollection.SplitDMC;
 import org.helios.apmrouter.trace.DirectMetricCollection.SplitReader;
 import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
 import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
@@ -82,7 +83,7 @@ import org.slf4j.LoggerFactory;
  * FIXME:  Where to start ......  1. Listen on channel closed exceptions, start reconnect loop, count dropped metrics in the interrim
  */
 
-public class UDPSender extends AbstractSender implements ChannelPipelineFactory, ChannelStateAware, CallbackSentryWatched {
+public class UDPSender extends AbstractSender implements ChannelPipelineFactory, ChannelStateAware, PollingSentryWatched {
 	
 	/** The maximum size of the payload this sender can reliably expect to be transmitted */
 	public static final int MAXSIZE = 1024;
@@ -95,13 +96,7 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory,
 	protected final ConnectionlessBootstrap bstrap;
 	/** The netty channel factory */
 	protected final ChannelFactory channelFactory;
-	/** The sending channel */
-	protected NioDatagramChannel senderChannel;
 	
-	/** The server socket to send to */
-	protected final InetSocketAddress socketAddress;
-	/** The server socket to listen on */
-	protected final InetSocketAddress listeningSocketAddress;
 	
 	/** The metric catalog for token updates */
 	protected final IMetricCatalog metricCatalog;
@@ -131,22 +126,34 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory,
 				Object msg = e.getMessage();
 				if(msg instanceof ChannelBuffer) {
 					ChannelBuffer buff = (ChannelBuffer)msg;
-					ReceiverOpCode opCode = ReceiverOpCode.valueOf(buff.readByte());					
+					OpCode opCode = OpCode.valueOf(buff.readByte());					
 					switch (opCode) {
 						case CONFIRM_METRIC:							
 							int keyLength = buff.readInt();
 							byte[] keyBytes = new byte[keyLength];
 							buff.readBytes(keyBytes);
 							String key = new String(keyBytes);
-							CountDownLatch latch = timeoutMap.get(key);
+							CountDownLatch latch = timeoutMap.remove(key);
 							if(latch!=null) {
-								long c = latch.getCount(); 
 								latch.countDown();
 							}
 							break;
 						case PING_RESPONSE:							
 							long pingKey = buff.readLong();
+							latch = timeoutMap.remove("" + pingKey);
+							if(latch!=null) {
+								latch.countDown();
+							}
+							pingTimes.insert(System.nanoTime()-pingKey);
+							break;
+						case PING:							
+							pingKey = buff.readLong();
+							ChannelBuffer ping = ChannelBuffers.buffer(1+8);
+							ping.writeByte(OpCode.PING_RESPONSE.op());
+							ping.writeLong(pingKey);
+							senderChannel.write(ping,e.getRemoteAddress());							
 							break;							
+							
 						case SEND_METRIC_TOKEN:
 							int fqnLength = buff.readInt();
 							byte[] bytes = new byte[fqnLength];
@@ -226,6 +233,7 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory,
 			public void operationComplete(ChannelFuture f) throws Exception {
 				if(f.isSuccess()) {
 					log("Listening on [" + listeningSocketAddress + "]");
+					sentryState.setState(SentryState.POLLING);
 				} else {
 					log("Failed to start listener. Stack trace follows");
 					f.getCause().printStackTrace(System.err);
@@ -402,21 +410,21 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory,
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.sentry.CallbackSentryWatched#connect(int)
+	 * @see org.helios.apmrouter.sentry.PollingSentryWatched#sentryPoll()
 	 */
 	@Override
-	public boolean connect(int attempt) {
-		try {
-			senderChannel = (NioDatagramChannel) channelFactory.newChannel(getPipeline());
-			senderChannel.connect(socketAddress).awaitUninterruptibly();
-			if(senderChannel.isConnected()) {
-				connected.set(true);
-				sentryState.setState(SentryState.CALLBACK);
-				return true;
-			}
-			senderChannel = null;
-		} catch (Exception e) {}
-		return false;		
+	public boolean sentryPoll() {
+		return ping(1500);		
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sentry.PollingSentryWatched#sentryPollFailed()
+	 */
+	@Override
+	public void sentryPollFailed() {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

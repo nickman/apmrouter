@@ -29,10 +29,11 @@ import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.helios.apmrouter.SenderOpCode;
+import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.server.net.listener.netty.ChannelGroupAware;
 import org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroup;
+import org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean;
 import org.helios.apmrouter.server.net.listener.netty.handlers.AgentRequestHandler;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.ChannelEvent;
@@ -53,14 +54,14 @@ import org.springframework.jmx.support.MetricType;
 
 public class UDPAgentOperationRouter extends ServerComponentBean implements ChannelUpstreamHandler, ChannelGroupAware {
 	/** The channel group */
-	protected ManagedChannelGroup channelGroup = null;
+	protected ManagedChannelGroupMXBean channelGroup = null;
 	
 	
 
 
 
 	/** A map of agent request handlers keyed by the opcode */
-	protected final EnumMap<SenderOpCode, AgentRequestHandler> handlers = new EnumMap<SenderOpCode, AgentRequestHandler>(SenderOpCode.class);
+	protected final EnumMap<OpCode, AgentRequestHandler> handlers = new EnumMap<OpCode, AgentRequestHandler>(OpCode.class);
 	
 	
 	
@@ -71,7 +72,7 @@ public class UDPAgentOperationRouter extends ServerComponentBean implements Chan
 	@Autowired(required=true)
 	public void setAgentRequestHandlers(Collection<AgentRequestHandler> agentRequestHandlers) {
 		for(AgentRequestHandler arh: agentRequestHandlers) {
-			for(SenderOpCode soc: arh.getHandledOpCodes()) {
+			for(OpCode soc: arh.getHandledOpCodes()) {
 				handlers.put(soc, arh);
 				info("Added AgentRequestHandler [", arh.getClass().getSimpleName(), "] for Op [", soc , "]");
 			}
@@ -88,7 +89,7 @@ public class UDPAgentOperationRouter extends ServerComponentBean implements Chan
 			if(msg instanceof ChannelBuffer) {
 				ChannelBuffer buff = (ChannelBuffer)msg;
 				incr("RequestsReceived");
-				SenderOpCode opCode = SenderOpCode.valueOf(buff);
+				OpCode opCode = OpCode.valueOf(buff);
 				try {
 					handlers.get(opCode).processAgentRequest(opCode, buff, ((MessageEvent) e).getRemoteAddress(), e.getChannel());
 					incr("RequestsCompleted");

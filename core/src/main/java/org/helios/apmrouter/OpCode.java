@@ -28,53 +28,59 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-
+import org.jboss.netty.buffer.ChannelBuffer;
 
 /**
- * <p>Title: ReceiverOpCode</p>
- * <p>Description: Enumerates the op-codes for senders</p> 
+ * <p>Title: OpCode</p>
+ * <p>Description: Enumerates sender and receiver operation codes.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.ReceiverOpCode</code></p>
+ * <p><code>org.helios.apmrouter.OpCode</code></p>
  */
-public enum ReceiverOpCode {
+
+public enum OpCode {
+	/** An asynch send of a metric payload */
+	SEND_METRIC,
 	/** A return of a metric's token value back to a client that sent an untokenized metric */
-	SEND_METRIC_TOKEN,
+	SEND_METRIC_TOKEN,	
+	/** A synchronous send of a single metric payload */
+	SEND_METRIC_DIRECT,
 	/** A direct metric trace handshake */
-	CONFIRM_METRIC,
+	CONFIRM_METRIC,	
+	/** A synchronous send of a ping */
+	PING,		
 	/** A direct metric trace handshake */
 	PING_RESPONSE;
 	
-	
 	/** Map of OpCodes keyed by the ordinal */
-	private static final Map<Byte, ReceiverOpCode> ORD2ENUM;
+	private static final Map<Byte, OpCode> ORD2ENUM;
 	
 	static {
-		Map<Byte, ReceiverOpCode> tmp = new HashMap<Byte, ReceiverOpCode>(ReceiverOpCode.values().length);
-		for(ReceiverOpCode op: ReceiverOpCode.values()) {
+		Map<Byte, OpCode> tmp = new HashMap<Byte, OpCode>(OpCode.values().length);
+		for(OpCode op: OpCode.values()) {
 			tmp.put((byte)op.ordinal(), op);
 		}
 		ORD2ENUM = Collections.unmodifiableMap(tmp);
-	}
+	}	
 	
 	/**
-	 * Decodes the passed ordinal to a ReceiverOpCode.
+	 * Decodes the passed ordinal to a OpCode.
 	 * Throws a runtime exception if the ordinal is invalud
 	 * @param ordinal The ordinal to decode
-	 * @return the decoded ReceiverOpCode
+	 * @return the decoded OpCode
 	 */
-	public static ReceiverOpCode valueOf(byte ordinal) {
-		ReceiverOpCode op = ORD2ENUM.get(ordinal);
-		if(op==null) throw new IllegalArgumentException("The passed ordinal [" + ordinal + "] is not a valid ReceiverOpCode ordinal", new Throwable());
+	public static OpCode valueOf(byte ordinal) {
+		OpCode op = ORD2ENUM.get(ordinal);
+		if(op==null) throw new IllegalArgumentException("The passed ordinal [" + ordinal + "] is not a valid OpCode ordinal", new Throwable());
 		return op;
 	}
 	
 	/**
-	 * Indicates if the passed byte represents a valid ReceiverOpCode
+	 * Indicates if the passed byte represents a valid OpCode
 	 * @param op the bytes to test
-	 * @return true if the passed byte represents a valid ReceiverOpCode, false otherwise
+	 * @return true if the passed byte represents a valid OpCode, false otherwise
 	 */ 
-	public static boolean isReceiverOpCode(byte op) {
+	public static boolean isOpCode(byte op) {
 		return ORD2ENUM.containsKey(op);
 	}
 	
@@ -85,7 +91,15 @@ public enum ReceiverOpCode {
 	public byte op() {
 		return (byte)ordinal();
 	}
-	
 
+	/**
+	 * Determines the op Code of the request in the passed buffer
+	 * @param buff The buffer to read the op code from
+	 * @return The decoded op type
+	 */
+	public static OpCode valueOf(ChannelBuffer buff) {
+		if(buff==null) throw new IllegalArgumentException("The passed buffer was null", new Throwable()); 
+		return valueOf(buff.getByte(0));
+	}
 
 }

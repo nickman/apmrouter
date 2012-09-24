@@ -24,79 +24,74 @@
  */
 package org.helios.apmrouter.server.net.listener.netty.group;
 
-import java.net.SocketAddress;
+import java.util.Set;
 
 import javax.management.MXBean;
 
 /**
- * <p>Title: ChannelMBean</p>
- * <p>Description: An MXBean wrapper for channels registered in a {@link ManagedChannelGroup}.</p> 
+ * <p>Title: ManagedChannelGroupMXBean</p>
+ * <p>Description: </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.server.net.listener.netty.group.ChannelMBean</code></p>
+ * <p><code>org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean</code></p>
  */
 @MXBean
-public interface ChannelMBean {
-	
-	/**
-	 * @return
-	 * @see org.jboss.netty.channel.Channel#getId()
-	 */
-	public Integer getId();
-
-
+public interface ManagedChannelGroupMXBean {
 
 	/**
-	 * @return
-	 * @see org.jboss.netty.channel.Channel#isOpen()
+	 * Returns the managed channels in this group
+	 * @return the managed channels in this group
 	 */
-	public boolean isOpen();
+	//@ManagedAttribute
+	public abstract Set<ManagedChannelMBean> getManagedChannels();
 
 	/**
-	 * @return
-	 * @see org.jboss.netty.channel.Channel#isBound()
+	 * 
+	 * @see java.util.Set#clear()
 	 */
-	public boolean isBound();
+	public abstract void clear();
 
 	/**
 	 * @return
-	 * @see org.jboss.netty.channel.Channel#isConnected()
+	 * @see org.jboss.netty.channel.group.ChannelGroup#close()
 	 */
-	public boolean isConnected();
+	//public abstract ChannelGroupFuture close();
 
 	/**
 	 * @return
-	 * @see org.jboss.netty.channel.Channel#getLocalAddress()
+	 * @see org.jboss.netty.channel.group.ChannelGroup#disconnect()
 	 */
-	public SocketAddress getLocalAddress();
+	//public abstract ChannelGroupFuture disconnect();
 
 	/**
 	 * @return
-	 * @see org.jboss.netty.channel.Channel#getRemoteAddress()
+	 * @see org.jboss.netty.channel.group.ChannelGroup#getName()
 	 */
-	public SocketAddress getRemoteAddress();
+	public abstract String getName();
+
+	/**
+	 * @param id
+	 * @return
+	 * @see org.jboss.netty.channel.group.ChannelGroup#find(java.lang.Integer)
+	 */
+	//public abstract Channel find(Integer id);
 
 	/**
 	 * @return
-	 * @see org.jboss.netty.channel.Channel#isReadable()
+	 * @see java.util.Set#isEmpty()
 	 */
-	public boolean isReadable();
+	public abstract boolean isEmpty();
 
 	/**
 	 * @return
-	 * @see org.jboss.netty.channel.Channel#isWritable()
+	 * @see java.util.Set#size()
 	 */
-	public boolean isWritable();
-	
-    /**
-     * Gets the {@link StandardSocketOptions#TCP_NODELAY} option.
-     */
-    boolean isTcpNoDelay();
-    
-    /**
-     * Gets the {@link StandardSocketOptions#SO_LINGER} option.
-     */
-    int getSoLinger();    
-    
-    
+	public abstract int size();
+
+	/**
+	 * @return
+	 * @see org.jboss.netty.channel.group.ChannelGroup#unbind()
+	 */
+	//public abstract ChannelGroupFuture unbind();
+
 }

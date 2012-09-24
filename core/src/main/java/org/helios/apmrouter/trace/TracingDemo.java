@@ -1,15 +1,16 @@
 package org.helios.apmrouter.trace;
 
-import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
-import java.util.concurrent.TimeoutException;
 
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.sender.ISender;
+import org.helios.apmrouter.sender.Sender;
 import org.helios.apmrouter.util.SystemClock;
+import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.helios.jzab.plugin.nativex.HeliosSigar;
 import org.hyperic.sigar.CpuPerc;
 import org.hyperic.sigar.FileSystem;
@@ -20,7 +21,7 @@ public class TracingDemo {
 
 	public static void main(String[] args) {		
 		final int LOOPS = 100000;
-		final int SLEEP = 500;
+		final int SLEEP = 1000;
 		BasicConfigurator.configure();
 		final ITracer tracer = TracerFactory.getTracer();
 		Logger traceLogger = Logger.getLogger(TracingDemo.class);
@@ -30,22 +31,27 @@ public class TracingDemo {
 		HeliosSigar sigar = HeliosSigar.getInstance();
 		//TXContext.rollContext();
 		MetricType.setCompress(true);
+		ISender sender = Sender.getInstance().getDefaultSender();
 		log("Basic Tracing Test: [" +  tracer.getHost() + "/" + tracer.getAgent() + "]");
 		for(int i = 0; i < LOOPS; i++) {
+			SystemClock.startTimer();
+			boolean success = sender.ping(2000);
+			ElapsedTime et = SystemClock.endTimer();
+			log("Ping [" + success + "]--  " + et );
 			//tracer.traceLong(i, "TXTest", "Foo", "Bar");
-			for(GarbageCollectorMXBean gc: ManagementFactory.getGarbageCollectorMXBeans()) {
-				tracer.traceDelta(gc.getCollectionCount(), "CollectionCount", "JVM", "Memory", "GC", gc.getName());
-				tracer.traceDelta(gc.getCollectionTime(), "CollectionTime", "JVM", "Memory", "GC", gc.getName());
-			}
-			traceCpuUsages(tracer, sigar);
-			traceTotalCpuUsage(tracer, sigar);
-			traceDiskUsage(tracer, sigar);
-			traceMemorySpacesSNMP(tracer, sigar);
-			try {
-				traceLogger.info("Hello World [" + i + "]");
-				traceLogger.info("Hello Pluto [" + i + "]", new Throwable());
-			} catch (Exception e) {}
-			if(i%100==0) log("Loop:" + i);
+//			for(GarbageCollectorMXBean gc: ManagementFactory.getGarbageCollectorMXBeans()) {
+//				tracer.traceDelta(gc.getCollectionCount(), "CollectionCount", "JVM", "Memory", "GC", gc.getName());
+//				tracer.traceDelta(gc.getCollectionTime(), "CollectionTime", "JVM", "Memory", "GC", gc.getName());
+//			}
+//			traceCpuUsages(tracer, sigar);
+//			traceTotalCpuUsage(tracer, sigar);
+//			traceDiskUsage(tracer, sigar);
+//			traceMemorySpacesSNMP(tracer, sigar);
+//			try {
+//				traceLogger.info("Hello World [" + i + "]");
+//				traceLogger.info("Hello Pluto [" + i + "]", new Throwable());
+//			} catch (Exception e) {}
+			if(i%100==0) log("Ping Time:" + sender.getAveragePingTime());
 			SystemClock.sleep(SLEEP);
 		}
 		SystemClock.sleep(5000);

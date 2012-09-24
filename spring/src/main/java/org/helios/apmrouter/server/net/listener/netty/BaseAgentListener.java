@@ -51,6 +51,7 @@ import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLogLevel;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.logging.Log4JLoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedOperation;
 
@@ -67,7 +68,7 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	/** The netty channel factory's worker thread pool */
 	protected ExecutorService workerPool = null;
 	/** The managed channel group */
-	protected ManagedChannelGroup channelGroup = null;
+	protected final ManagedChannelGroup channelGroup = ManagedChannelGroup.getInstance("APMRouterChannelGroup");
 	/** The interface that this listener will bind to */
 	protected String bindHost = null;
 	/** The port that this listener will bind to */
@@ -108,7 +109,7 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	 */
 	@Override
 	protected void doStart() throws Exception {
-		channelGroup = new ManagedChannelGroup(beanName);
+		
 		info("Resolving Channel Handlers");
 		resolvedHandlers.clear();
 		try {
@@ -388,6 +389,14 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 		metrics.add("channelsClosed");
 		return metrics;
 	}
+//	/**
+//	 * Sets the channel group
+//	 * @param channelGroup the channelGroup to set
+//	 */
+//	@Autowired(required=true)
+//	public void setChannelGroup(ManagedChannelGroup channelGroup) {
+//		this.channelGroup = channelGroup;
+//	}
 
 	
 

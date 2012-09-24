@@ -38,7 +38,7 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
-import org.helios.apmrouter.SenderOpCode;
+import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
@@ -205,7 +205,7 @@ public class DirectMetricCollection implements Runnable {
      * Overrides the opCode
      * @param opCode The op code to set to
      */
-    public void setOpCode(SenderOpCode opCode) {
+    public void setOpCode(OpCode opCode) {
     	nvl(opCode, "SenderOpCode");
     	unsafe.putByte(address, opCode.op());
     }
@@ -214,8 +214,8 @@ public class DirectMetricCollection implements Runnable {
      * Returns the currently set op code
      * @return the currently set op code
      */
-    public SenderOpCode getOpCode() {
-    	return SenderOpCode.valueOf(unsafe.getByte(address));
+    public OpCode getOpCode() {
+    	return OpCode.valueOf(unsafe.getByte(address));
     }
     
     /**
@@ -1097,7 +1097,7 @@ public class DirectMetricCollection implements Runnable {
     	capacity = initialCapacity;
     	size = 0;
     	// the op code (0 for metrics)
-    	writeByte(SenderOpCode.SEND_METRIC.op());	
+    	writeByte(OpCode.SEND_METRIC.op());	
     	// The byte order of this message
     	writeByte(BYTE_ORDER); 
     	// the byte size of this DMC set during shrinkWrap()

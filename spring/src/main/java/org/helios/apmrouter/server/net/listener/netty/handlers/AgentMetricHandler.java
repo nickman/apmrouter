@@ -28,8 +28,8 @@ import java.net.SocketAddress;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.helios.apmrouter.ReceiverOpCode;
-import org.helios.apmrouter.SenderOpCode;
+import org.helios.apmrouter.OpCode;
+import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.router.PatternRouter;
@@ -57,33 +57,26 @@ import org.springframework.jmx.export.annotation.ManagedAttribute;
  * <p><code>org.helios.apmrouter.server.net.listener.netty.handlers.AgentMetricHandler</code></p>
  */
 
-public class AgentMetricHandler extends ServerComponentBean implements AgentRequestHandler, ChannelGroupAware {
+public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	/** The metric catalog */
 	protected IMetricCatalog metricCatalog = null;
 	/** The pattern router for handing off metrics to */
 	protected PatternRouter router = null;
-	/** The channel group */
-	protected ManagedChannelGroup channelGroup = null;	
+
 	
 	/** The OpCodes this handler accepts */
-	protected final SenderOpCode[] OP_CODES = new SenderOpCode[]{ SenderOpCode.SEND_METRIC, SenderOpCode.SEND_METRIC_DIRECT };
+	protected final OpCode[] OP_CODES = new OpCode[]{ OpCode.SEND_METRIC, OpCode.SEND_METRIC_DIRECT };
 	
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.net.listener.netty.handlers.AgentRequestHandler#getHandledOpCodes()
 	 */
 	@Override
-	public SenderOpCode[] getHandledOpCodes() {
+	public OpCode[] getHandledOpCodes() {
 		return OP_CODES;
 	}	
 	
-	/**
-	 * Sets the channel group
-	 * @param channelGroup the injected channel group
-	 */
-	public void setChannelGroup(ManagedChannelGroup channelGroup) {
-		this.channelGroup = channelGroup;
-	}
+
 	
 	
 	/**
@@ -94,7 +87,7 @@ public class AgentMetricHandler extends ServerComponentBean implements AgentRequ
 	 * @param channel The channel the metrics were received on
 	 */
 	@Override
-	public void processAgentRequest(SenderOpCode opCode, ChannelBuffer buff, SocketAddress remoteAddress, Channel channel) {
+	public void processAgentRequest(OpCode opCode, ChannelBuffer buff, SocketAddress remoteAddress, Channel channel) {
 		incr("BytesReceived", buff.getInt(2));
 		DirectMetricCollection dmc = DirectMetricCollection.fromChannelBuffer(buff);		
 //		int byteOrder = buff.getByte(1);
@@ -109,7 +102,7 @@ public class AgentMetricHandler extends ServerComponentBean implements AgentRequ
 		if(metrics!=null) incr("MetricsReceived", metrics.length);
 		//dmc.destroy();
 		for(final IMetric metric: metrics) {
-			if(opCode==SenderOpCode.SEND_METRIC_DIRECT) {
+			if(opCode==OpCode.SEND_METRIC_DIRECT) {
 				sendConfirm(channel, remoteAddress,  metric);
 			}
 			if(metric.getToken()==-1) {						
@@ -119,42 +112,9 @@ public class AgentMetricHandler extends ServerComponentBean implements AgentRequ
 		router.route(metrics);
 	}
 	
-	private static final LoggingHandler clientConnLogHandler = new LoggingHandler("org.helios.AgentMetricHandler", InternalLogLevel.DEBUG, true);
 	
-	/**
-	 * Acquires a channel connected to the provided remote address
-	 * @param incoming The incoming channel to acquire a new channel from, if required
-	 * @param remoteAddress The remote address to connect to
-	 * @return a channel connected to the remote address
-	 * FIXME: Need configurable timeout on remote connect
-	 */
-	protected Channel getChannelForRemote(final Channel incoming, final SocketAddress remoteAddress) {
-		Channel channel = channelGroup.findRemote(remoteAddress);
-		if(channel==null) {
-			synchronized(channelGroup) {
-				channel = channelGroup.findRemote(remoteAddress);
-				if(channel==null) {
-					channel = incoming.getFactory().newChannel(Channels.pipeline(clientConnLogHandler));
-					try {
-						if(!channel.connect(remoteAddress).await(1000)) throw new Exception();
-					} catch (Exception  e) {
-						throw new RuntimeException("Failed to acquire remote connection to [" + remoteAddress + "]", e);
-					}
-					final ChannelGroup cg = channelGroup;
-					channel.getCloseFuture().addListener(new ChannelFutureListener() {
-						@Override
-						public void operationComplete(ChannelFuture future) throws Exception {
-							System.err.println("Client Channel Closed. Did Agent Go Away ?");
-							cg.remove(future.getChannel());
-						}
-					});
-					channelGroup.add(channel);
-				}
-			}
-		}
-		return channel;
-	}
 	
+
 	/**
 	 * Confirms the receipt of a direct metric
 	 * @param incoming The channel on which the metric was received
@@ -166,7 +126,7 @@ public class AgentMetricHandler extends ServerComponentBean implements AgentRequ
 		byte[] bytes = key.getBytes();
 		// Buffer size:  OpCode, key size, key bytes
 		final ChannelBuffer cb = ChannelBuffers.directBuffer(1 + 4 + bytes.length);
-		cb.writeByte(ReceiverOpCode.CONFIRM_METRIC.op());
+		cb.writeByte(OpCode.CONFIRM_METRIC.op());
 		cb.writeInt(bytes.length);
 		cb.writeBytes(bytes);		
 		
@@ -202,7 +162,7 @@ public class AgentMetricHandler extends ServerComponentBean implements AgentRequ
 		byte[] bytes = metric.getFQN().getBytes();
 		// Buffer size:  OpCode, fqn size, fqn bytes, token
 		final ChannelBuffer cb = ChannelBuffers.directBuffer(1 + 4 + bytes.length + 8 );
-		cb.writeByte(ReceiverOpCode.SEND_METRIC_TOKEN.op());
+		cb.writeByte(OpCode.SEND_METRIC_TOKEN.op());
 		cb.writeInt(bytes.length);
 		cb.writeBytes(bytes);
 		cb.writeLong(token);

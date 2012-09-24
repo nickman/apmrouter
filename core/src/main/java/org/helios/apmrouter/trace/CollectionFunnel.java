@@ -34,7 +34,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.helios.apmrouter.SenderOpCode;
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.sender.ISender;

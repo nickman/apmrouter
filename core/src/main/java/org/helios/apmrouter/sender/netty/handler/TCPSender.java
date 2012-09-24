@@ -22,35 +22,40 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.server.net.listener.netty.handlers;
+package org.helios.apmrouter.sender.netty.handler;
 
-import java.net.SocketAddress;
+import java.net.URI;
 
-import org.helios.apmrouter.OpCode;
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.Channel;
+import org.helios.apmrouter.sender.AbstractSender;
+import org.helios.apmrouter.trace.DirectMetricCollection;
 
 /**
- * <p>Title: AgentRequestHandler</p>
- * <p>Description: Defines a service that handles agent requests encoded in channel buffers</p> 
+ * <p>Title: TCPSender</p>
+ * <p>Description: TCP based streaming sender for apmrouter clients</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.server.net.listener.netty.handlers.AgentRequestHandler</code></p>
+ * <p><code>org.helios.apmrouter.sender.netty.handler.TCPSender</code></p>
  */
 
-public interface AgentRequestHandler {
+public class TCPSender extends AbstractSender {
+
 	/**
-	 * Processes a channel buffer containing the encoded agent request
-	 * @param opCode The agent request op code
-	 * @param buff The channel buffer containing the encoded agent request
-	 * @param remoteAddress The remote address of the agent that sent the request
-	 * @param channel The channel the request was received on
+	 * Creates a new TCPSender
+	 * @param serverURI The TCP URI this sender sends to
 	 */
-	public void processAgentRequest(OpCode opCode, ChannelBuffer buff, SocketAddress remoteAddress, Channel channel);
-	
+	public TCPSender(URI serverURI) {
+		super(serverURI);
+		// TODO Auto-generated constructor stub
+	}
+
 	/**
-	 * Returns the opcodes handled by this handler
-	 * @return the opcodes handled by this handler
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.ISender#send(org.helios.apmrouter.trace.DirectMetricCollection)
 	 */
-	public OpCode[] getHandledOpCodes();
+	@Override
+	public void send(DirectMetricCollection dcm) {
+		// TODO Auto-generated method stub
+
+	}
+
 }

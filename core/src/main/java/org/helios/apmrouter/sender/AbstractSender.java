@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.sender;
 
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,11 +34,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.helios.apmrouter.SenderOpCode;
+import org.helios.apmrouter.OpCode;
+import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.sender.netty.codec.IMetricEncoder;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.helios.apmrouter.util.TimeoutQueueMap;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.Channel;
 
 
 /**
@@ -57,10 +63,25 @@ public abstract class AbstractSender implements ISender {
 	/** The synchronous request timeout map */
 	protected static final TimeoutQueueMap<String, CountDownLatch> timeoutMap = new TimeoutQueueMap<String, CountDownLatch>(2000);
 	
+	/** The count of metric sends */
 	protected final AtomicLong sent = new AtomicLong(0);
+	/** The count of dropped metric sends */
 	protected final AtomicLong dropped = new AtomicLong(0);
+	/** The count of failed metric sends */
 	protected final AtomicLong failed = new AtomicLong(0);
+	/** Sliding window of ping times */
+	protected final ConcurrentLongSlidingWindow pingTimes = new ConcurrentLongSlidingWindow(64); 
 	protected final URI serverURI;
+	
+	/** The sending channel */
+	protected Channel senderChannel;
+
+	
+	/** The server socket to send to */
+	protected InetSocketAddress socketAddress;
+	/** The server socket to listen on */
+	protected InetSocketAddress listeningSocketAddress;
+	
 	
 	protected AbstractSender(URI serverURI) {
 		this.serverURI = serverURI;
@@ -79,12 +100,52 @@ public abstract class AbstractSender implements ISender {
 	}
 	
 	/**
+	 * Returns a sliding window average of agent ping elapsed times to the server
+	 * @return a sliding window average of agent ping elapsed times to the server
+	 */
+	public long getAveragePingTime() {
+		return pingTimes.avg();
+	}
+	
+	
+	/**
+	 * Sends a ping request to the passed address
+	 * @param address The address to ping
+	 * @param timeout the timeout in ms.
+	 * @return true if ping was confirmed within the timeout, false otherwise
+	 */
+	public boolean ping(SocketAddress address, long timeout) {
+		try {
+			long key = System.nanoTime();
+			ChannelBuffer ping = ChannelBuffers.buffer(1+8);
+			ping.writeByte(OpCode.PING.op());
+			ping.writeLong(key);
+			senderChannel.write(ping,address);
+			CountDownLatch latch = new CountDownLatch(1);
+			timeoutMap.put("" + key, latch, timeout);
+			return latch.await(timeout, TimeUnit.MILLISECONDS);
+		} catch (InterruptedException e) {
+			return false;
+		}		
+	}
+	
+	/**
+	 * Sends a ping request to the configured server
+	 * @param timeout the timeout in ms.
+	 * @return true if ping was confirmed within the timeout, false otherwise
+	 */
+	public boolean ping(long timeout) {
+		return ping(socketAddress, timeout);
+	}
+	
+	
+	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.sender.ISender#send(org.helios.apmrouter.metric.IMetric, long)
 	 */
 	public void send(IMetric metric, long timeout) throws TimeoutException {
 		DirectMetricCollection dcm = DirectMetricCollection.newDirectMetricCollection(metric);
-		dcm.setOpCode(SenderOpCode.SEND_METRIC_DIRECT);
+		dcm.setOpCode(OpCode.SEND_METRIC_DIRECT);
 		CountDownLatch latch = new CountDownLatch(1);
 		String key = new StringBuilder(metric.getFQN()).append(metric.getTime()).toString();
 		send(dcm);

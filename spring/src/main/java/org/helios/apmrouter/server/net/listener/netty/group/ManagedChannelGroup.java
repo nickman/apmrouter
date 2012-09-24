@@ -24,26 +24,68 @@
  */
 package org.helios.apmrouter.server.net.listener.netty.group;
 
+import java.lang.management.ManagementFactory;
 import java.net.SocketAddress;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
+import javax.management.ObjectName;
+
+import org.helios.apmrouter.jmx.JMXHelper;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.ChannelGroupFuture;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
+
 
 /**
  * <p>Title: ManagedChannelGroup</p>
  * <p>Description: </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.server.net.listener.netty.ManagedChannelGroup</code></p>
+ * <p><code>org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroup</code></p>
  */
-
-public class ManagedChannelGroup implements ChannelGroup {
+public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXBean {
+	private static final Map<String, ManagedChannelGroup> groups = new ConcurrentHashMap<String, ManagedChannelGroup>();
+	
+	/**
+	 * @param name
+	 * @return
+	 */
+	public static final ManagedChannelGroup getInstance(String name) {
+		ManagedChannelGroup mcg = groups.get(name);
+		if(mcg==null) {
+			synchronized(groups) {
+				mcg = groups.get(name);
+				if(mcg==null) {
+					mcg = new ManagedChannelGroup(name);
+				}
+			}
+		}
+		return mcg;
+	}
+	
 	/** The delegate channel group */
 	protected final ChannelGroup channelGroup;
+
+	/**
+	 * Creates a new ManagedChannelGroup
+	 * @param name The name of this group
+	 */
+	private ManagedChannelGroup(String name) {
+		channelGroup = new DefaultChannelGroup(name);
+		ObjectName on = JMXHelper.objectName("org.helios.apmrouter.server:service=ChannelGroup,name=" + name);
+		try {
+			ManagementFactory.getPlatformMBeanServer().registerMBean(this, on);
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+		}
+	}
 	
 	
 	/**
@@ -58,45 +100,71 @@ public class ManagedChannelGroup implements ChannelGroup {
 		}
 		return null;
 	}
-
+	
 	/**
-	 * Creates a new ManagedChannelGroup
-	 * @param name The name of this group
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean#getManagedChannels()
 	 */
-	public ManagedChannelGroup(String name) {
-		channelGroup = new DefaultChannelGroup(name);
+	@Override
+	//@ManagedAttribute
+	public Set<ManagedChannelMBean> getManagedChannels() {
+		return new HashSet<ManagedChannelMBean>(Arrays.asList(toArray(new ManagedChannel[0])));
 	}
-
+	
 	/**
-	 * @param arg0
-	 * @return
+	 * Adds a channel
+	 * @param channel The channel to add
+	 * @return true if the channel was not in the group before the add
 	 * @see java.util.Set#add(java.lang.Object)
 	 */
-	public boolean add(Channel arg0) {
-		return channelGroup.add(arg0);
+	@Override
+	public boolean add(Channel channel) {
+		return channelGroup.add(channel instanceof ManagedChannel ? channel : new ManagedChannel(channel));
 	}
+	
+	/**
+	 * Adds a named channel
+	 * @parma name The name of this channel
+	 * @param channel The channel to add
+	 * @return true if the channel was not in the group before the add
+	 * @see java.util.Set#add(java.lang.Object)
+	 */
+	public boolean add(Channel channel, String name) {
+		return channelGroup.add(channel instanceof ManagedChannel ? channel : new ManagedChannel(channel, name));
+	}
+	
 
 	/**
 	 * @param arg0
 	 * @return
 	 * @see java.util.Set#addAll(java.util.Collection)
 	 */
-	public boolean addAll(Collection<? extends Channel> arg0) {
-		return channelGroup.addAll(arg0);
+	@Override
+	public boolean addAll(Collection<? extends Channel> channels) {
+		boolean changed = false;
+		for(Channel channel: channels) {
+			if(add(channel)) changed = true;
+		}
+		return true;
 	}
+	
+
+
 
 	/**
-	 * 
-	 * @see java.util.Set#clear()
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean#clear()
 	 */
+	@Override
 	public void clear() {
 		channelGroup.clear();
 	}
 
 	/**
-	 * @return
-	 * @see org.jboss.netty.channel.group.ChannelGroup#close()
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean#close()
 	 */
+	@Override
 	public ChannelGroupFuture close() {
 		return channelGroup.close();
 	}
@@ -106,6 +174,7 @@ public class ManagedChannelGroup implements ChannelGroup {
 	 * @return
 	 * @see java.lang.Comparable#compareTo(java.lang.Object)
 	 */
+	@Override
 	public int compareTo(ChannelGroup arg0) {
 		return channelGroup.compareTo(arg0);
 	}
@@ -115,6 +184,7 @@ public class ManagedChannelGroup implements ChannelGroup {
 	 * @return
 	 * @see java.util.Set#contains(java.lang.Object)
 	 */
+	@Override
 	public boolean contains(Object arg0) {
 		return channelGroup.contains(arg0);
 	}
@@ -124,14 +194,16 @@ public class ManagedChannelGroup implements ChannelGroup {
 	 * @return
 	 * @see java.util.Set#containsAll(java.util.Collection)
 	 */
+	@Override
 	public boolean containsAll(Collection<?> arg0) {
 		return channelGroup.containsAll(arg0);
 	}
 
 	/**
-	 * @return
-	 * @see org.jboss.netty.channel.group.ChannelGroup#disconnect()
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean#disconnect()
 	 */
+	@Override
 	public ChannelGroupFuture disconnect() {
 		return channelGroup.disconnect();
 	}
@@ -141,23 +213,25 @@ public class ManagedChannelGroup implements ChannelGroup {
 	 * @return
 	 * @see java.util.Set#equals(java.lang.Object)
 	 */
+	@Override
 	public boolean equals(Object arg0) {
 		return channelGroup.equals(arg0);
 	}
 
 	/**
-	 * @return
-	 * @see org.jboss.netty.channel.group.ChannelGroup#getName()
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean#getName()
 	 */
+	@Override
 	public String getName() {
 		return channelGroup.getName();
 	}
 
 	/**
-	 * @param id
-	 * @return
-	 * @see org.jboss.netty.channel.group.ChannelGroup#find(java.lang.Integer)
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean#find(java.lang.Integer)
 	 */
+	@Override
 	public Channel find(Integer id) {
 		return channelGroup.find(id);
 	}
@@ -167,14 +241,16 @@ public class ManagedChannelGroup implements ChannelGroup {
 	 * @return
 	 * @see java.util.Set#hashCode()
 	 */
+	@Override
 	public int hashCode() {
 		return channelGroup.hashCode();
 	}
 
 	/**
-	 * @return
-	 * @see java.util.Set#isEmpty()
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean#isEmpty()
 	 */
+	@Override
 	public boolean isEmpty() {
 		return channelGroup.isEmpty();
 	}
@@ -183,6 +259,7 @@ public class ManagedChannelGroup implements ChannelGroup {
 	 * @return
 	 * @see java.util.Set#iterator()
 	 */
+	@Override
 	public Iterator<Channel> iterator() {
 		return channelGroup.iterator();
 	}
@@ -192,6 +269,7 @@ public class ManagedChannelGroup implements ChannelGroup {
 	 * @return
 	 * @see java.util.Set#remove(java.lang.Object)
 	 */
+	@Override
 	public boolean remove(Object arg0) {
 		return channelGroup.remove(arg0);
 	}
@@ -201,6 +279,7 @@ public class ManagedChannelGroup implements ChannelGroup {
 	 * @return
 	 * @see java.util.Set#removeAll(java.util.Collection)
 	 */
+	@Override
 	public boolean removeAll(Collection<?> arg0) {
 		return channelGroup.removeAll(arg0);
 	}
@@ -210,6 +289,7 @@ public class ManagedChannelGroup implements ChannelGroup {
 	 * @return
 	 * @see java.util.Set#retainAll(java.util.Collection)
 	 */
+	@Override
 	public boolean retainAll(Collection<?> arg0) {
 		return channelGroup.retainAll(arg0);
 	}
@@ -219,6 +299,7 @@ public class ManagedChannelGroup implements ChannelGroup {
 	 * @return
 	 * @see org.jboss.netty.channel.group.ChannelGroup#setInterestOps(int)
 	 */
+	@Override
 	public ChannelGroupFuture setInterestOps(int interestOps) {
 		return channelGroup.setInterestOps(interestOps);
 	}
@@ -228,14 +309,16 @@ public class ManagedChannelGroup implements ChannelGroup {
 	 * @return
 	 * @see org.jboss.netty.channel.group.ChannelGroup#setReadable(boolean)
 	 */
+	@Override
 	public ChannelGroupFuture setReadable(boolean readable) {
 		return channelGroup.setReadable(readable);
 	}
 
 	/**
-	 * @return
-	 * @see java.util.Set#size()
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean#size()
 	 */
+	@Override
 	public int size() {
 		return channelGroup.size();
 	}
@@ -244,6 +327,7 @@ public class ManagedChannelGroup implements ChannelGroup {
 	 * @return
 	 * @see java.util.Set#toArray()
 	 */
+	@Override
 	public Object[] toArray() {
 		return channelGroup.toArray();
 	}
@@ -253,6 +337,7 @@ public class ManagedChannelGroup implements ChannelGroup {
 	 * @return
 	 * @see java.util.Set#toArray(T[])
 	 */
+	@Override
 	public <T> T[] toArray(T[] arg0) {
 		return channelGroup.toArray(arg0);
 	}
@@ -262,6 +347,7 @@ public class ManagedChannelGroup implements ChannelGroup {
 	 * @return
 	 * @see org.jboss.netty.channel.group.ChannelGroup#write(java.lang.Object)
 	 */
+	@Override
 	public ChannelGroupFuture write(Object message) {
 		return channelGroup.write(message);
 	}
@@ -272,14 +358,16 @@ public class ManagedChannelGroup implements ChannelGroup {
 	 * @return
 	 * @see org.jboss.netty.channel.group.ChannelGroup#write(java.lang.Object, java.net.SocketAddress)
 	 */
+	@Override
 	public ChannelGroupFuture write(Object message, SocketAddress remoteAddress) {
 		return channelGroup.write(message, remoteAddress);
 	}
 
 	/**
-	 * @return
-	 * @see org.jboss.netty.channel.group.ChannelGroup#unbind()
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean#unbind()
 	 */
+	@Override
 	public ChannelGroupFuture unbind() {
 		return channelGroup.unbind();
 	}

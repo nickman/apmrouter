@@ -52,6 +52,8 @@ public class IMetricEncoder extends OneToOneEncoder {
 			ChannelBuffer cb = ((DirectMetricCollection)msg).toChannelBuffer();
 			cb.setByte(DirectMetricCollection.BYTE_ORDER_OFFSET, cb.getByte(DirectMetricCollection.BYTE_ORDER_OFFSET)==DirectMetricCollection.BYTE_ZERO ? DirectMetricCollection.BYTE_ONE : DirectMetricCollection.BYTE_ZERO);
 			return cb;
+		} else if(msg instanceof ChannelBuffer) {
+			return msg;
 		}
 		return null;
 	}

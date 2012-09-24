@@ -10,8 +10,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.BasicConfigurator;
-import org.helios.apmrouter.ReceiverOpCode;
-import org.helios.apmrouter.SenderOpCode;
+import org.helios.apmrouter.OpCode;
+import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
@@ -170,7 +170,7 @@ public class UDPListener implements  ChannelPipelineFactory, ChannelStateAware {
 				ChannelBuffer buff = (ChannelBuffer)msg;				
 				//log("Received Channel Buffer:" + buff.isDirect());
 				DirectMetricCollection dmc = DirectMetricCollection.fromChannelBuffer(buff);
-				SenderOpCode opCode = dmc.getOpCode();
+				OpCode opCode = dmc.getOpCode();
 				//if(buff.readableBytes()<length) return null;
 				receivedBytes.addAndGet(dmc.getSize());
 				receivedMetrics.addAndGet(dmc.getMetricCount());				
@@ -184,7 +184,7 @@ public class UDPListener implements  ChannelPipelineFactory, ChannelStateAware {
 				}				
 				//dmc.destroy();
 				for(final IMetric metric: metrics) {
-					if(opCode==SenderOpCode.SEND_METRIC_DIRECT) {
+					if(opCode==OpCode.SEND_METRIC_DIRECT) {
 						sendConfirm(me.getChannel(), me.getRemoteAddress(),  metric);
 					}
 					if(metric.getToken()==-1) {						
@@ -207,7 +207,7 @@ public class UDPListener implements  ChannelPipelineFactory, ChannelStateAware {
 		byte[] bytes = key.getBytes();
 		// Buffer size:  OpCode, key size, key bytes
 		ChannelBuffer cb = ChannelBuffers.directBuffer(1 + 4 + bytes.length);
-		cb.writeByte(ReceiverOpCode.CONFIRM_METRIC.op());
+		cb.writeByte(OpCode.CONFIRM_METRIC.op());
 		cb.writeInt(bytes.length);
 		cb.writeBytes(bytes);		
 		
@@ -245,7 +245,7 @@ public class UDPListener implements  ChannelPipelineFactory, ChannelStateAware {
 		byte[] bytes = metric.getFQN().getBytes();
 		// Buffer size:  OpCode, fqn size, fqn bytes, token
 		ChannelBuffer cb = ChannelBuffers.directBuffer(1 + 4 + bytes.length + 8 );
-		cb.writeByte(ReceiverOpCode.SEND_METRIC_TOKEN.op());
+		cb.writeByte(OpCode.SEND_METRIC_TOKEN.op());
 		cb.writeInt(bytes.length);
 		cb.writeBytes(bytes);
 		cb.writeLong(token);

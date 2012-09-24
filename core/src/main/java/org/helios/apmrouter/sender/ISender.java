@@ -24,11 +24,17 @@
  */
 package org.helios.apmrouter.sender;
 
+import java.net.SocketAddress;
 import java.net.URI;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.trace.DirectMetricCollection;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 
 /**
  * <p>Title: ISender</p>
@@ -39,6 +45,29 @@ import org.helios.apmrouter.trace.DirectMetricCollection;
  */
 
 public interface ISender {
+	
+	/**
+	 * Returns a sliding window average of agent ping elapsed times to the server
+	 * @return a sliding window average of agent ping elapsed times to the server
+	 */
+	public long getAveragePingTime();
+	
+	/**
+	 * Sends a ping request to the passed address
+	 * @param address The address to ping
+	 * @param timeout the timeout in ms.
+	 * @return true if ping was confirmed within the timeout, false otherwise
+	 */
+	public boolean ping(SocketAddress address, long timeout);
+	
+	/**
+	 * Sends a ping request to the configured server
+	 * @param timeout the timeout in ms.
+	 * @return true if ping was confirmed within the timeout, false otherwise
+	 */
+	public boolean ping(long timeout);
+	
+	
 	/**
 	 * Sends the metrics in the passed DCM to the configured endpoint
 	 * @param dcm the DCM containing the metrics to send
