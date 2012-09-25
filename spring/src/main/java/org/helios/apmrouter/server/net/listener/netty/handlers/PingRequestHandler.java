@@ -69,22 +69,28 @@ public class PingRequestHandler extends AbstractAgentRequestHandler implements T
 	public void processAgentRequest(OpCode opCode, ChannelBuffer buff, final SocketAddress remoteAddress, Channel channel) {
 		switch(opCode) {
 		case PING_RESPONSE:							
-			long pingKey = buff.readLong();
+			long pingKey = buff.readLong();			
 			CountDownLatch latch = timeoutMap.remove("" + pingKey);
 			if(latch!=null) {
 				latch.countDown();
 			}
 			pingTimes.insert(System.nanoTime()-pingKey);
 			break;
-		case PING:							
-			pingKey = buff.readLong();
-			ChannelBuffer ping = ChannelBuffers.buffer(1+8);
+		case PING:		
+			buff.resetReaderIndex();
+			buff.readByte();
+			final int byteCount = buff.readInt();
+			final byte[] bytes = new byte[byteCount];
+			buff.readBytes(bytes);
+			ChannelBuffer ping = ChannelBuffers.buffer(1+4+bytes.length);
 			ping.writeByte(OpCode.PING_RESPONSE.op());
-			ping.writeLong(pingKey);			
-			getChannelForRemote(channel, remoteAddress).write(ping,remoteAddress).addListener(new ChannelFutureListener() {
+			ping.writeInt(byteCount);
+			ping.writeBytes(bytes);
+			channel.write(ping,remoteAddress).addListener(new ChannelFutureListener() {
+			//getChannelForRemote(channel, remoteAddress).write(ping,remoteAddress).addListener(new ChannelFutureListener() {
 				public void operationComplete(ChannelFuture future) throws Exception {
 					if(future.isSuccess()) {
-						log.info("Sent ping response to [" + remoteAddress + "]");
+						//log.info("Sent ping response to [" + remoteAddress + "]--->[" + new String(bytes) + "]");
 						incr("TotalPingCount");
 					} else {
 						log.info("Failed to send ping response to [" + remoteAddress + "]");

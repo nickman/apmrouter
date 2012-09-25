@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
+import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.sender.netty.codec.IMetricEncoder;
 import org.helios.apmrouter.trace.DirectMetricCollection;
@@ -87,14 +88,17 @@ public abstract class AbstractSender implements ISender {
 		this.serverURI = serverURI;
 	}
 	
+	@Override
 	public long getSentMetrics() {
 		return sent.get();
 	}
 	
+	@Override
 	public long getDroppedMetrics() {
 		return dropped.get();
 	}
 	
+	@Override
 	public long getFailedMetrics() {
 		return failed.get();
 	}
@@ -103,6 +107,7 @@ public abstract class AbstractSender implements ISender {
 	 * Returns a sliding window average of agent ping elapsed times to the server
 	 * @return a sliding window average of agent ping elapsed times to the server
 	 */
+	@Override
 	public long getAveragePingTime() {
 		return pingTimes.avg();
 	}
@@ -114,15 +119,15 @@ public abstract class AbstractSender implements ISender {
 	 * @param timeout the timeout in ms.
 	 * @return true if ping was confirmed within the timeout, false otherwise
 	 */
+	@Override
 	public boolean ping(SocketAddress address, long timeout) {
 		try {
-			long key = System.nanoTime();
-			ChannelBuffer ping = ChannelBuffers.buffer(1+8);
-			ping.writeByte(OpCode.PING.op());
-			ping.writeLong(key);
+			StringBuilder key = new StringBuilder();
+			ChannelBuffer ping = encodePing(key);
 			senderChannel.write(ping,address);
 			CountDownLatch latch = new CountDownLatch(1);
-			timeoutMap.put("" + key, latch, timeout);
+			//log("Sent ping [" + key + "]");
+			timeoutMap.put(key.toString(), latch, timeout);
 			return latch.await(timeout, TimeUnit.MILLISECONDS);
 		} catch (InterruptedException e) {
 			return false;
@@ -134,15 +139,61 @@ public abstract class AbstractSender implements ISender {
 	 * @param timeout the timeout in ms.
 	 * @return true if ping was confirmed within the timeout, false otherwise
 	 */
+	@Override
 	public boolean ping(long timeout) {
 		return ping(socketAddress, timeout);
 	}
+	
+	/**
+	 * Creates a ping channel buffer and appends the key to the passed buffer 
+	 * @param key The buffer to place the key in
+	 * @return the ping ChannelBuffer
+	 */
+	protected ChannelBuffer encodePing(final StringBuilder key) {
+		String _key = new StringBuilder(AgentIdentity.ID.getHostName()).append("-").append(AgentIdentity.ID.getAgentName()).append("-").append(System.nanoTime()).toString();
+		key.append(_key);
+		byte[] bytes = _key.getBytes();
+		ChannelBuffer ping = ChannelBuffers.buffer(1+4+bytes.length);
+		ping.writeByte(OpCode.PING.op());
+		ping.writeInt(bytes.length);
+		ping.writeBytes(bytes);
+		return ping;
+	}
+	
+	/**
+	 * Decodes a ping from the passed channel buffer, and if the resulting key locates a latch in the timeout map, counts it down.
+	 * @param cb The ChannelBuffer to read the ping from
+	 */
+	protected void decodePing(ChannelBuffer cb) {
+		int byteCount = cb.readInt();
+		byte[] bytes = new byte[byteCount];
+		cb.readBytes(bytes);
+		String key = new String(bytes);
+		//log("Processing ping response [" + key + "]");
+		CountDownLatch latch = timeoutMap.remove(key);
+		if(latch!=null) latch.countDown();
+		try {
+			pingTimes.insert(System.nanoTime()-Long.parseLong(key.split("-")[2]));
+		} catch (Exception e) {}
+		//pingTimes.insert(System.nanoTime()-pingKey);
+	}
+	
+	
+	/**
+	 * Out log
+	 * @param msg the message to log
+	 */
+	public static void log(Object msg) {
+		System.out.println(msg);
+	}
+	
 	
 	
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.sender.ISender#send(org.helios.apmrouter.metric.IMetric, long)
 	 */
+	@Override
 	public void send(IMetric metric, long timeout) throws TimeoutException {
 		DirectMetricCollection dcm = DirectMetricCollection.newDirectMetricCollection(metric);
 		dcm.setOpCode(OpCode.SEND_METRIC_DIRECT);

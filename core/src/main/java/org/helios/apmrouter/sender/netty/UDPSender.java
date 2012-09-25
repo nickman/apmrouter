@@ -141,17 +141,10 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory,
 							}
 							break;
 						case PING_RESPONSE:							
-							log("Processing Ping Response");
-							long pingKey = buff.readLong();
-							latch = timeoutMap.remove("" + pingKey);
-							if(latch!=null) {
-								latch.countDown();
-							}
-							pingTimes.insert(System.nanoTime()-pingKey);
-							
+							decodePing(buff);
 							break;
 						case PING:							
-							pingKey = buff.readLong();
+							long pingKey = buff.readLong();
 							ChannelBuffer ping = ChannelBuffers.buffer(1+8);
 							ping.writeByte(OpCode.PING_RESPONSE.op());
 							ping.writeLong(pingKey);
@@ -174,13 +167,6 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory,
 		}
 	};
 	
-	/**
-	 * Out log
-	 * @param msg the message to log
-	 */
-	public static void log(Object msg) {
-		System.out.println(msg);
-	}
 	
 	/**
 	 * Executed when a disconnect is detected
@@ -227,7 +213,7 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory,
 		channelFactory = new NioDatagramChannelFactory(workerPool);
 		bstrap = new ConnectionlessBootstrap(channelFactory);
 		bstrap.setPipelineFactory(this);
-		bstrap.setOption("broadcast", true);
+		bstrap.setOption("broadcast", false);
 		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(MAXSIZE));
 		socketAddress = new InetSocketAddress(serverURI.getHost(), serverURI.getPort());
 		try {

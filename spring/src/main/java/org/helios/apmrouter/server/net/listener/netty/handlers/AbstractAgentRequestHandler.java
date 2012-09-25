@@ -29,6 +29,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.helios.apmrouter.OpCode;
+import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.server.net.listener.netty.ChannelGroupAware;
 import org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroup;
@@ -115,13 +116,11 @@ public abstract class AbstractAgentRequestHandler extends ServerComponentBean im
 	 */
 	public boolean ping(Channel channel, long timeout) {
 		try {
-			long key = System.nanoTime();
-			ChannelBuffer ping = ChannelBuffers.buffer(1+8);
-			ping.writeByte(OpCode.PING.op());
-			ping.writeLong(key);
+			StringBuilder key = new StringBuilder();
+			ChannelBuffer ping = encodePing(key);
 			channel.write(ping,channel.getRemoteAddress());
 			CountDownLatch latch = new CountDownLatch(1);
-			timeoutMap.put("" + key, latch, timeout);
+			timeoutMap.put(key.toString(), latch, timeout);
 			return latch.await(timeout, TimeUnit.MILLISECONDS);
 		} catch (InterruptedException e) {
 			return false;
@@ -129,5 +128,34 @@ public abstract class AbstractAgentRequestHandler extends ServerComponentBean im
 	}
 	
 	
+	
+	/**
+	 * Creates a ping channel buffer and appends the key to the passed buffer 
+	 * @param key The buffer to place the key in
+	 * @return the ping ChannelBuffer
+	 */
+	protected ChannelBuffer encodePing(final StringBuilder key) {
+		String _key = new StringBuilder(AgentIdentity.ID.getHostName()).append("-").append(AgentIdentity.ID.getAgentName()).append(System.nanoTime()).toString();
+		key.append(_key);
+		byte[] bytes = _key.getBytes();
+		ChannelBuffer ping = ChannelBuffers.buffer(1+4+bytes.length);
+		ping.writeByte(OpCode.PING.op());
+		ping.writeInt(bytes.length);
+		ping.writeBytes(bytes);
+		return ping;
+	}
+	
+	/**
+	 * Decodes a ping from the passed channel buffer, and if the resulting key locates a latch in the timeout map, counts it down.
+	 * @param cb The ChannelBuffer to read the ping from
+	 */
+	protected void decodePing(ChannelBuffer cb) {
+		int byteCount = cb.readInt();
+		byte[] bytes = new byte[byteCount];
+		cb.readBytes(bytes);
+		String key = new String(bytes);
+		CountDownLatch latch = timeoutMap.remove(key);
+		if(latch!=null) latch.countDown();
+	}
 
 }

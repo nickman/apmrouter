@@ -2,6 +2,7 @@ package org.helios.apmrouter.trace;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Level;
@@ -21,7 +22,7 @@ public class TracingDemo {
 
 	public static void main(String[] args) {		
 		final int LOOPS = 100000;
-		final int SLEEP = 1000;
+		final int SLEEP = 10;
 		BasicConfigurator.configure();
 		final ITracer tracer = TracerFactory.getTracer();
 		Logger traceLogger = Logger.getLogger(TracingDemo.class);
@@ -37,7 +38,7 @@ public class TracingDemo {
 			SystemClock.startTimer();
 			boolean success = sender.ping(2000);
 			ElapsedTime et = SystemClock.endTimer();
-			log("Ping [" + success + "]--  " + et );
+			//log("Ping [" + success + "]--  " + et );
 			//tracer.traceLong(i, "TXTest", "Foo", "Bar");
 //			for(GarbageCollectorMXBean gc: ManagementFactory.getGarbageCollectorMXBeans()) {
 //				tracer.traceDelta(gc.getCollectionCount(), "CollectionCount", "JVM", "Memory", "GC", gc.getName());
@@ -51,7 +52,12 @@ public class TracingDemo {
 //				traceLogger.info("Hello World [" + i + "]");
 //				traceLogger.info("Hello Pluto [" + i + "]", new Throwable());
 //			} catch (Exception e) {}
-			if(i%100==0) log("Ping Time:" + sender.getAveragePingTime());
+			
+			if(i%100==0) {
+				long ns = sender.getAveragePingTime();
+				long ms = TimeUnit.MILLISECONDS.convert(ns, TimeUnit.NANOSECONDS);
+				log("Ping Time:" + ns + " ns.  " + ms + "  ms.");
+			}
 			SystemClock.sleep(SLEEP);
 		}
 		SystemClock.sleep(5000);
