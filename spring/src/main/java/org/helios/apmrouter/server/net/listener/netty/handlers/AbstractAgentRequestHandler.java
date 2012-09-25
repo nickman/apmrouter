@@ -84,7 +84,7 @@ public abstract class AbstractAgentRequestHandler extends ServerComponentBean im
 				channel = channelGroup.findRemote(remoteAddress);
 				if(channel==null) {
 					channel = incoming.getFactory().newChannel(Channels.pipeline(clientConnLogHandler));
-					channelGroup.add(channel);
+					channelGroup.add(channel, "AgentConnection/" + remoteAddress);
 					try {
 						if(!channel.connect(remoteAddress).await(1000)) throw new Exception();
 					} catch (Exception  e) {

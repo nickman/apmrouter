@@ -107,8 +107,12 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 	 */
 	@Override
 	//@ManagedAttribute
-	public Set<ManagedChannelMBean> getManagedChannels() {
-		return new HashSet<ManagedChannelMBean>(Arrays.asList(toArray(new ManagedChannel[0])));
+	public Set<ChannelTracker> getChannels() {
+		Set<ChannelTracker>  set = new HashSet<ChannelTracker>(size());
+		for(ManagedChannel mc: toArray(new ManagedChannel[0])) {
+			set.add(new ChannelTracker(mc));
+		}
+		return set;
 	}
 	
 	/**
@@ -130,7 +134,10 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 	 * @see java.util.Set#add(java.lang.Object)
 	 */
 	public boolean add(Channel channel, String name) {
-		return channelGroup.add(channel instanceof ManagedChannel ? channel : new ManagedChannel(channel, name));
+		return channelGroup.add(channel instanceof ManagedChannel ? 
+				channel : 
+				new ManagedChannel(channel, name)
+		);
 	}
 	
 

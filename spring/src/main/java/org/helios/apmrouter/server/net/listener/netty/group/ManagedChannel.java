@@ -42,7 +42,7 @@ import org.jboss.netty.channel.socket.SocketChannel;
  * <p><code>org.helios.apmrouter.server.net.listener.netty.group.ManagedChannel</code></p>
  */
 
-public class ManagedChannel implements ManagedChannelMBean, Channel {
+public class ManagedChannel implements Channel {
 	/** The managed channel */
 	private final Channel channel;
 	/** The managed channel name */
@@ -68,19 +68,12 @@ public class ManagedChannel implements ManagedChannelMBean, Channel {
 	}
 
 	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelMBean#getName()
+	 * @return
 	 */
-	@Override
 	public String getName() {
 		return name;
 	}
 
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelMBean#getType()
-	 */
-	@Override
 	public String getType() {
 		return channel.getClass().getSimpleName();
 	}
@@ -138,21 +131,22 @@ public class ManagedChannel implements ManagedChannelMBean, Channel {
 	}
 
 	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelMBean#getLocalURI()
+	 * @return
 	 */
-	@Override
 	public String getLocalURI() {
-		return channel.getLocalAddress().toString();
+		SocketAddress sa = channel.getLocalAddress();
+		if(sa==null) return null;
+		return sa.toString();
+
 	}
 
 	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelMBean#getRemoteURI()
+	 * @return
 	 */
-	@Override
 	public String getRemoteURI() {
-		return channel.getRemoteAddress().toString();
+		SocketAddress sa = channel.getRemoteAddress();
+		if(sa==null) return null;
+		return sa.toString();
 	}
 
 	/**
@@ -174,10 +168,8 @@ public class ManagedChannel implements ManagedChannelMBean, Channel {
 	}
 
 	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelMBean#isTcpNoDelay()
+	 * @return
 	 */
-	@Override
 	public boolean isTcpNoDelay() {
 		if(channel instanceof SocketChannel) {
 			return ((SocketChannel)channel).getConfig().isTcpNoDelay();
@@ -186,10 +178,8 @@ public class ManagedChannel implements ManagedChannelMBean, Channel {
 	}
 
 	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelMBean#getSoLinger()
+	 * @return
 	 */
-	@Override
 	public int getSoLinger() {
 		if(channel instanceof SocketChannel) {
 			return ((SocketChannel)channel).getConfig().getSoLinger();

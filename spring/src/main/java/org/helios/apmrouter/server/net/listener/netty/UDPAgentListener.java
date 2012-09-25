@@ -67,10 +67,9 @@ public class UDPAgentListener extends BaseAgentListener {
 			public void operationComplete(ChannelFuture future) throws Exception {
 				connected.set(false);
 			}
-		});
-		channelGroup.add(serverChannel);
+		});		
 		serverChannel.getConfig().setBufferFactory(new DirectChannelBufferFactory());
-		channelGroup.add(serverChannel, "UDPAgentListener-" + socketAddress);
+		channelGroup.add(serverChannel, "UDPAgentListener/" + socketAddress);
 		connected.set(true);
 		info("Started UDP listener on [", socketAddress , "]");		
 	}

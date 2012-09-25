@@ -26,8 +26,10 @@ package org.helios.apmrouter.sender.netty;
 
 import static org.helios.apmrouter.util.Methods.nvl;
 
+import java.net.Inet4Address;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
@@ -139,12 +141,14 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory,
 							}
 							break;
 						case PING_RESPONSE:							
+							log("Processing Ping Response");
 							long pingKey = buff.readLong();
 							latch = timeoutMap.remove("" + pingKey);
 							if(latch!=null) {
 								latch.countDown();
 							}
 							pingTimes.insert(System.nanoTime()-pingKey);
+							
 							break;
 						case PING:							
 							pingKey = buff.readLong();
@@ -226,13 +230,18 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory,
 		bstrap.setOption("broadcast", true);
 		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(MAXSIZE));
 		socketAddress = new InetSocketAddress(serverURI.getHost(), serverURI.getPort());
-		listeningSocketAddress = new InetSocketAddress("0.0.0.0", 0);
+		try {
+			listeningSocketAddress = new InetSocketAddress(Inet4Address.getLocalHost(), 0);
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+			throw new RuntimeException(e);
+		}
 		sentryState = Sentry.getInstance().register(this);		
 		senderChannel = (NioDatagramChannel) channelFactory.newChannel(getPipeline());
 		senderChannel.bind(listeningSocketAddress).addListener(new ChannelFutureListener() {
 			public void operationComplete(ChannelFuture f) throws Exception {
 				if(f.isSuccess()) {
-					log("Listening on [" + listeningSocketAddress + "]");
+					log("Listening on [" + f.getChannel().getLocalAddress() + "]");
 					sentryState.setState(SentryState.POLLING);
 				} else {
 					log("Failed to start listener. Stack trace follows");

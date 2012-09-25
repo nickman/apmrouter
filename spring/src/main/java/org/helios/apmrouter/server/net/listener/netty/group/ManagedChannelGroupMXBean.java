@@ -43,7 +43,7 @@ public interface ManagedChannelGroupMXBean {
 	 * @return the managed channels in this group
 	 */
 	//@ManagedAttribute
-	public abstract Set<ManagedChannelMBean> getManagedChannels();
+	public abstract Set<ChannelTracker> getChannels();
 
 	/**
 	 * 

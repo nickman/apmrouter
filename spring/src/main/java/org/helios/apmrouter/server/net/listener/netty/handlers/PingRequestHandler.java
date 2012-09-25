@@ -35,6 +35,8 @@ import org.helios.apmrouter.util.TimeoutListener;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.support.MetricType;
 
@@ -64,7 +66,7 @@ public class PingRequestHandler extends AbstractAgentRequestHandler implements T
 	 * @see org.helios.apmrouter.server.net.listener.netty.handlers.AgentRequestHandler#processAgentRequest(org.helios.apmrouter.OpCode, org.jboss.netty.buffer.ChannelBuffer, java.net.SocketAddress, org.jboss.netty.channel.Channel)
 	 */
 	@Override
-	public void processAgentRequest(OpCode opCode, ChannelBuffer buff, SocketAddress remoteAddress, Channel channel) {
+	public void processAgentRequest(OpCode opCode, ChannelBuffer buff, final SocketAddress remoteAddress, Channel channel) {
 		switch(opCode) {
 		case PING_RESPONSE:							
 			long pingKey = buff.readLong();
@@ -79,9 +81,19 @@ public class PingRequestHandler extends AbstractAgentRequestHandler implements T
 			ChannelBuffer ping = ChannelBuffers.buffer(1+8);
 			ping.writeByte(OpCode.PING_RESPONSE.op());
 			ping.writeLong(pingKey);			
-			getChannelForRemote(channel, remoteAddress).write(ping,remoteAddress);
+			getChannelForRemote(channel, remoteAddress).write(ping,remoteAddress).addListener(new ChannelFutureListener() {
+				public void operationComplete(ChannelFuture future) throws Exception {
+					if(future.isSuccess()) {
+						log.info("Sent ping response to [" + remoteAddress + "]");
+						incr("TotalPingCount");
+					} else {
+						log.info("Failed to send ping response to [" + remoteAddress + "]");
+					}
+				}
+			});
 			sessionTimeoutMap.put(remoteAddress.toString(), remoteAddress);
-			incr("TotalPingCount");			
+			
+			
 			break;							
 		}
 
