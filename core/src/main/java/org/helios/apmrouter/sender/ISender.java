@@ -111,4 +111,16 @@ public interface ISender {
 	 * @return the URI that this sender is sending to
 	 */
 	public URI getURI();
+	
+	/**
+	 * Returns the frequency in ms. of heartbeat pings to the apmrouter server
+	 * @return the heartbeat Ping Period
+	 */
+	public long getHeartbeatPingPeriod();
+
+	/**
+	 * Sets the frequency in ms. of heartbeat pings to the apmrouter server
+	 * @param heartbeatPingPeriod the frequency in ms. of heartbeat pings to the apmrouter server
+	 */
+	public void setHeartbeatPingPeriod(long heartbeatPingPeriod);	
 }

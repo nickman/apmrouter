@@ -35,6 +35,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.helios.apmrouter.jmx.ScheduledThreadPoolFactory;
+
 /**
  * <p>Title: Sentry</p>
  * <p>Description: Singleton scheduler for managing sentry scheduled task executions</p> 
@@ -54,7 +56,7 @@ public class Sentry implements ThreadFactory, RejectedExecutionHandler, Thread.U
 	/** A serial number factory for sentry threads */
 	private final AtomicInteger serial = new AtomicInteger(0);
 	/** The sentry scheduled thread pool */
-	private final ScheduledThreadPoolExecutor scheduler; 
+	private final ScheduledThreadPoolExecutor scheduler = ScheduledThreadPoolFactory.newScheduler("AgentScheduler");
 	
 	/** A map of sentry triggers keyed by the watched object the trigger was created for */
 	private final Map<SentryWatched, SentryTrigger> watches = new ConcurrentHashMap<SentryWatched, SentryTrigger>();
@@ -75,7 +77,7 @@ public class Sentry implements ThreadFactory, RejectedExecutionHandler, Thread.U
 	}
 	
 	private Sentry() {
-		scheduler = new ScheduledThreadPoolExecutor(ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors(), this, this);
+		
 	}
 	
 	/**

@@ -30,12 +30,16 @@ import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
+import org.helios.apmrouter.jmx.ConfigurationHelper;
+import org.helios.apmrouter.jmx.ScheduledThreadPoolFactory;
 import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.sender.netty.codec.IMetricEncoder;
@@ -57,47 +61,99 @@ import org.jboss.netty.channel.Channel;
 public abstract class AbstractSender implements ISender {
 	/** A map of created senders keyed by the URI */
 	protected static final Map<URI, ISender> senders = new ConcurrentHashMap<URI, ISender>(); 
-	
 	/** The metric encoder */
 	protected static final IMetricEncoder metricEncoder = new IMetricEncoder();
-	
 	/** The synchronous request timeout map */
 	protected static final TimeoutQueueMap<String, CountDownLatch> timeoutMap = new TimeoutQueueMap<String, CountDownLatch>(2000);
-	
 	/** The count of metric sends */
 	protected final AtomicLong sent = new AtomicLong(0);
 	/** The count of dropped metric sends */
 	protected final AtomicLong dropped = new AtomicLong(0);
 	/** The count of failed metric sends */
 	protected final AtomicLong failed = new AtomicLong(0);
+	/** The count of timed out pings */
+	protected final AtomicLong pingTimeOuts = new AtomicLong(0);
+	
 	/** Sliding window of ping times */
 	protected final ConcurrentLongSlidingWindow pingTimes = new ConcurrentLongSlidingWindow(64); 
+	/** The URI of the apmrouter server to connect to */
 	protected final URI serverURI;
-	
 	/** The sending channel */
 	protected Channel senderChannel;
-
-	
 	/** The server socket to send to */
 	protected InetSocketAddress socketAddress;
 	/** The server socket to listen on */
 	protected InetSocketAddress listeningSocketAddress;
+	/** The sender's scheduler */
+	protected final ScheduledThreadPoolExecutor scheduler = ScheduledThreadPoolFactory.newScheduler("AgentScheduler");
+	/** The frequency in ms. of heartbeat pings to the apmrouter server */
+	protected long heartbeatPingPeriod = 5000;
+	/** The heartbeat ping timeout in ms. */
+	protected long heartbeatTimeout = 1000;
+	/** The ping schedule handle */
+	protected ScheduledFuture<?> pingScheduleHandle = null;
 	
+	/** The system property name for the heartbeat period */
+	public static final String HBEAT_PERIOD_PROP = "org.helios.apmrouter.heartbeat.period";
+	/** The default heartbeat period */
+	public static final long DEFAULT_HBEAT_PERIOD = 5000;
+	/** The system property name for the heartbeat timeout */
+	public static final String HBEAT_TO_PROP = "org.helios.apmrouter.heartbeat.timeout";
+	/** The default heartbeat timeout */
+	public static final long DEFAULT_HBEAT_TO = 1000;
 	
+	/**
+	 * Creates a new AbstractSender
+	 * @param serverURI The URI of the apmrouter server to connect to
+	 */
 	protected AbstractSender(URI serverURI) {
 		this.serverURI = serverURI;
+		heartbeatPingPeriod = ConfigurationHelper.getLongSystemThenEnvProperty(HBEAT_PERIOD_PROP, DEFAULT_HBEAT_PERIOD);
+		heartbeatTimeout = ConfigurationHelper.getLongSystemThenEnvProperty(HBEAT_TO_PROP, DEFAULT_HBEAT_TO);
+		resetPingSchedule();
 	}
 	
+	/**
+	 * Cancels the existing ping schedule if one exists and starts a new one
+	 */
+	protected void resetPingSchedule() {
+		if(pingScheduleHandle!=null) {
+			pingScheduleHandle.cancel(true);
+			pingScheduleHandle = null;
+		}
+		pingScheduleHandle = scheduler.scheduleAtFixedRate(new Runnable(){
+			final long finalTimeout = heartbeatTimeout;
+			@Override
+			public void run() {
+				if(!ping(finalTimeout)) {
+					pingTimeOuts.incrementAndGet();
+				}
+			}
+		}, 1, heartbeatPingPeriod, TimeUnit.MILLISECONDS);
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.ISender#getSentMetrics()
+	 */
 	@Override
 	public long getSentMetrics() {
 		return sent.get();
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.ISender#getDroppedMetrics()
+	 */
 	@Override
 	public long getDroppedMetrics() {
 		return dropped.get();
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.ISender#getFailedMetrics()
+	 */
 	@Override
 	public long getFailedMetrics() {
 		return failed.get();
@@ -220,6 +276,50 @@ public abstract class AbstractSender implements ISender {
 	@Override
 	public URI getURI() {
 		return serverURI;
+	}
+
+	/**
+	 * Returns the frequency in ms. of heartbeat pings to the apmrouter server
+	 * @return the heartbeat Ping Period
+	 */
+	@Override
+	public long getHeartbeatPingPeriod() {
+		return heartbeatPingPeriod;
+	}
+
+	/**
+	 * Sets the frequency in ms. of heartbeat pings to the apmrouter server
+	 * @param heartbeatPingPeriod the frequency in ms. of heartbeat pings to the apmrouter server
+	 */
+	@Override
+	public void setHeartbeatPingPeriod(long heartbeatPingPeriod) {
+		boolean reset = (this.heartbeatPingPeriod != heartbeatPingPeriod);
+		this.heartbeatPingPeriod = heartbeatPingPeriod;
+		if(reset) {
+			resetPingSchedule();
+		}
+	}
+
+	/**
+	 * Returns the heartbeat ping timeout in ms.
+	 * @return the heartbeat ping timeout in ms.
+	 */
+	public long getHeartbeatTimeout() {
+		return heartbeatTimeout;
+	}
+
+	/**
+	 * Sets the heartbeat ping timeout in ms.
+	 * @param heartbeatTimeout the heartbeat ping timeout in ms.
+	 */
+	public void setHeartbeatTimeout(long heartbeatTimeout) {
+		boolean reset = (this.heartbeatTimeout != heartbeatTimeout);
+		this.heartbeatTimeout = heartbeatTimeout;
+		if(reset) {
+			resetPingSchedule();
+		}
+		
+		this.heartbeatTimeout = heartbeatTimeout;
 	}
 
 }
