@@ -64,6 +64,7 @@ import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLogLevel;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.logging.Log4JLoggerFactory;
+import org.jboss.netty.logging.Slf4JLoggerFactory;
 
 /**
  * <p>Title: UDPSender</p>
@@ -88,8 +89,10 @@ public class UDPSender extends AbstractSender  {
 	private LoggingHandler loggingHandler;
 	/** The listener handle to handle requests/responses from the server */
 	protected final SimpleChannelUpstreamHandler listenerHandler = new SimpleChannelUpstreamHandler() {
-		public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) {
+		public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
 			log("[Listener] Caught exception event [" + e.getCause() + "]");
+			e.getCause().printStackTrace(System.err);
+			super.exceptionCaught(ctx, e);
 		}
 		@Override
 		public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
@@ -172,24 +175,18 @@ public class UDPSender extends AbstractSender  {
 	 */
 	private UDPSender(URI serverURI) {
 		super(serverURI);
-		BasicConfigurator.configure();
 		
 				
-		InternalLoggerFactory.setDefaultFactory(new Log4JLoggerFactory());
+		InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
 		channelStateListener.addChannelStateAware(this);
-		loggingHandler = new LoggingHandler(InternalLogLevel.DEBUG, true);		
+		loggingHandler = new LoggingHandler(InternalLogLevel.ERROR, true);		
 		channelFactory = new NioDatagramChannelFactory(workerPool);
 		bstrap = new ConnectionlessBootstrap(channelFactory);
 		bstrap.setPipelineFactory(this);
 		bstrap.setOption("broadcast", false);
 		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(MAXSIZE));
 		
-		try {
-			listeningSocketAddress = new InetSocketAddress(Inet4Address.getLocalHost(), 0);
-		} catch (UnknownHostException e) {
-			e.printStackTrace();
-			throw new RuntimeException(e);
-		}
+			listeningSocketAddress = new InetSocketAddress("0.0.0.0", 0);
 			
 		senderChannel = (NioDatagramChannel) channelFactory.newChannel(getPipeline());
 		senderChannel.bind(listeningSocketAddress).addListener(new ChannelFutureListener() {
@@ -250,7 +247,7 @@ public class UDPSender extends AbstractSender  {
 	@Override
 	public ChannelPipeline getPipeline()  {
 		ChannelPipeline pipeline = Channels.pipeline();		
-		pipeline.addLast("logging", loggingHandler);		
+		//pipeline.addLast("logging", loggingHandler);		
 		pipeline.addLast("metric-encoder", metricEncoder);
 		pipeline.addLast("listener", listenerHandler);
 		

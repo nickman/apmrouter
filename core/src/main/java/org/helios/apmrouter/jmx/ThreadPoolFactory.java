@@ -80,12 +80,13 @@ public class ThreadPoolFactory extends ThreadPoolExecutor implements ThreadFacto
 		this.name = name;
 		setRejectedExecutionHandler(handler);
 		setThreadFactory(this);
-		try {
-			objectName = new ObjectName(domain + ":service=ThreadPool,name=" + name);
-			ManagementFactory.getPlatformMBeanServer().registerMBean(this, objectName);
+		objectName = JMXHelper.objectName(domain + ":service=ThreadPool,name=" + name);
+		try {			
+			JMXHelper.registerMBean(objectName, this);
 //			String prefix = "threadPools.[" + name + "].";
 		} catch (Exception e) {
-			throw new RuntimeException("Failed to register management interface for pool [" + domain + "/" + name + "]", e);
+			//throw new RuntimeException("Failed to register management interface for pool [" + domain + "/" + name + "]", e);
+			System.err.println("Failed to register management interface for pool [" + domain + "/" + name + "]");
 		}
 		if(prestartCoreThreads) prestartAllCoreThreads();
 	}
@@ -101,12 +102,12 @@ public class ThreadPoolFactory extends ThreadPoolExecutor implements ThreadFacto
 		setThreadFactory(this);
 		this.name = name;
 		prestartAllCoreThreads();
-		try {
-			objectName = new ObjectName(domain + ":service=ThreadPool,name=" + name);
-			ManagementFactory.getPlatformMBeanServer().registerMBean(this, objectName);
+		objectName = JMXHelper.objectName(domain + ":service=ThreadPool,name=" + name);
+		try {			
+			JMXHelper.registerMBean(objectName, this);
 //			String prefix = "threadPools.[" + name + "].";
 		} catch (Exception e) {
-			throw new RuntimeException("Failed to register management interface for pool [" + domain + "/" + name + "]", e);
+			System.err.println("Failed to register management interface for pool [" + domain + "/" + name + "]");
 		}
 		
 	}

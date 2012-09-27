@@ -24,8 +24,11 @@
  */
 package org.helios.apmrouter.monitor;
 
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
+import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.jmx.ScheduledThreadPoolFactory;
 import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.TracerFactory;
@@ -40,11 +43,13 @@ import org.helios.apmrouter.util.SystemClock.ElapsedTime;
  * <p><code>org.helios.apmrouter.monitor.AbstractMonitor</code></p>
  */
 
-public abstract class AbstractMonitor implements Monitor {
+public abstract class AbstractMonitor implements Monitor, Runnable {
 	/** The scheduler shared amongst all monitor instances */
 	protected static final ScheduledThreadPoolExecutor scheduler = ScheduledThreadPoolFactory.newScheduler("Monitor");
 	/** The tracer instance */
 	protected final ITracer tracer = TracerFactory.getTracer();
+	/** The scheduler handle for this monitor */
+	protected ScheduledFuture<?> scheduleHandle = null;
 	
 	/**
 	 * {@inheritDoc}
@@ -56,6 +61,51 @@ public abstract class AbstractMonitor implements Monitor {
 		doCollect();
 		ElapsedTime et = SystemClock.endTimer();
 		tracer.traceLong(et.elapsedMs, "ElpasedTimeMs", "Monitors", getClass().getSimpleName());
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.Runnable#run()
+	 */
+	public void run() {
+		collect();
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.Monitor#getCollectPeriod()
+	 */
+	public long getCollectPeriod() {
+		return ConfigurationHelper.getLongSystemThenEnvProperty("org.helios.apmrouter." + getClass().getSimpleName().toLowerCase() + ".period", 15000L);
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.Monitor#startMonitor()
+	 */
+	public void startMonitor() {
+		long collectPeriod = getCollectPeriod();
+		scheduleHandle = scheduler.scheduleWithFixedDelay(this, 1, collectPeriod, TimeUnit.MILLISECONDS);
+		log("Started collection schedule with frequency of ["+ collectPeriod + "] ms.");
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.Monitor#stopMonitor()
+	 */
+	public void stopMonitor() {
+		if(scheduleHandle!=null) {
+			scheduleHandle.cancel(false);
+			log("Stopped collection");
+		}
+	}
+	
+	/**
+	 * Simple out logger
+	 * @param msg the message
+	 */
+	public void log(Object msg) {
+		System.out.println("[" + getClass().getSimpleName() + "]:" + msg);
 	}
 	
 	/**

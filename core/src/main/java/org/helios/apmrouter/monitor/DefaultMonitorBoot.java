@@ -24,33 +24,22 @@
  */
 package org.helios.apmrouter.monitor;
 
+import org.helios.apmrouter.monitor.jvm.JVMMonitor;
+
 /**
- * <p>Title: Monitor</p>
- * <p>Description: Defines the base spec for a scheduled monitor</p> 
+ * <p>Title: DefaultMonitorBoot</p>
+ * <p>Description: Boots up the standard JVM monitors</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.monitor.Monitor</code></p>
+ * <p><code>org.helios.apmrouter.monitor.DefaultMonitorBoot</code></p>
  */
+public class DefaultMonitorBoot {
 
-public interface Monitor {
 	/**
-	 * Directs a monitor to execute it's collection and trace
+	 * Boots the default monitors
 	 */
-	public void collect();
-	
-	/**
-	 * Returns the collection period in ms.
-	 * @return the collection period in ms.
-	 */
-	public long getCollectPeriod();
-	
-	/**
-	 * Starts scheduled executions for this monitor
-	 */
-	public void startMonitor();
-	
-	/**
-	 * Stops scheduled executions for this monitor
-	 */
-	public void stopMonitor();
+	public static void boot() {
+		new JVMMonitor().startMonitor();
+	}
+
 }

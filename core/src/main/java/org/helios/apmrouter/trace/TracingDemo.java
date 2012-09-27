@@ -8,6 +8,7 @@ import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.monitor.DefaultMonitorBoot;
 import org.helios.apmrouter.sender.ISender;
 import org.helios.apmrouter.sender.Sender;
 import org.helios.apmrouter.util.SystemClock;
@@ -20,7 +21,8 @@ import org.snmp4j.PDU;
 
 public class TracingDemo {
 
-	public static void main(String[] args) {		
+	public static void main(String[] args) {	
+		System.setProperty("theice.agent.name", "tracing-demo");
 		final int LOOPS = 100000;
 		final int SLEEP = 10;
 		BasicConfigurator.configure();
@@ -34,6 +36,7 @@ public class TracingDemo {
 		MetricType.setCompress(true);
 		ISender sender = Sender.getInstance().getDefaultSender();
 		log("Basic Tracing Test: [" +  tracer.getHost() + "/" + tracer.getAgent() + "]");
+		DefaultMonitorBoot.boot();
 		for(int i = 0; i < LOOPS; i++) {
 			SystemClock.startTimer();
 			boolean success = sender.ping(2000);
@@ -56,7 +59,7 @@ public class TracingDemo {
 			if(i%100==0) {
 				long ns = sender.getAveragePingTime();
 				long ms = TimeUnit.MILLISECONDS.convert(ns, TimeUnit.NANOSECONDS);
-				log("Ping Time:" + ns + " ns.  " + ms + "  ms.");
+//				log("Ping Time:" + ns + " ns.  " + ms + "  ms.");
 			}
 			SystemClock.sleep(SLEEP);
 		}

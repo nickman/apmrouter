@@ -203,7 +203,8 @@ public class TimeoutQueueMap<K, V>  implements Runnable, Map<K, V> {
 		V value = referenceMap.remove(key);
 		if(!removed && value!=null) {
 			// This should never happen
-			throw new IllegalStateException("The referenced value [" + value + "] with key [" + key + "] could not be removed from the timeout queue, but was retrieved from the map. Programmer Error ?", new Throwable());
+			//throw new IllegalStateException("The referenced value [" + value + "] with key [" + key + "] could not be removed from the timeout queue, but was retrieved from the map. Programmer Error ?", new Throwable());
+			return null;
 		}
 		return value;
 	}

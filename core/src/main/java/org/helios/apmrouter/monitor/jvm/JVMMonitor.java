@@ -30,10 +30,12 @@ import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryPoolMXBean;
+import java.lang.management.MemoryUsage;
 import java.lang.management.OperatingSystemMXBean;
 import java.lang.management.RuntimeMXBean;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -62,7 +64,7 @@ public class JVMMonitor extends AbstractMonitor {
 	/** The JVM's OSMXBean */
 	protected final OperatingSystemMXBean osMXBean = ManagementFactory.getOperatingSystemMXBean();
 	/** The JVM's RuntimeMXBean */
-	protected final RuntimeMXBean runtimesMXBean = ManagementFactory.getRuntimeMXBean();	
+	protected final RuntimeMXBean runtimeMXBean = ManagementFactory.getRuntimeMXBean();	
 	/** The JVM's MemoryPoolMXBeans */
 	protected final Set<MemoryPoolMXBean> memoryPoolMXBeans = new HashSet<MemoryPoolMXBean>(ManagementFactory.getMemoryPoolMXBeans());
 	/** The JVM's GCMXBeans */
@@ -80,11 +82,17 @@ public class JVMMonitor extends AbstractMonitor {
 	/** Indicates if this is a reset loop */
 	protected boolean resetLoop = false;
 	/** The max stack depth to collect on interesting threads */
-	int maxStackDepth;
+	protected int maxStackDepth = 100;
 	/** A map of the last GC time keyed by the gc-collector name */
 	protected final Map<String, Long> lastGCTime = new HashMap<String, Long>(gcMXBeans.size());
 	/** A map of the last GC collection time keyed by the gc-collector name */
 	protected final Map<String, Long> lastGCCollectTime = new HashMap<String, Long>(gcMXBeans.size());
+	/** A map of the max pool sizes keyed by pool name */
+	protected final Map<String, Long> maxPoolSize = new HashMap<String, Long>(gcMXBeans.size());
+	/** Indicates if the initial static runtime stats have been collected */
+	protected boolean initialRuntimeCollected = false;
+	
+
 	
 	/**
 	 * Creates a new JVMMonitor
@@ -107,6 +115,19 @@ public class JVMMonitor extends AbstractMonitor {
 			resetLoop = false;
 		}
 		lastCollectTime = SystemClock.time();
+		try { collectGc(); } catch (Exception e) {}
+		try { collectThreads();  } catch (Exception e) {}
+		try { collectCompilation(); } catch (Exception e) {}
+		if(maxPoolSize.size()<1) {
+			try { collectInitialMemory(); } catch (Exception e) {}
+			try { collectInitialMemoryPools(); } catch (Exception e) {}
+		}
+		try { collectMemory(); } catch (Exception e) {}
+		try { collectMemoryPools(); } catch (Exception e) {}
+		try { collectClassLoading(); } catch (Exception e) {}
+		if(!initialRuntimeCollected) {
+			try { collectInitialRuntime(); } catch (Exception e) {}
+		}
 	}
 	
 	/**
@@ -143,17 +164,119 @@ public class JVMMonitor extends AbstractMonitor {
 		tracer.traceLong(threadMXBean.getPeakThreadCount(), "PeakThreadCount", "JVM", "Threads");
 		if(resetLoop) threadMXBean.resetPeakThreadCount();
 		long[] deadlocked = threadMXBean.findMonitorDeadlockedThreads();
-		tracer.traceLong(deadlocked.length, "DeadlockedThreadCount", "JVM", "Threads");
-		if(deadlocked.length>0) {
+		tracer.traceLong(deadlocked==null ? 0 : deadlocked.length, "DeadlockedThreadCount", "JVM", "Threads");
+		if(deadlocked != null && deadlocked.length>0) {
 			StringBuilder dlockInfo = new StringBuilder();
 			ThreadInfo[] tis = threadMXBean.getThreadInfo(deadlocked, maxStackDepth);
 			for(ThreadInfo ti : tis) {
-				dlockInfo.append(ti.getThreadName()).append("-").append(ti.getThreadId());
+				dlockInfo.append("\nID:").append(ti.getThreadName()).append("-").append(ti.getThreadId());
+				dlockInfo.append("\nLockName:").append(ti.getLockName());
+				dlockInfo.append("\nLockOwnerId:").append(ti.getLockOwnerId());
+				dlockInfo.append("\nLockOwnerName:").append(ti.getLockOwnerName());
+				dlockInfo.append("\nStack:");
+				for(StackTraceElement ste: ti.getStackTrace()) {
+					dlockInfo.append("\n\t").append(ste.toString());
+				}
 			}
 			tracer.traceString(dlockInfo, "DeadlockedThreadInfo", "JVM", "Threads");
-		}
-		
+		}		
 	}
+	
+	/**
+	 * Collects compilation time 
+	 */
+	protected void collectCompilation() {
+		tracer.traceDelta(compilationMXBean.getTotalCompilationTime(), "CompilationTime", "JVM", "Compilation", compilationMXBean.getName());
+	}
+	
+	/**
+	 * Collects the static memory pool data
+	 */
+	protected void collectInitialMemoryPools() {
+		for(MemoryPoolMXBean pool: memoryPoolMXBeans) {
+			MemoryUsage usage = pool.getUsage();
+			tracer.traceLong(usage.getInit(), "Initial", "JVM", "MemoryPools", pool.getType().name(), pool.getName());
+			tracer.traceLong(usage.getMax(), "Maximum", "JVM", "MemoryPools", pool.getType().name(), pool.getName());
+			maxPoolSize.put(pool.getName(), usage.getMax());
+		}
+	}
+	
+	/**
+	 * Collects the dynamic memory pool data
+	 */
+	protected void collectMemoryPools() {
+		for(MemoryPoolMXBean pool: memoryPoolMXBeans) {
+			MemoryUsage usage = pool.getUsage();
+			tracer.traceLong(usage.getCommitted(), "Committed", "JVM", "MemoryPools", pool.getType().name(), pool.getName());
+			tracer.traceLong(usage.getUsed(), "Used", "JVM", "MemoryPools", pool.getType().name(), pool.getName());
+			tracer.traceLong(percent(usage.getCommitted(), usage.getUsed()), "PercentUsed", "JVM", "MemoryPools", pool.getType().name(), pool.getName());
+			tracer.traceLong(percent(maxPoolSize.get(pool.getName()), usage.getUsed()), "PercentCapacity", "JVM", "MemoryPools", pool.getType().name(), pool.getName());
+		}
+	}
+	
+	/**
+	 * Collects the static memory data
+	 */
+	protected void collectInitialMemory() {
+			MemoryUsage usage = memoryMXBean.getHeapMemoryUsage();
+			tracer.traceLong(usage.getInit(), "Initial", "JVM", "Memory", "Heap");
+			tracer.traceLong(usage.getMax(), "Maximum", "JVM", "Memory", "Heap");
+			maxPoolSize.put("Heap", usage.getMax());
+			usage = memoryMXBean.getNonHeapMemoryUsage();
+			tracer.traceLong(usage.getInit(), "Initial", "JVM", "Memory", "NonHeap");
+			tracer.traceLong(usage.getMax(), "Maximum", "JVM", "Memory", "NonHeap");
+			maxPoolSize.put("NonHeap", usage.getMax());
+	}
+	
+	/**
+	 * Collects the dynamic memory data
+	 */
+	protected void collectMemory() {
+		MemoryUsage usage = memoryMXBean.getHeapMemoryUsage();
+		tracer.traceLong(usage.getCommitted(), "Committed", "JVM", "Memory", "Heap");
+		tracer.traceLong(usage.getUsed(), "Used", "JVM", "Memory", "Heap");
+		tracer.traceLong(percent(usage.getCommitted(), usage.getUsed()), "PercentUsed", "JVM", "Memory", "Heap");
+		tracer.traceLong(percent(maxPoolSize.get("Heap"), usage.getUsed()), "PercentCapacity", "JVM", "Memory", "Heap");
+		
+		usage = memoryMXBean.getNonHeapMemoryUsage();
+		tracer.traceLong(usage.getCommitted(), "Committed", "JVM", "Memory", "NonHeap");
+		tracer.traceLong(usage.getUsed(), "Used", "JVM", "Memory", "NonHeap");
+		tracer.traceLong(percent(usage.getCommitted(), usage.getUsed()), "PercentUsed", "JVM", "Memory", "NonHeap");
+		tracer.traceLong(percent(maxPoolSize.get("NonHeap"), usage.getUsed()), "PercentCapacity", "JVM", "Memory", "NonHeap");
+	}
+	
+	/**
+	 * Collects class loading stats
+	 */
+	protected void collectClassLoading() {
+		tracer.traceLong(classLoadingMXBean.getTotalLoadedClassCount(), "TotalLoadedClasses", "JVM", "ClassLoading");
+		tracer.traceDelta(classLoadingMXBean.getTotalLoadedClassCount(), "ClassLoadRate", "JVM", "ClassLoading");
+		tracer.traceLong(classLoadingMXBean.getUnloadedClassCount(), "UnloadedClassCount", "JVM", "ClassLoading");
+		tracer.traceDelta(classLoadingMXBean.getUnloadedClassCount(), "ClassUnloadRate", "JVM", "ClassLoading");
+		tracer.traceLong(classLoadingMXBean.getLoadedClassCount(), "CurrentClassCount", "JVM", "ClassLoading");		
+	}
+	
+	
+	/**
+	 * Collects static runtime info 
+	 */
+	protected void collectInitialRuntime() {
+		tracer.traceLong(runtimeMXBean.getStartTime(), "StartTime", "JVM", "Runtime");
+		tracer.traceString(runtimeMXBean.getVmName(), "VmName", "JVM", "Runtime");
+		tracer.traceString(runtimeMXBean.getVmVendor(), "VmVendor", "JVM", "Runtime");
+		tracer.traceString(runtimeMXBean.getVmVersion(), "VmVersion", "JVM", "Runtime");
+		tracer.traceString(runtimeMXBean.getInputArguments().toString(), "InputArguments", "JVM", "Runtime");
+		tracer.traceString(runtimeMXBean.getName(), "RuntimeName", "JVM", "Runtime");
+		initialRuntimeCollected = true;
+	}
+	
+	/**
+	 * Collects dynamic runtime info 
+	 */
+	protected void collectRuntime() {
+		tracer.traceLong(runtimeMXBean.getUptime(), "UpTime", "JVM", "Runtime");
+	}
+	
 	
 	/**
 	 * Calcs a percentage

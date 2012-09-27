@@ -22,35 +22,24 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.monitor;
+package org.helios.apmrouter.util;
 
 /**
- * <p>Title: Monitor</p>
- * <p>Description: Defines the base spec for a scheduled monitor</p> 
+ * <p>Title: VersionHelper</p>
+ * <p>Description: Acquires the version of a class from the package, and invents a placeholder if none-exists</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.monitor.Monitor</code></p>
+ * <p><code>org.helios.apmrouter.util.VersionHelper</code></p>
  */
-
-public interface Monitor {
+public class VersionHelper {
 	/**
-	 * Directs a monitor to execute it's collection and trace
+	 * Returns the version of the passed class
+	 * @param clazz The class to get the version of
+	 * @return the version
 	 */
-	public void collect();
-	
-	/**
-	 * Returns the collection period in ms.
-	 * @return the collection period in ms.
-	 */
-	public long getCollectPeriod();
-	
-	/**
-	 * Starts scheduled executions for this monitor
-	 */
-	public void startMonitor();
-	
-	/**
-	 * Stops scheduled executions for this monitor
-	 */
-	public void stopMonitor();
+	public static String version(Class<?> clazz) {
+		String version = clazz.getPackage().getImplementationVersion();
+		if(version==null || version.trim().isEmpty()) version = "Development Snapshot";
+		return version;
+	}
 }
