@@ -50,7 +50,7 @@ public class Sender {
 	/** The configured apmrouter URIs */
 	private final Set<URI>  endpoints = new HashSet<URI>();
 	/** The configured apmrouter senders */
-	private final Map<URI, ISender>  senders = new TreeMap<URI, ISender>();
+	private final Map<URI, AbstractSender>  senders = new TreeMap<URI, AbstractSender>();
 	
 	
 	/** The name of the system property that specifies the apm router URIs*/

@@ -22,40 +22,44 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.sender.netty.handler;
+package org.helios.apmrouter.monitor;
 
-import java.net.URI;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
-import org.helios.apmrouter.sender.AbstractSender;
-import org.helios.apmrouter.trace.DirectMetricCollection;
+import org.helios.apmrouter.jmx.ScheduledThreadPoolFactory;
+import org.helios.apmrouter.trace.ITracer;
+import org.helios.apmrouter.trace.TracerFactory;
+import org.helios.apmrouter.util.SystemClock;
+import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 
 /**
- * <p>Title: TCPSender</p>
- * <p>Description: TCP based streaming sender for apmrouter clients</p> 
+ * <p>Title: AbstractMonitor</p>
+ * <p>Description: Base class for monitor implementations</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.sender.netty.handler.TCPSender</code></p>
+ * <p><code>org.helios.apmrouter.monitor.AbstractMonitor</code></p>
  */
 
-public class TCPSender extends AbstractSender {
-
-	/**
-	 * Creates a new TCPSender
-	 * @param serverURI The TCP URI this sender sends to
-	 */
-	public TCPSender(URI serverURI) {
-		super(serverURI);
-		// TODO Auto-generated constructor stub
-	}
-
+public abstract class AbstractMonitor implements Monitor {
+	/** The scheduler shared amongst all monitor instances */
+	protected static final ScheduledThreadPoolExecutor scheduler = ScheduledThreadPoolFactory.newScheduler("Monitor");
+	/** The tracer instance */
+	protected final ITracer tracer = TracerFactory.getTracer();
+	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.sender.ISender#send(org.helios.apmrouter.trace.DirectMetricCollection)
+	 * @see org.helios.apmrouter.monitor.Monitor#collect()
 	 */
 	@Override
-	public void send(DirectMetricCollection dcm) {
-		// TODO Auto-generated method stub
-
+	public void collect() {
+		SystemClock.startTimer();
+		doCollect();
+		ElapsedTime et = SystemClock.endTimer();
+		tracer.traceLong(et.elapsedMs, "ElpasedTimeMs", "Monitors", getClass().getSimpleName());
 	}
-
+	
+	/**
+	 * Directs a concrete monitor to collect and trace
+	 */
+	protected abstract void doCollect();
 }

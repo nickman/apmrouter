@@ -24,6 +24,9 @@
 		<async.version>1.2.0</async.version>
 		<high-scale-lib.version>1.1.4</high-scale-lib.version>
 		<netty-tools.version>1.3.1-SNAPSHOT</netty-tools.version>
+		<tsdb.version>1.1.0</tsdb.version>
+		<asynchbase.version>1.3.2</asynchbase.version>
+		<suasync.version>1.2.0</suasync.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -108,6 +111,19 @@
 			  <version>${high-scale-lib.version}</version>
 			</dependency>
 			<dependency>
+			 <groupId>com.cgbystrom</groupId>
+			 <artifactId>netty-tools</artifactId>
+			 <version>${netty-tools.version}</version>
+			</dependency>
+			
+			<!--  OpenTSDB -->
+
+			<dependency>
+			 <groupId>net.opentsdb</groupId>
+			 <artifactId>core</artifactId>
+			 <version>${tsdb.version}</version>
+			</dependency>
+			<dependency>
 			  <groupId>org.hbase</groupId>
 			  <artifactId>asynchbase</artifactId>
 			  <version>${hbase.version}</version>
@@ -117,17 +133,9 @@
 			  <artifactId>async</artifactId>
 			  <version>${async.version}</version>
 			</dependency>
-			<dependency>
-			 <groupId>com.cgbystrom</groupId>
-			 <artifactId>netty-tools</artifactId>
-			 <version>${netty-tools.version}</version>
-			</dependency>
+
+
 			
-			
-
-
-
-
 		</dependencies>
 	</dependencyManagement>
 </project>

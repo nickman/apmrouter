@@ -35,7 +35,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.helios.jzab.agent.SystemClock;
+import org.helios.apmrouter.util.SystemClock;
+
 
 /**
  * <p>Title: TrackedScheduledFuture</p>
@@ -71,7 +72,7 @@ public class TrackedScheduledFuture implements TrackedScheduledFutureMBean {
 		this.taskDescription = description;
 		this.period = period;
 		id = serial.incrementAndGet();
-		startTime = SystemClock.currentTimeMillis();
+		startTime = SystemClock.time();
 		TrackedScheduledFuture oldTask = null;
 		for(Iterator<TrackedScheduledFuture> iter = activeTasks.iterator(); iter.hasNext();) {
 			TrackedScheduledFuture t = iter.next();

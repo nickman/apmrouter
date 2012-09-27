@@ -46,6 +46,11 @@
 			  <artifactId>async</artifactId>
 			</dependency>
 			<dependency>
+			 <groupId>net.opentsdb</groupId>
+			 <artifactId>core</artifactId>
+			</dependency>
+			
+			<dependency>
 			  <groupId>org.snmp4j</groupId>
 			  <artifactId>snmp4j</artifactId>
 			</dependency>			

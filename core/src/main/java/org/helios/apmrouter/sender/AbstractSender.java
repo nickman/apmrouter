@@ -30,24 +30,46 @@ import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.jmx.ConfigurationHelper;
+import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.jmx.ScheduledThreadPoolFactory;
+import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
+import org.helios.apmrouter.metric.catalog.IMetricCatalog;
+import org.helios.apmrouter.sender.netty.UDPSender;
 import org.helios.apmrouter.sender.netty.codec.IMetricEncoder;
+import org.helios.apmrouter.sender.netty.handler.ChannelStateAware;
+import org.helios.apmrouter.sender.netty.handler.ChannelStateListener;
+import org.helios.apmrouter.sentry.PollingSentryWatched;
+import org.helios.apmrouter.sentry.Sentry;
+import org.helios.apmrouter.sentry.SentryState;
+import org.helios.apmrouter.sentry.SentryStateControl;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.helios.apmrouter.util.TimeoutQueueMap;
+import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFactory;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelPipeline;
+import org.jboss.netty.channel.ChannelPipelineFactory;
+import org.jboss.netty.channel.ChannelState;
+import org.jboss.netty.channel.ChannelStateEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -58,7 +80,7 @@ import org.jboss.netty.channel.Channel;
  * <p><code>org.helios.apmrouter.sender.AbstractSender</code></p>
  */
 
-public abstract class AbstractSender implements ISender {
+public abstract class AbstractSender implements AbstractSenderMXBean, ISender, ChannelPipelineFactory, ChannelStateAware {
 	/** A map of created senders keyed by the URI */
 	protected static final Map<URI, ISender> senders = new ConcurrentHashMap<URI, ISender>(); 
 	/** The metric encoder */
@@ -73,6 +95,8 @@ public abstract class AbstractSender implements ISender {
 	protected final AtomicLong failed = new AtomicLong(0);
 	/** The count of timed out pings */
 	protected final AtomicLong pingTimeOuts = new AtomicLong(0);
+	/** The logical connected state of this sender */
+	protected final AtomicBoolean connected = new AtomicBoolean(false);
 	
 	/** Sliding window of ping times */
 	protected final ConcurrentLongSlidingWindow pingTimes = new ConcurrentLongSlidingWindow(64); 
@@ -90,17 +114,26 @@ public abstract class AbstractSender implements ISender {
 	protected long heartbeatPingPeriod = 5000;
 	/** The heartbeat ping timeout in ms. */
 	protected long heartbeatTimeout = 1000;
+	/** The number of consecutive heartbeat ping timeouts that trigger a disconnected state */
+	protected int heartbeatTimeoutDiscTrigger = 2;
+	/** The number of consecutive heartbeat ping timeouts */
+	protected final AtomicLong consecutiveTimeouts = new AtomicLong(0);
+	/** The metric catalog for token updates */
+	protected final IMetricCatalog metricCatalog;
+	/** The channel close future */
+	protected ChannelFuture closeFuture = null;
+	/** The channel state listener */
+	protected final ChannelStateListener channelStateListener = new ChannelStateListener();
+	/** Static class logger */
+	protected final Logger log = LoggerFactory.getLogger(getClass());	
+	/** The netty server worker pool */
+	protected final Executor workerPool;
+	/** The netty channel factory */
+	protected ChannelFactory channelFactory;
+	
+	
 	/** The ping schedule handle */
 	protected ScheduledFuture<?> pingScheduleHandle = null;
-	
-	/** The system property name for the heartbeat period */
-	public static final String HBEAT_PERIOD_PROP = "org.helios.apmrouter.heartbeat.period";
-	/** The default heartbeat period */
-	public static final long DEFAULT_HBEAT_PERIOD = 5000;
-	/** The system property name for the heartbeat timeout */
-	public static final String HBEAT_TO_PROP = "org.helios.apmrouter.heartbeat.timeout";
-	/** The default heartbeat timeout */
-	public static final long DEFAULT_HBEAT_TO = 1000;
 	
 	/**
 	 * Creates a new AbstractSender
@@ -108,9 +141,23 @@ public abstract class AbstractSender implements ISender {
 	 */
 	protected AbstractSender(URI serverURI) {
 		this.serverURI = serverURI;
+		socketAddress = new InetSocketAddress(serverURI.getHost(), serverURI.getPort());
 		heartbeatPingPeriod = ConfigurationHelper.getLongSystemThenEnvProperty(HBEAT_PERIOD_PROP, DEFAULT_HBEAT_PERIOD);
 		heartbeatTimeout = ConfigurationHelper.getLongSystemThenEnvProperty(HBEAT_TO_PROP, DEFAULT_HBEAT_TO);
 		resetPingSchedule();
+		metricCatalog = ICEMetricCatalog.getInstance();
+		workerPool =  ThreadPoolFactory.newCachedThreadPool(getClass().getPackage().getName(), getClass().getSimpleName() + "Worker/" + serverURI.getHost() + "/" + serverURI.getPort());
+		try {
+			JMXHelper.registerMBean(JMXHelper.objectName(
+					new StringBuilder("org.helios.apmrouter.sender:protocol=")
+					.append(serverURI.getScheme())
+					.append(",host=").append(serverURI.getHost())
+					.append(",port=").append(serverURI.getPort()))
+			,this);
+		} catch (Exception e) {
+			System.err.println("Failed to publish management interface for sender [" + serverURI + "]. Continuing without");
+			e.printStackTrace(System.err);
+		}
 	}
 	
 	/**
@@ -134,7 +181,7 @@ public abstract class AbstractSender implements ISender {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.sender.ISender#getSentMetrics()
+	 * @see org.helios.apmrouter.sender.AbstractSenderMXBean#getSentMetrics()
 	 */
 	@Override
 	public long getSentMetrics() {
@@ -143,7 +190,7 @@ public abstract class AbstractSender implements ISender {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.sender.ISender#getDroppedMetrics()
+	 * @see org.helios.apmrouter.sender.AbstractSenderMXBean#getDroppedMetrics()
 	 */
 	@Override
 	public long getDroppedMetrics() {
@@ -152,7 +199,7 @@ public abstract class AbstractSender implements ISender {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.sender.ISender#getFailedMetrics()
+	 * @see org.helios.apmrouter.sender.AbstractSenderMXBean#getFailedMetrics()
 	 */
 	@Override
 	public long getFailedMetrics() {
@@ -160,8 +207,8 @@ public abstract class AbstractSender implements ISender {
 	}
 	
 	/**
-	 * Returns a sliding window average of agent ping elapsed times to the server
-	 * @return a sliding window average of agent ping elapsed times to the server
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.AbstractSenderMXBean#getAveragePingTime()
 	 */
 	@Override
 	public long getAveragePingTime() {
@@ -184,16 +231,21 @@ public abstract class AbstractSender implements ISender {
 			CountDownLatch latch = new CountDownLatch(1);
 			//log("Sent ping [" + key + "]");
 			timeoutMap.put(key.toString(), latch, timeout);
-			return latch.await(timeout, TimeUnit.MILLISECONDS);
+			boolean success = latch.await(timeout, TimeUnit.MILLISECONDS);
+			if(success) {
+				resetConsecutiveTimeouts();
+			} else {
+				incrConsecutiveTimeouts();
+			}
+			return success;
 		} catch (InterruptedException e) {
 			return false;
 		}		
 	}
 	
 	/**
-	 * Sends a ping request to the configured server
-	 * @param timeout the timeout in ms.
-	 * @return true if ping was confirmed within the timeout, false otherwise
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.AbstractSenderMXBean#ping(long)
 	 */
 	@Override
 	public boolean ping(long timeout) {
@@ -214,6 +266,28 @@ public abstract class AbstractSender implements ISender {
 		ping.writeInt(bytes.length);
 		ping.writeBytes(bytes);
 		return ping;
+	}
+	
+	/**
+	 * Called whenever a heartbeat ping succeeds.
+	 */
+	private void resetConsecutiveTimeouts() {
+		consecutiveTimeouts.set(0);
+		if(connected.compareAndSet(false, true)) {
+			// fire event
+		}
+	}
+	
+	/**
+	 * Increments the consecutive timeout counter, possibly triggering a disconnect 
+	 */
+	private void incrConsecutiveTimeouts() {
+		long tos = consecutiveTimeouts.incrementAndGet();
+		if(tos>heartbeatTimeoutDiscTrigger) {
+			if(connected.compareAndSet(true, false)) {
+				// fire event
+			}
+		}
 	}
 	
 	/**
@@ -271,7 +345,7 @@ public abstract class AbstractSender implements ISender {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.sender.ISender#getURI()
+	 * @see org.helios.apmrouter.sender.AbstractSenderMXBean#getURI()
 	 */
 	@Override
 	public URI getURI() {
@@ -279,8 +353,8 @@ public abstract class AbstractSender implements ISender {
 	}
 
 	/**
-	 * Returns the frequency in ms. of heartbeat pings to the apmrouter server
-	 * @return the heartbeat Ping Period
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.AbstractSenderMXBean#getHeartbeatPingPeriod()
 	 */
 	@Override
 	public long getHeartbeatPingPeriod() {
@@ -288,8 +362,8 @@ public abstract class AbstractSender implements ISender {
 	}
 
 	/**
-	 * Sets the frequency in ms. of heartbeat pings to the apmrouter server
-	 * @param heartbeatPingPeriod the frequency in ms. of heartbeat pings to the apmrouter server
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.AbstractSenderMXBean#setHeartbeatPingPeriod(long)
 	 */
 	@Override
 	public void setHeartbeatPingPeriod(long heartbeatPingPeriod) {
@@ -301,17 +375,19 @@ public abstract class AbstractSender implements ISender {
 	}
 
 	/**
-	 * Returns the heartbeat ping timeout in ms.
-	 * @return the heartbeat ping timeout in ms.
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.AbstractSenderMXBean#getHeartbeatTimeout()
 	 */
+	@Override
 	public long getHeartbeatTimeout() {
 		return heartbeatTimeout;
 	}
 
 	/**
-	 * Sets the heartbeat ping timeout in ms.
-	 * @param heartbeatTimeout the heartbeat ping timeout in ms.
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.AbstractSenderMXBean#setHeartbeatTimeout(long)
 	 */
+	@Override
 	public void setHeartbeatTimeout(long heartbeatTimeout) {
 		boolean reset = (this.heartbeatTimeout != heartbeatTimeout);
 		this.heartbeatTimeout = heartbeatTimeout;
@@ -321,5 +397,96 @@ public abstract class AbstractSender implements ISender {
 		
 		this.heartbeatTimeout = heartbeatTimeout;
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.AbstractSenderMXBean#getHeartbeatTimeoutTrigger()
+	 */
+	@Override
+	public int getHeartbeatTimeoutTrigger() {
+		return heartbeatTimeoutDiscTrigger;
+	}
+	
+	/**
+	 * Sets the number of consecutive heartbeat timeouts that will trigger a disconnect state
+	 * @param heartbeatTimeoutDiscTrigger the number of consecutive heartbeat timeouts that will trigger a disconnect state
+	 */
+	@Override
+	public void setHeartbeatTimeoutTrigger(int heartbeatTimeoutDiscTrigger) {
+		this.heartbeatTimeoutDiscTrigger = heartbeatTimeoutDiscTrigger;
+	}
+	
+	/**
+	 * Returns the number of consecutive heartbeat ping timeouts
+	 * @return the number of consecutive heartbeat ping timeouts
+	 */
+	@Override
+	public long getConsecutiveTimeouts() {
+		return consecutiveTimeouts.get();
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.AbstractSenderMXBean#isConnnected()
+	 */
+	@Override
+	public boolean isConnnected() {
+		return connected.get();
+	}
+	
+	// ====================================================
+	//		Moved up from UDPSender
+	// ====================================================
+	
+	
+	
 
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.AbstractSenderMXBean#getName()
+	 */
+	@Override
+	public String getName() {
+		return new StringBuilder(getClass().getSimpleName()).append("[").append(socketAddress.getHostName()).append(":").append(socketAddress.getPort()).append("]").toString();
+	}
+
+
+	
+	
+	// ==================================================================
+	//		Sender Specific Impls.
+	// ==================================================================
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.netty.handler.ChannelStateAware#getInterestedChannelStates()
+	 */
+	@Override
+	public abstract ChannelState[] getInterestedChannelStates();
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.netty.handler.ChannelStateAware#onChannelStateEvent(boolean, org.jboss.netty.channel.ChannelStateEvent)
+	 */
+	@Override
+	public abstract void onChannelStateEvent(boolean upstream, ChannelStateEvent stateEvent);
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.jboss.netty.channel.ChannelPipelineFactory#getPipeline()
+	 */
+	@Override
+	public abstract ChannelPipeline getPipeline();
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.ISender#send(org.helios.apmrouter.trace.DirectMetricCollection)
+	 */
+	@Override
+	public abstract void send(final DirectMetricCollection dcm);
+
+
+
+
+	
 }

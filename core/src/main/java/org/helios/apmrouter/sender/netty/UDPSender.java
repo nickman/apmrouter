@@ -32,21 +32,13 @@ import java.net.URI;
 import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.BasicConfigurator;
 import org.helios.apmrouter.OpCode;
-import org.helios.apmrouter.jmx.ThreadPoolFactory;
-import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
-import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.sender.AbstractSender;
 import org.helios.apmrouter.sender.netty.handler.ChannelStateAware;
-import org.helios.apmrouter.sender.netty.handler.ChannelStateListener;
 import org.helios.apmrouter.sentry.PollingSentryWatched;
-import org.helios.apmrouter.sentry.Sentry;
 import org.helios.apmrouter.sentry.SentryState;
-import org.helios.apmrouter.sentry.SentryStateControl;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.helios.apmrouter.trace.DirectMetricCollection.SplitDMC;
 import org.helios.apmrouter.trace.DirectMetricCollection.SplitReader;
@@ -54,7 +46,6 @@ import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
-import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -73,8 +64,6 @@ import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLogLevel;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.logging.Log4JLoggerFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * <p>Title: UDPSender</p>
@@ -85,33 +74,15 @@ import org.slf4j.LoggerFactory;
  * FIXME:  Where to start ......  1. Listen on channel closed exceptions, start reconnect loop, count dropped metrics in the interrim
  */
 
-public class UDPSender extends AbstractSender implements ChannelPipelineFactory, ChannelStateAware, PollingSentryWatched {
+public class UDPSender extends AbstractSender  {
 	
 	/** The maximum size of the payload this sender can reliably expect to be transmitted */
 	public static final int MAXSIZE = 1024;
 	
-	/** Static class logger */
-	protected static final Logger LOG = LoggerFactory.getLogger(UDPSender.class);	
-	/** The netty server worker pool */
-	protected final Executor workerPool;
 	/** The netty bootstrap */
 	protected final ConnectionlessBootstrap bstrap;
-	/** The netty channel factory */
-	protected final ChannelFactory channelFactory;
 	
 	
-	/** The metric catalog for token updates */
-	protected final IMetricCatalog metricCatalog;
-	/** The channel close future */
-	protected ChannelFuture closeFuture = null;
-	/** Indicates if the sender is connected */
-	protected final AtomicBoolean connected = new AtomicBoolean(false);
-	/** The sentry state of the sender channel */
-	protected final SentryStateControl sentryState;
-	
-	
-	/** The channel state listener */
-	private final ChannelStateListener channelStateListener = new ChannelStateListener();
 	
 	/** The logging handler for debug */
 	private LoggingHandler loggingHandler;
@@ -123,7 +94,7 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory,
 		@Override
 		public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
 			if(e.getChannel().getLocalAddress().equals(e.getRemoteAddress())) {
-				LOG.info("Drop");
+				log.info("Drop");
 			} else {
 				Object msg = e.getMessage();
 				if(msg instanceof ChannelBuffer) {
@@ -174,7 +145,6 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory,
 	protected void processDisconnect() {
 		connected.set(false);
 		senderChannel = null;
-		sentryState.setState(SentryState.DISCONNECTED);
 	}
 	
 	/**
@@ -206,29 +176,26 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory,
 		
 				
 		InternalLoggerFactory.setDefaultFactory(new Log4JLoggerFactory());
-		metricCatalog = ICEMetricCatalog.getInstance();
 		channelStateListener.addChannelStateAware(this);
-		loggingHandler = new LoggingHandler(InternalLogLevel.DEBUG, true);
-		workerPool =  ThreadPoolFactory.newCachedThreadPool(getClass().getPackage().getName(), "UDPSenderWorker/" + serverURI.getHost() + "/" + serverURI.getPort());
+		loggingHandler = new LoggingHandler(InternalLogLevel.DEBUG, true);		
 		channelFactory = new NioDatagramChannelFactory(workerPool);
 		bstrap = new ConnectionlessBootstrap(channelFactory);
 		bstrap.setPipelineFactory(this);
 		bstrap.setOption("broadcast", false);
 		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(MAXSIZE));
-		socketAddress = new InetSocketAddress(serverURI.getHost(), serverURI.getPort());
+		
 		try {
 			listeningSocketAddress = new InetSocketAddress(Inet4Address.getLocalHost(), 0);
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
 			throw new RuntimeException(e);
 		}
-		sentryState = Sentry.getInstance().register(this);		
+			
 		senderChannel = (NioDatagramChannel) channelFactory.newChannel(getPipeline());
 		senderChannel.bind(listeningSocketAddress).addListener(new ChannelFutureListener() {
 			public void operationComplete(ChannelFuture f) throws Exception {
 				if(f.isSuccess()) {
-					log("Listening on [" + f.getChannel().getLocalAddress() + "]");
-					sentryState.setState(SentryState.POLLING);
+					log("Listening on [" + f.getChannel().getLocalAddress() + "]");					
 				} else {
 					log("Failed to start listener. Stack trace follows");
 					f.getCause().printStackTrace(System.err);
@@ -376,50 +343,8 @@ public class UDPSender extends AbstractSender implements ChannelPipelineFactory,
 	
 	
 
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.sentry.SentryWatched#getName()
-	 */
-	@Override
-	public String getName() {
-		return "UDPSender[" + socketAddress.getHostName() + ":" + socketAddress.getPort() + "]";
-	}
 
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.sentry.SentryWatched#getSentryState()
-	 */
-	@Override
-	public SentryState getSentryState() {
-		return sentryState.getState();
-	}
 
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.sentry.SentryWatched#getPeriod()
-	 */
-	@Override
-	public long getPeriod() {
-		return 5000;
-	}
 
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.sentry.PollingSentryWatched#sentryPoll()
-	 */
-	@Override
-	public boolean sentryPoll() {
-		return ping(1500);		
-	}
-
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.sentry.PollingSentryWatched#sentryPollFailed()
-	 */
-	@Override
-	public void sentryPollFailed() {
-		// TODO Auto-generated method stub
-		
-	}
 
 }

@@ -124,7 +124,7 @@ public class ScheduledThreadPoolFactory extends ScheduledThreadPoolExecutor impl
 		setThreadFactory(this);
 		name = tps.name;
 		daemonThreads = tps.daemonThreads;
-		objectName = JMXHelper.objectName("org.helios.jzab.agent.jmx:service=Scheduler,name=" + name);
+		objectName = JMXHelper.objectName("org.helios.apmrouter.jmx:service=Scheduler,name=" + name);
 		JMXHelper.registerMBean(JMXHelper.getHeliosMBeanServer(), objectName, this);
 	}	
 	
@@ -382,12 +382,13 @@ public class ScheduledThreadPoolFactory extends ScheduledThreadPoolExecutor impl
 	}
 
 	
+
 	/**
 	 * <p>Title: ScheduledThreadPoolConfig</p>
 	 * <p>Description: Value container and parser for a scheduled thread pool config</p> 
 	 * <p>Company: Helios Development Group LLC</p>
 	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
-	 * <p><code>org.helios.jzab.agent.internal.jmx.ScheduledThreadPoolFactory.ScheduledThreadPoolConfig</code></p>
+	 * <p><code>org.helios.apmrouter.jmx.ScheduledThreadPoolFactory.ScheduledThreadPoolConfig</code></p>
 	 */
 	protected static class ScheduledThreadPoolConfig {
 		/** The name of the pool */
