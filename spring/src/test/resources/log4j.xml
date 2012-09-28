@@ -11,13 +11,14 @@
       </layout>
    </appender>
    
+   <!-- 
 	 <appender name="SOCKET" class="org.apache.log4j.net.SocketAppender">
 	        <param name="Port" value="9409" />
 	        <param name="RemoteHost" value="cube" />
 	        <param name="ReconnectionDelay" value="5000" />
 	        <param name="Threshold" value="DEBUG" />
 	 </appender>
-   
+   -->
 
 <!--  
   <appender name="SOCKET" class="org.apache.log4j.net.SocketAppender">
@@ -55,7 +56,7 @@
 
    <category name="LOGSTASH" additivity="false">
       <priority value="DEBUG"/>
-      <appender-ref ref="SOCKET"  />
+      <!-- <appender-ref ref="SOCKET"  /> -->
    </category>
    
 

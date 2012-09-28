@@ -65,9 +65,16 @@ public class OpenTSDBDestination extends BaseDestination {
 	 * Connects the OpnTSDB hbase connection
 	 */
 	protected void doConnect() {
-		recorder = MetricRecorder.getInstance(host + ":" + port);
-		connected.set(true);
-		info("OpenTSDB MetricRecorder Connected");
+		// running this is a throw-away thread because it blocks
+		Thread t = new Thread("OpenTSDBConnector Thread") {
+			public void run() {
+				recorder = MetricRecorder.getInstance(host + ":" + port);
+				connected.set(true);
+				info("OpenTSDB MetricRecorder Connected");				
+			}
+		};
+		t.setDaemon(true);
+		t.start();
 	}
 	
 	/**
@@ -86,8 +93,9 @@ public class OpenTSDBDestination extends BaseDestination {
 	protected void doAcceptRoute(IMetric routable) {
 		if(routable.isMapped()) {
 			recorder.newRecording(routable.getName(), routable.getLongValue())
-				.tags(routable.getNamespaceMap())
+				.tags(routable.getNamespaceMap(true))
 				.record();
+			incr("MetricsForwarded");
 		} else {
 			incr("UnmappedMetricDrops");
 		}

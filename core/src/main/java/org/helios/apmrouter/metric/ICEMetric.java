@@ -57,6 +57,8 @@ public class ICEMetric implements IMetric {
 	/** The unmapped version of this metric */
 	protected ICEMetric unmapped = null;
 	
+	
+	
 	/**
 	 * Creates a new ICEMetric
 	 * @param timestamp THe metric value timestamp
@@ -317,20 +319,36 @@ public class ICEMetric implements IMetric {
 	/**
 	 * Returns the namespace as a map.
 	 * Throws a RuntimeException if the metric is not mapped
+	 * @param tagHostAgent If true, includes the host and agent in the namespace
 	 * @return a map representing the mapped namespace of this metric
 	 */
 	@Override
-	public Map<String, String> getNamespaceMap() {
+	public Map<String, String> getNamespaceMap(boolean tagHostAgent) {
 		if(metricId.isFlat()) throw new RuntimeException("Requesting named index namespace on non-mapped metric [" + getFQN() + "]", new Throwable());
 		String[] ns = metricId.getNamespace();
 		if(ns==null || ns.length<1) return Collections.emptyMap();
-		Map<String, String> map = new LinkedHashMap<String, String>(ns.length);
+		Map<String, String> map = new LinkedHashMap<String, String>(ns.length + (tagHostAgent ? 2 : 0));
+		if(tagHostAgent) {
+			map.put(HOST_TAG, metricId.getHost());
+			map.put(AGENT_TAG, metricId.getAgent());
+		}
 		for(String s: ns) {
 			int eq = s.indexOf('=');
 			map.put(s.substring(0, eq), s.substring(eq+1));
 		}		
 		return map;
 	}
+	
+	/**
+	 * Returns the namespace as a map without the host and agent
+	 * Throws a RuntimeException if the metric is not mapped
+	 * @return a map representing the mapped namespace of this metric
+	 */
+	@Override
+	public Map<String, String> getNamespaceMap() {
+		return getNamespaceMap(false);
+	}
+	
 	
 	
 	/**

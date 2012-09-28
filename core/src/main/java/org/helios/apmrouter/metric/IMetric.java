@@ -59,6 +59,12 @@ public interface IMetric extends Routable {
 	/** The format for rendering the fully qualified metricId name */
 	static final String FQN_FORMAT = "%s" + NSDELIM + "%s%s" + NADELIM + "%s" ;
 	
+	/** The tag name for the host */
+	public static final String HOST_TAG = "host";
+	/** The name delimiter */
+	public static final String AGENT_TAG = "agent";
+	
+	
 
 	/**
 	 * Returns the host name that this metricId originated from
@@ -141,6 +147,15 @@ public interface IMetric extends Routable {
 	 * @return a map representing the mapped namespace of this metric
 	 */
 	public abstract Map<String, String> getNamespaceMap();
+	
+	/**
+	 * Returns the namespace as a map.
+	 * Throws a RuntimeException if the metric is not mapped
+	 * @param tagHostAgent If true, includes the host and agent in the namespace
+	 * @return a map representing the mapped namespace of this metric
+	 */
+	public abstract Map<String, String> getNamespaceMap(boolean tagHostAgent);
+	
 
 	/**
 	 * Returns the number of elements in the namespace
@@ -201,7 +216,6 @@ public interface IMetric extends Routable {
 	 * @return a flat metric 
 	 */
 	public IMetric getUnmapped();
-	
 	
 
 }

@@ -51,7 +51,7 @@ public class Agent {
 	 */
 	public static void main(String[] args) {		
 		log("\n\t=============================\n\tAPMRouter JavaAgent v " + VersionHelper.version(Agent.class) + " Successfully Started"  
-		+ "\n\tAgent name is [" + AgentIdentity.ID.getHostName() + AgentIdentity.ID.getAgentName() + "]" +  
+		+ "\n\tAgent name is [" + AgentIdentity.ID.getHostName() + "/" + AgentIdentity.ID.getAgentName() + "]" +  
 		"\n\t=============================\n");
 		DefaultMonitorBoot.boot();
 	}

@@ -167,10 +167,11 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 	
 	
 	public static void main(String[] args) {
+		System.setProperty("java.net.preferIPv4Stack", "true");
 		log("OpenTSDB MetricRecorder Test");
 		System.setProperty("tsd.core.auto_create_metrics", "true"); 
 		Random r = new Random(System.nanoTime());
-		MetricRecorder recorder = MetricRecorder.getInstance("localhost:21899");
+		MetricRecorder recorder = MetricRecorder.getInstance("pdk-pt-cupas-01:2181");
 		for(int i = 0; i < 100; i++) {
 //			long value = Math.abs(r.nextInt(100));
 //			recorder.newRecording("test.recording", value).tag("allocation", "vertical").record();
@@ -434,6 +435,7 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 	 */
 	private MetricRecorder(String hbaseUri) {
 		super(Executors.newFixedThreadPool(2), new MBeanNotificationInfo(new String[]{NOTIF_STARTING, NOTIF_ENDING}, "Throttling", "Notifications issued when throttling starts or ends"));
+		System.setProperty("tsd.core.auto_create_metrics", "true"); 
 		this.hbaseUri = hbaseUri;
 		hClient = new HBaseClient(this.hbaseUri);
 		tsClient = new TSDB(hClient, timeSeriesTable, uidTable);
