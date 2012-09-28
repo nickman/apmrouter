@@ -70,6 +70,8 @@ public class ChronicleICEMetric implements IDelegateMetric {
 	public static final int AGENT_POS = 2;
 	/** The index of the offset of the metric name */
 	public static final int NAME_POS = 3;
+	/** The index of the offset of the unmapped delegate metric */
+	public static final int UNMAPPED_POS = 4;
 	
 	/** An empty string array */
 	private static final String[] EMPTY_STR_ARR = {};
@@ -107,7 +109,7 @@ public class ChronicleICEMetric implements IDelegateMetric {
 		this.index = index;
 		excerpt = ex;
 		if(!excerpt.index(index)) throw new IllegalStateException("No metric for index [" + index + "]", new Throwable());
-		nameOffsets = new int[4];
+		nameOffsets = new int[5];
 		excerpt.position(0);
 		excerpt.readLong(); // the token
 		excerpt.readInt(); // the type
@@ -125,6 +127,7 @@ public class ChronicleICEMetric implements IDelegateMetric {
 			namespaceOffsets[i] = excerpt.readInt();
 			excerpt.skipBytes(namespaceOffsets[i]);
 		}
+		nameOffsets[UNMAPPED_POS] = excerpt.position();
 	}
 	
 	/**
@@ -146,13 +149,14 @@ public class ChronicleICEMetric implements IDelegateMetric {
 	 * @param type The metric type
 	 * @param namespace The metric namespace
 	 * @return the ChronicleICEMetric that reads its values from the chronicle
+	 * FIXME: the record structure above is WAY out of date
 	 */
 	public static ChronicleICEMetric newInstance(String host, String agent, CharSequence name, MetricType type, CharSequence...namespace) {
 		try {
 			nvl(host, "Host Name");
 			nvl(agent, "Agent Name");
 			nvl(agent, "Metric Name");
-			int exSize = 40 + 4 + 4;  // the size of the ordinal int, the ns size int and 8 ints used to track the name lengths & offsets
+			int exSize = 40 + 4 + 4 + 8;  // the size of the unmapped long reference, the ordinal int, the ns size int and 8 ints used to track the name lengths & offsets
 			int[] nameOffsets = new int[4];
 			int[] nameLengths = new int[]{0, host.trim().getBytes().length, agent.trim().getBytes().length, name.toString().trim().getBytes().length};
 			int[] namespaceOffsets;
@@ -213,6 +217,7 @@ public class ChronicleICEMetric implements IDelegateMetric {
 				ex.write(s.getBytes());
 				offind++;				
 			}
+			ex.writeLong(-1L); // until an unmapped is requested
 			ex.finish();
 			return new ChronicleICEMetric(ex.index(), ex, nameOffsets, namespaceOffsets);
 		} catch (Exception e) {
@@ -320,6 +325,46 @@ public class ChronicleICEMetric implements IDelegateMetric {
 	}
 	
 	/**
+	 * Returns the ID of the unmapped version of this metric.
+	 * If this metric is not mapped, this will be -1
+	 * @return the ID of the unmapped version of this metric.
+	 */
+	protected long getUnmappedId() {
+		return excerpt.readLong(nameOffsets[UNMAPPED_POS]);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.catalog.IDelegateMetric#unmap()
+	 */
+	@Override
+	public IDelegateMetric unmap() {
+		if(!isMapped()) return this;
+		long mappedId = getUnmappedId();
+		ChronicleICEMetric unmapped = null;
+		if(mappedId==-1) {
+			synchronized(this) {
+				mappedId = getUnmappedId();
+				if(mappedId==-1) {
+					String[] namespace = getNamespace();
+					String[] unmappedNamespace = new String[namespace.length];
+					for(int i = 0; i < namespace.length; i++) {
+						int _index = namespace[i].indexOf("=");
+						unmappedNamespace[i] = _index==-1 ? namespace[i] : namespace[i].substring(_index+1); 
+					}					
+					unmapped = newInstance(getHost(), getAgent(), getName(), getType(), unmappedNamespace);
+					excerpt.writeLong(nameOffsets[UNMAPPED_POS], unmapped.index);
+				}
+			}
+		}
+		if(unmapped == null) {
+			return new ChronicleICEMetric(mappedId);
+		}
+		return unmapped;
+	}
+	
+	
+	/**
 	 * Sets the serialization token for this IMetric
 	 * @param token the serialization token for this IMetric
 	 */
@@ -363,6 +408,8 @@ public class ChronicleICEMetric implements IDelegateMetric {
 	public boolean isMapped() {
 		return excerpt.readByte(nameOffsets[FLAT_POS])==0;
 	}
+	
+	
 	
 	public static void main(String[] args) {
 		log("DirectMetric Test");
@@ -483,9 +530,13 @@ public class ChronicleICEMetric implements IDelegateMetric {
 		builder.append(getName());
 		builder.append(", namespace=");
 		builder.append(Arrays.toString(getNamespace()));
+		builder.append(", unmappedId=");
+		builder.append(getUnmappedId());
+		
 		builder.append("]");
 		return builder.toString();
 	}
+	
 
 	
 	

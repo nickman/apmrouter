@@ -111,8 +111,9 @@ public class HeapICEMetric implements IDelegateMetric {
 		if(!isMapped()) return this;
 		if(unmapped==null) {
 			String[] unmappedNamespace = new String[namespace.length];
-			for(String s: getNamespace()) {
-				int index = s.indexOf(s);
+			for(int i = 0; i < namespace.length; i++) {
+				int index = namespace[i].indexOf("=");
+				unmappedNamespace[i] = index==-1 ? namespace[i] : namespace[i].substring(index+1); 
 			}
 			unmapped = new HeapICEMetric(host, agent, name, type, unmappedNamespace);
 		}
