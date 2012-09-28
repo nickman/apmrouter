@@ -133,7 +133,7 @@ public class CubeDestination extends BaseDestination implements ChannelPipelineF
 	 */
 	protected void doAcceptRoute(IMetric routable) {
 		if(connected.get()) {
-			writeToCube(routable);
+			writeToCube(routable.getUnmapped());
 			incr("MetricsForwarded");
 		} else {
 			incr("MetricsDropped");

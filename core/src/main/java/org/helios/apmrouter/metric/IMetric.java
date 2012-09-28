@@ -195,6 +195,13 @@ public interface IMetric extends Routable {
 	 */
 	public abstract TXContext getTXContext();
 	
+	/**
+	 * Forces a mapped metric to return an unmapped instance of itself.
+	 * If this metric is flat, it just returns this.
+	 * @return a flat metric 
+	 */
+	public IMetric getUnmapped();
+	
 	
 
 }

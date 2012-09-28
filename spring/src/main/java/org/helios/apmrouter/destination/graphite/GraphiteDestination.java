@@ -282,7 +282,7 @@ public class GraphiteDestination extends BaseDestination implements Runnable, Ch
 	 */
 	protected void doAcceptRoute(IMetric routable) {
 		synchronized(accumulator) {
-			accumulator.append(routable);
+			accumulator.append(routable.getUnmapped());
 		}
 	}
 	

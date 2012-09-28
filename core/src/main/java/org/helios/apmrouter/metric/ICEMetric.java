@@ -54,7 +54,9 @@ public class ICEMetric implements IMetric {
 	/** The attached TXContext */
 	protected TXContext txContext;
 	
-
+	/** The unmapped version of this metric */
+	protected ICEMetric unmapped = null;
+	
 	/**
 	 * Creates a new ICEMetric
 	 * @param timestamp THe metric value timestamp
@@ -462,5 +464,17 @@ public class ICEMetric implements IMetric {
 		return String.format("%s-%s", getType().name(), getFQN());
 	}
 
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getUnmapped()
+	 */
+	public IMetric getUnmapped() {
+		if(isFlat()) return this;
+		if(unmapped==null) {
+			unmapped = new ICEMetric(value, metricId.unmap());
+			unmapped.txContext = txContext;
+		}
+		return unmapped;
+	}
 	
 }
