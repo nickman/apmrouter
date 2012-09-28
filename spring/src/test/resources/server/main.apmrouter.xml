@@ -119,6 +119,7 @@
 		</constructor-arg>
 	</bean>
 	
+<!-- 
 	<bean id="GraphiteDestination" class="org.helios.apmrouter.destination.graphite.GraphiteDestination">
  		<property name="matchPatterns">
 	 		<util:set>
@@ -155,7 +156,18 @@
 			</bean>
  		</property>
 	</bean>
-	
+
+ -->
+ 
+ 	<bean id="LocalOpenTSDB" class="org.helios.apmrouter.destination.opentsdb.OpenTSDBDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>LONG-.*|DELTA-.*</value>	 			
+	 		</util:set>
+ 		</property>
+ 		<property name="openTSDBHost" value="localhost" />
+	</bean>
+ 	
 	
 	<!-- 
 	<bean id="LocalTrapServer" class="org.helios.apmrouter.destination.snmp.SNMPManager">

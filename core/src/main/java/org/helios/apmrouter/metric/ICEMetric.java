@@ -462,6 +462,5 @@ public class ICEMetric implements IMetric {
 		return String.format("%s-%s", getType().name(), getFQN());
 	}
 
-
 	
 }

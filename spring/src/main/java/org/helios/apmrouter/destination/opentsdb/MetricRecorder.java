@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.destination.opentsdb;
 
+import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -50,14 +51,13 @@ import net.opentsdb.core.TSDB;
 import net.opentsdb.core.WritableDataPoints;
 
 import org.apache.log4j.BasicConfigurator;
-import org.apache.log4j.Level;
 import org.hbase.async.HBaseClient;
 import org.hbase.async.HBaseRpc;
 import org.hbase.async.KeyValue;
 import org.hbase.async.PleaseThrottleException;
 import org.hbase.async.PutRequest;
 import org.hbase.async.Scanner;
-import org.slf4j.Logger;
+import org.helios.apmrouter.util.SystemClock;
 import org.slf4j.LoggerFactory;
 
 import com.stumbleupon.async.Callback;
@@ -168,16 +168,38 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 	
 	public static void main(String[] args) {
 		log("OpenTSDB MetricRecorder Test");
+		System.setProperty("tsd.core.auto_create_metrics", "true"); 
 		Random r = new Random(System.nanoTime());
-		MetricRecorder recorder = MetricRecorder.getInstance();
+		MetricRecorder recorder = MetricRecorder.getInstance("localhost:21899");
 		for(int i = 0; i < 100; i++) {
-			long value = Math.abs(r.nextInt(100));
-			recorder.newRecording("test.recording", value).tag("allocation", "vertical").record();
-			log("Recorded:" + value);
+//			long value = Math.abs(r.nextInt(100));
+//			recorder.newRecording("test.recording", value).tag("allocation", "vertical").record();
+//			log("Recorded:" + value);
+			collectGc(recorder);
 			try { Thread.currentThread().join(5000); } catch (Exception e) {}
 		}
 		try { recorder.shutdown(); } catch (Exception e) {}
 	}
+	
+	protected static void collectGc(MetricRecorder recorder) {
+		SystemClock.startTimer();
+		for(GarbageCollectorMXBean gc: ManagementFactory.getGarbageCollectorMXBeans()) {			
+			String name = gc.getName();
+			//tracer.traceDelta(gc.getCollectionCount(), "CollectionCount", "JVM", "GarbageCollection", name);
+			recorder.newRecording("CollectionCount", gc.getCollectionCount())
+				.tag("platform", "JVM")
+				.tag("group", "GarbageCollection")
+				.tag("name", name)
+				.record();
+			recorder.newRecording("CollectionTime", gc.getCollectionTime())
+			.tag("platform", "JVM")
+			.tag("group", "GarbageCollection")
+			.tag("name", name)
+			.record();
+		}
+		log("GC Recorded in " + SystemClock.endTimer());
+
+	}	
 	
 	public static void log(Object msg) {
 		System.out.println(msg);
@@ -522,7 +544,8 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 		if(!nameCache.contains(code)) {
 			synchronized(nameCache) {
 				if(!nameCache.contains(code)) {
-					try {
+					try {	
+						
 						tsClient.addPoint(name, timestamp, value, tags);
 						tsClient.flush().joinUninterruptibly();
 						nameCache.add(code);
@@ -743,7 +766,7 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 		public Recording tag(Object key, Object value) {
 			if(key==null) throw new IllegalArgumentException("The passed tag key was null", new Throwable());
 			if(value==null) throw new IllegalArgumentException("The passed tag value was null", new Throwable());
-			tags.put(key.toString(), value.toString());
+			tags.put(key.toString().replace(" ", ""), value.toString().replace(" ", ""));
 			return this;
 		}
 		

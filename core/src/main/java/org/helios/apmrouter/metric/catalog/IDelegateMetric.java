@@ -114,6 +114,10 @@ public interface IDelegateMetric {
 	 */
 	public abstract int getSerSize();
 
-	
+	/**
+	 * Unmaps a mapped metric by removing the key portion of each namespace
+	 * @return un unmapped metric ID
+	 */
+	public abstract IDelegateMetric unmap();
 
 }

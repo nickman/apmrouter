@@ -46,6 +46,7 @@ import org.springframework.jmx.support.MetricType;
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.net.listener.netty.handlers.PingRequestHandler</code></p>
+ * TODO: Need to associate the remote address of an agent to the agent identity by sniffing the metric names or have some upstream processor feedback this data.
  */
 
 public class PingRequestHandler extends AbstractAgentRequestHandler implements TimeoutListener<String, SocketAddress> {
@@ -76,7 +77,11 @@ public class PingRequestHandler extends AbstractAgentRequestHandler implements T
 			}
 			pingTimes.insert(System.nanoTime()-pingKey);
 			break;
-		case PING:		
+		case PING:
+			sessionTimeoutMap.put(remoteAddress.toString(), remoteAddress);
+			if(channelGroup.add(channel, "AgentConnection/" + remoteAddress)) {
+				// handle new channel
+			}
 			buff.resetReaderIndex();
 			buff.readByte();
 			final int byteCount = buff.readInt();
@@ -97,7 +102,7 @@ public class PingRequestHandler extends AbstractAgentRequestHandler implements T
 					}
 				}
 			});
-			sessionTimeoutMap.put(remoteAddress.toString(), remoteAddress);
+			
 			
 			
 			break;							

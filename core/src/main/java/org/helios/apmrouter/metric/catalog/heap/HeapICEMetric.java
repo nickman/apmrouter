@@ -60,6 +60,8 @@ public class HeapICEMetric implements IDelegateMetric {
 	protected transient long token = -1;
 	/** The byte size of the metricId, held until the token is received */
 	protected transient volatile int byteSize = -1;
+	/** The unmapped instance of a mapped metric ID */
+	protected IDelegateMetric unmapped = null;
 
 	/**
 	 * {@inheritDoc}
@@ -98,6 +100,23 @@ public class HeapICEMetric implements IDelegateMetric {
 		final List<String> ns = new ArrayList<String>();		
 		this.flat = processNamespace(ns, namespace);
 		this.namespace = ns.toArray(new String[ns.size()]);
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.catalog.IDelegateMetric#unmap()
+	 * FIXME: All this stuff should be in a common abstract class
+	 */
+	public IDelegateMetric unmap() {
+		if(!isMapped()) return this;
+		if(unmapped==null) {
+			String[] unmappedNamespace = new String[namespace.length];
+			for(String s: getNamespace()) {
+				int index = s.indexOf(s);
+			}
+			unmapped = new HeapICEMetric(host, agent, name, type, unmappedNamespace);
+		}
+		return unmapped;
 	}
 	
 	/**
