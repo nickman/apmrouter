@@ -48,7 +48,7 @@ public @interface Trace {
 	/**
 	 * Specifies the metric name
 	 */
-	public String name() default "";
+	public String name();
 	/**
 	 * Specifies the metric name
 	 */
