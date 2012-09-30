@@ -24,9 +24,35 @@
 	
 	<context:annotation-config/>
 	<context:mbean-export/>
-	
 
 	
+
+	<bean id="NashServer" class="org.helios.nash.Server" init-method="start" destroy-method="stop">
+		<constructor-arg value="0.0.0.0"/>
+		<constructor-arg value="2113"/>
+		<constructor-arg>
+			<bean id="NashBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+				<constructor-arg>
+					<bean id="NashBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+						<property name="corePoolSize" value="1" />
+						<property name="maximumPoolSize" value="100" />
+						<property name="coreThreadsStarted" value="1" />
+					</bean>
+				</constructor-arg>
+			</bean>
+		</constructor-arg>
+		<constructor-arg>
+			<bean id="NashWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+				<constructor-arg>
+					<bean id="NashWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+						<property name="corePoolSize" value="1" />
+						<property name="maximumPoolSize" value="100" />
+						<property name="coreThreadsStarted" value="1" />
+					</bean>
+				</constructor-arg>
+			</bean>
+		</constructor-arg>		
+	</bean>
 	
 	<bean id="SpringEventPool" class="org.helios.apmrouter.util.thread.ManagedThreadPool">
 		<qualifier value="SpringEvent"/>
@@ -113,6 +139,7 @@
 		<constructor-arg>
 			<bean id="PatternRouterWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
 				<property name="corePoolSize" value="8" />
+				<property name="queueSize" value="10000" />
 				<property name="maximumPoolSize" value="8" />
 				<property name="coreThreadsStarted" value="8" />
 			</bean>
@@ -163,7 +190,8 @@
 				<value>LONG-.*|DELTA-.*</value>	 			
 	 		</util:set>
  		</property>
- 		<property name="openTSDBHost" value="pdk-pt-cupas-01" />
+ 		<!-- <property name="openTSDBHost" value="192.168.1.156" /> -->
+ 		<property name="openTSDBHost" value="heliojira.dnsalias.org.home" />
 	</bean>
  	
 	

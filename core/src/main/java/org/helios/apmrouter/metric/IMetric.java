@@ -61,8 +61,14 @@ public interface IMetric extends Routable {
 	
 	/** The tag name for the host */
 	public static final String HOST_TAG = "host";
-	/** The name delimiter */
+	/** The tag name for the agent */
 	public static final String AGENT_TAG = "agent";
+	/** The tag name for the TXContext txId */
+	public static final String TXID_TAG = "txid";
+	/** The tag name for the TXContext qualifier */
+	public static final String TXQ_TAG = "txqual";
+	/** The tag name for the TXContext thread id */
+	public static final String TXTHREAD_TAG = "txthread";
 	
 	
 
@@ -152,9 +158,10 @@ public interface IMetric extends Routable {
 	 * Returns the namespace as a map.
 	 * Throws a RuntimeException if the metric is not mapped
 	 * @param tagHostAgent If true, includes the host and agent in the namespace
+	 * @param includeTXContext If true, adds the txcontext to the namespace map
 	 * @return a map representing the mapped namespace of this metric
 	 */
-	public abstract Map<String, String> getNamespaceMap(boolean tagHostAgent);
+	public abstract Map<String, String> getNamespaceMap(boolean tagHostAgent, boolean includeTXContext);
 	
 
 	/**

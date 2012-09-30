@@ -1,0 +1,17 @@
+Manifest-Version: 1.0
+Archiver-Version: Plexus Archiver
+Created-By: Apache Maven
+Built-By: nwhitehead
+Build-Jdk: 1.7.0_04
+Specification-Title: APMRouter-JavaAgent
+Specification-Version: 1.0-SNAPSHOT
+Implementation-Title: APMRouter-JavaAgent
+Implementation-Version: 1.0-SNAPSHOT
+Implementation-Vendor-Id: org.helios.apmrouter
+Agent-Class: org.helios.apmrouter.Agent
+Can-Redefine-Classes: true
+Can-Retransform-Classes: true
+Can-Set-Native-Method-Prefix: true
+Main-Class: org.helios.apmrouter.Agent
+Premain-Class: org.helios.apmrouter.Agent
+Class-Path: core-1.0-SNAPSHOT.jar

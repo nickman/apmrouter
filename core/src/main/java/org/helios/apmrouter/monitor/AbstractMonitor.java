@@ -50,6 +50,8 @@ public abstract class AbstractMonitor implements Monitor, Runnable {
 	protected final ITracer tracer = TracerFactory.getTracer();
 	/** The scheduler handle for this monitor */
 	protected ScheduledFuture<?> scheduleHandle = null;
+	/** The collection period in ms. */
+	protected long collectionPeriod = -1L;
 	
 	/**
 	 * {@inheritDoc}
@@ -67,6 +69,7 @@ public abstract class AbstractMonitor implements Monitor, Runnable {
 	 * {@inheritDoc}
 	 * @see java.lang.Runnable#run()
 	 */
+	@Override
 	public void run() {
 		collect();
 	}
@@ -75,14 +78,28 @@ public abstract class AbstractMonitor implements Monitor, Runnable {
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.monitor.Monitor#getCollectPeriod()
 	 */
-	public long getCollectPeriod() {
-		return ConfigurationHelper.getLongSystemThenEnvProperty("org.helios.apmrouter." + getClass().getSimpleName().toLowerCase() + ".period", 15000L);
+	@Override
+	public long getCollectPeriod() {	
+		if(collectionPeriod==-1L) {
+			collectionPeriod = ConfigurationHelper.getLongSystemThenEnvProperty("org.helios.apmrouter." + getClass().getSimpleName().toLowerCase() + ".period", 15000L);
+		}
+		return collectionPeriod;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.Monitor#setCollectPeriod(long)
+	 */
+	@Override
+	public void setCollectPeriod(long period) {
+		collectionPeriod = period;
 	}
 	
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.monitor.Monitor#startMonitor()
 	 */
+	@Override
 	public void startMonitor() {
 		long collectPeriod = getCollectPeriod();
 		scheduleHandle = scheduler.scheduleWithFixedDelay(this, 1, collectPeriod, TimeUnit.MILLISECONDS);
@@ -93,6 +110,7 @@ public abstract class AbstractMonitor implements Monitor, Runnable {
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.monitor.Monitor#stopMonitor()
 	 */
+	@Override
 	public void stopMonitor() {
 		if(scheduleHandle!=null) {
 			scheduleHandle.cancel(false);

@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.metric.ICEMetric;
@@ -45,7 +46,7 @@ import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.sender.ISender;
-import org.helios.apmrouter.sender.Sender;
+import org.helios.apmrouter.sender.SenderFactory;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 
@@ -134,7 +135,7 @@ public class DirectMetricCollection implements Runnable {
      */
     public static DirectMetricCollection newDirectMetricCollection(int initialCapacity, IMetric...metrics) {    
     	if(sender==null) {
-    		sender = Sender.getInstance().getDefaultSender();
+    		sender = SenderFactory.getInstance().getDefaultSender();
     	}    	    	
     	DirectMetricCollection dmc = new DirectMetricCollection(initialCapacity);
     	for(IMetric m: metrics) {
@@ -285,7 +286,8 @@ public class DirectMetricCollection implements Runnable {
     		writeByte(BYTE_ONE); VS+= 1;
     		log("PostTXByte:" + size + "/" + VS);
     		TXContext tx = metric.getTXContext();
-    		writeLong(tx.getTxId()); VS+= 8;
+    		writeLong(tx.getTxId().getLeastSignificantBits()); VS+= 8;
+    		writeLong(tx.getTxId().getMostSignificantBits()); VS+= 8;
     		writeInt(tx.getTxQualifier()); VS+= 4;
     		writeInt(tx.getTxThreadId()); VS+= 4;
     		log("Attached TX Context " + metric.getTXContext());
@@ -334,7 +336,8 @@ public class DirectMetricCollection implements Runnable {
     	if(metric.hasTXContext()) {
     		writeByte(BYTE_ONE); 
     		TXContext tx = metric.getTXContext();
-    		writeLong(tx.getTxId()); 
+    		writeLong(tx.getTxId().getLeastSignificantBits()); 
+    		writeLong(tx.getTxId().getMostSignificantBits());  
     		writeInt(tx.getTxQualifier()); 
     		writeInt(tx.getTxThreadId()); 
     	} else {
@@ -453,11 +456,13 @@ public class DirectMetricCollection implements Runnable {
 			byte tx = r.readByte();
 			cb.writeByte(tx);
 			if(tx==BYTE_ONE) {
-				long txId = r.readLong();
+				long txIdLeast = r.readLong();
+				long txIdMost = r.readLong();
 				int txQualifier = r.readInt();
 				int txThreadId = r.readInt();
 				
-				cb.writeLong(txId);
+				cb.writeLong(txIdLeast);
+				cb.writeLong(txIdMost);
 				cb.writeInt(txQualifier);
 				cb.writeInt(txThreadId);
 				//log("Wrote TXContext to ChannelBuffer" + String.format("[%s-%s-%s]", txId, txQualifier, txThreadId));
@@ -746,13 +751,15 @@ public class DirectMetricCollection implements Runnable {
 				
 				
 				
-				long txId = readLong();
-				log("\tTXID:" + txId + "   Offset:" + getReaderRecordOffset());
+				long txIdLeast = readLong();
+				long txIdMost = readLong();
+				UUID uuid = new UUID(txIdMost, txIdLeast);
+				log("\tTXID:" + uuid + "   Offset:" + getReaderRecordOffset());
 				int txQualifier = readInt();
 				log("\tTXQual:" + txQualifier + "   Offset:" + getReaderRecordOffset());
 				int txThreadId = readInt();
 				log("\tTXThreadID:" + txThreadId + "   Offset:" + getReaderRecordOffset());
-				TXContext tx = new TXContext(txId, txQualifier, txThreadId);
+				TXContext tx = new TXContext(uuid, txQualifier, txThreadId);
 				metric.attachTXContext(tx);
 				log("Attached TX Context " + metric.getTXContext());
 			}
@@ -790,11 +797,13 @@ public class DirectMetricCollection implements Runnable {
 			// ==========================================================
 			byte tp = readByte();
 			//log("\nRead Byte: [" + tp + "]\nRemaining Bytes:" + getRecordRemainingBytes() + "\nValue:" + metric.getLongValue());
-			if(getRecordRemainingBytes()>=TXContext.TXCONTEXT_SIZE) {		
-				long txId = readLong();
+			if(getRecordRemainingBytes()>=TXContext.TXCONTEXT_SIZE) {
+				
+				long txIdLeast = readLong();
+				long txIdMost = readLong();				
 				int txQualifier = readInt();
 				int txThreadId = readInt();
-				TXContext tx = new TXContext(txId, txQualifier, txThreadId);
+				TXContext tx = new TXContext(new UUID(txIdMost, txIdLeast), txQualifier, txThreadId);
 				metric.attachTXContext(tx);
 			}
 			// ==========================================================

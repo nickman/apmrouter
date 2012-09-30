@@ -54,6 +54,7 @@ import javax.management.MBeanServerConnection;
 import javax.management.MBeanServerFactory;
 import javax.management.MBeanServerInvocationHandler;
 import javax.management.ObjectName;
+import javax.management.QueryExp;
 import javax.management.openmbean.CompositeData;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
@@ -97,6 +98,97 @@ public class JMXHelper {
 		}
 		
 		return server;
+	}
+	
+	/**
+	 * Returns an array of matching ObjectNames
+	 * @param server The MBeanServer to query
+	 * @param pattern The ObjectName pattern
+	 * @param query An optional query expression
+	 * @return an array of ObjectNames
+	 */
+	public static ObjectName[] query(MBeanServerConnection server, ObjectName pattern, QueryExp query) {
+		try {
+			if(server==null) server = getHeliosMBeanServer();
+			Set<ObjectName> ons = server.queryNames(pattern, query);
+			return ons.toArray(new ObjectName[ons.size()]);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to issue MBean query", e);
+		}
+	}
+	
+	/**
+	 * Returns an array of matching ObjectNames
+	 * @param server The MBeanServer to query
+	 * @param pattern The ObjectName pattern
+	 * @param query An optional query expression
+	 * @return an array of ObjectNames
+	 */
+	public static ObjectName[] query(MBeanServerConnection server, CharSequence pattern, QueryExp query) {
+		return query(server, objectName(pattern), query);
+	}
+	
+	/**
+	 * Returns an array of matching ObjectNames
+	 * @param server The MBeanServer to query
+	 * @param pattern The ObjectName pattern
+	 * @return an array of ObjectNames
+	 */
+	public static ObjectName[] query(MBeanServerConnection server, CharSequence pattern) {
+		return query(server, objectName(pattern), null);
+	}
+	
+	/**
+	 * Returns an array of matching ObjectNames
+	 * @param server The MBeanServer to query
+	 * @param pattern The ObjectName pattern
+	 * @return an array of ObjectNames
+	 */
+	public static ObjectName[] query(MBeanServerConnection server, ObjectName pattern) {
+		return query(server, pattern, null);
+	}
+	
+
+	
+	
+	
+	/**
+	 * Returns an array of matching ObjectNames from the default MBeanServer
+	 * @param pattern The ObjectName pattern
+	 * @param query An optional query expression
+	 * @return an array of ObjectNames
+	 */
+	public static ObjectName[] query(ObjectName pattern, QueryExp query) {
+		return query(getHeliosMBeanServer(), pattern, query);
+	}
+	
+	/**
+	 * Returns an array of matching ObjectNames from the default MBeanServer
+	 * @param pattern The ObjectName pattern
+	 * @param query An optional query expression
+	 * @return an array of ObjectNames
+	 */
+	public static ObjectName[] query(CharSequence pattern, QueryExp query) {
+		return query(getHeliosMBeanServer(), objectName(pattern), query);
+	}
+	
+	
+	/**
+	 * Returns an array of matching ObjectNames from the default MBeanServer
+	 * @param pattern The ObjectName pattern
+	 * @return an array of ObjectNames
+	 */
+	public static ObjectName[] query(ObjectName pattern) {
+		return query(getHeliosMBeanServer(), pattern, null);
+	}
+	
+	/**
+	 * Returns an array of matching ObjectNames from the default MBeanServer
+	 * @param pattern The ObjectName pattern
+	 * @return an array of ObjectNames
+	 */
+	public static ObjectName[] query(CharSequence pattern) {
+		return query(getHeliosMBeanServer(), objectName(pattern), null);
 	}
 	
 	/**
@@ -490,7 +582,7 @@ public class JMXHelper {
 	 * @param conn The MBeanServer connection
 	 * @return a set of ObjectNames matching the passed wildcard object name
 	 */
-	public Set<ObjectName> getMatchingObjectNames(CharSequence wildcardEq, CharSequence wildcardWc, MBeanServerConnection conn) {
+	public static Set<ObjectName> getMatchingObjectNames(CharSequence wildcardEq, CharSequence wildcardWc, MBeanServerConnection conn) {
 		ObjectName wildcardEquals = objectName(wildcardEq);
 		ObjectName wildcard = objectName(wildcardWc);
 		
@@ -574,7 +666,18 @@ while(m.find()) {
 	
 	
 	
-	
+//	/**
+//	 * Returns an attribute map for the MBean with the passed object name registered in the passed server
+//	 * @param server The MBeanServer where the target MBean is registered
+//	 * @param objectName The object name of the target MBean. Should not be a pattern. For pattern lookups, use {@link JMXHelper#getMBeanAttributeMap(MBeanServerConnection, ObjectName, String, Collection)}.
+//	 * @return A map of attribute values keyed by attribute name
+//	 */
+//	public static Map<String, Object> getMBeanAttributeMap(MBeanServerConnection server, ObjectName objectName) {
+//		if(objectName==null) throw new IllegalArgumentException("The passed ObjectName was null", new Throwable());
+//		if(objectName.isPattern()) throw new IllegalArgumentException("The passed ObjectName was a pattern. For pattern lookups, use {@link JMXHelper#getMBeanAttributeMap(MBeanServerConnection, ObjectName, String, Collection)}", new Throwable());
+//		if(server==null) server = getHeliosMBeanServer();
+//		MBean
+//	}
 	
 	
 	

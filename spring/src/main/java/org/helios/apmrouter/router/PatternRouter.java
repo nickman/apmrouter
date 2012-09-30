@@ -33,6 +33,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import org.helios.apmrouter.collections.LongSlidingWindow;
 import org.helios.apmrouter.metric.ExpandedMetric;
@@ -41,6 +43,7 @@ import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
+import org.helios.apmrouter.util.thread.ManagedThreadPool;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
@@ -53,9 +56,10 @@ import org.springframework.jmx.support.MetricType;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.router.PatternRouter</code></p>
  * FIXME:  This is supposed to be a generic class, it is temporarilly specific to IMetric.
+ * FIXME:  Clean up the old/failed dedicated thread model
  */
 
-public class PatternRouter extends ServerComponentBean implements UncaughtExceptionHandler  {
+public class PatternRouter extends ServerComponentBean implements UncaughtExceptionHandler, RejectedExecutionHandler  {
 	/** The worker thread pool that reads the routing queue */
 	protected ExecutorService threadPool;
 	/** The routing queue size */
@@ -68,6 +72,7 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 	protected BlockingQueue<IMetric> routingQueue = null;
 	/** The subscribers */
 	protected final Set<RouteDestination<IMetric>> destinations = new CopyOnWriteArraySet<RouteDestination<IMetric>>();
+	/** An uncaught exception handler applied to threads running in the router's thread pool */
 	protected final UncaughtExceptionHandler ucex = this;
 	
 	/** Sliding windows of route elapsed times in ns. */
@@ -82,6 +87,7 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 	@Override
 	protected void doStart() throws Exception {
 		super.doStart();
+		((ManagedThreadPool)threadPool).setRejectedExecutionHandler(this);
 		routingQueue = new ArrayBlockingQueue<IMetric>(routingQueueSize, routingQueueFairness);
 		
 //		for(int i = 0; i < routingWorkers; i++) {
@@ -89,6 +95,9 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 //		}
 	}
 	
+	/**
+	 * @param initialDests
+	 */
 	@Autowired(required=true)
 	public void setDestinations(Map<String, RouteDestination> initialDests) {
 		for(Map.Entry<String, RouteDestination> entry: initialDests.entrySet()) {
@@ -312,10 +321,24 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 		this.routingWorkers = routingWorkers;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.Thread.UncaughtExceptionHandler#uncaughtException(java.lang.Thread, java.lang.Throwable)
+	 */
 	@Override
 	public void uncaughtException(Thread t, Throwable e) {
 		warn("Uncaught exception [", t, "]", e);
 		
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see java.util.concurrent.RejectedExecutionHandler#rejectedExecution(java.lang.Runnable, java.util.concurrent.ThreadPoolExecutor)
+	 */
+	@Override
+	public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+		warn("Pattern Router Rejected execution\n\tTask:", r.getClass().getName(), "\n\tWorker QueueDepth:" + executor.getQueue().size(), new Throwable());
+		incr("DroppedRoutes");
 	}
 	
 	

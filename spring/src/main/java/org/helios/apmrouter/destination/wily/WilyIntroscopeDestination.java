@@ -22,42 +22,45 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.monitor;
+package org.helios.apmrouter.destination.wily;
+
+import java.util.Collection;
+
+import org.helios.apmrouter.destination.BaseDestination;
 
 /**
- * <p>Title: Monitor</p>
- * <p>Description: Defines the base spec for a scheduled monitor</p> 
+ * <p>Title: WilyIntroscopeDestination</p>
+ * <p>Description: </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.monitor.Monitor</code></p>
+ * <p><code>org.helios.apmrouter.destination.wily.WilyIntroscopeDestination</code></p>
  */
 
-public interface Monitor {
+public class WilyIntroscopeDestination extends BaseDestination {
+
 	/**
-	 * Directs a monitor to execute it's collection and trace
+	 * Creates a new WilyIntroscopeDestination
+	 * @param patterns
 	 */
-	public void collect();
-	
+	public WilyIntroscopeDestination(String... patterns) {
+		super(patterns);
+		// TODO Auto-generated constructor stub
+	}
+
 	/**
-	 * Returns the collection period in ms.
-	 * @return the collection period in ms.
+	 * Creates a new WilyIntroscopeDestination
+	 * @param patterns
 	 */
-	public long getCollectPeriod();
-	
+	public WilyIntroscopeDestination(Collection<String> patterns) {
+		super(patterns);
+		// TODO Auto-generated constructor stub
+	}
+
 	/**
-	 * Sets the collection period in ms.
-	 * @param period the collection period in ms.
+	 * Creates a new WilyIntroscopeDestination
 	 */
-	public void setCollectPeriod(long period);
-	
-	
-	/**
-	 * Starts scheduled executions for this monitor
-	 */
-	public void startMonitor();
-	
-	/**
-	 * Stops scheduled executions for this monitor
-	 */
-	public void stopMonitor();
+	public WilyIntroscopeDestination() {
+		// TODO Auto-generated constructor stub
+	}
+
 }

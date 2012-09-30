@@ -93,8 +93,11 @@ public class OpenTSDBDestination extends BaseDestination {
 	protected void doAcceptRoute(IMetric routable) {
 		if(routable.isMapped()) {
 			recorder.newRecording(routable.getName(), routable.getLongValue())
-				.tags(routable.getNamespaceMap(true))
+				.tags(routable.getNamespaceMap(true, true))
 				.record();
+//			if(routable.hasTXContext()) {
+//				info("TXContext:" + routable.getTXContext());
+//			}
 			incr("MetricsForwarded");
 		} else {
 			incr("UnmappedMetricDrops");

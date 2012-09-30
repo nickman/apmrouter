@@ -79,8 +79,10 @@ public class PingRequestHandler extends AbstractAgentRequestHandler implements T
 			break;
 		case PING:
 			sessionTimeoutMap.put(remoteAddress.toString(), remoteAddress);
-			if(channelGroup.add(channel, "AgentConnection/" + remoteAddress)) {
+			String agentAddr = "AgentConnection/" + remoteAddress; 
+			if(channelGroup.add(channel, agentAddr)) {
 				// handle new channel
+				info("Agent Connected from [", agentAddr, "]");
 			}
 			buff.resetReaderIndex();
 			buff.readByte();

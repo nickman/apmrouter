@@ -22,42 +22,36 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.monitor;
+package org.helios.apmrouter.instrumentation;
+
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * <p>Title: Monitor</p>
- * <p>Description: Defines the base spec for a scheduled monitor</p> 
+ * <p>Title: Trace</p>
+ * <p>Description: AOP instrumentation directive</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.monitor.Monitor</code></p>
+ * <p><code>org.helios.apmrouter.instrumentation.Trace</code></p>
  */
-
-public interface Monitor {
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface Trace {
 	/**
-	 * Directs a monitor to execute it's collection and trace
+	 * Specifies a TXContext operation
 	 */
-	public void collect();
-	
+	public TXDirective txcontext() default TXDirective.NOOP; 
 	/**
-	 * Returns the collection period in ms.
-	 * @return the collection period in ms.
+	 * Specifies the metric name
 	 */
-	public long getCollectPeriod();
-	
+	public String name() default "";
 	/**
-	 * Sets the collection period in ms.
-	 * @param period the collection period in ms.
+	 * Specifies the metric name
 	 */
-	public void setCollectPeriod(long period);
+	public String[] namespace() default {};
 	
-	
-	/**
-	 * Starts scheduled executions for this monitor
-	 */
-	public void startMonitor();
-	
-	/**
-	 * Stops scheduled executions for this monitor
-	 */
-	public void stopMonitor();
 }

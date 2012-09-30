@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.sender.ISender;
-import org.helios.apmrouter.sender.Sender;
+import org.helios.apmrouter.sender.SenderFactory;
 import org.helios.apmrouter.util.SystemClock;
 
 /**
@@ -48,7 +48,7 @@ import org.helios.apmrouter.util.SystemClock;
  * <p><code>org.helios.apmrouter.util.CollectionFunnel</code></p>
  */
 
-public class CollectionFunnel implements RejectedExecutionHandler {
+public class CollectionFunnel implements RejectedExecutionHandler, MetricSubmitter {
 	/** the singleton instance */
 	private static volatile CollectionFunnel instance = null;
 	/** the singleton instance ctor lock */
@@ -106,6 +106,7 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 	 * @param timeout The period of time to wait for a confirm in ms.
 	 * @throws TimeoutException Thrown if the confirmation is not received in the specified time.
 	 */
+	@Override
 	public void submitDirect(IMetric metric, long timeout) throws TimeoutException {
 		if(metric!=null) {			
 			sender.send(metric, timeout);
@@ -116,6 +117,7 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 	 * Submits the passed metrics for a send to the apmrouter
 	 * @param metrics A collection of metrics to send
 	 */
+	@Override
 	public void submit(Collection<IMetric> metrics) {
 		if(metrics!=null && !metrics.isEmpty()) {
 			submit(metrics.toArray(new IMetric[0]));
@@ -126,6 +128,7 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 	 * Submits the passed metrics for a send to the apmrouter
 	 * @param metrics An array of metrics to send
 	 */
+	@Override
 	public void submit(IMetric...metrics) {
 		if(metrics.length<1) return;
 		if(switchToQueue.get()) {
@@ -146,6 +149,7 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 	/**
 	 * Resets the sent and dropped stats
 	 */
+	@Override
 	public void resetStats() {
 		dropped.set(0L);
 		sent.set(0L);
@@ -231,7 +235,8 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 	 * Returns the total number of metrics dropped
 	 * @return the total number of metrics dropped
 	 */
-	public long getDropped() {
+	@Override
+	public long getDroppedMetrics() {
 		return dropped.get();
 	}
 	
@@ -239,7 +244,8 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 	 * Returns the total number of metrics sent
 	 * @return the total number of metrics sent
 	 */
-	public long getSent() {
+	@Override
+	public long getSentMetrics() {
 		return sent.get();
 	}
 	
@@ -276,10 +282,11 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 				getClass().getPackage().getName(), 
 				"CollectionFunnel"				
 		);
-		sender = Sender.getInstance().getDefaultSender();
+		sender = SenderFactory.getInstance().getDefaultSender();
 		executor.allowCoreThreadTimeOut(false);
 		offLineQueue = new ArrayBlockingQueue<IMetric[]>(switchQueueSize, false);
 		timerThread = new Thread("CollectionFunnelTimer") {
+			@Override
 			public void run() {
 				while(true) {
 					try {
@@ -340,10 +347,24 @@ public class CollectionFunnel implements RejectedExecutionHandler {
 	public String status() {
 		return String
 				.format("CollectionFunnel Status[\n\tDropped=%s \n\tSent=%s, \n\tQueued=%s \n\tTimerPeriod=%s \n\tCorePoolSize=%s \n\tMaximumPoolSize=%s \n\tPoolSize=%s \n\tActiveCount=%s \n\tLargestPoolSize=%s \n\tTaskCount=%s \n\tCompletedTaskCount=%s\n]",
-						getDropped(), getSent(), getQueued(), getTimerPeriod(),
+						getDroppedMetrics(), getSentMetrics(), getQueued(), getTimerPeriod(),
 						getCorePoolSize(), getMaximumPoolSize(), getPoolSize(),
 						getActiveCount(), getLargestPoolSize(), getTaskCount(),
 						getCompletedTaskCount());
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.MetricSubmitter#getQueuedMetrics()
+	 */
+	@Override
+	public long getQueuedMetrics() {
+		try {
+			return dmc.getMetricCount();
+		} catch (Exception e) {
+			return 0;
+		}
 	}
 
 	

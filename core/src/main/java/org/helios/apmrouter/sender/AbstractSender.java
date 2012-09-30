@@ -27,6 +27,7 @@ package org.helios.apmrouter.sender;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -168,10 +169,12 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 			pingScheduleHandle.cancel(true);
 			pingScheduleHandle = null;
 		}
+		log("Scheduling pings every [" + heartbeatPingPeriod + "] with a [" + heartbeatTimeout + "] timeout.");
 		pingScheduleHandle = scheduler.scheduleAtFixedRate(new Runnable(){
 			final long finalTimeout = heartbeatTimeout;
 			@Override
 			public void run() {
+				log("Scheduled Ping");
 				if(!ping(finalTimeout)) {
 					pingTimeOuts.incrementAndGet();
 				}
@@ -229,12 +232,14 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 			ChannelBuffer ping = encodePing(key);
 			senderChannel.write(ping,address);
 			CountDownLatch latch = new CountDownLatch(1);
-			//log("Sent ping [" + key + "]");
+			log("Sent ping [" + key + "]");
 			timeoutMap.put(key.toString(), latch, timeout);
 			boolean success = latch.await(timeout, TimeUnit.MILLISECONDS);
 			if(success) {
+				log("Ping Confirmed");
 				resetConsecutiveTimeouts();
 			} else {
+				log("Ping Timed Out");
 				incrConsecutiveTimeouts();
 			}
 			return success;
@@ -454,7 +459,7 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	
 	
 	// ==================================================================
-	//		Sender Specific Impls.
+	//		SenderFactory Specific Impls.
 	// ==================================================================
 	
 	/**
@@ -484,6 +489,55 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	 */
 	@Override
 	public abstract void send(final DirectMetricCollection dcm);
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.MetricSubmitter#submitDirect(org.helios.apmrouter.metric.IMetric, long)
+	 * FIXME: Merge send and submit, they're redundant
+	 */
+	@Override
+	public void submitDirect(IMetric metric, long timeout) throws TimeoutException {
+		send(metric, timeout);
+		
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.MetricSubmitter#submit(java.util.Collection)
+	 * FIXME: Merge send and submit, they're redundant
+	 */
+	@Override
+	public void submit(Collection<IMetric> metrics) {
+		send(DirectMetricCollection.newDirectMetricCollection(metrics.toArray(new IMetric[0])));
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.MetricSubmitter#submit(org.helios.apmrouter.metric.IMetric[])
+	 * FIXME: Merge send and submit, they're redundant
+	 */
+	@Override
+	public void submit(IMetric... metrics) {
+		send(DirectMetricCollection.newDirectMetricCollection(metrics));	
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.MetricSubmitter#resetStats()
+	 */
+	@Override
+	public void resetStats() {
+		
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.MetricSubmitter#getQueuedMetrics()
+	 */
+	@Override
+	public long getQueuedMetrics() {
+		return 0;
+	}
 
 
 

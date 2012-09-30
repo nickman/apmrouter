@@ -25,10 +25,11 @@
 package org.helios.apmrouter;
 
 import java.lang.instrument.Instrumentation;
+import java.lang.reflect.Method;
+import java.net.JarURLConnection;
+import java.net.URL;
+import java.net.URLClassLoader;
 
-import org.helios.apmrouter.metric.AgentIdentity;
-import org.helios.apmrouter.monitor.DefaultMonitorBoot;
-import org.helios.apmrouter.util.VersionHelper;
 
 /**
  * <p>Title: Agent</p>
@@ -38,30 +39,76 @@ import org.helios.apmrouter.util.VersionHelper;
  * <p><code>org.helios.apmrouter.Agent</code></p>
  */
 public class Agent {
-
+	/** The provided instrumentation instance */
+	protected static Instrumentation instrumentation = null;
+	/** The provided agent argument string */
+	protected static String agentArgs = null;
+	/** The core classloader */
+	protected static ClassLoader coreClassLoader = null;
+	
+	/** The name of the boot class */
+	public static final String BOOT_CLASS = "org.helios.apmrouter.jagent.AgentBoot";
+	
+	
 	/**
-	 * Creates a new Agent
+	 * Returns the version of the passed class
+	 * @param clazz The class to get the version of
+	 * @return the version
 	 */
-	public Agent() {
-		// TODO Auto-generated constructor stub
+	public static String version(Class<?> clazz) {
+		String version = clazz.getPackage().getImplementationVersion();
+		if(version==null || version.trim().isEmpty()) version = "Development Snapshot";
+		return version;
 	}
 
+
 	/**
-	 * @param args
+	 * The main entry point for javaagents or optional standalone monitor deploy.
+	 * @param args One parameter processed which is the URL to an XML config
 	 */
-	public static void main(String[] args) {		
-		log("\n\t=============================\n\tAPMRouter JavaAgent v " + VersionHelper.version(Agent.class) + " Successfully Started"  
-		+ "\n\tAgent name is [" + AgentIdentity.ID.getHostName() + "/" + AgentIdentity.ID.getAgentName() + "]" +  
-		"\n\t=============================\n");
-		DefaultMonitorBoot.boot();
+	public static void main(String[] args) {
+		coreClassLoader = getIsolatedClassLoader();
+		final ClassLoader current = Thread.currentThread().getContextClassLoader();
+		try {
+			Thread.currentThread().setContextClassLoader(coreClassLoader);
+			Class<?> bootClass = Class.forName(BOOT_CLASS, true, coreClassLoader);
+			Method method = bootClass.getDeclaredMethod("boot", String.class, Instrumentation.class);
+			method.invoke(null, args.length==0 ? null : args[0], instrumentation);
+			log("\n\t=============================\n\tAPMRouter JavaAgent v " + version(Agent.class) + " Successfully Started\n\t=============================\n");
+		} catch (Exception e) {
+			System.err.println("Failed to load apmrouter java-agent core. Stack trace follows:");
+			e.printStackTrace(System.err);
+		} finally {
+			Thread.currentThread().setContextClassLoader(current);
+		}
 	}
 	
-	/*
+	/**
+	 * Creates an isolated classloader to load the core library underlying the agent 
+	 * @return a classloader
+	 */
+	private static ClassLoader getIsolatedClassLoader() {
+		try {
+			URL agentURL = Agent.class.getProtectionDomain().getCodeSource().getLocation();
+			//new URL("jar:file:/C:/proj/parser/jar/parser.jar!/test.xml");
+			URL coreURL = new URL("jar:" + agentURL + "!/core.jar");
+			//URL coreURL = new URL(agentURL + "!/core.jar");
+			
+			log("Core URL:" + coreURL);			
+			return new JarClassLoader(new URL[]{agentURL, coreURL}, Agent.class.getClassLoader());
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to create isolated class loader", e);
+		}
+	}
+	
+	/**
 	 * The pre-main entry point
 	 * @param agentArgs The agent bootstrap arguments
 	 * @param inst The Instrumentation instance
 	 */
 	public static void premain(String agentArgs, Instrumentation inst) {
+		Agent.agentArgs = agentArgs;
+		Agent.instrumentation = inst;
 		main(new String[]{agentArgs});
 	}
 	
@@ -70,6 +117,7 @@ public class Agent {
 	 * @param agentArgs The agent bootstrap arguments
 	 */	
 	public static void premain(String agentArgs) {
+		Agent.agentArgs = agentArgs;
 		main(new String[]{agentArgs});
 	}
 	
@@ -79,6 +127,8 @@ public class Agent {
 	 * @param inst The Instrumentation instance
 	 */
 	public static void agentmain(String agentArgs, Instrumentation inst) {
+		Agent.agentArgs = agentArgs;
+		Agent.instrumentation = inst;
 		main(new String[]{agentArgs});
 	}
 	
@@ -87,6 +137,7 @@ public class Agent {
 	 * @param agentArgs The agent bootstrap arguments
 	 */
 	public static void agentmain(String agentArgs) {
+		Agent.agentArgs = agentArgs;
 		main(new String[]{agentArgs});
 	}
 	

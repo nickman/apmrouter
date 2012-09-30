@@ -10,6 +10,8 @@ import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.util.Enumeration;
 
+import org.helios.apmrouter.jmx.ConfigurationHelper;
+
 /**
  * <p>Title: AgentIdentity</p>
  * <p>Description: Class to auto-configure the identity of the default agent for this JVM and to register identity plugins that can override the default identity locator.</p> 
@@ -110,7 +112,8 @@ public enum AgentIdentity {
 	 */
 	private void setAgent() {
 		// Try system props, then env for the agent name property
-		agentName = System.getProperty("theice.agent.name", System.getenv("theice.agent.name"));
+		agentName = ConfigurationHelper.getEnvThenSystemProperty("org.helios.agent", null); 
+				//System.getProperty("theice.agent.name", System.getenv("theice.agent.name"));
 		if(agentName==null) {
 			// Perhaps we're running in a jboss server
 			agentName = System.getProperty("jboss.server.name");

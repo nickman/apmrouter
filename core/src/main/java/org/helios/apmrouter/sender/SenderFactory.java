@@ -31,20 +31,21 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
+import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.sender.netty.UDPSender;
 
 /**
- * <p>Title: Sender</p>
+ * <p>Title: SenderFactory</p>
  * <p>Description: The sender factory and singleton</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.sender.Sender</code></p>
+ * <p><code>org.helios.apmrouter.sender.SenderFactory</code></p>
  */
 
-public class Sender {
-	/** The Sender singleton instance */
-	private static volatile Sender instance = null;
-	/** The Sender singleton instance ctor lock */
+public class SenderFactory {
+	/** The SenderFactory singleton instance */
+	private static volatile SenderFactory instance = null;
+	/** The SenderFactory singleton instance ctor lock */
 	private static final Object lock = new Object();
 	
 	/** The configured apmrouter URIs */
@@ -60,14 +61,14 @@ public class Sender {
 
 	
 	/**
-	 * Acquires the Sender singleton instance
-	 * @return the Sender singleton instance
+	 * Acquires the SenderFactory singleton instance
+	 * @return the SenderFactory singleton instance
 	 */
-	public static Sender getInstance() {
+	public static SenderFactory getInstance() {
 		if(instance==null) {
 			synchronized(lock) {
 				if(instance==null) {
-					instance = new Sender();
+					instance = new SenderFactory();
 				}
 			}
 		}
@@ -76,10 +77,10 @@ public class Sender {
 	
 	
 	/**
-	 * Creates a new Sender
+	 * Creates a new SenderFactory
 	 */
-	private Sender() {
-		String uris = System.getProperty(SENDER_URI_PROP, DEFAULT_SENDER_URI);
+	private SenderFactory() {
+		String uris = ConfigurationHelper.getSystemThenEnvProperty(SENDER_URI_PROP, DEFAULT_SENDER_URI);
 		for(String uri: uris.split(",")) {
 			try {
 				if(!uri.trim().isEmpty()) {

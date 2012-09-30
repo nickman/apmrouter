@@ -107,6 +107,23 @@ public class XMLHelper {
 		} catch (Exception e) {}
 		return defaultValue;		
 	}
+	
+	/**
+	 * Returns the long attribute value for the passed name in the passed node.
+	 * @param node the node to get the attribute from
+	 * @param name the name of the attribute
+	 * @param defaultValue the value to return if the node did not contain the attribute
+	 * @return The attribute value or the default value if it is not found.
+	 */
+	public static long getLongAttributeByName(Node node, String name, long defaultValue) {
+		String s = getAttributeByName(node, name, null);
+		if(s==null) return defaultValue;
+		try {
+			return Long.parseLong(s.trim());
+		} catch (Exception e) {
+			return defaultValue;
+		}
+	}
 	  
 	  
 	/**

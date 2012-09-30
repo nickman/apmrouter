@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<artifactId>apmrouter</artifactId>
+		<groupId>org.helios.apmrouter</groupId>
+		<version>1.0-SNAPSHOT</version>
+	</parent>
+	<groupId>org.helios.apmrouter</groupId>
+	<artifactId>jagent</artifactId>
+	<packaging>jar</packaging>
+	<version>1.0-SNAPSHOT</version>
+	<name>APMRouter-JavaAgent</name>
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+	</properties>
+	
+	
+	<dependencies>
+		<!--   TEST   -->
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+		</dependency>
+	
+		<dependency>
+		  <groupId>org.helios.apmrouter</groupId>
+		  <artifactId>core</artifactId>
+		  <version>${project.version}</version>
+		</dependency>
+		
+		
+	</dependencies>
+	<build>
+		<defaultGoal>install</defaultGoal>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>2.0.2</version>
+				<configuration>
+					<source>1.6</source>
+					<target>1.6</target>
+				</configuration>
+			</plugin>
+		       <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-eclipse-plugin</artifactId>
+                </plugin>
+		
+		
+		
+		
+		            	<plugin>
+		  <groupId>org.apache.maven.plugins</groupId>
+		  <artifactId>maven-jar-plugin</artifactId>		
+		  <configuration>
+		      <archive>
+			  <manifest>
+			      <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+			      <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+			      <addClasspath>true</addClasspath>
+			  </manifest>
+			  <manifestEntries>
+				    		<Main-Class>org.helios.apmrouter.Agent</Main-Class> 
+				    		<Premain-Class>org.helios.apmrouter.Agent</Premain-Class>
+			            	<Agent-Class>org.helios.apmrouter.Agent</Agent-Class>
+			            	<Can-Redefine-Classes>true</Can-Redefine-Classes>
+			            	<Can-Retransform-Classes>true</Can-Retransform-Classes>
+			            	<Can-Set-Native-Method-Prefix>true</Can-Set-Native-Method-Prefix>				    
+			  </manifestEntries>
+		      </archive>
+		  </configuration>
+            	</plugin>
+            	
+		<plugin>
+		    <artifactId>maven-dependency-plugin</artifactId>
+		    <executions>
+		      <execution>
+			<id>${project.artifactId}-fetch-deps</id>
+			<goals><goal>copy-dependencies</goal></goals>
+			<configuration>
+			  <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+			  <stripVersion>true</stripVersion>
+			  <excludeTransitive>true</excludeTransitive>
+			  <excludeArtifactIds>junit</excludeArtifactIds>
+			</configuration>
+		      </execution>
+		    </executions>
+		  </plugin>
+            	
+		
+		<!-- 
+			<plugin>
+	            <artifactId>maven-assembly-plugin</artifactId>
+				<configuration>
+					<mainClass>org.helios.apmrouter.Agent</mainClass>
+				    <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+				    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>	                      					
+					<includePluginDependencies>false</includePluginDependencies>
+						<manifestEntries>
+			 				<Premain-Class>org.helios.apmrouter.Agent</Premain-Class>
+			            	<Agent-Class>org.helios.apmrouter.Agent</Agent-Class>
+			            	<Can-Redefine-Classes>true</Can-Redefine-Classes>
+			            	<Can-Retransform-Classes>true</Can-Retransform-Classes>
+			            	<Can-Set-Native-Method-Prefix>true</Can-Set-Native-Method-Prefix>
+						</manifestEntries>
+					
+				</configuration>
+	        </plugin>
+		<plugin>
+		    <artifactId>maven-dependency-plugin</artifactId>
+		    <executions>
+		      <execution>
+			<id>${project.artifactId}-fetch-deps</id>
+			<phase>generate-sources</phase>
+			<goals><goal>copy-dependencies</goal></goals>
+			<configuration>
+			  <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+			  <stripVersion>true</stripVersion>
+			  <excludeTransitive>true</excludeTransitive>
+			  <excludeArtifactIds>junit</excludeArtifactIds>
+			</configuration>
+		      </execution>
+		    </executions>
+		  </plugin>
+-->
+			
+		</plugins>
+	</build>
+</project>

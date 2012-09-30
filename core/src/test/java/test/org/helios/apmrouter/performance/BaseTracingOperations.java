@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
-import org.helios.apmrouter.sender.Sender;
+import org.helios.apmrouter.sender.SenderFactory;
 import org.helios.apmrouter.trace.CollectionFunnel;
 import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.TracerFactory;
@@ -109,9 +109,9 @@ public class BaseTracingOperations extends BasePerformanceTestCase {
 	@AfterClass
 	public static void printEnvSummary() {
 		log("CollectionFunnel:\n " + CollectionFunnel.getInstance().status());
-		log("Sender Sends: " + Sender.getInstance().getDefaultSender().getSentMetrics());
-		log("Sender Drops: " + Sender.getInstance().getDefaultSender().getDroppedMetrics());
-		log("Sender Fails: " + Sender.getInstance().getDefaultSender().getFailedMetrics());
+		log("SenderFactory Sends: " + SenderFactory.getInstance().getDefaultSender().getSentMetrics());
+		log("SenderFactory Drops: " + SenderFactory.getInstance().getDefaultSender().getDroppedMetrics());
+		log("SenderFactory Fails: " + SenderFactory.getInstance().getDefaultSender().getFailedMetrics());
 	}
 	
 	/**

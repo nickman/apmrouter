@@ -22,42 +22,31 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.monitor;
+package org.helios.apmrouter.server.tracing;
+
+import org.helios.apmrouter.sender.ISender;
+import org.helios.apmrouter.trace.TracerImpl;
 
 /**
- * <p>Title: Monitor</p>
- * <p>Description: Defines the base spec for a scheduled monitor</p> 
+ * <p>Title: ServerTracerImpl</p>
+ * <p>Description: </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.monitor.Monitor</code></p>
+ * <p><code>org.helios.apmrouter.server.tracing.ServerTracerImpl</code></p>
  */
 
-public interface Monitor {
+public class ServerTracerImpl extends TracerImpl {
+	/** The sender this tracer uses */
+	protected final ISender sender;
 	/**
-	 * Directs a monitor to execute it's collection and trace
+	 * Creates a new ServerTracerImpl
+	 * @param host The tracer's host
+	 * @param agent The tracer's agent
+	 * @param sender the SenderFactory this tracer will use
 	 */
-	public void collect();
-	
-	/**
-	 * Returns the collection period in ms.
-	 * @return the collection period in ms.
-	 */
-	public long getCollectPeriod();
-	
-	/**
-	 * Sets the collection period in ms.
-	 * @param period the collection period in ms.
-	 */
-	public void setCollectPeriod(long period);
-	
-	
-	/**
-	 * Starts scheduled executions for this monitor
-	 */
-	public void startMonitor();
-	
-	/**
-	 * Stops scheduled executions for this monitor
-	 */
-	public void stopMonitor();
+	public ServerTracerImpl(String host, String agent, ISender sender) {
+		super(host, agent, null);
+		this.sender = sender;
+	}
+
 }

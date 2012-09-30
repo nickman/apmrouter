@@ -317,13 +317,11 @@ public class ICEMetric implements IMetric {
 	}
 	
 	/**
-	 * Returns the namespace as a map.
-	 * Throws a RuntimeException if the metric is not mapped
-	 * @param tagHostAgent If true, includes the host and agent in the namespace
-	 * @return a map representing the mapped namespace of this metric
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#getNamespaceMap(boolean, boolean)
 	 */
 	@Override
-	public Map<String, String> getNamespaceMap(boolean tagHostAgent) {
+	public Map<String, String> getNamespaceMap(boolean tagHostAgent, boolean includeTXContext) {
 		if(metricId.isFlat()) throw new RuntimeException("Requesting named index namespace on non-mapped metric [" + getFQN() + "]", new Throwable());
 		String[] ns = metricId.getNamespace();
 		if(ns==null || ns.length<1) return Collections.emptyMap();
@@ -331,6 +329,11 @@ public class ICEMetric implements IMetric {
 		if(tagHostAgent) {
 			map.put(HOST_TAG, metricId.getHost());
 			map.put(AGENT_TAG, metricId.getAgent());
+		}
+		if(includeTXContext && txContext!=null) {
+			map.put(TXID_TAG, txContext.toString());
+//			map.put(TXQ_TAG, "" + txContext.getTxQualifier());
+//			map.put(TXTHREAD_TAG, "" + txContext.getTxThreadId());
 		}
 		for(String s: ns) {
 			int eq = s.indexOf('=');
@@ -346,7 +349,7 @@ public class ICEMetric implements IMetric {
 	 */
 	@Override
 	public Map<String, String> getNamespaceMap() {
-		return getNamespaceMap(false);
+		return getNamespaceMap(false, false);
 	}
 	
 	

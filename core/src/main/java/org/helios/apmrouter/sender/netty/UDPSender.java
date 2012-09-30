@@ -31,10 +31,13 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
+import java.util.Collection;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeoutException;
 
 import org.apache.log4j.BasicConfigurator;
 import org.helios.apmrouter.OpCode;
+import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.sender.AbstractSender;
 import org.helios.apmrouter.sender.netty.handler.ChannelStateAware;
 import org.helios.apmrouter.sentry.PollingSentryWatched;
@@ -275,10 +278,10 @@ public class UDPSender extends AbstractSender  {
 							sent.addAndGet(mcount);
 						} else {
 							//long d = failed.addAndGet(mcount);
-							//System.err.println("Sender Fails:" + d );
+							//System.err.println("SenderFactory Fails:" + d );
 							if(future.getCause()!=null) {
 								if(future.getCause() instanceof ClosedChannelException) {
-									log("Sender Channel Disconnected");
+									log("SenderFactory Channel Disconnected");
 									processDisconnect();
 								} else {
 									future.getCause().printStackTrace(System.err);
@@ -303,10 +306,10 @@ public class UDPSender extends AbstractSender  {
 							sent.addAndGet(mcount);
 						} else {
 							//long d = failed.addAndGet(mcount);
-							//System.err.println("Sender Fails:" + d );
+							//System.err.println("SenderFactory Fails:" + d );
 							if(future.getCause()!=null) {
 								if(future.getCause() instanceof ClosedChannelException) {
-									log("Sender Channel Disconnected");
+									log("SenderFactory Channel Disconnected");
 									processDisconnect();
 								} else {
 									future.getCause().printStackTrace(System.err);
@@ -326,7 +329,7 @@ public class UDPSender extends AbstractSender  {
 			dropped.addAndGet(((SplitReader)sr).getDrops());
 		} catch (Exception cce) {
 			if(cce instanceof ClosedChannelException) {
-				log("Sender Channel Disconnected");
+				log("SenderFactory Channel Disconnected");
 				processDisconnect();
 			} else {
 				cce.printStackTrace(System.err);
@@ -337,6 +340,8 @@ public class UDPSender extends AbstractSender  {
 		
 		
 	}
+
+
 	
 	
 

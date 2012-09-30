@@ -66,7 +66,7 @@ public class ConfigurationHelper {
 	 */
 	public static String getEnvThenSystemProperty(String name, String defaultValue, Properties...properties) {
 		
-		String value = System.getenv(name);
+		String value = System.getenv(name.replace('.', '_'));
 		if(value==null) {			
 			value = mergeProperties(properties).getProperty(name);
 		}
@@ -87,7 +87,7 @@ public class ConfigurationHelper {
 	public static String getSystemThenEnvProperty(String name, String defaultValue, Properties...properties) {
 		String value = mergeProperties(properties).getProperty(name);
 		if(value==null) {
-			value = System.getenv(name);
+			value = System.getenv(name.replace('.', '_'));
 		}
 		if(value==null) {
 			value=defaultValue;

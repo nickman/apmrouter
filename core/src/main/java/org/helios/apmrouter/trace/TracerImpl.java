@@ -48,8 +48,8 @@ public class TracerImpl implements ITracer {
 	protected final String host;
 	/** The originating agent of the metrics created by this tracer */
 	protected final String agent;
-	/** The collection funnel */
-	protected final CollectionFunnel funnel; 
+	/** The collection submitter */
+	protected final MetricSubmitter submitter; 
 	
 	
 	
@@ -58,12 +58,12 @@ public class TracerImpl implements ITracer {
 	 * Creates a new TracerImpl
 	 * @param host The originating host of the metrics created by this tracer
 	 * @param agent The originating agent of the metrics created by this tracer
-	 * @param funnel the collection funnel the tracer writes metrics to
+	 * @param submitter the collection submitter the tracer writes metrics to
 	 */
-	public TracerImpl(String host, String agent, CollectionFunnel funnel) {
+	public TracerImpl(String host, String agent, MetricSubmitter submitter) {
 		this.host = nvl(host, "HostName");
 		this.agent = nvl(agent, "Agent Name");
-		this.funnel = funnel;
+		this.submitter = submitter;
 	}
 	
 	/**
@@ -113,7 +113,7 @@ public class TracerImpl implements ITracer {
 			if(TXContext.hasContext()) {
 				metric.attachTXContext(TXContext.rollContext());
 			}
-			funnel.submit(metric);
+			submitter.submit(metric);
 			return metric;
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
@@ -148,7 +148,7 @@ public class TracerImpl implements ITracer {
 			if(TXContext.hasContext()) {
 				metric.attachTXContext(TXContext.rollContext());
 			}			
-			funnel.submitDirect(metric, TimeUnit.MILLISECONDS.convert(timeout, unit));
+			submitter.submitDirect(metric, TimeUnit.MILLISECONDS.convert(timeout, unit));
 			return metric;
 		} catch (Throwable t) {
 			if(t.getClass().equals(TimeoutException.class)) {
@@ -240,7 +240,7 @@ public class TracerImpl implements ITracer {
 	public ICEMetric traceLong(long value, CharSequence name, CharSequence... namespace) {
 		try {				
 			ICEMetric metric = ICEMetric.trace(value, host, agent, name, MetricType.LONG, namespace);
-			funnel.submit(metric);
+			submitter.submit(metric);
 			return metric;
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
@@ -258,7 +258,7 @@ public class TracerImpl implements ITracer {
 			Long delta = ICEMetricCatalog.getInstance().getDelta(value, host, agent, name, namespace);
 			if(delta==null) return null;			
 			ICEMetric metric =  ICEMetric.trace(delta.longValue(), host, agent, name, MetricType.DELTA, namespace);
-			funnel.submit(metric);
+			submitter.submit(metric);
 			return metric;
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
@@ -274,7 +274,7 @@ public class TracerImpl implements ITracer {
 	public ICEMetric traceString(CharSequence value, CharSequence name, CharSequence... namespace) {
 		try {				
 			ICEMetric metric = ICEMetric.trace(value, host, agent, name, MetricType.STRING, namespace);
-			funnel.submit(metric);
+			submitter.submit(metric);
 			return metric;			
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
@@ -290,7 +290,7 @@ public class TracerImpl implements ITracer {
 	public ICEMetric traceError(Throwable value, CharSequence name, CharSequence... namespace) {
 		try {				
 			ICEMetric metric =  ICEMetric.trace(value, host, agent, name, MetricType.ERROR, namespace);
-			funnel.submit(metric);
+			submitter.submit(metric);
 			return metric;						
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
@@ -306,7 +306,7 @@ public class TracerImpl implements ITracer {
 	public ICEMetric traceBlob(Serializable value, CharSequence name, CharSequence... namespace) {
 		try {				
 			ICEMetric metric =   ICEMetric.trace(value, host, agent, name, MetricType.BLOB, namespace);
-			funnel.submit(metric);
+			submitter.submit(metric);
 			return metric;									
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
@@ -318,7 +318,7 @@ public class TracerImpl implements ITracer {
 	public ICEMetric tracePDU(PDU pdu, CharSequence name, CharSequence...namespace) {
 		try {				
 			ICEMetric metric =   ICEMetric.trace(pdu, host, agent, name, MetricType.PDU, namespace);
-			funnel.submit(metric);
+			submitter.submit(metric);
 			return metric;									
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
@@ -350,7 +350,7 @@ public class TracerImpl implements ITracer {
 	 */
 	@Override
 	public long getSentMetrics() {
-		return funnel.getSent();
+		return submitter.getSentMetrics();
 	}
 
 	/**
@@ -359,7 +359,7 @@ public class TracerImpl implements ITracer {
 	 */
 	@Override
 	public long getDroppedMetrics() {
-		return funnel.getDropped();
+		return submitter.getDroppedMetrics();
 	}
 	
 	/**
@@ -368,7 +368,7 @@ public class TracerImpl implements ITracer {
 	 */
 	@Override
 	public void resetStats() {
-		funnel.resetStats();
+		submitter.resetStats();
 	}
 
 	/**
@@ -377,7 +377,7 @@ public class TracerImpl implements ITracer {
 	 */
 	@Override
 	public long getQueuedMetrics() {
-		return funnel.getQueued();
+		return submitter.getQueuedMetrics();
 	}
 
 }

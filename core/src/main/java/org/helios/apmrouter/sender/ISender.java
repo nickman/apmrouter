@@ -26,15 +26,11 @@ package org.helios.apmrouter.sender;
 
 import java.net.SocketAddress;
 import java.net.URI;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.trace.DirectMetricCollection;
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
+import org.helios.apmrouter.trace.MetricSubmitter;
 
 /**
  * <p>Title: ISender</p>
@@ -44,7 +40,7 @@ import org.jboss.netty.buffer.ChannelBuffers;
  * <p><code>org.helios.apmrouter.sender.ISender</code></p>
  */
 
-public interface ISender {
+public interface ISender extends MetricSubmitter {
 	
 	/**
 	 * Returns a sliding window average of agent ping elapsed times to the server

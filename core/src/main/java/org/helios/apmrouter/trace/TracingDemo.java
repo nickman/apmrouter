@@ -10,7 +10,7 @@ import org.apache.log4j.Logger;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.monitor.DefaultMonitorBoot;
 import org.helios.apmrouter.sender.ISender;
-import org.helios.apmrouter.sender.Sender;
+import org.helios.apmrouter.sender.SenderFactory;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.helios.jzab.plugin.nativex.HeliosSigar;
@@ -24,7 +24,7 @@ public class TracingDemo {
 	public static void main(String[] args) {	
 		System.setProperty("theice.agent.name", "tracing-demo");
 		final int LOOPS = 100000;
-		final int SLEEP = 10;
+		final int SLEEP = 1000;
 		BasicConfigurator.configure();
 		final ITracer tracer = TracerFactory.getTracer();
 		Logger traceLogger = Logger.getLogger(TracingDemo.class);
@@ -32,15 +32,19 @@ public class TracingDemo {
 		traceLogger.removeAllAppenders();
 		traceLogger.addAppender(new LogTracer());
 		HeliosSigar sigar = HeliosSigar.getInstance();
-		//TXContext.rollContext();
+		TXContext.rollContext();
 		MetricType.setCompress(true);
-		ISender sender = Sender.getInstance().getDefaultSender();
+		ISender sender = SenderFactory.getInstance().getDefaultSender();
 		log("Basic Tracing Test: [" +  tracer.getHost() + "/" + tracer.getAgent() + "]");
 		DefaultMonitorBoot.boot();
 		for(int i = 0; i < LOOPS; i++) {
+			if(i>0 && i%10==0) {
+				//TXContext.rollContext();
+			}
 			SystemClock.startTimer();
-			boolean success = sender.ping(2000);
+			//boolean success = sender.ping(2000);
 			ElapsedTime et = SystemClock.endTimer();
+			tracer.trace(System.currentTimeMillis(), "Foo", MetricType.LONG, "Bar");
 			//log("Ping [" + success + "]--  " + et );
 			//tracer.traceLong(i, "TXTest", "Foo", "Bar");
 //			for(GarbageCollectorMXBean gc: ManagementFactory.getGarbageCollectorMXBeans()) {
@@ -50,7 +54,7 @@ public class TracingDemo {
 //			traceCpuUsages(tracer, sigar);
 //			traceTotalCpuUsage(tracer, sigar);
 //			traceDiskUsage(tracer, sigar);
-//			traceMemorySpacesSNMP(tracer, sigar);
+			//traceMemorySpacesSNMP(tracer, sigar);
 //			try {
 //				traceLogger.info("Hello World [" + i + "]");
 //				traceLogger.info("Hello Pluto [" + i + "]", new Throwable());
@@ -61,6 +65,7 @@ public class TracingDemo {
 				long ms = TimeUnit.MILLISECONDS.convert(ns, TimeUnit.NANOSECONDS);
 //				log("Ping Time:" + ns + " ns.  " + ms + "  ms.");
 			}
+			TXContext.clearContext();
 			SystemClock.sleep(SLEEP);
 		}
 		SystemClock.sleep(5000);
@@ -85,7 +90,7 @@ public class TracingDemo {
 	
 	public static void traceMemorySpacesSNMP(ITracer tracer, HeliosSigar sigar) {
 		MemoryUsage usage = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		tracer.tracePDU(PDUBuilder.builder(PDU.NOTIFICATION, ".1.3.6.1.4.1.42.2.145.3.163.1.1.2.")
+		tracer.tracePDUDirect(PDUBuilder.builder(PDU.NOTIFICATION, ".1.3.6.1.4.1.42.2.145.3.163.1.1.2.")
 				.counter64("10", usage.getInit())
 				.counter64("11", usage.getUsed())
 				.counter64("12", usage.getCommitted())
@@ -94,7 +99,7 @@ public class TracingDemo {
 		);
 		usage = ManagementFactory.getMemoryMXBean().getNonHeapMemoryUsage();
 		try {
-			tracer.tracePDU(PDUBuilder.builder(PDU.NOTIFICATION, ".1.3.6.1.4.1.42.2.145.3.163.1.1.2.")
+			tracer.tracePDUDirect(PDUBuilder.builder(PDU.NOTIFICATION, ".1.3.6.1.4.1.42.2.145.3.163.1.1.2.")
 					.counter64("20", usage.getInit())
 					.counter64("21", usage.getUsed())
 					.counter64("22", usage.getCommitted())
