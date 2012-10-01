@@ -24,10 +24,12 @@
  */
 package org.helios.apmrouter.instrumentation;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
+
 import javassist.CannotCompileException;
 import javassist.CtClass;
 import javassist.CtMethod;
-import javassist.CtNewMethod;
 import javassist.NotFoundException;
 
 
@@ -72,7 +74,15 @@ public enum TraceCollection {
 	EXCEPTIONSTRACE(new TimeInstrumentor());
 	
 	/** The name of the created tracer field */
-	public static final String TRACER_FIELD = "_$_tracer"; 
+	public static final String TRACER_FIELD = "_$_tracer";
+	
+	/** The thread MX bean */
+	public static final ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
+	
+	/** Indicates if thread contention monitoring is supported */
+	public static final boolean THREAD_CONT_SUPPORTED = threadMXBean.isThreadContentionMonitoringSupported();
+	/** Indicates if thread cpu time is supported */
+	public static final boolean THREAD_CPU_SUPPORTED = threadMXBean.isThreadCpuTimeSupported();
 	
 	private TraceCollection(Instrumentor instrumentor) {
 		this.instrumentor = instrumentor;
