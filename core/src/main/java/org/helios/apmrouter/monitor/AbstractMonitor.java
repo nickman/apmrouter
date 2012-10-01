@@ -62,7 +62,7 @@ public abstract class AbstractMonitor implements Monitor, Runnable {
 		SystemClock.startTimer();
 		doCollect();
 		ElapsedTime et = SystemClock.endTimer();
-		tracer.traceLong(et.elapsedMs, "ElpasedTimeMs", "Monitors", getClass().getSimpleName());
+		tracer.traceGauge(et.elapsedMs, "ElpasedTimeMs", "Monitors", getClass().getSimpleName());
 	}
 	
 	/**

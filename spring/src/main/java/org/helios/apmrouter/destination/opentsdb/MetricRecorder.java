@@ -35,6 +35,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Delayed;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -449,7 +450,7 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 	 */
 	public void record(Recording recording) {
 		if(!checkThrottleLatch()) return;
-		validate(recording.name, recording.tags, recording.value, recording.timestamp);
+		//validate(recording.name, recording.tags, recording.value, recording.timestamp);
 		//tsClient.addPoint(recording.name, recording.timestamp,  recording.value, recording.tags);
         final WritableDataPoints dp = getDataPoints(recording.name, recording.tags);
         Deferred<Object> d;
@@ -713,9 +714,10 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
 	 * <p><code>org.helios.san.opentsdb.MetricRecorder.Recording</code></p>
 	 */
-	public static class Recording {
+	public static class Recording implements Delayed {
 		protected final MetricRecorder recorder;
 		protected String name;
+		protected long barrier = Long.MIN_VALUE;
 		protected long timestamp= Long.MIN_VALUE;
 		protected long value= Long.MIN_VALUE;
 		protected final Map<String, String> tags = new HashMap<String, String>();
@@ -749,7 +751,9 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 		 * @return this builder
 		 */
 		public Recording time() {
-			this.timestamp = TimeUnit.SECONDS.convert(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+			long now = System.currentTimeMillis();
+			this.timestamp = TimeUnit.SECONDS.convert(now, TimeUnit.MILLISECONDS);
+			this.barrier = now + 1000;  // one second from now
 			return this;
 		}
 		
@@ -786,6 +790,21 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 		 */
 		public void record() {
 			recorder.record(this);
+		}
+
+
+		@Override
+		public int compareTo(Delayed other) {
+			long thisDelay = getDelay(TimeUnit.MILLISECONDS), thatDelay = other.getDelay(TimeUnit.MILLISECONDS);
+			if(thisDelay==thatDelay) return -1;
+			return (thisDelay<thatDelay ? -1 : 1);
+
+		}
+
+
+		@Override
+		public long getDelay(TimeUnit unit) {
+			return unit.convert(barrier-System.currentTimeMillis(), TimeUnit.MILLISECONDS);
 		}
 	}
 

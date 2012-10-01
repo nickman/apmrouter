@@ -100,7 +100,7 @@ public class TracerImpl implements ITracer {
 		ICEMetric metric = null;
 		try {
 			if(type.isLong()) {
-				if(type.equals(MetricType.DELTA)) {
+				if(type.isDelta()) {
 					Long delta = ICEMetricCatalog.getInstance().getDelta(coerce(value), host, agent, name, namespace);
 					if(delta==null) return null;
 					metric = ICEMetric.trace(delta.longValue(), host, agent, name, type, namespace);
@@ -135,7 +135,7 @@ public class TracerImpl implements ITracer {
 		ICEMetric metric = null;
 		try {
 			if(type.isLong()) {
-				if(type.equals(MetricType.DELTA)) {
+				if(type.isDelta()) {
 					Long delta = ICEMetricCatalog.getInstance().getDelta(coerce(value), host, agent, name, namespace);
 					if(delta==null) return null;
 					metric = ICEMetric.trace(delta.longValue(), host, agent, name, type, namespace);
@@ -234,12 +234,12 @@ public class TracerImpl implements ITracer {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.trace.ITracer#traceLong(long, java.lang.CharSequence, java.lang.CharSequence[])
+	 * @see org.helios.apmrouter.trace.ITracer#traceCounter(long, java.lang.CharSequence, java.lang.CharSequence[])
 	 */
 	@Override
-	public ICEMetric traceLong(long value, CharSequence name, CharSequence... namespace) {
+	public ICEMetric traceCounter(long value, CharSequence name, CharSequence... namespace) {
 		try {				
-			ICEMetric metric = ICEMetric.trace(value, host, agent, name, MetricType.LONG, namespace);
+			ICEMetric metric = ICEMetric.trace(value, host, agent, name, MetricType.LONG_COUNTER, namespace);
 			submitter.submit(metric);
 			return metric;
 		} catch (Throwable t) {
@@ -247,17 +247,34 @@ public class TracerImpl implements ITracer {
 			return null;
 		}		
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceGauge(long, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceGauge(long value, CharSequence name, CharSequence... namespace) {
+		try {				
+			ICEMetric metric = ICEMetric.trace(value, host, agent, name, MetricType.LONG_GAUGE, namespace);
+			submitter.submit(metric);
+			return metric;
+		} catch (Throwable t) {
+			t.printStackTrace(System.err);
+			return null;
+		}		
+	}
+	
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.trace.ITracer#traceDelta(long, java.lang.CharSequence, java.lang.CharSequence[])
+	 * @see org.helios.apmrouter.trace.ITracer#traceDeltaCounter(long, java.lang.CharSequence, java.lang.CharSequence[])
 	 */
 	@Override
-	public ICEMetric traceDelta(long value, CharSequence name, CharSequence... namespace) {
+	public ICEMetric traceDeltaCounter(long value, CharSequence name, CharSequence... namespace) {
 		try {
 			Long delta = ICEMetricCatalog.getInstance().getDelta(value, host, agent, name, namespace);
 			if(delta==null) return null;			
-			ICEMetric metric =  ICEMetric.trace(delta.longValue(), host, agent, name, MetricType.DELTA, namespace);
+			ICEMetric metric =  ICEMetric.trace(delta.longValue(), host, agent, name, MetricType.DELTA_COUNTER, namespace);
 			submitter.submit(metric);
 			return metric;
 		} catch (Throwable t) {
@@ -265,6 +282,25 @@ public class TracerImpl implements ITracer {
 			return null;
 		}		
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceDeltaGauge(long, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceDeltaGauge(long value, CharSequence name, CharSequence... namespace) {
+		try {
+			Long delta = ICEMetricCatalog.getInstance().getDelta(value, host, agent, name, namespace);
+			if(delta==null) return null;			
+			ICEMetric metric =  ICEMetric.trace(delta.longValue(), host, agent, name, MetricType.DELTA_GAUGE, namespace);
+			submitter.submit(metric);
+			return metric;
+		} catch (Throwable t) {
+			t.printStackTrace(System.err);
+			return null;
+		}		
+	}
+	
 
 	/**
 	 * {@inheritDoc}

@@ -145,7 +145,7 @@ public class MetricConstructionTestCase extends BaseTestCase {
 	 * @param ns The metric namespace
 	 */
 	protected void testNamespaceNames(final String name, final String[] ns) {
-		ICEMetric metric = tracer.trace(0, name, MetricType.LONG, ns);
+		ICEMetric metric = tracer.trace(0, name, MetricType.LONG_COUNTER, ns);
 		//log(metric.getFQN());
 		Assert.assertNotNull("The metric was null", metric);
 		Assert.assertEquals("The host name was not [" + defaultHost + "]", defaultHost, metric.getHost());

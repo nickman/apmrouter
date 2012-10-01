@@ -63,6 +63,49 @@ public class HeapICEMetric implements IDelegateMetric {
 	/** The unmapped instance of a mapped metric ID */
 	protected IDelegateMetric unmapped = null;
 
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((agent == null) ? 0 : agent.hashCode());
+		result = prime * result + ((host == null) ? 0 : host.hashCode());
+		result = prime * result + ((name == null) ? 0 : name.hashCode());
+		result = prime * result + Arrays.hashCode(namespace);
+		result = prime * result + ((type == null) ? 0 : type.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		HeapICEMetric other = (HeapICEMetric) obj;
+		if (agent == null) {
+			if (other.agent != null)
+				return false;
+		} else if (!agent.equals(other.agent))
+			return false;
+		if (host == null) {
+			if (other.host != null)
+				return false;
+		} else if (!host.equals(other.host))
+			return false;
+		if (name == null) {
+			if (other.name != null)
+				return false;
+		} else if (!name.equals(other.name))
+			return false;
+		if (!Arrays.equals(namespace, other.namespace))
+			return false;
+		if (type != other.type)
+			return false;
+		return true;
+	}
+
 	/**
 	 * {@inheritDoc}
 	 * @see java.lang.Object#toString()

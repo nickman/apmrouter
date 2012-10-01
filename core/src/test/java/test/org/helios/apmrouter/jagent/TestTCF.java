@@ -24,6 +24,10 @@
  */
 package test.org.helios.apmrouter.jagent;
 
+import java.util.Random;
+
+import org.helios.apmrouter.util.SystemClock;
+
 /**
  * <p>Title: TestTCF</p>
  * <p>Description: </p> 
@@ -38,10 +42,11 @@ public class TestTCF {
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		log("Starting Test");
+		log("Starting Test");		
 		InstrumentedMethods im = new InstrumentedMethods();
-		for(int i = 0; i < 100; i++) {
-			im.foo();
+		for(int i = 0; i < 10000; i++) {
+			im.randomSleep();
+			SystemClock.sleep(10);
 		}
 		log("Done");
 	}
@@ -52,5 +57,6 @@ public class TestTCF {
 
 	
 	// -javaagent:/home/nwhitehead/.m2/repository/org/helios/apmrouter/jagent/1.0-SNAPSHOT/jagent-1.0-SNAPSHOT.jar=file:/home/nwhitehead/hprojects/apmrouter/core/src/test/resources/aop/tcf-agent.xml
+	// -javaagent:C:\Users\nwhitehe\.m2\repository\org\helios\apmrouter\jagent\1.0-SNAPSHOT\jagent-1.0-SNAPSHOT.jar=file:/C:/projects/hapmrouter/core/src/test/resources/aop/tcf-agent.xml
 
 }

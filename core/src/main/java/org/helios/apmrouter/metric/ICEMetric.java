@@ -46,7 +46,7 @@ import org.helios.apmrouter.util.StringHelper;
  * <p><code>org.helios.apmrouter.metric.ICEMetric</code></p>
  */
 
-public class ICEMetric implements IMetric {
+public class ICEMetric implements IMetric, Comparable<ICEMetric> {
 	/** The value for this metricId */
 	protected final ICEMetricValue value;
 	/** The metricId name that this instance represents*/
@@ -59,6 +59,15 @@ public class ICEMetric implements IMetric {
 	
 	
 	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.IMetric#conflate(org.helios.apmrouter.metric.IMetric)
+	 */
+	public void conflate(IMetric metric) {
+		this.value.conflate(((ICEMetric)metric).value);
+	}
+
 	/**
 	 * Creates a new ICEMetric
 	 * @param timestamp THe metric value timestamp
@@ -496,6 +505,16 @@ public class ICEMetric implements IMetric {
 			unmapped.txContext = txContext;
 		}
 		return unmapped;
+	}
+
+	/**
+	 * Sorts by timestamp order, oldest first. 
+	 * {@inheritDoc}
+	 * @see java.lang.Comparable#compareTo(java.lang.Object)
+	 */
+	@Override
+	public int compareTo(ICEMetric other) {
+		return this.value.time<=other.value.time ? -1 : 1;
 	}
 	
 }

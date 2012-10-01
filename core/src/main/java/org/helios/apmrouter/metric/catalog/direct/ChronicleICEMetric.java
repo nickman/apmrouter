@@ -77,6 +77,28 @@ public class ChronicleICEMetric implements IDelegateMetric {
 	private static final String[] EMPTY_STR_ARR = {};
 	
 	
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + (int) (index ^ (index >>> 32));
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ChronicleICEMetric other = (ChronicleICEMetric) obj;
+		if (index != other.index)
+			return false;
+		return true;
+	}
+
 	/**
 	 * Creates a new ChronicleICEMetric
 	 * @param index The chronicle index for this metric
@@ -417,14 +439,14 @@ public class ChronicleICEMetric implements IDelegateMetric {
 		int loopCount = 1000000;
 //		int loopCount = 100;
 		for(int i = 0; i < loopCount; i++) {
-			ChronicleICEMetric.newInstance("MyHost" + i, "MyAgent", "metric" + i, MetricType.LONG, (i%2!=0) ? ("ns" + i) : ("ns" + i + "=foobar" + i));
+			ChronicleICEMetric.newInstance("MyHost" + i, "MyAgent", "metric" + i, MetricType.LONG_GAUGE, (i%2!=0) ? ("ns" + i) : ("ns" + i + "=foobar" + i));
 		}
 		ChronicleController.getInstance().clear();
 		ChronicleController.getInstance().useUnsafe(true);
 		log("Create Warmup complete");
 		SystemClock.startTimer();
 		for(int i = 0; i < loopCount; i++) {
-			ChronicleICEMetric.newInstance("MyHost" + i, "MyAgent", "metric" + i, MetricType.LONG, (i%2!=0) ? ("ns" + i) : ("ns" + i + "=foobar" + i));
+			ChronicleICEMetric.newInstance("MyHost" + i, "MyAgent", "metric" + i, MetricType.LONG_GAUGE, (i%2!=0) ? ("ns" + i) : ("ns" + i + "=foobar" + i));
 		}
 		ElapsedTime et = SystemClock.endTimer();
 		log("Create Test complete in " + et);

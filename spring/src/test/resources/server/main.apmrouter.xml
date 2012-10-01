@@ -134,6 +134,12 @@
  		<property name="routingWorkers" value="8" />
  		<property name="threadPool" ref="PatternRouterWorkers" />
  	</bean>
+ 	
+ 	<bean id="Conflator" class="org.helios.apmrouter.router.MetricConflationService">
+ 		<property name="conflationPeriod" value="1000" />
+ 		<property name="maxQueueSize" value="1000" />
+ 		<property name="workerThreads" value="1" />
+ 	</bean>
 
 	<bean id="PatternRouterWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
 		<constructor-arg>
@@ -149,7 +155,7 @@
 	<bean id="GraphiteDestination" class="org.helios.apmrouter.destination.graphite.GraphiteDestination">
  		<property name="matchPatterns">
 	 		<util:set>
-				<value>LONG-.*|DELTA-.*</value>	 			
+				<value>LONG.*|DELTA.*</value>	 			
 	 		</util:set>
  		</property>
  		<property name="graphiteHost" value="10.5.104.24" />
@@ -187,12 +193,13 @@
  	<bean id="LocalOpenTSDB" class="org.helios.apmrouter.destination.opentsdb.OpenTSDBDestination">
  		<property name="matchPatterns">
 	 		<util:set>
-				<value>LONG-.*|DELTA-.*</value>	 			
+				<value>LONG.*|DELTA.*</value>	 			
 	 		</util:set>
  		</property>
  		<!-- <property name="openTSDBHost" value="192.168.1.156" /> -->
  		<!--  <property name="openTSDBHost" value="heliojira.dnsalias.org.home" />  -->
- 		<property name="openTSDBHost" value="localhost" />
+ 		<!-- <property name="openTSDBHost" value="localhost" /> -->
+ 		<property name="openTSDBHost" value="pdk-pt-cupas-01" />
 	</bean>
  	
 	

@@ -28,11 +28,16 @@ import org.snmp4j.PDU;
  * <p><code>org.helios.apmrouter.metric.MetricType</code></p>
  */
 
+@SuppressWarnings("rawtypes")
 public enum MetricType  implements IMetricDataAccessor {
-	/** Standard numeric metricId type */
-	LONG(new LongMDA()),
-	/** Locally maintained delta numeric metricId type */
-	DELTA(new DeltaMDA()),
+	/** Standard numeric metricId type, conflation is additive */
+	LONG_COUNTER(new LongMDA()),
+	/** Standard numeric metricId type, conflation is averaging */
+	LONG_GAUGE(new LongMDA()),	
+	/** Locally maintained delta numeric metricId type, conflation is additive */
+	DELTA_COUNTER(new DeltaMDA()),
+	/** Locally maintained delta numeric metricId type, conflation is averaging */
+	DELTA_GAUGE(new DeltaMDA()),
 	/** A throwable handler metricId type */	
 	ERROR(new ErrorMDA()),
 	/** A char sequence type message metricId type */
@@ -79,8 +84,34 @@ public enum MetricType  implements IMetricDataAccessor {
 	 * @return true if this metricId type is long based, false otherwise
 	 */
 	public boolean isLong() {
-		return ordinal() <= DELTA.ordinal();
+		return ordinal() <= DELTA_GAUGE.ordinal();
 	}
+	
+	/**
+	 * Determines if this metricId type is a gauge
+	 * @return true if this metricId type is a gauge, false otherwise
+	 */
+	public boolean isGauge() {
+		return (this==LONG_GAUGE || this==DELTA_GAUGE);
+	}
+	
+	/**
+	 * Determines if this metricId type is a counter
+	 * @return true if this metricId type is a counter, false otherwise
+	 */
+	public boolean isCounter() {
+		return (this==LONG_COUNTER|| this==DELTA_COUNTER);
+	}
+	
+	/**
+	 * Determines if this metricId type is a delta
+	 * @return true if this metricId type is a delta, false otherwise
+	 */
+	public boolean isDelta() {
+		return (this==DELTA_COUNTER|| this==DELTA_GAUGE);
+	}
+	
+	
 	
 	/**
 	 * Decodes the passed ordinal to a MetricType.
@@ -133,7 +164,7 @@ public enum MetricType  implements IMetricDataAccessor {
 		private static final long[] NULL_LONG = {0};
 		
 		protected MetricType getType() {
-			return LONG;
+			return LONG_COUNTER;
 		}
 		
 		/**
@@ -192,7 +223,7 @@ public enum MetricType  implements IMetricDataAccessor {
 		 */
 		@Override
 		protected MetricType getType() {
-			return DELTA;
+			return DELTA_GAUGE;
 		}
 		
 		

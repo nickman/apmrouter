@@ -101,22 +101,41 @@ public interface ITracer {
 //	public ICEMetric trace(long value, CharSequence name, MetricType type, CharSequence...namespace);
 	
 	/**
-	 * Traces a long type
+	 * Traces a long counter type
 	 * @param value The long value
 	 * @param name The name of the metric
 	 * @param namespace The optional namespace of the metric
 	 * @return the created {@link ICEMetric}
 	 */
-	public ICEMetric traceLong(long value, CharSequence name, CharSequence...namespace);
+	public ICEMetric traceCounter(long value, CharSequence name, CharSequence...namespace);
 	
 	/**
-	 * Traces a delta long type
+	 * Traces a long gauge type
 	 * @param value The long value
 	 * @param name The name of the metric
 	 * @param namespace The optional namespace of the metric
 	 * @return the created {@link ICEMetric}
 	 */
-	public ICEMetric traceDelta(long value, CharSequence name, CharSequence...namespace);
+	public ICEMetric traceGauge(long value, CharSequence name, CharSequence...namespace);
+	
+	
+	/**
+	 * Traces a delta long gauge type
+	 * @param value The long value
+	 * @param name The name of the metric
+	 * @param namespace The optional namespace of the metric
+	 * @return the created {@link ICEMetric}
+	 */
+	public ICEMetric traceDeltaGauge(long value, CharSequence name, CharSequence...namespace);
+	
+	/**
+	 * Traces a delta long counter type
+	 * @param value The long value
+	 * @param name The name of the metric
+	 * @param namespace The optional namespace of the metric
+	 * @return the created {@link ICEMetric}
+	 */
+	public ICEMetric traceDeltaCounter(long value, CharSequence name, CharSequence...namespace);
 	
 	/**
 	 * Traces a string type

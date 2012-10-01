@@ -44,7 +44,7 @@ public class TracingDemo {
 			SystemClock.startTimer();
 			//boolean success = sender.ping(2000);
 			ElapsedTime et = SystemClock.endTimer();
-			tracer.trace(System.currentTimeMillis(), "Foo", MetricType.LONG, "Bar");
+			tracer.trace(System.currentTimeMillis(), "Foo", MetricType.LONG_COUNTER, "Bar");
 			//log("Ping [" + success + "]--  " + et );
 			//tracer.traceLong(i, "TXTest", "Foo", "Bar");
 //			for(GarbageCollectorMXBean gc: ManagementFactory.getGarbageCollectorMXBeans()) {
@@ -74,18 +74,18 @@ public class TracingDemo {
 	public static void traceCpuUsages(ITracer tracer, HeliosSigar sigar) {
 		int cpuId = 0;
 		for(CpuPerc cpu : sigar.getCpuPercList()) {
-			tracer.traceLong((long)(cpu.getCombined()*100), "Total", "CPU", "Usage", "Cpu" + cpuId);
-			tracer.traceLong((long)(cpu.getSys()*100), "Sys", "CPU", "Usage", "Cpu" + cpuId);
-			tracer.traceLong((long)(cpu.getUser()*100), "User", "CPU", "Usage", "Cpu" + cpuId);
+			tracer.traceGauge((long)(cpu.getCombined()*100), "Total", "CPU", "Usage", "Cpu" + cpuId);
+			tracer.traceGauge((long)(cpu.getSys()*100), "Sys", "CPU", "Usage", "Cpu" + cpuId);
+			tracer.traceGauge((long)(cpu.getUser()*100), "User", "CPU", "Usage", "Cpu" + cpuId);
 			cpuId++;
 		}
 	}
 	
 	public static void traceTotalCpuUsage(ITracer tracer, HeliosSigar sigar) {
 		CpuPerc perc = sigar.getCpuPerc();
-		tracer.traceLong((long)(perc.getCombined()*100), "Total", "CPU", "Usage", "Combined");
-		tracer.traceLong((long)(perc.getSys()*100), "Sys", "CPU", "Usage", "Combined");
-		tracer.traceLong((long)(perc.getUser()*100), "User", "CPU", "Usage", "Combined");
+		tracer.traceGauge((long)(perc.getCombined()*100), "Total", "CPU", "Usage", "Combined");
+		tracer.traceGauge((long)(perc.getSys()*100), "Sys", "CPU", "Usage", "Combined");
+		tracer.traceGauge((long)(perc.getUser()*100), "User", "CPU", "Usage", "Combined");
 	}
 	
 	public static void traceMemorySpacesSNMP(ITracer tracer, HeliosSigar sigar) {
@@ -119,16 +119,16 @@ public class TracingDemo {
 				//log("No Usage for [" + fs.getDirName() + "]");
 				continue;
 			}
-			tracer.traceLong(fsu.getAvail(), "Available", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
-			tracer.traceLong(fsu.getUsed(), "Used", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
-			tracer.traceLong(fsu.getTotal(), "Total", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
-			tracer.traceLong((long)(fsu.getUsePercent()*100), "Used%", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
-			tracer.traceLong((long)(fsu.getDiskQueue()*100), "Queue", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
-			tracer.traceLong((long)(fsu.getDiskServiceTime()*100), "ServiceTime", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
-			tracer.traceDelta(fsu.getDiskReadBytes(), "BytesRead", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
-			tracer.traceDelta(fsu.getDiskWriteBytes(), "BytesWritten", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
-			tracer.traceDelta(fsu.getDiskReads(), "Reads", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
-			tracer.traceDelta(fsu.getDiskWrites(), "Writes", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
+			tracer.traceGauge(fsu.getAvail(), "Available", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
+			tracer.traceGauge(fsu.getUsed(), "Used", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
+			tracer.traceGauge(fsu.getTotal(), "Total", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
+			tracer.traceGauge((long)(fsu.getUsePercent()*100), "Used%", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
+			tracer.traceGauge((long)(fsu.getDiskQueue()*100), "Queue", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
+			tracer.traceGauge((long)(fsu.getDiskServiceTime()*100), "ServiceTime", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
+			tracer.traceDeltaCounter(fsu.getDiskReadBytes(), "BytesRead", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
+			tracer.traceDeltaCounter(fsu.getDiskWriteBytes(), "BytesWritten", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
+			tracer.traceDeltaCounter(fsu.getDiskReads(), "Reads", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
+			tracer.traceDeltaCounter(fsu.getDiskWrites(), "Writes", "FileSystems", fs.getSysTypeName(), fs.getDirName().replace("\\", ""));
 		}
 	}
 	

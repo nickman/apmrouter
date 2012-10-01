@@ -80,6 +80,18 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 	/** Sliding windows of route elapsed times in ms. */
 	protected final LongSlidingWindow elapsedTimesMs = new LongSlidingWindow(15); 
 	
+	
+	protected MetricConflationService conflator;
+	
+	/**
+	 * Injects the conflation service
+	 * @param conflator the conflation service
+	 */
+	@Autowired(required=true)
+	public void setConflator(MetricConflationService conflator) {
+		this.conflator = conflator;
+	}
+
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
@@ -89,6 +101,7 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 		super.doStart();
 		((ManagedThreadPool)threadPool).setRejectedExecutionHandler(this);
 		routingQueue = new ArrayBlockingQueue<IMetric>(routingQueueSize, routingQueueFairness);
+		conflator.setRouter(this);
 		
 //		for(int i = 0; i < routingWorkers; i++) {
 //			threadPool.execute(new MatchingWorker());
@@ -148,11 +161,7 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 	}
 	
 	
-	/**
-	 * Routes an array of routables to their pattern matched endpoints
-	 * @param metrics The routables to route
-	 */
-	public void route(IMetric...metrics) {
+	void queue(IMetric...metrics) {
 		for(final IMetric metric: metrics) {
 			if(metric==null) continue;
 			this.threadPool.execute(new Runnable(){
@@ -178,28 +187,41 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 					
 				}
 			});
+		}		
+	}
+	
+	
+	public void route(Collection<IMetric> metrics) {
+		route(metrics.toArray(new IMetric[0]));
+	}
+	
+	public void queue(Collection<IMetric> metrics) {
+		queue(metrics.toArray(new IMetric[0]));
+	}
+
+	
+	/**
+	 * Routes an array of routables to their pattern matched endpoints
+	 * @param metrics The routables to route
+	 */
+	public void route(IMetric...metrics) {
+		conflator.queue(metrics);
+	}
+	
+//	/**
+//	 * Routes a collection of routables to their pattern matched endpoints
+//	 * @param metrics The routables to route
+//	 */
+//	public void route(Collection<IMetric> metrics) {
+//		for(IMetric metric: metrics) {
+//			if(metric==null) continue;
 //			if(routingQueue.offer(metric)) {
 //				incr("CompletedRoutes");
 //			} else {
 //				incr("DroppedRoutes");
 //			}			
-		}
-	}
-	
-	/**
-	 * Routes a collection of routables to their pattern matched endpoints
-	 * @param metrics The routables to route
-	 */
-	public void route(Collection<IMetric> metrics) {
-		for(IMetric metric: metrics) {
-			if(metric==null) continue;
-			if(routingQueue.offer(metric)) {
-				incr("CompletedRoutes");
-			} else {
-				incr("DroppedRoutes");
-			}			
-		}	
-	}
+//		}	
+//	}
 
 	/**
 	 * {@inheritDoc}

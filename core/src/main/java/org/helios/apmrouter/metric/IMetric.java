@@ -224,5 +224,11 @@ public interface IMetric extends Routable {
 	 */
 	public IMetric getUnmapped();
 	
+	/**
+	 * Conflates the value of the passed IMetric into this one
+	 * @param metric The IMetric to conflate into this one
+	 */
+	public void conflate(IMetric metric);
+	
 
 }

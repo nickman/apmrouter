@@ -36,8 +36,13 @@ import java.util.Set;
 import javassist.ByteArrayClassPath;
 import javassist.ClassPool;
 import javassist.CtClass;
+import javassist.CtField;
 import javassist.CtMethod;
+import javassist.CtNewMethod;
 import javassist.LoaderClassPath;
+import javassist.Modifier;
+
+import org.helios.apmrouter.trace.ITracer;
 
 /**
  * <p>Title: TraceClassFileTransformer</p>
@@ -76,10 +81,12 @@ public class TraceClassFileTransformer implements ClassFileTransformer {
 		ClassPool tClassPool = null;
 		try {
 			final String clazzName = className.replace('/', '.');
-			final String packageName = clazzName.substring(0, clazzName.lastIndexOf("."));
+			int dotIndex = clazzName.lastIndexOf(".");
+			final String packageName = dotIndex==-1 ? "" : clazzName.substring(0, dotIndex);
 			if(!targetPackages.contains(packageName)) return classfileBuffer;
 			log("Inspecting class [" + clazzName + "]");
 			tClassPool = new ClassPool(true);
+			tClassPool.importPackage("org.helios.apmrouter.trace");			
 			tClassPool.appendClassPath(new LoaderClassPath(loader));
 			tClassPool.appendClassPath(new ByteArrayClassPath(className, classfileBuffer));
 			CtClass clazz = tClassPool.get(clazzName);
@@ -100,6 +107,10 @@ public class TraceClassFileTransformer implements ClassFileTransformer {
 			}
 			if(!methodAnnotations.isEmpty()) {
 				byte[] byteCode = instrumentClass(tClassPool, clazz, methodAnnotations);
+				if(byteCode==null) {
+					log("Failed to instrument class [" + clazzName + "]");
+					return classfileBuffer;
+				}
 				return byteCode;
 			}
 			return classfileBuffer;
@@ -119,9 +130,72 @@ public class TraceClassFileTransformer implements ClassFileTransformer {
 	 * @return the byte code array of the instrumented class
 	 */
 	protected byte[] instrumentClass(ClassPool cp, CtClass clazz, Map<CtMethod, TraceImpl> methodAnnotations) {
+		try {
+			CtField tracerField = new CtField(cp.get(ITracer.class.getName()),TraceCollection.TRACER_FIELD, clazz);
+			tracerField.setModifiers(tracerField.getModifiers() | Modifier.STATIC | Modifier.FINAL);
+			clazz.addField(tracerField, "TracerFactory.getTracer()");
+			
+			
+			for(Map.Entry<CtMethod, TraceImpl> entry: methodAnnotations.entrySet()) {
+				CtMethod method = entry.getKey();
+				TraceImpl ti = entry.getValue();				
+				String originalName = method.getName();
+				String newName = originalName +"$impl";
+			    method.setName(newName);
+			    CtMethod wrapperMethod = CtNewMethod.copy(method, originalName, clazz, null);
+
+			    String namespaceFieldName = originalName + "_" + method.getSignature().hashCode();
+			    CtField namespaceField = new CtField(cp.get(String[].class.getName()),namespaceFieldName, clazz);
+			    namespaceField.setModifiers(tracerField.getModifiers() | Modifier.STATIC | Modifier.FINAL);
+			    StringBuilder namespaceInit = new StringBuilder("new String[]{");
+				String[] namespace = ti.getNamespace();
+				if(namespace.length>0) {
+					for(String ns: namespace) {
+						namespaceInit.append("\"").append(ns).append("\",");
+					}
+					namespaceInit.deleteCharAt(namespaceInit.length()-1);					
+				}
+				namespaceInit.append("};");
+				clazz.addField(namespaceField, namespaceInit.toString());
+				log("Added field [" + namespaceFieldName + "] with init of [" + namespaceInit + "]");
+				
+				final StringBuilder body = new StringBuilder("{"); 
+				// ======================  Do Pre Inv ==========================
+				for(TraceCollection tc: entry.getValue().getCollections()) {
+					try {
+						tc.addPreInvoke(clazz, method, wrapperMethod, ti, body);
+					} catch (Exception e) {
+						e.printStackTrace(System.err);
+						return null;
+					}
+				}
+				// ======================  Add Dispatch ==========================
+			    String type = method.getReturnType().getName();	        
+		        if (!"void".equals(type)) {
+		            body.append(type + " result = ");
+		        }
+		        body.append("\n").append(newName + "($$);\n");
+				// ======================  Do Posty Inv ==========================
+				for(TraceCollection tc: entry.getValue().getCollections()) {
+					try {
+						tc.addPostInvoke(clazz, method, wrapperMethod, ti, body);
+					} catch (Exception e) {
+						e.printStackTrace(System.err);
+						return null;
+					}
+				}
+				body.append("}");
+				log(body);
+				wrapperMethod.setBody(body.toString());
+		        clazz.addMethod(wrapperMethod);			
+				
+			}
 		
-		
-		return null;
+			return clazz.toBytecode();
+		} catch (Exception e) {
+			e.printStackTrace(System.err);
+			return null;
+		}
 	}
 
 }

@@ -53,6 +53,7 @@ public class TraceImpl {
 	private final TraceCollection[] collections;
 	
 	
+
 	/** An empty string array */
 	protected static final String[] EMPTY_ARR = {};
 	/** The default TraceCollection array */
@@ -87,7 +88,8 @@ public class TraceImpl {
 	 * @return the annotation's name
 	 */
 	protected String getName(Annotation trace) {
-		return ((StringMemberValue)trace.getMemberValue("name")).getValue();
+		StringMemberValue mv = (StringMemberValue)trace.getMemberValue("name");
+		return mv==null ? "" : mv.getValue();
 	}
 	
 	/**
@@ -122,6 +124,13 @@ public class TraceImpl {
 		return collections;	
 	}
 	
+	/**
+	 * Returns the runtime performance data points that will be measured on an intercepted method 
+	 * @return the runtime performance data points that will be measured on an intercepted method 
+	 */
+	public TraceCollection[] getCollections() {
+		return collections;
+	}
 
 	/**
 	 * Returns 

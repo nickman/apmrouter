@@ -140,7 +140,7 @@ public class BaseTracingOperations extends BasePerformanceTestCase {
 		Runnable workLoadProfile = newTracingRunnable(new TracingDirective<ICEMetric>(){
 			@Override
 			public ICEMetric doTrace(int index, int outerIndex) {
-				return tracer.traceLong(longValues[index], names[index], namespaces[index]);
+				return tracer.traceGauge(longValues[index], names[index], namespaces[index]);
 			}
 		});
 		executeBenchmark(workLoadProfile, THREAD_COUNT, TOTAL_OP_COUNT, WARMUP_COUNT);
@@ -155,7 +155,7 @@ public class BaseTracingOperations extends BasePerformanceTestCase {
 		Runnable workLoadProfile = newTracingRunnable(new TracingDirective<ICEMetric>(){
 			@Override
 			public ICEMetric doTrace(int index, int outerIndex) {
-				return tracer.trace(longValues[index], names[index], MetricType.LONG,  namespaces[index]);
+				return tracer.trace(longValues[index], names[index], MetricType.LONG_GAUGE,  namespaces[index]);
 			}
 		});
 		executeBenchmark(workLoadProfile, THREAD_COUNT, TOTAL_OP_COUNT, WARMUP_COUNT);
@@ -170,7 +170,7 @@ public class BaseTracingOperations extends BasePerformanceTestCase {
 		Runnable workLoadProfile = newTracingRunnable(new TracingDirective<ICEMetric>(){
 			@Override
 			public ICEMetric doTrace(int index, int outerIndex) {
-				return tracer.traceDelta(longValues[index], names[index]+"D", namespaces[index]);
+				return tracer.traceDeltaGauge(longValues[index], names[index]+"D", namespaces[index]);
 			}
 		});
 		executeBenchmark(workLoadProfile, THREAD_COUNT, TOTAL_OP_COUNT, WARMUP_COUNT);

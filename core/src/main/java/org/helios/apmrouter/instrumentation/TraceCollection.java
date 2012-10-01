@@ -30,6 +30,8 @@ import javassist.CtMethod;
 import javassist.CtNewMethod;
 import javassist.NotFoundException;
 
+
+
 /**
  * <p>Title: TraceCollection</p>
  * <p>Description: Enumerates the data points that can be collected in a method interception</p> 
@@ -39,30 +41,73 @@ import javassist.NotFoundException;
  */
 
 public enum TraceCollection {
-	/** The elapsed time in ms. */
-	TIME,
+	/** Rolls the TXContext */
+	TXROLL(new TXRoll()),
+	/** Rolls the TXContext */
+	TXCLEAR(new TXClear()),
+	
 	/** The elapsed time in ns. */
-	TIMENS,
+	TIMENS(new TimeNsInstrumentor()),
+	/** The elapsed time in ms. */
+	TIME(new TimeInstrumentor()),
 	/** The number of times the thread was blocked */
-	BLOCKS,
+	BLOCKS(new TimeInstrumentor()),
 	/** The amount of time the thread was blocked in ms. */
-	BLOCKTIME,
+	BLOCKTIME(new TimeInstrumentor()),
 	/** The number of times the thread waited */
-	WAITS,	
+	WAITS(new TimeInstrumentor()),	
 	/** The amount of time the thread waited in ms. */
-	WAITTIME,
+	WAITTIME(new TimeInstrumentor()),
 	/** The amount of CPU time the thread consumed in ns. */
-	CPU,	
+	CPU(new TimeInstrumentor()),	
 	/** THe number of threads concurrently executing through the instrumented method */
-	CONCURRENCY,
+	CONCURRENCY(new TimeInstrumentor()),
 	/** The number of times the method has been invoked */
-	INVOCATIONS,
+	INVOCATIONS(new TimeInstrumentor()),
 	/** The number of times the method returned successfully */
-	RETURNS,
+	RETURNS(new TimeInstrumentor()),
 	/** The number of times the method invocation resulted in a thrown exception */
-	EXCEPTIONS,
+	EXCEPTIONS(new TimeInstrumentor()),
 	/** Traces the exception stack trace */
-	EXCEPTIONSTRACE;
+	EXCEPTIONSTRACE(new TimeInstrumentor());
+	
+	/** The name of the created tracer field */
+	public static final String TRACER_FIELD = "_$_tracer"; 
+	
+	private TraceCollection(Instrumentor instrumentor) {
+		this.instrumentor = instrumentor;
+	}
+	
+	private final Instrumentor instrumentor;
+	
+	/**
+	 * Adds the pre-invocation instrumentation byte code to the wrapping method in the passed class
+	 * @param clazz The class to instrument
+	 * @param renamedMethod The method being instrumented (wrapped)
+	 * @param wrapperMethod The method that wraps the intercepted method
+	 * @param ti The instrumentation annotation
+	 * @param body The body of the wrapping method
+	 * @throws CannotCompileException  thrown if the generated code cannot be compiled
+	 * @throws NotFoundException  thrown if a targetted javassist lookup does not resolved
+	 */
+	public void addPreInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, TraceImpl ti, final StringBuilder body) throws CannotCompileException, NotFoundException {
+		instrumentor.addPreInvoke(clazz, renamedMethod, wrapperMethod, ti, body);
+	}
+	
+	/**
+	 * Adds the post-invocation instrumentation byte code to the wrapping method in the passed class
+	 * @param clazz The class to instrument
+	 * @param renamedMethod The method being instrumented (wrapped)
+	 * @param wrapperMethod The method that wraps the intercepted method
+	 * @param ti The instrumentation annotation
+	 * @param body The body of the wrapping method
+	 * @throws CannotCompileException  thrown if the generated code cannot be compiled
+	 * @throws NotFoundException  thrown if a targetted javassist lookup does not resolved
+	 */
+	public void addPostInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, TraceImpl ti, final StringBuilder body) throws CannotCompileException, NotFoundException {
+		instrumentor.addPostInvoke(clazz, renamedMethod, wrapperMethod, ti, body);
+	}
+
 	
 	
 	/**
@@ -72,93 +117,32 @@ public enum TraceCollection {
 	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
 	 * <p><code>org.helios.apmrouter.instrumentation.TraceCollection.Instrumentor</code></p>
 	 */
-	protected interface Instrumentor {
+	protected static interface Instrumentor {
 		/**
-		 * Adds the supported instrumentation byte code to the passed method in the passed class
+		 * Adds the pre-invocation instrumentation byte code to the wrapping method in the passed class
 		 * @param clazz The class to instrument
-		 * @param method The method to instrument
-		 * @throws CannotCompileException 
-		 * @throws NotFoundException 
+		 * @param renamedMethod The method being instrumented (wrapped)
+		 * @param wrapperMethod The method that wraps the intercepted method
+		 * @param ti The instrumentation annotation
+		 * @param body The body of the wrapping method
+		 * @throws CannotCompileException  thrown if the generated code cannot be compiled
+		 * @throws NotFoundException  thrown if a targetted javassist lookup does not resolved
 		 */
-		public void intruments(CtClass clazz, CtMethod method) throws CannotCompileException, NotFoundException ;
+		public void addPreInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, TraceImpl ti, final StringBuilder body) throws CannotCompileException, NotFoundException;
+		
+		/**
+		 * Adds the post-invocation instrumentation byte code to the wrapping method in the passed class
+		 * @param clazz The class to instrument
+		 * @param renamedMethod The method being instrumented (wrapped)
+		 * @param wrapperMethod The method that wraps the intercepted method
+		 * @param ti The instrumentation annotation
+		 * @param body The body of the wrapping method
+		 * @throws CannotCompileException  thrown if the generated code cannot be compiled
+		 * @throws NotFoundException  thrown if a targetted javassist lookup does not resolved
+		 */
+		public void addPostInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, TraceImpl ti, final StringBuilder body) throws CannotCompileException, NotFoundException;
 	}
 	
-	/**
-	 * <p>Title: AbstractInstrumentor</p>
-	 * <p>Description: Abstract intrumentor that does most of the heavy lifting</p> 
-	 * <p>Company: Helios Development Group LLC</p>
-	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
-	 * <p><code>org.helios.apmrouter.instrumentation.TraceCollection.AbstractInstrumentor</code></p>
-	 */
-	protected abstract class AbstractInstrumentor implements Instrumentor {
-		
-		/**
-		 * {@inheritDoc}
-		 * @see org.helios.apmrouter.instrumentation.TraceCollection.Instrumentor#intruments(javassist.CtClass, javassist.CtMethod)
-		 */
-		@Override
-		public void intruments(CtClass clazz, CtMethod method) throws CannotCompileException, NotFoundException {
-			String originalName = method.getName();
-			String nname = originalName +"$impl";
-		    method.setName(nname);
-		    CtMethod wrapperMethod = CtNewMethod.copy(method, originalName, clazz, null);
-			StringBuilder body = addPreInvoke(clazz, method, wrapperMethod);
-			addPostInvoke(clazz, method, wrapperMethod, body);
-			wrapperMethod.setBody(body.toString());
-	        clazz.addMethod(wrapperMethod);			
-		}
-		
-		/**
-		 * @param clazz
-		 * @param renamedMethod
-		 * @param wrapperMethod
-		 * @return
-		 * @throws CannotCompileException
-		 * @throws NotFoundException
-		 */
-		protected StringBuilder addPreInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod) throws CannotCompileException, NotFoundException {
-		    StringBuilder body = new StringBuilder("{\n");
-		    doPreInvoke(clazz, renamedMethod, wrapperMethod, body);
-		    String type = renamedMethod.getReturnType().getName();	        
-	        if (!"void".equals(type)) {
-	            body.append(type + " result = ");
-	        }
-	        body.append(renamedMethod.getName() + "($$);\n");
-		    return body;
-		}
-		
-		/**
-		 * @param clazz
-		 * @param renamedMethod
-		 * @param wrapperMethod
-		 * @param body
-		 * @throws CannotCompileException
-		 * @throws NotFoundException
-		 */
-		protected void addPostInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, StringBuilder body) throws CannotCompileException, NotFoundException {
-			doPostInvoke(clazz, renamedMethod, wrapperMethod, body);
-		}
-		
-		/**
-		 * @param clazz
-		 * @param renamedMethod
-		 * @param wrapperMethod
-		 * @param body
-		 * @throws CannotCompileException
-		 * @throws NotFoundException
-		 */
-		protected abstract void doPreInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, StringBuilder body) throws CannotCompileException, NotFoundException;
-		/**
-		 * @param clazz
-		 * @param renamedMethod
-		 * @param wrapperMethod
-		 * @param body
-		 * @throws CannotCompileException
-		 * @throws NotFoundException
-		 */
-		protected abstract void doPostInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, StringBuilder body) throws CannotCompileException, NotFoundException;
-		
-	}
 	
 	/**
 	 * <p>Title: TimeInstrumentor</p>
@@ -167,29 +151,104 @@ public enum TraceCollection {
 	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
 	 * <p><code>org.helios.apmrouter.instrumentation.TraceCollectionTime.Instrumentor</code></p>
 	 */
-	protected class TimeInstrumentor extends AbstractInstrumentor {
+	protected static class TimeInstrumentor implements Instrumentor {
 
 		/**
 		 * {@inheritDoc}
-		 * @see org.helios.apmrouter.instrumentation.TraceCollection.AbstractInstrumentor#doPreInvoke(javassist.CtClass, javassist.CtMethod, javassist.CtMethod, java.lang.StringBuilder)
+		 * @see org.helios.apmrouter.instrumentation.TraceCollection.Instrumentor#addPreInvoke(javassist.CtClass, javassist.CtMethod, javassist.CtMethod, org.helios.apmrouter.instrumentation.TraceImpl, java.lang.StringBuilder)
 		 */
 		@Override
-		protected void doPreInvoke(final CtClass clazz, final CtMethod renamedMethod, final CtMethod wrapperMethod, final StringBuilder body) throws CannotCompileException, NotFoundException {
-			// TODO Auto-generated method stub
-			
+		public void addPreInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, TraceImpl ti, final StringBuilder body) throws CannotCompileException, NotFoundException {
+			body.append("long start = System.currentTimeMillis();\n");
 		}
 
 		/**
 		 * {@inheritDoc}
-		 * @see org.helios.apmrouter.instrumentation.TraceCollection.AbstractInstrumentor#doPostInvoke(javassist.CtClass, javassist.CtMethod, javassist.CtMethod, java.lang.StringBuilder)
+		 * @see org.helios.apmrouter.instrumentation.TraceCollection.Instrumentor#addPostInvoke(javassist.CtClass, javassist.CtMethod, javassist.CtMethod, org.helios.apmrouter.instrumentation.TraceImpl, java.lang.StringBuilder)
 		 */
 		@Override
-		protected void doPostInvoke(CtClass clazz, CtMethod renamedMethod,
-				CtMethod wrapperMethod, StringBuilder body)
-				throws CannotCompileException, NotFoundException {
-			// TODO Auto-generated method stub
-			
+		public void addPostInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, TraceImpl ti, final StringBuilder body) throws CannotCompileException, NotFoundException {
+			body.append("long elapsed = System.currentTimeMillis()-start;\n");
+			String namespaceFieldName = wrapperMethod.getName() + "_" + renamedMethod.getSignature().hashCode();
+			body.append(TRACER_FIELD).append(".traceGauge(elapsed, \"").append("".equals(ti.getName()) ? "ElapsedTimeMs" : ti.getName() + "Ms").append("\", ").append(namespaceFieldName).append(");\n");
 		}
 		
 	}
+	
+	/**
+	 * <p>Title: TimeNsInstrumentor</p>
+	 * <p>Description: Instruments a method for measuring elapsed time in ns.</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.instrumentation.TraceCollection.TimeNsInstrumentor</code></p>
+	 */
+	protected static class TimeNsInstrumentor implements Instrumentor {
+
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.instrumentation.TraceCollection.Instrumentor#addPreInvoke(javassist.CtClass, javassist.CtMethod, javassist.CtMethod, org.helios.apmrouter.instrumentation.TraceImpl, java.lang.StringBuilder)
+		 */
+		@Override
+		public void addPreInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, TraceImpl ti, final StringBuilder body) throws CannotCompileException, NotFoundException {
+			body.append("long start = System.nanoTime();\n");
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.instrumentation.TraceCollection.Instrumentor#addPostInvoke(javassist.CtClass, javassist.CtMethod, javassist.CtMethod, org.helios.apmrouter.instrumentation.TraceImpl, java.lang.StringBuilder)
+		 */
+		@Override
+		public void addPostInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, TraceImpl ti, final StringBuilder body) throws CannotCompileException, NotFoundException {
+			body.append("long elapsed = System.nanoTime()-start;\n");
+			String namespaceFieldName = wrapperMethod.getName() + "_" + renamedMethod.getSignature().hashCode();
+			body.append(TRACER_FIELD).append(".traceGauge(elapsed, \"").append("".equals(ti.getName()) ? "ElapsedTimeNs" : ti.getName() + "Ns").append("\", ").append(namespaceFieldName).append(");\n");
+		}
+		
+	}
+	
+	protected static class TXRoll implements Instrumentor {
+
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.instrumentation.TraceCollection.Instrumentor#addPreInvoke(javassist.CtClass, javassist.CtMethod, javassist.CtMethod, org.helios.apmrouter.instrumentation.TraceImpl, java.lang.StringBuilder)
+		 */
+		@Override
+		public void addPreInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, TraceImpl ti, final StringBuilder body) throws CannotCompileException, NotFoundException {
+			body.append("TXContext.rollContext();\n");
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.instrumentation.TraceCollection.Instrumentor#addPostInvoke(javassist.CtClass, javassist.CtMethod, javassist.CtMethod, org.helios.apmrouter.instrumentation.TraceImpl, java.lang.StringBuilder)
+		 */
+		@Override
+		public void addPostInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, TraceImpl ti, final StringBuilder body) throws CannotCompileException, NotFoundException {
+		}
+		
+	}
+	
+	protected static class TXClear implements Instrumentor {
+
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.instrumentation.TraceCollection.Instrumentor#addPreInvoke(javassist.CtClass, javassist.CtMethod, javassist.CtMethod, org.helios.apmrouter.instrumentation.TraceImpl, java.lang.StringBuilder)
+		 */
+		@Override
+		public void addPreInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, TraceImpl ti, final StringBuilder body) throws CannotCompileException, NotFoundException {
+			
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.instrumentation.TraceCollection.Instrumentor#addPostInvoke(javassist.CtClass, javassist.CtMethod, javassist.CtMethod, org.helios.apmrouter.instrumentation.TraceImpl, java.lang.StringBuilder)
+		 */
+		@Override
+		public void addPostInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, TraceImpl ti, final StringBuilder body) throws CannotCompileException, NotFoundException {
+			body.append("TXContext.clearContext();\n");
+		}
+		
+	}
+	
+
+	
 }

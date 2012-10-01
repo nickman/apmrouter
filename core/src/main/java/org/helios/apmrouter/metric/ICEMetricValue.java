@@ -77,6 +77,35 @@ public class ICEMetricValue {
 	}
 	
 	
+	/**
+	 * Conflates the passed metric value into this one
+	 * @param metricValue The metric value to conflate into this metric value
+	 */
+	public synchronized void conflate(ICEMetricValue metricValue) {
+		if(!type.isLong() || !metricValue.type.isLong()) {
+			throw new RuntimeException("Cannot conflate non-numeric values", new Throwable());
+		}
+		if(type!=metricValue.type) {
+			throw new RuntimeException("Cannot conflate values of different types", new Throwable());
+		}
+		if(type.isGauge()) {
+			this.longValue = avg(2, this.longValue + metricValue.longValue);
+		} else {
+			this.longValue += metricValue.longValue;
+		}
+	}
+	
+	/**
+	 * Calculates the average
+	 * @param count The number of instances
+	 * @param total The total
+	 * @return the average
+	 */
+	public static long avg(double count, double total) {
+		if(total==0 || count==0) return 0;
+		double d = total/count;
+		return (long)d;		
+	}
 	
 
 

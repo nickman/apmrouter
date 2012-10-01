@@ -143,7 +143,7 @@ public class TracerFactory {
 		TXContext.rollContext();
 		SystemClock.startTimer();
 		for(int i = 0; i < LOOPS; i++) {
-			getTracer().trace(i, "foo", MetricType.LONG, "bar");
+			getTracer().trace(i, "foo", MetricType.LONG_GAUGE, "bar");
 			//getTracer().traceString("H#" + i, "W", "G", "H");
 			//getTracer().traceDirect(5000, TimeUnit.MILLISECONDS, i, "bar", MetricType.LONG, "bar");
 		}
@@ -165,7 +165,7 @@ public class TracerFactory {
 		for(int x = 0; x < 100; x++) {			
 			for(int i = 0; i < LOOPS; i++) {
 				if(traceBlob) tracer.traceBlob(new Date(), "foo", "date");
-				if(traceLong) tracer.traceLong(i, "foo", "bar");
+				if(traceLong) tracer.traceCounter(i, "foo", "bar");
 				if(traceString) getTracer().traceString("H#" + i, "W", "G", "H");
 			}
 		}
@@ -176,20 +176,20 @@ public class TracerFactory {
 		SystemClock.startTimer();
 		for(int i = 0; i < LOOPS; i++) {
 			if(traceBlob) tracer.traceBlob(new Date(), "foo", "date");
-			if(traceLong) tracer.traceLong(i, "foo", "bar");
+			if(traceLong) tracer.traceCounter(i, "foo", "bar");
 			if(traceString) getTracer().traceString("H#" + i, "W", "G", "H");
 		}
 		ElapsedTime et = SystemClock.endTimer();
 		log("FULL:\nSent:" + tracer.getSentMetrics() + "\nDropped:" + tracer.getDroppedMetrics() + "\nElapsed:" + et + "\nAvg Per:" + et.avgNs(LOOPS) + " ns");
 		/// TOKENIZE
-		ICEMetricCatalog.getInstance().setToken(tracer.getHost(), tracer.getAgent(), "foo", MetricType.LONG, "bar");
+		ICEMetricCatalog.getInstance().setToken(tracer.getHost(), tracer.getAgent(), "foo", MetricType.LONG_GAUGE, "bar");
 		SystemClock.sleep(CollectionFunnel.getInstance().getTimerPeriod()+1000);
 		log("Starting Tokenized");
 		tracer.resetStats();
 		SystemClock.startTimer();
 		for(int i = 0; i < LOOPS; i++) {
 			if(traceBlob) tracer.traceBlob(new Date(), "foo", "date");
-			if(traceLong) tracer.traceLong(i, "foo", "bar");
+			if(traceLong) tracer.traceCounter(i, "foo", "bar");
 			if(traceString) getTracer().traceString("H#" + i, "W", "G", "H");
 		}
 		et = SystemClock.endTimer();

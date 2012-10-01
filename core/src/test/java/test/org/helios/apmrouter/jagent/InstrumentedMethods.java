@@ -24,7 +24,10 @@
  */
 package test.org.helios.apmrouter.jagent;
 
+import java.util.Random;
+
 import org.helios.apmrouter.instrumentation.Trace;
+import org.helios.apmrouter.instrumentation.TraceCollection;
 import org.helios.apmrouter.util.SystemClock;
 
 /**
@@ -36,8 +39,18 @@ import org.helios.apmrouter.util.SystemClock;
  */
 
 public class InstrumentedMethods {
-	@Trace(name="foo", namespace={"test", "phew"})
-	public void foo() {
-		SystemClock.sleep(100);
+	static Random r = new Random(System.currentTimeMillis());
+	@Trace(namespace={"test=InstrumentedMethods", "name=randomSleep"})
+	public void randomSleep() {
+		SystemClock.sleep(Math.abs(r.nextInt(1000)));
 	}
+	
+//	@Trace(namespace={"test=InstrumentedMethods", "name=doubleSecretProbation"}, 
+//			collections={TraceCollection.TXROLL, TraceCollection.TIMENS, TraceCollection.TXCLEAR})
+//	@Trace(namespace={"test=InstrumentedMethods", "name=doubleSecretProbation"}, 
+//	collections={TraceCollection.TIMENS})	
+//	public void doubleSecretProbation() {
+//		SystemClock.sleep(Math.abs(r.nextInt(10)));
+//		randomSleep();
+//	}
 }
