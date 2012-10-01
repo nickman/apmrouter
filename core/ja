@@ -1,6 +1,6 @@
 #!/bin/bash
 pushd .
-mvn -DskipTests clean install
+mvn -DskipTests compile install
 cd ../jagent
 mvn clean install
 popd

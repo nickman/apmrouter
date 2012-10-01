@@ -22,41 +22,22 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.instrumentation;
+package test.org.helios.apmrouter.jagent;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import org.helios.apmrouter.instrumentation.Trace;
+import org.helios.apmrouter.util.SystemClock;
 
 /**
- * <p>Title: Trace</p>
- * <p>Description: AOP instrumentation directive</p> 
+ * <p>Title: InstrumentedMethods</p>
+ * <p>Description: Some instrumented methods to test</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.instrumentation.Trace</code></p>
+ * <p><code>test.org.helios.apmrouter.jagent.InstrumentedMethods</code></p>
  */
-@Target(ElementType.METHOD)
-@Retention(RetentionPolicy.RUNTIME)
-@Documented
-public @interface Trace {
-	/**
-	 * Specifies a TXContext operation
-	 */
-	public TXDirective txcontext() default TXDirective.NOOP; 
-	/**
-	 * Specifies the metric name
-	 */
-	public String name();
-	/**
-	 * Specifies the metric name
-	 */
-	public String[] namespace() default {};
-	
-	/**
-	 * Specifies the runtime performance data points that will be measured on an intercepted method
-	 */
-	public TraceCollection[] collections() default {TraceCollection.TIME};
-	
+
+public class InstrumentedMethods {
+	@Trace(name="foo", namespace={"test", "phew"})
+	public void foo() {
+		SystemClock.sleep(100);
+	}
 }

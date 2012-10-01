@@ -22,41 +22,35 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.instrumentation;
-
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+package test.org.helios.apmrouter.jagent;
 
 /**
- * <p>Title: Trace</p>
- * <p>Description: AOP instrumentation directive</p> 
+ * <p>Title: TestTCF</p>
+ * <p>Description: </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.instrumentation.Trace</code></p>
+ * <p><code>test.org.helios.apmrouter.jagent.TestTCF</code></p>
  */
-@Target(ElementType.METHOD)
-@Retention(RetentionPolicy.RUNTIME)
-@Documented
-public @interface Trace {
+
+public class TestTCF {
+
 	/**
-	 * Specifies a TXContext operation
+	 * @param args
 	 */
-	public TXDirective txcontext() default TXDirective.NOOP; 
-	/**
-	 * Specifies the metric name
-	 */
-	public String name();
-	/**
-	 * Specifies the metric name
-	 */
-	public String[] namespace() default {};
+	public static void main(String[] args) {
+		log("Starting Test");
+		InstrumentedMethods im = new InstrumentedMethods();
+		for(int i = 0; i < 100; i++) {
+			im.foo();
+		}
+		log("Done");
+	}
 	
-	/**
-	 * Specifies the runtime performance data points that will be measured on an intercepted method
-	 */
-	public TraceCollection[] collections() default {TraceCollection.TIME};
+	public static void log(Object msg) {
+		System.out.println("[TestTCF]:" + msg);
+	}
+
 	
+	// -javaagent:/home/nwhitehead/.m2/repository/org/helios/apmrouter/jagent/1.0-SNAPSHOT/jagent-1.0-SNAPSHOT.jar=file:/home/nwhitehead/hprojects/apmrouter/core/src/test/resources/aop/tcf-agent.xml
+
 }

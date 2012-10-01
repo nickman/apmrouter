@@ -24,39 +24,14 @@
  */
 package org.helios.apmrouter.instrumentation;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
 /**
- * <p>Title: Trace</p>
- * <p>Description: AOP instrumentation directive</p> 
+ * <p>Title: InterceptorTemplate</p>
+ * <p>Description: </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.instrumentation.Trace</code></p>
+ * <p><code>org.helios.apmrouter.instrumentation.InterceptorTemplate</code></p>
  */
-@Target(ElementType.METHOD)
-@Retention(RetentionPolicy.RUNTIME)
-@Documented
-public @interface Trace {
-	/**
-	 * Specifies a TXContext operation
-	 */
-	public TXDirective txcontext() default TXDirective.NOOP; 
-	/**
-	 * Specifies the metric name
-	 */
-	public String name();
-	/**
-	 * Specifies the metric name
-	 */
-	public String[] namespace() default {};
-	
-	/**
-	 * Specifies the runtime performance data points that will be measured on an intercepted method
-	 */
-	public TraceCollection[] collections() default {TraceCollection.TIME};
-	
+
+public class InterceptorTemplate {
+
 }

@@ -1,16 +1,18 @@
 <agent>
 	<props>
-		<prop name="org.helios.agent" value="eggs-cellent"/>
+		<prop name="org.helios.agent" value="tcf"/>
 		<!-- <prop name="org.helios.agent.monitor.script.url" value="eggs-cellent"/> -->
 		
 	</props>
 	<monitors>
+		<!-- 
 		<monitor name="org.helios.apmrouter.monitor.jvm.JVMMonitor" period="5000"/>
-		<monitor name="org.helios.apmrouter.monitor.script.ScriptMonitor" period="5000"/>		
+		<monitor name="org.helios.apmrouter.monitor.script.ScriptMonitor" period="5000"/>
+		-->		
 	</monitors>
 	<aop>
 		<trace-annotated>
-			<packages>org.helios.test,org.helios.test2</packages>
+			<packages>test.org.helios.apmrouter.jagent</packages>
 		</trace-annotated>
 	</aop>
 </agent>

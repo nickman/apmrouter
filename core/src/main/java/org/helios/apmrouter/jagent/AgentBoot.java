@@ -26,7 +26,11 @@ package org.helios.apmrouter.jagent;
 
 import java.lang.instrument.Instrumentation;
 import java.net.URL;
+import java.util.HashSet;
+import java.util.Set;
 
+import org.helios.apmrouter.instrumentation.Trace;
+import org.helios.apmrouter.instrumentation.TraceClassFileTransformer;
 import org.helios.apmrouter.jmx.XMLHelper;
 import org.helios.apmrouter.monitor.Monitor;
 import org.w3c.dom.Document;
@@ -70,11 +74,49 @@ public class AgentBoot {
 				configNode = getXMLConf(xmlUrl);
 			} catch (Exception e) {
 				System.err.println("Failed to parse XML configuration defined at [" + agentArgs + "]");
+				e.printStackTrace(System.err);
 				return;
 			}			
 			loadProps(XMLHelper.getChildNodeByName(configNode, "props", false));
 			loadMonitors(XMLHelper.getChildNodeByName(configNode, "monitors", false));
+			loadTraceAnnotated(XMLHelper.getChildNodeByName(configNode, "aop", false));
 		}		
+	}
+	
+	/*
+	 * 	<aop>
+		<trace-annotated>
+			<packages>org.helios.test,org.helios.test2</packages>
+
+	 */
+	
+	/**
+	 * Loads the {@link TraceClassFileTransformer} that will instrument {@link Trace} annotated methods.
+	 * @param aopNode The config node for aop
+	 */
+	protected static void loadTraceAnnotated(Node aopNode) {
+		if(aopNode==null) return;
+		Set<String> packages = new HashSet<String>();
+		Node traceAnnot = XMLHelper.getChildNodeByName(aopNode, "trace-annotated", false);
+		if(traceAnnot!=null) {
+			Node packageNode = XMLHelper.getChildNodeByName(traceAnnot, "packages", false);
+			if(packageNode!=null) {
+				String pnames = XMLHelper.getNodeTextValue(packageNode);
+				if(pnames!=null && !pnames.trim().isEmpty()) {
+					String[] frags = pnames.trim().split(",");
+					for(String s: frags) {
+						if(s.trim().isEmpty()) continue;
+						packages.add(s.trim());
+					}
+				}
+			}
+		}
+		if(!packages.isEmpty()) {
+			TraceClassFileTransformer tcf = new TraceClassFileTransformer(packages);
+			instrumentation.addTransformer(tcf, true);
+			System.out.println("Added TraceClassFileTransformer for packages " + packages);
+		}
+		
 	}
 	
 	/**

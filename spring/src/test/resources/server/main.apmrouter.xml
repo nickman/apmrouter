@@ -191,7 +191,8 @@
 	 		</util:set>
  		</property>
  		<!-- <property name="openTSDBHost" value="192.168.1.156" /> -->
- 		<property name="openTSDBHost" value="heliojira.dnsalias.org.home" />
+ 		<!--  <property name="openTSDBHost" value="heliojira.dnsalias.org.home" />  -->
+ 		<property name="openTSDBHost" value="localhost" />
 	</bean>
  	
 	
