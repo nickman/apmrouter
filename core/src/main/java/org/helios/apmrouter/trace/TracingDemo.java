@@ -9,11 +9,11 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.monitor.DefaultMonitorBoot;
+import org.helios.apmrouter.nativex.APMSigar;
 import org.helios.apmrouter.sender.ISender;
 import org.helios.apmrouter.sender.SenderFactory;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
-import org.helios.jzab.plugin.nativex.HeliosSigar;
 import org.hyperic.sigar.CpuPerc;
 import org.hyperic.sigar.FileSystem;
 import org.hyperic.sigar.FileSystemUsage;
@@ -31,7 +31,7 @@ public class TracingDemo {
 		traceLogger.setLevel(Level.DEBUG);
 		traceLogger.removeAllAppenders();
 		traceLogger.addAppender(new LogTracer());
-		HeliosSigar sigar = HeliosSigar.getInstance();
+		APMSigar sigar = APMSigar.getInstance();
 		TXContext.rollContext();
 		MetricType.setCompress(true);
 		ISender sender = SenderFactory.getInstance().getDefaultSender();
@@ -71,7 +71,7 @@ public class TracingDemo {
 		SystemClock.sleep(5000);
 	}
 	
-	public static void traceCpuUsages(ITracer tracer, HeliosSigar sigar) {
+	public static void traceCpuUsages(ITracer tracer, APMSigar sigar) {
 		int cpuId = 0;
 		for(CpuPerc cpu : sigar.getCpuPercList()) {
 			tracer.traceGauge((long)(cpu.getCombined()*100), "Total", "CPU", "Usage", "Cpu" + cpuId);
@@ -81,14 +81,14 @@ public class TracingDemo {
 		}
 	}
 	
-	public static void traceTotalCpuUsage(ITracer tracer, HeliosSigar sigar) {
+	public static void traceTotalCpuUsage(ITracer tracer, APMSigar sigar) {
 		CpuPerc perc = sigar.getCpuPerc();
 		tracer.traceGauge((long)(perc.getCombined()*100), "Total", "CPU", "Usage", "Combined");
 		tracer.traceGauge((long)(perc.getSys()*100), "Sys", "CPU", "Usage", "Combined");
 		tracer.traceGauge((long)(perc.getUser()*100), "User", "CPU", "Usage", "Combined");
 	}
 	
-	public static void traceMemorySpacesSNMP(ITracer tracer, HeliosSigar sigar) {
+	public static void traceMemorySpacesSNMP(ITracer tracer, APMSigar sigar) {
 		MemoryUsage usage = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
 		tracer.tracePDUDirect(PDUBuilder.builder(PDU.NOTIFICATION, ".1.3.6.1.4.1.42.2.145.3.163.1.1.2.")
 				.counter64("10", usage.getInit())
@@ -112,7 +112,7 @@ public class TracingDemo {
 		
 	}
 	
-	public static void traceDiskUsage(ITracer tracer, HeliosSigar sigar) {
+	public static void traceDiskUsage(ITracer tracer, APMSigar sigar) {
 		for(FileSystem fs: sigar.getFileSystemList()) {
 			FileSystemUsage fsu = sigar.getFileSystemUsageOrNull(fs.getDevName().trim());
 			if(fsu==null) {

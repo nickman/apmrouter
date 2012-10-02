@@ -24,9 +24,11 @@
  */
 package org.helios.apmrouter.jagent;
 
+import java.io.StringReader;
 import java.lang.instrument.Instrumentation;
 import java.net.URL;
 import java.util.HashSet;
+import java.util.Properties;
 import java.util.Set;
 
 import org.helios.apmrouter.instrumentation.Trace;
@@ -133,6 +135,19 @@ public class AgentBoot {
 				Class<Monitor> monClass = (Class<Monitor>) Class.forName(name);
 				Monitor monitor = monClass.newInstance();
 				monitor.setCollectPeriod(period);
+				Node propertyNode = XMLHelper.getChildNodeByName(mNode, "properties", false);
+				if(propertyNode!=null) {
+					String props = XMLHelper.getNodeTextValue(propertyNode);
+					Properties p = new Properties();
+					p.load(new StringReader(props.trim()));
+					Properties cleanedProperties = new Properties();
+					for(String key: p.stringPropertyNames()) {						
+						String value = p.getProperty(key).trim();
+						key = key.trim();
+						cleanedProperties.setProperty(key, value);
+					}
+					monitor.setProperties(cleanedProperties);
+				}
 				monitor.startMonitor();
 			} catch (Exception e) {
 				System.err.println("Failed to process configured monitor [" + XMLHelper.renderNode(mNode) + "]");

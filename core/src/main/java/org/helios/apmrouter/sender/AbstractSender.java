@@ -69,8 +69,6 @@ import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.ChannelState;
 import org.jboss.netty.channel.ChannelStateEvent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
@@ -125,8 +123,6 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	protected ChannelFuture closeFuture = null;
 	/** The channel state listener */
 	protected final ChannelStateListener channelStateListener = new ChannelStateListener();
-	/** Static class logger */
-	protected final Logger log = LoggerFactory.getLogger(getClass());	
 	/** The netty server worker pool */
 	protected final Executor workerPool;
 	/** The netty channel factory */

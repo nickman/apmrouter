@@ -100,7 +100,6 @@ public class UDPSender extends AbstractSender  {
 		@Override
 		public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
 			if(e.getChannel().getLocalAddress().equals(e.getRemoteAddress())) {
-				log.info("Drop");
 			} else {
 				Object msg = e.getMessage();
 				if(msg instanceof ChannelBuffer) {
@@ -180,7 +179,7 @@ public class UDPSender extends AbstractSender  {
 		super(serverURI);
 		
 				
-		InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
+		//InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
 		channelStateListener.addChannelStateAware(this);
 		loggingHandler = new LoggingHandler(InternalLogLevel.ERROR, true);		
 		channelFactory = new NioDatagramChannelFactory(workerPool);

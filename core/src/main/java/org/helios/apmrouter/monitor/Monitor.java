@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.monitor;
 
+import java.util.Properties;
+
 /**
  * <p>Title: Monitor</p>
  * <p>Description: Defines the base spec for a scheduled monitor</p> 
@@ -43,6 +45,12 @@ public interface Monitor {
 	 * @return the collection period in ms.
 	 */
 	public long getCollectPeriod();
+	
+	/**
+	 * Sets the configuration properties on this monitor
+	 * @param p The configuration properties
+	 */
+	public void setProperties(Properties p);	
 	
 	/**
 	 * Sets the collection period in ms.

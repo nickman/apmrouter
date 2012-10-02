@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
@@ -52,6 +53,30 @@ import org.snmp4j.asn1.BEROutputStream;
  */
 
 public class IO {
+	/** A null output stream */
+	public static final OutputStream NULL_OUTPUTSTREAM = newNullOutputStream();
+	/** A null print stream */
+	public static final PrintStream NULL_PRINTSTREAM = newNullPrintStream();
+	
+	/**
+	 * Creates a NoOp OutputStream
+	 * @return a NoOp OutputStream
+	 */
+	public static OutputStream newNullOutputStream() {
+		return new OutputStream() {
+			@Override
+			public void write(int b) throws IOException {
+			}
+		};
+	}
+	
+	/**
+	 * Creates a NoOp print stream
+	 * @return a NoOp print stream
+	 */
+	public static PrintStream newNullPrintStream() {
+		return new PrintStream(NULL_OUTPUTSTREAM);
+	}
 	/**
 	 * Reads an object from a byte buffer
 	 * @param buff The byte buffer to read from

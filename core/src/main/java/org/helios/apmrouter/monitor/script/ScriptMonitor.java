@@ -43,6 +43,7 @@ import javax.script.SimpleBindings;
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.monitor.AbstractMonitor;
+import org.helios.apmrouter.nativex.APMSigar;
 import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.TracerFactory;
 import org.helios.apmrouter.util.URLHelper;
@@ -96,6 +97,10 @@ public class ScriptMonitor extends AbstractMonitor {
 	public static final String STD_OUT = "pout";
 	/** The binding name for the stderr stream */
 	public static final String STD_ERR = "perr";
+	/** The binding name for the collection sweep */
+	public static final String COLLECTION_SWEEP = "sweep";
+	/** The binding name for the {@link APMSigar} instance */
+	public static final String APM_SIGAR = "sigar";
 	
 	/**
 	 * Creates a new ScriptMonitor
@@ -109,18 +114,20 @@ public class ScriptMonitor extends AbstractMonitor {
 		scriptBindings.put(JMXHELPER_BINDING_KEY, jmxHelper);
 		scriptBindings.put(STD_OUT, System.out);
 		scriptBindings.put(STD_ERR, System.err);
+		scriptBindings.put(APM_SIGAR, APMSigar.getInstance());
 		scriptLoad();
 	}
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.monitor.AbstractMonitor#doCollect()
+	 * @see org.helios.apmrouter.monitor.AbstractMonitor#doCollect(long)
 	 */
 	@Override
-	protected void doCollect() {		
+	protected void doCollect(long collectionSweep) {		
 		for(Iterator<ScriptContainer> iter = compiledScripts.iterator(); iter.hasNext();) {
 			ScriptContainer sc = iter.next();
 			try {
+				scriptBindings.put(COLLECTION_SWEEP, collectionSweep);
 				sc.invoke(scriptBindings);
 				sc.resetErrors();
 			} catch (Exception e) {

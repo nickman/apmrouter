@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.monitor;
 
+import java.util.Properties;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -52,6 +53,10 @@ public abstract class AbstractMonitor implements Monitor, Runnable {
 	protected ScheduledFuture<?> scheduleHandle = null;
 	/** The collection period in ms. */
 	protected long collectionPeriod = -1L;
+	/** The collection sweep, starting at 0 and incrementing each period */
+	protected long collectionSweep = 0;
+	/** The properties set by XML config for this monitor */
+	protected Properties configProps = new Properties();
 	
 	/**
 	 * {@inheritDoc}
@@ -60,9 +65,18 @@ public abstract class AbstractMonitor implements Monitor, Runnable {
 	@Override
 	public void collect() {
 		SystemClock.startTimer();
-		doCollect();
+		doCollect(collectionSweep);
 		ElapsedTime et = SystemClock.endTimer();
+		collectionSweep++;
 		tracer.traceGauge(et.elapsedMs, "ElpasedTimeMs", "Monitors", getClass().getSimpleName());
+	}
+	
+	/**
+	 * Sets the configuration properties on this monitor
+	 * @param p The configuration properties
+	 */
+	public void setProperties(Properties p) {
+		if(p!=null) configProps.putAll(p);
 	}
 	
 	/**
@@ -128,6 +142,7 @@ public abstract class AbstractMonitor implements Monitor, Runnable {
 	
 	/**
 	 * Directs a concrete monitor to collect and trace
+	 * @param collectionSweep The collection sweep, starting at 0 and incrementing each period
 	 */
-	protected abstract void doCollect();
+	protected abstract void doCollect(long collectionSweep);
 }

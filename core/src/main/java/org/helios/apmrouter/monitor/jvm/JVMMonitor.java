@@ -122,12 +122,13 @@ public class JVMMonitor extends AbstractMonitor {
 		isJava7 = tmp;
 	}
 	
+
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.monitor.AbstractMonitor#doCollect()
+	 * @see org.helios.apmrouter.monitor.AbstractMonitor#doCollect(long)
 	 */
 	@Override
-	protected void doCollect() {
+	protected void doCollect(long collectionSweep) {
 		resetLoops++;
 		if(resetLoops==resetLoopCount) {
 			resetLoop = true;
