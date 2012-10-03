@@ -39,6 +39,7 @@ import org.hyperic.sigar.CpuInfo;
 import org.hyperic.sigar.CpuPerc;
 import org.hyperic.sigar.FileSystem;
 import org.hyperic.sigar.FileSystemUsage;
+import org.hyperic.sigar.NetInterfaceConfig;
 import org.hyperic.sigar.NetInterfaceStat;
 import org.hyperic.sigar.Sigar;
 
@@ -134,10 +135,16 @@ public class NativeMonitor extends AbstractMonitor {
 	protected void doCollect(long collectionSweep) {
 		traceCpus();
 		traceFileSystemUsage();
+		traceNics();
 	}
 	
 	protected void traceNics() {
+		StringBuilder b = new StringBuilder("\n\t=================================\n\tDiscovered NICs\n\t=================================");
 		for(String nic: hsigar.getNetInterfaceList()) {
+			if(collectionSweep==0) {
+				NetInterfaceConfig config = hsigar.getNetInterfaceConfig(nic);
+				b.append("\n\t").append(nic).append("/").append(config.getName()).append("\t(").append(config.getDescription()).append(")");
+			}
 			NetInterfaceStat nicStat = hsigar.getNetInterfaceStat(nic);
 			tracer.traceDeltaGauge(nicStat.getRxBytes(), "RXBytes", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic));
 			tracer.traceDeltaGauge(nicStat.getTxBytes(), "TXBytes", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic));
@@ -154,8 +161,26 @@ public class NativeMonitor extends AbstractMonitor {
 			tracer.traceDeltaGauge(nicStat.getTxCarrier(), "TxCarrier", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic));
 			
 			tracer.traceDeltaGauge(nicStat.getSpeed(), "Speed", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic));
-
+			if((collectionSweep==0 || collectionSweep%fsRescanCollectionSweep==0) && traceMeta) {
+				NetInterfaceConfig config = hsigar.getNetInterfaceConfig(nic);
+				tracer.traceString(config.getAddress(), "Address", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
+				tracer.traceString(config.getBroadcast(), "Broadcast", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
+				tracer.traceString(config.getDescription(), "Description", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
+				tracer.traceString(config.getDestination(), "Destination", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
+				tracer.traceString(config.getHwaddr(), "MAC", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
+				tracer.traceString(config.getName(), "Name", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));				
+				tracer.traceString(config.getNetmask(), "Netmask", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
+				tracer.traceString(config.getType(), "Type", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
+				tracer.traceCounter(config.getMetric(), "Metric", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
+				tracer.traceCounter(config.getMtu(), "Mtu", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
+				tracer.traceCounter(config.getFlags(), "Flags", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
+			}
 		}
+		if(collectionSweep==0) {
+			b.append("\n");
+			log(b);
+		}
+
 	}
 	
 	/**
@@ -206,9 +231,18 @@ public class NativeMonitor extends AbstractMonitor {
 	 * Traces usage stats about the local file systems
 	 */
 	protected void traceFileSystemUsage() {		
+		StringBuilder b = new StringBuilder("\n\t=================================\n\tDiscovered File Systems\n\t=================================");
 		if(collectionSweep==0 || collectionSweep%fsRescanCollectionSweep==0) {
 			refreshCollectedFileSystems();
 		}
+		if(collectionSweep==0) {
+			for(String fsName:fileSystemState.keySet()) {
+				b.append("\n\t").append(fsName);
+			}		
+			b.append("\n");
+			log(b);
+		}
+
 		for(Map.Entry<String, long[]> entry: fileSystemState.entrySet()) {
 			final String dirName = entry.getKey();
 			final long[] fsState = entry.getValue();
@@ -226,41 +260,53 @@ public class NativeMonitor extends AbstractMonitor {
 			if(collectionSweep==0 || collectionSweep%fsTimeToFullCollectionSweep==0) {
 				if(fsState[FS_STATE_TS]!=0L) {
 					long secondsUntilFull = timeUntilFull(total, used, now, fsState);
-					tracer.traceGauge(secondsUntilFull, "SecondsToFull", PLAT, FS_RESOURCE, String.format(FS_NAME, dirName));	
+					tracer.traceGauge(secondsUntilFull, "SecondsToFull", PLAT, FS_RESOURCE, String.format(FS_NAME, dirName.replace(":\\", "")));	
 				}
 				fsState[FS_STATE_USED] = used;
 				fsState[FS_STATE_TOTAL] = total;
 				fsState[FS_STATE_TS] = now;
 			}
+			tracer.traceGauge(fsu.getAvail(), "AvailableKb", PLAT, FS_RESOURCE, String.format(FS_NAME, dirName.replace(":\\", "")));
+			tracer.traceDeltaGauge(fsu.getDiskReadBytes(), "DiskReadBytes", PLAT, FS_RESOURCE, String.format(FS_NAME, dirName.replace(":\\", "")));
+			tracer.traceDeltaGauge(fsu.getDiskWriteBytes(), "DiskWriteBytes", PLAT, FS_RESOURCE, String.format(FS_NAME, dirName.replace(":\\", "")));
+			tracer.traceDeltaGauge(fsu.getDiskReads(), "DiskReads", PLAT, FS_RESOURCE, String.format(FS_NAME, dirName.replace(":\\", "")));
+			tracer.traceDeltaGauge(fsu.getDiskWrites(), "DiskWrites", PLAT, FS_RESOURCE, String.format(FS_NAME, dirName.replace(":\\", "")));
+			
+			tracer.traceGauge(fsu.getFree(), "FreeKb", PLAT, FS_RESOURCE, String.format(FS_NAME, dirName.replace(":\\", "")));
+			tracer.traceGauge(fsu.getTotal(), "TotalKb", PLAT, FS_RESOURCE, String.format(FS_NAME, dirName.replace(":\\", "")));
+			tracer.traceGauge(fsu.getUsed(), "UsedKb", PLAT, FS_RESOURCE, String.format(FS_NAME, dirName.replace(":\\", "")));
+			tracer.traceGauge((long)fsu.getDiskQueue(), "DiskQueue", PLAT, FS_RESOURCE, String.format(FS_NAME, dirName.replace(":\\", "")));
+			tracer.traceGauge((long)fsu.getDiskServiceTime(), "DiskServiceTime", PLAT, FS_RESOURCE, String.format(FS_NAME, dirName.replace(":\\", "")));
 			
 			
 		}
-		for(FileSystem fs: hsigar.getFileSystemList()) {
-			log("[FS]:DevName:" + fs.getDevName()
-				+ "\n\tDirName:" + fs.getDirName()
-				+ "\n\tOptions:" + fs.getOptions()
-				+ "\n\tSysTypeName:" + fs.getSysTypeName()
-				+ "\n\tTypeName:" + fs.getTypeName()				
-			);
-			FileSystemUsage fsu = hsigar.getFileSystemUsageOrNull(fs.getDirName());
-			if(fsu==null) log("No FSU for [" + fs.getDirName() + "]");
-			else {
-				log("[FSU]:DirName:" + fs.getDirName()
-					+ "\n\tAvail KB:" + fsu.getAvail()
-					+ "\n\tFree KB:" + fsu.getFree()
-					+ "\n\tTotal KB:" + fsu.getTotal()
-					+ "\n\tUsed KB:" + fsu.getUsed()
-					+ "\n\t%Used KB:" + dbl2longPerc(fsu.getUsePercent())
-					+ "\n\tDiskQueue:" + fsu.getDiskQueue()
-					+ "\n\tDiskReadBytes:" + fsu.getDiskReadBytes()
-					+ "\n\tDiskReads:" + fsu.getDiskReads()
-					+ "\n\tDiskWriteBytes:" + fsu.getDiskWriteBytes()
-					+ "\n\tDiskWrites:" + fsu.getDiskWrites()
-					
-						
-				);
-			}
-		}
+//		for(FileSystem fs: hsigar.getFileSystemList()) {
+//			log("[FS]:DevName:" + fs.getDevName()
+//				+ "\n\tDirName:" + fs.getDirName()
+//				+ "\n\tOptions:" + fs.getOptions()
+//				+ "\n\tSysTypeName:" + fs.getSysTypeName()
+//				+ "\n\tTypeName:" + fs.getTypeName()				
+//			);
+//			FileSystemUsage fsu = hsigar.getFileSystemUsageOrNull(fs.getDirName());
+//			if(fsu==null) log("No FSU for [" + fs.getDirName() + "]");
+//			else {
+//				log("[FSU]:DirName:" + fs.getDirName()
+//					+ "\n\tAvail KB:" + fsu.getAvail()
+//					+ "\n\tFree KB:" + fsu.getFree()
+//					+ "\n\tTotal KB:" + fsu.getTotal()
+//					+ "\n\tUsed KB:" + fsu.getUsed()
+//					+ "\n\t%Used KB:" + dbl2longPerc(fsu.getUsePercent())
+//					+ "\n\tDiskQueue:" + fsu.getDiskQueue()
+//					+ "\n\tDiskServiceTime:" + fsu.getDiskServiceTime()
+//					+ "\n\tDiskReadBytes:" + fsu.getDiskReadBytes()
+//					+ "\n\tDiskReads:" + fsu.getDiskReads()
+//					+ "\n\tDiskWriteBytes:" + fsu.getDiskWriteBytes()
+//					+ "\n\tDiskWrites:" + fsu.getDiskWrites()
+//					
+//						
+//				);
+//			}
+//		}
 	}
 	
 	/**
@@ -324,10 +370,10 @@ public class NativeMonitor extends AbstractMonitor {
 			for(FileSystem fs: hsigar.getFileSystemList()) {
 				String dirName = fs.getDirName();
 				if(fileSystemState.containsKey(dirName)) continue;
-				tracer.traceString(fs.getDevName(), "DeviceName", PLAT, FS_RESOURCE, META_TAG, dirName);
-				tracer.traceString(fs.getOptions(), "Options", PLAT, FS_RESOURCE, META_TAG, dirName);
-				tracer.traceString(fs.getSysTypeName(), "SysType", PLAT, FS_RESOURCE, META_TAG, dirName);
-				tracer.traceString(fs.getTypeName(), "Type", PLAT, FS_RESOURCE, META_TAG, dirName);
+				tracer.traceString(fs.getDevName(), "DeviceName", PLAT, FS_RESOURCE, META_TAG, dirName.replace(":\\", ""));
+				tracer.traceString(fs.getOptions(), "Options", PLAT, FS_RESOURCE, META_TAG, dirName.replace(":\\", ""));
+				tracer.traceString(fs.getSysTypeName(), "SysType", PLAT, FS_RESOURCE, META_TAG, dirName.replace(":\\", ""));
+				tracer.traceString(fs.getTypeName(), "Type", PLAT, FS_RESOURCE, META_TAG, dirName.replace(":\\", ""));
 			}
 		}
 		

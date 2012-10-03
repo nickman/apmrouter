@@ -316,7 +316,7 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 	      return dp;
 	    }
 	    dp = tsClient.newDataPoints();
-	    dp.setSeries(metric, tags);
+	    dp.setSeries(metric.replace("\\", ""), tags);
 	    dp.setBatchImport(true);
 	    datapoints.put(key, dp);
 	    return dp;
@@ -329,7 +329,7 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 	public void printStats() {
 		final StringBuilder s = new StringBuilder("\nMetric Recorder Stats:");
 		//s.append("\n\t").append(tsClient.getPutLatencyHistogram());
-		s.append("\n\tMetric Count:").append(metricCounter.get());
+		s.append("\n\tMetric Count:").append(metricCounter.get());		
 		s.append("\n\tContendedMetaLookupCount:").append(hClient.contendedMetaLookupCount());
 		s.append("\n\tUncontendedMetaLookupCount:").append(hClient.uncontendedMetaLookupCount());
 		s.append("\n\tRootLookupCount:").append(hClient.rootLookupCount());
