@@ -125,6 +125,12 @@ public interface IMetric extends Routable {
 	 * @return the fully qualified metricId name
 	 */
 	public abstract String getFQN();
+	
+	/**
+	 * Returns the longHashCode of the FQN 
+	 * @return the longHashCode of the FQN 
+	 */
+	public long getLongHashCode();	
 
 	/**
 	 * Returns the concatenated namespace

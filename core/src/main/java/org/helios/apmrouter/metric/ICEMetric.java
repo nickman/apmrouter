@@ -53,10 +53,39 @@ public class ICEMetric implements IMetric, Comparable<ICEMetric> {
 	protected final IDelegateMetric metricId;
 	/** The attached TXContext */
 	protected TXContext txContext;
+	/** The longHashCode of the FQN */
+	protected long longHashCode = Long.MIN_VALUE;
 	
+	/**
+	 * Returns the longHashCode of the FQN 
+	 * @return the longHashCode of the FQN 
+	 */
+	public long getLongHashCode() {
+		if(longHashCode==Long.MIN_VALUE) {
+			longHashCode = longHashCode(getFQN());
+		}
+		return longHashCode;
+	}
+
 	/** The unmapped version of this metric */
 	protected ICEMetric unmapped = null;
 	
+	/**
+	 * Calculates a low collision hash code for the passed string
+	 * @param s The string to calculate the hash code for
+	 * @return the long hashcode
+	 */
+	public static long longHashCode(String s) {
+		long h = 0;
+        int len = s.length();
+    	int off = 0;
+    	int hashPrime = s.hashCode();
+    	char val[] = s.toCharArray();
+        for (int i = 0; i < len; i++) {
+            h = (31*h + val[off++] + (hashPrime*h));
+        }
+        return h;
+	}
 	
 	
 	

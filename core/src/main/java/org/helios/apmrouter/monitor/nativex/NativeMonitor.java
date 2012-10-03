@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.monitor.nativex;
 
+import java.net.NetworkInterface;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -85,7 +86,7 @@ public class NativeMonitor extends AbstractMonitor {
 	public static final String META_TAG = "info=meta";
 	
 	/** The size of the long array in fs-state */
-	public static final int FS_STATE_SIZE = 4;
+	public static final int FS_STATE_SIZE = 6;
 	/** The fs-state long arr index for the monitor flag */
 	public static final int FS_STATE_FLAG = 0;
 	/** The fs-state long arr index for the last timestamp collected */
@@ -94,6 +95,10 @@ public class NativeMonitor extends AbstractMonitor {
 	public static final int FS_STATE_USED = 2;
 	/** The fs-state long arr index for the kb-total collected in the last period */
 	public static final int FS_STATE_TOTAL = 3;
+	/** The fs-state long arr index for the time until full for the last period */
+	public static final int FS_STATE_TTF = 4;
+	/** The fs-state long arr index for the number of consecutive times there has been no increment in fs usage */
+	public static final int FS_STATE_NOINCR = 5;
 	
 	/** The property name for configuring the number of collection sweeps before the file systems are rescanned  */
 	public static final String RESCAN_PROP = "monitor.nativex.fs.rescan";
@@ -141,6 +146,14 @@ public class NativeMonitor extends AbstractMonitor {
 	protected void traceNics() {
 		StringBuilder b = new StringBuilder("\n\t=================================\n\tDiscovered NICs\n\t=================================");
 		for(String nic: hsigar.getNetInterfaceList()) {
+			NetworkInterface jnic = null;
+			try { 
+				jnic = NetworkInterface.getByName(nic); 
+				if(jnic==null || !jnic.isUp()) {
+					continue;
+				}
+			} catch (Exception e) { continue; }
+			
 			if(collectionSweep==0) {
 				NetInterfaceConfig config = hsigar.getNetInterfaceConfig(nic);
 				b.append("\n\t").append(nic).append("/").append(config.getName()).append("\t(").append(config.getDescription()).append(")");
@@ -163,17 +176,19 @@ public class NativeMonitor extends AbstractMonitor {
 			tracer.traceDeltaGauge(nicStat.getSpeed(), "Speed", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic));
 			if((collectionSweep==0 || collectionSweep%fsRescanCollectionSweep==0) && traceMeta) {
 				NetInterfaceConfig config = hsigar.getNetInterfaceConfig(nic);
-				tracer.traceString(config.getAddress(), "Address", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
-				tracer.traceString(config.getBroadcast(), "Broadcast", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
-				tracer.traceString(config.getDescription(), "Description", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
-				tracer.traceString(config.getDestination(), "Destination", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
-				tracer.traceString(config.getHwaddr(), "MAC", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
-				tracer.traceString(config.getName(), "Name", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));				
-				tracer.traceString(config.getNetmask(), "Netmask", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
-				tracer.traceString(config.getType(), "Type", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
-				tracer.traceCounter(config.getMetric(), "Metric", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
-				tracer.traceCounter(config.getMtu(), "Mtu", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
-				tracer.traceCounter(config.getFlags(), "Flags", PLAT, NIC_RESOURCE, META_TAG, String.format(NIC_NAME, nic));
+				
+				tracer.traceString(config.getAddress(), "Address", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic), META_TAG);
+				tracer.traceString(config.getBroadcast(), "Broadcast", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic), META_TAG);
+				tracer.traceString(jnic.getDisplayName(), "DisplayName", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic), META_TAG);
+				tracer.traceString(config.getDescription(), "Description", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic), META_TAG);
+				tracer.traceString(config.getDestination(), "Destination", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic), META_TAG);
+				tracer.traceString(config.getHwaddr(), "MAC", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic), META_TAG);
+				tracer.traceString(config.getName(), "Name", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic), META_TAG);				
+				tracer.traceString(config.getNetmask(), "Netmask", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic), META_TAG);
+				tracer.traceString(config.getType(), "Type", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic), META_TAG);
+				tracer.traceCounter(config.getMetric(), "Metric", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic), META_TAG);
+				tracer.traceCounter(config.getMtu(), "Mtu", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic), META_TAG);
+				tracer.traceCounter(config.getFlags(), "Flags", PLAT, NIC_RESOURCE, String.format(NIC_NAME, nic), META_TAG);
 			}
 		}
 		if(collectionSweep==0) {
@@ -192,7 +207,7 @@ public class NativeMonitor extends AbstractMonitor {
 			traceCpuPerc(c, String.format(CPU_NAME, cid));
 			cid++;
 		}
-		traceCpuPerc(hsigar.getCpuPerc(), "all"); 
+		traceCpuPerc(hsigar.getCpuPerc(), String.format(CPU_NAME, "all")); 
 		if((collectionSweep==0 || collectionSweep%fsRescanCollectionSweep==0) && traceMeta) {
 			CpuInfo[] infos = hsigar.getCpuInfoList();
 			tracer.traceCounter(infos[0].getTotalCores(),"TotalCores", PLAT, CPU_RESOURCE, META_TAG);
@@ -320,7 +335,16 @@ public class NativeMonitor extends AbstractMonitor {
 	 */
 	protected long timeUntilFull(long total, long used, long now, long[] fsState) {		
 		long increment = used - fsState[FS_STATE_USED];
-		if(increment<1) return Long.MAX_VALUE;
+		if(increment<1) {
+			fsState[FS_STATE_NOINCR]++;
+			if(fsState[FS_STATE_TTF]==Long.MIN_VALUE) {
+				return Long.MAX_VALUE;
+			}
+			return fsState[FS_STATE_TTF];						
+		}
+		fsState[FS_STATE_NOINCR]=0;
+		
+		
 		long elapsed = now - fsState[FS_STATE_TS];
 		long free = total-used;
 		if(free==0) return 0;
@@ -346,7 +370,7 @@ public class NativeMonitor extends AbstractMonitor {
 			if(fsu.getDiskReadBytes()==-1 && fsu.getDiskWriteBytes()==-1) continue; 
 			long[] fsState = fileSystemState.get(dirName);
 			if(fsState==null) {
-				fsState = new long[]{1L,0L,0L,0L};
+				fsState = new long[]{1L,0L,0L,0L,Long.MIN_VALUE,0L};
 				fileSystemState.put(dirName, fsState);				
 			} else {
 				fsState[FS_STATE_FLAG] = 1;

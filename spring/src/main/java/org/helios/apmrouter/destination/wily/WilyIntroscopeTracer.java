@@ -101,7 +101,10 @@ public class WilyIntroscopeTracer {
 	/** Recorder op Name */
 	public static final String RECORDINCIDENT_OP = "recordIncident";
 
-	
+	/** The system property that defines the wily agent name */
+	public static final String AGENT_NAME_SYSPROP = "com.wily.introscope.agent.agentName";
+	/** The system property that defines the wily agent configuration properties file name */
+	public static final String AGENT_CONFIG_SYSPROP = "com.wily.introscope.agentProfile";
 	
 	static {
 		MET_PATTERNS[1] = "%s";
@@ -234,6 +237,20 @@ public class WilyIntroscopeTracer {
 			t.printStackTrace(System.err);
 		}
 	}
+	
+	/**
+	 * Records a single data point and rolls it into the current average
+	 * @param value The value to record
+	 * @param metricName The metric name 
+	 */
+	public void recordDataPoint(long value, String metricName) {
+		try {
+			invokeRecording(LONGAVERAGE_TYPE, RECORDDATAPOINT_OP, value, metricName);		
+		} catch (Throwable t) {
+			t.printStackTrace(System.err);
+		}
+	}
+	
 
 	/**
 	 * Records a single data point and rolls it into the current average
@@ -273,6 +290,20 @@ public class WilyIntroscopeTracer {
 			t.printStackTrace(System.err);
 		}		
 	}
+	
+	/**
+	 * Records the current counter value
+	 * @param value The value to record
+	 * @param metricName The metric name
+	 */
+	public void recordCurrentValue(long value, String metricName) {
+		try {
+			invokeRecording(LONGCOUNTER_TYPE, RECORDCURRENTVALUE_OP, value, metricName);		
+		} catch (Throwable t) {
+			t.printStackTrace(System.err);
+		}		
+	}
+	
 
 
 	/**
@@ -469,6 +500,9 @@ public class WilyIntroscopeTracer {
 			throw new RuntimeException("Failed to invoke [" + type + "/" + op + "]", e);
 		}
 	}
+	
+
+	
 	
 	/**
 	 * Invokes a recorder call

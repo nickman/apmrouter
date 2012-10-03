@@ -152,6 +152,17 @@
 		</constructor-arg>
 	</bean>
 	
+	<bean id="WilyDestination" class="org.helios.apmrouter.destination.wily.WilyIntroscopeDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>LONG.*|DELTA.*|STRING.*</value>	 			
+	 		</util:set>
+ 		</property>	
+		<property name="wilyAgentLib" value="C:\\Introscope\\Introscope8.2.0.0\\agents\\allapps\\Agent.jar" />
+		<property name="wilyAgentName" value="APMRouter" />
+		<property name="wilyAgentProps" value="C:\\projects\\hapmrouter\\spring\\src\\test\\resources\\wily\\wilyagent.profile" />
+	</bean>
+	
 	<bean id="GraphiteDestination" class="org.helios.apmrouter.destination.graphite.GraphiteDestination">
  		<property name="matchPatterns">
 	 		<util:set>
@@ -190,10 +201,11 @@
 	</bean>
 
  
+
  	<bean id="LocalOpenTSDB" class="org.helios.apmrouter.destination.opentsdb.OpenTSDBDestination">
  		<property name="matchPatterns">
 	 		<util:set>
-				<value>LONG.*|DELTA.*</value>	 			
+				<!-- <value>LONG.*|DELTA.*</value> -->	 			
 	 		</util:set>
  		</property>
  		<!-- <property name="openTSDBHost" value="192.168.1.156" /> -->
