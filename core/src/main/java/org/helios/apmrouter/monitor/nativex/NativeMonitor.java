@@ -40,9 +40,16 @@ import org.hyperic.sigar.CpuInfo;
 import org.hyperic.sigar.CpuPerc;
 import org.hyperic.sigar.FileSystem;
 import org.hyperic.sigar.FileSystemUsage;
+import org.hyperic.sigar.Mem;
 import org.hyperic.sigar.NetInterfaceConfig;
 import org.hyperic.sigar.NetInterfaceStat;
+import org.hyperic.sigar.NetStat;
+import org.hyperic.sigar.ProcCpu;
+import org.hyperic.sigar.ProcMem;
+import org.hyperic.sigar.ProcStat;
 import org.hyperic.sigar.Sigar;
+import org.hyperic.sigar.Swap;
+import org.hyperic.sigar.Tcp;
 
 /**
  * <p>Title: NativeMonitor</p>
@@ -66,16 +73,33 @@ public class NativeMonitor extends AbstractMonitor {
 	protected int fsTimeToFullCollectionSweep = 10;
 	/** Indicates if static os meta-data should be traced during rescans */
 	protected boolean traceMeta = false;
+	/** Indicates if detailed stats for all cpus should be traced */
+	protected boolean traceAllCpus = false;
+	
+
 
 	/** The NIC name tag foramat */
 	public static final String NIC_NAME = "if=%s";			
 	/** The CPU resource tag */
 	public static final String NIC_RESOURCE = "resource=if";
+	/** The swap resource tag */
+	public static final String SWAP_RESOURCE = "resource=swap";
+	/** The TCP resource tag */
+	public static final String TCP_RESOURCE = "resource=tcp";
+	/** The Net stat resource tag */
+	public static final String NET_RESOURCE = "resource=netstat";
+	/** The process stat resource tag */
+	public static final String PS_RESOURCE = "resource=ps";
 	
+	/** The JVM process resource tag */
+	public static final String JVM_PROCESS_RESOURCE = "resource=jvm";
 	/** The CPU name tag foramat */
 	public static final String CPU_NAME = "cpu=%s";			
 	/** The CPU resource tag */
 	public static final String CPU_RESOURCE = "resource=cpu";
+	/** The System memory resource tag */
+	public static final String SYSMEM_RESOURCE = "resource=sysmem";
+	
 	/** The Filesystem resource tag */
 	public static final String FS_RESOURCE = "resource=filesystem";
 	/** The Filesystem name tag foramat */
@@ -112,6 +136,10 @@ public class NativeMonitor extends AbstractMonitor {
 	public static final String OS_META_PROP = "monitor.nativex.tracemeta";
 	/** The default configuration that specifies if static os data should be traced when systems are rescanned */
 	public static final boolean DEFAULT_OS_META = false;
+	/** The property name for configuring if detailed stats on each cpu should be traced, or just the combined */
+	public static final String CPU_ALL_PROP = "monitor.nativex.cpu.traceall";
+	/** The default configuration for detailed stats on each cpu should be traced */
+	public static final boolean DEFAULT_CPU_ALL = false;
 	
 	/**
 	 * Creates a new NativeMonitor
@@ -130,6 +158,7 @@ public class NativeMonitor extends AbstractMonitor {
 		fsRescanCollectionSweep = ConfigurationHelper.getIntSystemThenEnvProperty(RESCAN_PROP, DEFAULT_RESCAN, p);
 		fsTimeToFullCollectionSweep = ConfigurationHelper.getIntSystemThenEnvProperty(TTF_PROP, DEFAULT_TTF, p);
 		traceMeta = ConfigurationHelper.getBooleanSystemThenEnvProperty(OS_META_PROP, DEFAULT_OS_META, p);
+		traceAllCpus = ConfigurationHelper.getBooleanSystemThenEnvProperty(CPU_ALL_PROP, DEFAULT_CPU_ALL, p);
 	}
 
 	/**
@@ -141,8 +170,134 @@ public class NativeMonitor extends AbstractMonitor {
 		traceCpus();
 		traceFileSystemUsage();
 		traceNics();
+		traceSystemMem();
+		traceSwap();
+		traceTCP();
+		traceNetstat();
+		traceMe();
+		traceProcessStats();
 	}
 	
+	/**
+	 * Traces the states of system processes
+	 */
+	protected void traceProcessStats() {
+		ProcStat ps = hsigar.getProcStat();
+		tracer.traceGauge(ps.getIdle(), "Idle", PLAT, PS_RESOURCE);
+		tracer.traceGauge(ps.getRunning(), "Running", PLAT, PS_RESOURCE);
+		tracer.traceGauge(ps.getSleeping(), "Sleeping", PLAT, PS_RESOURCE);
+		tracer.traceGauge(ps.getStopped(), "Stopped", PLAT, PS_RESOURCE);
+		tracer.traceGauge(ps.getThreads(), "Threads", PLAT, PS_RESOURCE);
+		tracer.traceGauge(ps.getTotal(), "Total", PLAT, PS_RESOURCE);
+		tracer.traceGauge(ps.getZombie(), "Zombie", PLAT, PS_RESOURCE);
+	}
+	
+	/**
+	 * Traces network stats
+	 */
+	protected void traceNetstat() {
+		NetStat net = hsigar.getNetStat();
+		tracer.traceDeltaGauge(net.getAllInboundTotal(), "Inbound", PLAT, NET_RESOURCE);
+		tracer.traceDeltaGauge(net.getAllOutboundTotal(), "Outbound", PLAT, NET_RESOURCE);
+		tracer.traceCounter(net.getTcpBound(), "TcpBound", PLAT, NET_RESOURCE);
+		tracer.traceCounter(net.getTcpClose(), "TcpClose", PLAT, NET_RESOURCE);
+		tracer.traceCounter(net.getTcpCloseWait(), "TcpCloseWait", PLAT, NET_RESOURCE);
+		tracer.traceCounter(net.getTcpClosing(), "TcpClosing", PLAT, NET_RESOURCE);
+		tracer.traceCounter(net.getTcpEstablished(), "TcpEstablished", PLAT, NET_RESOURCE);
+		tracer.traceCounter(net.getTcpFinWait1(), "TcpFinWait1", PLAT, NET_RESOURCE);
+		tracer.traceCounter(net.getTcpFinWait2(), "TcpFinWait2", PLAT, NET_RESOURCE);
+		tracer.traceCounter(net.getTcpIdle(), "TcpIdle", PLAT, NET_RESOURCE);
+		tracer.traceCounter(net.getTcpInboundTotal(), "TcpInbound", PLAT, NET_RESOURCE);
+		tracer.traceCounter(net.getTcpOutboundTotal(), "TcpOutbound", PLAT, NET_RESOURCE);
+		tracer.traceCounter(net.getTcpLastAck(), "TcpLastAck", PLAT, NET_RESOURCE);
+		tracer.traceCounter(net.getTcpListen(), "TcpListen", PLAT, NET_RESOURCE);
+		tracer.traceCounter(net.getTcpSynRecv(), "TcpSynRecv", PLAT, NET_RESOURCE);
+		tracer.traceCounter(net.getTcpSynSent(), "TcpSynSent", PLAT, NET_RESOURCE);
+		tracer.traceCounter(net.getTcpTimeWait(), "TcpTimeWait", PLAT, NET_RESOURCE);		
+	}
+	
+	/**
+	 * Traces metrics about this process.
+	 */
+	protected void traceMe() {
+		ProcCpu procCpu = hsigar.getProcCpu(hsigar.pid);
+		tracer.traceGauge(procCpu.getSys(), "System", "platform=JVM", "category=cpu");
+		tracer.traceGauge(procCpu.getTotal(), "Total", "platform=JVM", "category=cpu");
+		tracer.traceGauge(procCpu.getUser(), "User", "platform=JVM", "category=cpu");
+		tracer.traceGauge( dbl2longPerc(procCpu.getPercent()), "PercentUsage", "platform=JVM", "category=cpu");
+		ProcMem pmem = hsigar.getProcMem(hsigar.pid);
+		tracer.traceGauge(pmem.getMajorFaults(), "MajorFaults", "platform=JVM", "category=memory");
+		tracer.traceGauge(pmem.getMinorFaults(), "MinorFaults", "platform=JVM", "category=memory");
+		tracer.traceGauge(pmem.getPageFaults(), "PageFaults", "platform=JVM", "category=memory");
+		tracer.traceGauge(pmem.getResident(), "Resident", "platform=JVM", "category=memory");
+		tracer.traceGauge(pmem.getShare(), "Shared", "platform=JVM", "category=memory");
+		tracer.traceGauge(pmem.getSize(), "Size", "platform=JVM", "category=memory");
+		tracer.traceGauge(hsigar.getProcFd(hsigar.pid).getTotal(), "OpenFileDescriptors", "platform=JVM", "category=fd");
+		
+	}
+	
+	/**
+	 * Traces tcp metris
+	 */
+	protected void traceTCP() {
+		Tcp tcp = hsigar.getTcp();
+		tracer.traceGauge(tcp.getActiveOpens(), "Opens", PLAT, TCP_RESOURCE);
+		tracer.traceGauge(tcp.getAttemptFails(), "Fails", PLAT, TCP_RESOURCE);
+		tracer.traceGauge(tcp.getCurrEstab(), "Established", PLAT, TCP_RESOURCE);
+		tracer.traceGauge(tcp.getEstabResets(), "Resets", PLAT, TCP_RESOURCE);
+		tracer.traceGauge(tcp.getInErrs(), "InErrors", PLAT, TCP_RESOURCE);
+		tracer.traceGauge(tcp.getInSegs(), "InSegs", PLAT, TCP_RESOURCE);
+		tracer.traceGauge(tcp.getOutRsts(), "OutResets", PLAT, TCP_RESOURCE);
+		tracer.traceGauge(tcp.getOutSegs(), "OutSegs", PLAT, TCP_RESOURCE);
+		tracer.traceGauge(tcp.getPassiveOpens(), "PassiveOpens", PLAT, TCP_RESOURCE);
+		tracer.traceGauge(tcp.getRetransSegs(), "RetransSegs", PLAT, TCP_RESOURCE);		
+	}
+	
+	/**
+	 * Traces metrics on swap space usage
+	 */
+	protected void traceSwap() {
+		Swap swap = hsigar.getSwap();
+		long total = swap.getTotal();
+		if((collectionSweep==0 || collectionSweep%fsRescanCollectionSweep==0)) {
+			tracer.traceCounter(total, "Total", PLAT, SWAP_RESOURCE);			
+		}
+		long free = swap.getFree();
+		long used = swap.getUsed();
+		tracer.traceCounter(free, "Free", PLAT, SWAP_RESOURCE);
+		tracer.traceCounter(used, "Used", PLAT, SWAP_RESOURCE);
+		tracer.traceCounter(percent(total,free), "FreePercent", PLAT, SWAP_RESOURCE);
+		tracer.traceCounter(percent(total,used), "UsedPercent", PLAT, SWAP_RESOURCE);
+		tracer.traceCounter(swap.getPageIn(), "PageIn", PLAT, SWAP_RESOURCE);
+		tracer.traceCounter(swap.getPageOut(), "PageOut", PLAT, SWAP_RESOURCE);
+	}
+	
+	private static long percent(double total, double part) {
+		if(total==0 || part==0) return 0;
+		double d = part/total*100;
+		return (long)d;
+	}
+	
+	/**
+	 * Traces metrics on system memory
+	 */
+	protected void traceSystemMem() {
+		Mem mem = hsigar.getMem();
+		if((collectionSweep==0 || collectionSweep%fsRescanCollectionSweep==0)) {
+			tracer.traceCounter(mem.getRam(), "TotalMemMB", PLAT, SYSMEM_RESOURCE);
+		}
+		tracer.traceCounter(mem.getActualFree(), "ActualFree", PLAT, SYSMEM_RESOURCE);
+		tracer.traceCounter(mem.getActualUsed(), "ActualUsed", PLAT, SYSMEM_RESOURCE);
+		tracer.traceCounter(mem.getFree(), "Free", PLAT, SYSMEM_RESOURCE);
+		tracer.traceCounter(mem.getUsed(), "Used", PLAT, SYSMEM_RESOURCE);
+		
+		tracer.traceCounter(dbl2longPerc(mem.getFreePercent()), "FreePercent", PLAT, SYSMEM_RESOURCE);
+		tracer.traceCounter(dbl2longPerc(mem.getUsedPercent()), "UsedPercent", PLAT, SYSMEM_RESOURCE);
+	}
+	
+	/**
+	 * Traces metrics on NIC trafic and meta
+	 */
 	protected void traceNics() {
 		StringBuilder b = new StringBuilder("\n\t=================================\n\tDiscovered NICs\n\t=================================");
 		for(String nic: hsigar.getNetInterfaceList()) {
@@ -203,12 +358,14 @@ public class NativeMonitor extends AbstractMonitor {
 	 */
 	protected void traceCpus() {
 		int cid = 0;
-		for(CpuPerc c : hsigar.getCpuPercList()) {
-			traceCpuPerc(c, String.format(CPU_NAME, cid));
-			cid++;
+		if(traceAllCpus) {
+			for(CpuPerc c : hsigar.getCpuPercList()) {
+				traceCpuPerc(c, String.format(CPU_NAME, cid));
+				cid++;
+			}
 		}
 		traceCpuPerc(hsigar.getCpuPerc(), String.format(CPU_NAME, "all")); 
-		if((collectionSweep==0 || collectionSweep%fsRescanCollectionSweep==0) && traceMeta) {
+		if((collectionSweep==0 || collectionSweep%fsRescanCollectionSweep==0) && traceMeta && traceAllCpus) {
 			CpuInfo[] infos = hsigar.getCpuInfoList();
 			tracer.traceCounter(infos[0].getTotalCores(),"TotalCores", PLAT, CPU_RESOURCE, META_TAG);
 			tracer.traceCounter(infos[0].getTotalCores(),"TotalSockets", PLAT, CPU_RESOURCE, META_TAG);

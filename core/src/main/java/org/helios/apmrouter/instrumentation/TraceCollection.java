@@ -26,9 +26,12 @@ package org.helios.apmrouter.instrumentation;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javassist.CannotCompileException;
+import javassist.ClassPool;
 import javassist.CtClass;
+import javassist.CtField;
 import javassist.CtMethod;
 import javassist.NotFoundException;
 
@@ -237,6 +240,13 @@ public enum TraceCollection {
 		
 	}
 	
+	/**
+	 * <p>Title: TXClear</p>
+	 * <p>Description: Joinpoint to clear the TXContext at the end of a method</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.instrumentation.TraceCollection.TXClear</code></p>
+	 */
 	protected static class TXClear implements Instrumentor {
 
 		/**
@@ -259,6 +269,45 @@ public enum TraceCollection {
 		
 	}
 	
+	
+	static final CtClass atomicIntegerClazz;
+	
+	static {
+		try {
+			atomicIntegerClazz = ClassPool.getDefault().get(AtomicInteger.class.getName());
+		} catch (Exception ex) {
+			throw new RuntimeException(ex);
+		}
+	}
+	
+	/**
+	 * <p>Title: TXConcurrency</p>
+	 * <p>Description: Joinpoint to track the number of threads concurrently executing in the body of the instrumented method</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.instrumentation.TraceCollection.TXConcurrency</code></p>
+	 */
+	protected static class TXConcurrency implements Instrumentor {
+
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.instrumentation.TraceCollection.Instrumentor#addPreInvoke(javassist.CtClass, javassist.CtMethod, javassist.CtMethod, org.helios.apmrouter.instrumentation.TraceImpl, java.lang.StringBuilder)
+		 */
+		@Override
+		public void addPreInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, TraceImpl ti, final StringBuilder body) throws CannotCompileException, NotFoundException {
+			clazz.addField(new CtField(atomicIntegerClazz, "concurrency", clazz), " new AtomicInteger(0)");
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.instrumentation.TraceCollection.Instrumentor#addPostInvoke(javassist.CtClass, javassist.CtMethod, javassist.CtMethod, org.helios.apmrouter.instrumentation.TraceImpl, java.lang.StringBuilder)
+		 */
+		@Override
+		public void addPostInvoke(CtClass clazz, CtMethod renamedMethod, CtMethod wrapperMethod, TraceImpl ti, final StringBuilder body) throws CannotCompileException, NotFoundException {
+			
+		}
+		
+	}
 
 	
 }

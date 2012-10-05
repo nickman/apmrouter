@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.monitor.jvm;
 
+import java.lang.Thread.State;
 import java.lang.management.ClassLoadingMXBean;
 import java.lang.management.CompilationMXBean;
 import java.lang.management.GarbageCollectorMXBean;
@@ -35,10 +36,12 @@ import java.lang.management.OperatingSystemMXBean;
 import java.lang.management.RuntimeMXBean;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.Attribute;
 import javax.management.ObjectName;
@@ -216,6 +219,9 @@ public class JVMMonitor extends AbstractMonitor {
 		tracer.traceGauge(dtc, "DaemonThreadCount", "platform=JVM", "category=Threads");
 		tracer.traceGauge(ndtc, "NonDaemonThreadCount", "platform=JVM", "category=Threads");
 		tracer.traceGauge(threadMXBean.getPeakThreadCount(), "PeakThreadCount", "platform=JVM", "category=Threads");
+		for(Map.Entry<Thread.State, AtomicInteger> entry: getThreadStates().entrySet()) {
+			tracer.traceGauge(entry.getValue().intValue(), entry.getKey().name(), "platform=JVM", "category=Threads", "type=State");
+		}
 		if(resetLoop) threadMXBean.resetPeakThreadCount();
 		long[] deadlocked = threadMXBean.findMonitorDeadlockedThreads();
 		tracer.traceGauge(deadlocked==null ? 0 : deadlocked.length, "DeadlockedThreadCount", "platform=JVM", "category=Threads");
@@ -235,6 +241,22 @@ public class JVMMonitor extends AbstractMonitor {
 			tracer.traceString(dlockInfo, "DeadlockedThreadInfo", "platform=JVM", "category=Threads");
 		}		
 	}
+	
+	/**
+	 * Collects the number of threads in each thread state
+	 * @return an EnumMap with Thread states as the key and the number of threads in that state as the value
+	 */
+	public EnumMap<Thread.State, AtomicInteger> getThreadStates() {
+		EnumMap<Thread.State, AtomicInteger> map = new EnumMap<State, AtomicInteger>(Thread.State.class);
+		for(Thread.State ts: Thread.State.values()) {
+			map.put(ts, new AtomicInteger(0));
+		}
+		for(ThreadInfo ti : threadMXBean.getThreadInfo(threadMXBean.getAllThreadIds())) {
+			map.get(ti.getThreadState()).incrementAndGet();
+		}
+		return map;
+	}
+	
 	
 	/**
 	 * Collects compilation time 

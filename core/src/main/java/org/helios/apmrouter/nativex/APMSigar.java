@@ -450,13 +450,17 @@ public class APMSigar implements SigarProxy {
 	}
 
 	/**
-	 * @return
-	 * @throws SigarException
+	 * Returns system memory stats
+	 * @return the system memory stats
 	 * @see org.hyperic.sigar.Sigar#getMem()
 	 */
 	@Override
-	public Mem getMem() throws SigarException {
-		return sigar.getMem();
+	public Mem getMem() {
+		try {
+			return sigar.getMem();
+		} catch (SigarException se) {
+			throw new RuntimeException("Failed to invokeinternal Sigar call", se);
+		}							
 	}
 
 	/**
@@ -652,13 +656,17 @@ public class APMSigar implements SigarProxy {
 	}
 
 	/**
-	 * @return
-	 * @throws SigarException
-	 * @see org.hyperic.sigar.Sigar#getNetStat()
+	 * Returns network stats
+	 * @return network stats
+	 * @see org.hyperic.sigar.Siar#getNetStat()
 	 */
 	@Override
-	public NetStat getNetStat() throws SigarException {
-		return sigar.getNetStat();
+	public NetStat getNetStat()  {
+		try {
+			return sigar.getNetStat();
+		} catch (SigarException se) {
+			throw new RuntimeException("Failed to invokeinternal Sigar call NetStat");
+		}
 	}
 
 	/**
@@ -1004,13 +1012,17 @@ public class APMSigar implements SigarProxy {
 	}
 
 	/**
-	 * @return
-	 * @throws SigarException
+	 * Returns process state counts
+	 * @return process state counts
 	 * @see org.hyperic.sigar.Sigar#getProcStat()
 	 */
 	@Override
-	public ProcStat getProcStat() throws SigarException {
-		return sigar.getProcStat();
+	public ProcStat getProcStat() {
+		try {
+			return sigar.getProcStat();
+		} catch (SigarException se) {
+			throw new RuntimeException("Failed to invokeinternal Sigar call", se);
+		}						
 	}
 
 	/**
