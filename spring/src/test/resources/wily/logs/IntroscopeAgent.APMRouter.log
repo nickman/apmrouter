@@ -1,0 +1,56 @@
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Introscope Agent Release 8.2.0.0 (Build 476051)
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Using Java VM version "Java HotSpot(TM) 64-Bit Server VM 1.7.0_02" from Oracle Corporation
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Trying to load agent profile based on system property "com.wily.introscope.agentProfile"
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Trying to load file from C:\\projects\\hapmrouter\\spring\\src\\test\\resources\\wily\\wilyagent.profile
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Loaded file from C:\\projects\\hapmrouter\\spring\\src\\test\\resources\\wily\\wilyagent.profile
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Agent Metric Aging is turned on
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Agent Metric Aging: property introscope.agent.metricAging.heartbeatInterval is set to 1800
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Agent Metric Aging: property introscope.agent.metricAging.dataChunk is set to 500
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Agent Metric Aging: property introscope.agent.metricAging.numberTimeslices is set to 3000
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Looking for agent profile property "introscope.agent.extensions.directory" to locate the extensions directory.
+10/05/12 12:25:04 PM EDT [ERROR] [IntroscopeAgent] The agent extensions directory C:\projects\hapmrouter\spring\src\test\resources\wily\ext could not be located.  No extensions will be loaded.
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Introscope Agent startup complete.			
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] The Agent will attempt to determine its name.
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Using the Agent name "APMRouter" based on the value of the System Property "com.wily.introscope.agent.agentName".
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Initial agent name set to APMRouter
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent.Isengard] Initiating connection attempts to the Introscope Enterprise Manager.
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Configured error reporting throttle at 10
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Error snapshot collection has been enabled
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Started Error Reporting service
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Stall event service: stall threshold of 30 seconds
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Stall event service: resolution of 10 seconds
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Started Stall Service
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent.Isengard] The Agent reconnection delay is set to 15 second(s).
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] The Introscope Agent log file has been automatically renamed from C:\projects\hapmrouter\spring\src\test\resources\wily\logs\IntroscopeAgent.20121005-122503.log to C:\projects\hapmrouter\spring\src\test\resources\wily\logs\IntroscopeAgent.APMRouter.log.
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Started transaction sampling service
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Transaction Tracer sampling interval has been reset to 120000 milliseconds.
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent] Transaction Tracer samples per interval has been set to 1.
+10/05/12 12:25:04 PM EDT [INFO] [IntroscopeAgent.IsengardServerConnectionManager] Connected Agent to the Introscope Enterprise Manager at localhost:5001,com.wily.isengard.postofficehub.link.net.DefaultSocketFactory. Host = "NE-WK-NWHI-01", Process = "APM", Agent Name = "APMRouter".
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Introscope Agent Release 8.2.0.0 (Build 476051)
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Using Java VM version "Java HotSpot(TM) 64-Bit Server VM 1.7.0_02" from Oracle Corporation
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Trying to load agent profile based on system property "com.wily.introscope.agentProfile"
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Trying to load file from C:\\projects\\hapmrouter\\spring\\src\\test\\resources\\wily\\wilyagent.profile
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Loaded file from C:\\projects\\hapmrouter\\spring\\src\\test\\resources\\wily\\wilyagent.profile
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Agent Metric Aging is turned on
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Agent Metric Aging: property introscope.agent.metricAging.heartbeatInterval is set to 1800
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Agent Metric Aging: property introscope.agent.metricAging.dataChunk is set to 500
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Agent Metric Aging: property introscope.agent.metricAging.numberTimeslices is set to 3000
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Looking for agent profile property "introscope.agent.extensions.directory" to locate the extensions directory.
+10/05/12 12:35:07 PM EDT [ERROR] [IntroscopeAgent] The agent extensions directory C:\projects\hapmrouter\spring\src\test\resources\wily\ext could not be located.  No extensions will be loaded.
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Introscope Agent startup complete.			
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] The Agent will attempt to determine its name.
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Using the Agent name "APMRouter" based on the value of the System Property "com.wily.introscope.agent.agentName".
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Initial agent name set to APMRouter
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent.Isengard] Initiating connection attempts to the Introscope Enterprise Manager.
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Configured error reporting throttle at 10
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Error snapshot collection has been enabled
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Started Error Reporting service
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Stall event service: stall threshold of 30 seconds
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Stall event service: resolution of 10 seconds
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Started Stall Service
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent.Isengard] The Agent reconnection delay is set to 15 second(s).
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] The Introscope Agent log file has been automatically renamed from C:\projects\hapmrouter\spring\src\test\resources\wily\logs\IntroscopeAgent.20121005-123506.log to C:\projects\hapmrouter\spring\src\test\resources\wily\logs\IntroscopeAgent.APMRouter.log.
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Started transaction sampling service
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Transaction Tracer sampling interval has been reset to 120000 milliseconds.
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent] Transaction Tracer samples per interval has been set to 1.
+10/05/12 12:35:07 PM EDT [INFO] [IntroscopeAgent.IsengardServerConnectionManager] Connected Agent to the Introscope Enterprise Manager at localhost:5001,com.wily.isengard.postofficehub.link.net.DefaultSocketFactory. Host = "NE-WK-NWHI-01", Process = "APM", Agent Name = "APMRouter".

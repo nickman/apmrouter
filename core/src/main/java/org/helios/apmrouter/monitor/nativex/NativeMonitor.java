@@ -241,16 +241,16 @@ public class NativeMonitor extends AbstractMonitor {
 	 */
 	protected void traceTCP() {
 		Tcp tcp = hsigar.getTcp();
-		tracer.traceGauge(tcp.getActiveOpens(), "Opens", PLAT, TCP_RESOURCE);
-		tracer.traceGauge(tcp.getAttemptFails(), "Fails", PLAT, TCP_RESOURCE);
+		tracer.traceDeltaGauge(tcp.getActiveOpens(), "Opens", PLAT, TCP_RESOURCE);
+		tracer.traceDeltaGauge(tcp.getAttemptFails(), "Fails", PLAT, TCP_RESOURCE);
 		tracer.traceGauge(tcp.getCurrEstab(), "Established", PLAT, TCP_RESOURCE);
-		tracer.traceGauge(tcp.getEstabResets(), "Resets", PLAT, TCP_RESOURCE);
-		tracer.traceGauge(tcp.getInErrs(), "InErrors", PLAT, TCP_RESOURCE);
-		tracer.traceGauge(tcp.getInSegs(), "InSegs", PLAT, TCP_RESOURCE);
-		tracer.traceGauge(tcp.getOutRsts(), "OutResets", PLAT, TCP_RESOURCE);
-		tracer.traceGauge(tcp.getOutSegs(), "OutSegs", PLAT, TCP_RESOURCE);
-		tracer.traceGauge(tcp.getPassiveOpens(), "PassiveOpens", PLAT, TCP_RESOURCE);
-		tracer.traceGauge(tcp.getRetransSegs(), "RetransSegs", PLAT, TCP_RESOURCE);		
+		tracer.traceDeltaGauge(tcp.getEstabResets(), "Resets", PLAT, TCP_RESOURCE);
+		tracer.traceDeltaGauge(tcp.getInErrs(), "InErrors", PLAT, TCP_RESOURCE);
+		tracer.traceDeltaGauge(tcp.getInSegs(), "InSegs", PLAT, TCP_RESOURCE);
+		tracer.traceDeltaGauge(tcp.getOutRsts(), "OutResets", PLAT, TCP_RESOURCE);
+		tracer.traceDeltaGauge(tcp.getOutSegs(), "OutSegs", PLAT, TCP_RESOURCE);
+		tracer.traceDeltaGauge(tcp.getPassiveOpens(), "PassiveOpens", PLAT, TCP_RESOURCE);
+		tracer.traceDeltaGauge(tcp.getRetransSegs(), "RetransSegs", PLAT, TCP_RESOURCE);		
 	}
 	
 	/**
@@ -303,7 +303,7 @@ public class NativeMonitor extends AbstractMonitor {
 		for(String nic: hsigar.getNetInterfaceList()) {
 			NetworkInterface jnic = null;
 			try { 
-				jnic = NetworkInterface.getByName(nic); 
+				jnic = NetworkInterface.getByName(("lo0".equals(nic) ? "lo" : nic)); // Windows reports "lo" where sigar sees "lo0" 
 				if(jnic==null || !jnic.isUp()) {
 					continue;
 				}
@@ -448,6 +448,7 @@ public class NativeMonitor extends AbstractMonitor {
 			tracer.traceGauge(fsu.getTotal(), "TotalKb", PLAT, FS_RESOURCE, String.format(FS_NAME, dirName.replace(":\\", "")));
 			tracer.traceGauge(fsu.getUsed(), "UsedKb", PLAT, FS_RESOURCE, String.format(FS_NAME, dirName.replace(":\\", "")));
 			tracer.traceGauge((long)fsu.getDiskQueue(), "DiskQueue", PLAT, FS_RESOURCE, String.format(FS_NAME, dirName.replace(":\\", "")));
+			// No impl. for Win
 			tracer.traceGauge((long)fsu.getDiskServiceTime(), "DiskServiceTime", PLAT, FS_RESOURCE, String.format(FS_NAME, dirName.replace(":\\", "")));
 			
 			
@@ -560,7 +561,9 @@ public class NativeMonitor extends AbstractMonitor {
 		
 	}
 	
-
+	private static void l(Object msg) {
+		System.out.println(msg);
+	}
 	
 	private static long dbl2longPerc(double value) {
 		double d = value*100;
@@ -569,7 +572,9 @@ public class NativeMonitor extends AbstractMonitor {
 	
 	public static void main(String[] args) {
 		NativeMonitor nm = new NativeMonitor();
-		nm.traceFileSystemUsage();
+		for(String s: nm.hsigar.getNetInterfaceList()) {
+			l("NIC:" + s);		
+		}
 	}
 
 }
