@@ -24,9 +24,11 @@
  */
 package org.helios.apmrouter.server;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -199,11 +201,13 @@ public abstract class ServerComponent {
 	 */
 	public static String formatStackTrace(Throwable t) {
 		if(t==null) return "";
-		StringBuilder b = new StringBuilder("[").append(t.getClass().getName()).append("]");
-		for(StackTraceElement ste: t.getStackTrace()) {
-			b.append("\n\t").append(ste.toString());
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		t.printStackTrace(new PrintStream(baos, true));
+		try {
+			baos.flush();
+		} catch (IOException e) {
 		}
-		return b.toString();
+		return baos.toString();
 	}
 	
 	/**
