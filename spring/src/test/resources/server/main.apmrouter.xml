@@ -157,10 +157,17 @@
 	 		<util:set>
 				<value>LONG.*|DELTA.*|STRING.*</value>	 			
 	 		</util:set>
- 		</property>	
+ 		</property>
+ 		
+ 		<property name="wilyAgentLib" value="/home/nwhitehead/introscope/9.1/agent/wily/Agent.jar" />
+		<property name="wilyAgentName" value="APMRouter" />
+		<property name="wilyAgentProps" value="/home/nwhitehead/introscope/9.1/agent/wily/apmrouter.profile" />
+ 		
+ 		<!-- 
 		<property name="wilyAgentLib" value="C:\\Introscope\\Introscope8.2.0.0\\agents\\allapps\\Agent.jar" />
 		<property name="wilyAgentName" value="APMRouter" />
 		<property name="wilyAgentProps" value="C:\\projects\\hapmrouter\\spring\\src\\test\\resources\\wily\\wilyagent.profile" />
+ 		 -->	
 	</bean>
 	
 	<bean id="GraphiteDestination" class="org.helios.apmrouter.destination.graphite.GraphiteDestination">
@@ -211,7 +218,7 @@
  		<!-- <property name="openTSDBHost" value="192.168.1.156" /> -->
  		<!--  <property name="openTSDBHost" value="heliojira.dnsalias.org.home" />  -->
  		<!-- <property name="openTSDBHost" value="localhost" /> -->
- 		<property name="openTSDBHost" value="pdk-pt-cupas-01" />
+ 		<!-- <property name="openTSDBHost" value="pdk-pt-cupas-01" /> -->
 	</bean>
  	
 	

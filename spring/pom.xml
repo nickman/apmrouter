@@ -30,6 +30,10 @@
 			<artifactId>camel-spring</artifactId>
 		</dependency>
 		<dependency>
+		  <groupId>org.springframework</groupId>
+		  <artifactId>spring-jdbc</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.apache.camel</groupId>
 			<artifactId>camel-netty</artifactId>
 		</dependency>
@@ -61,6 +65,15 @@
 			  <artifactId>nash</artifactId>  
 			</dependency>
 		
+		<!--  Metric Catalog DB Pooling -->
+		<dependency>
+		  <groupId>commons-dbcp</groupId>
+		  <artifactId>commons-dbcp</artifactId>
+		</dependency>
+		 <dependency>
+		      <groupId>com.h2database</groupId>
+		      <artifactId>h2</artifactId>
+		</dependency>
 		
 		<!-- logging -->
 		<dependency>

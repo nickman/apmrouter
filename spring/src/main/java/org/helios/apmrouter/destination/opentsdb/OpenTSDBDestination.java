@@ -58,7 +58,9 @@ public class OpenTSDBDestination extends BaseDestination {
 	 */
 	@Override
 	protected void doStart() throws Exception {
-		doConnect();
+		if(host!=null) {
+			doConnect();
+		}
 	}
 	
 	/**
@@ -91,6 +93,7 @@ public class OpenTSDBDestination extends BaseDestination {
 	 */
 	@Override
 	protected void doAcceptRoute(IMetric routable) {
+		if(!connected.get()) return;
 		if(routable.isMapped()) {
 			recorder.newRecording(routable.getName(), routable.getLongValue())
 				.tags(routable.getNamespaceMap(true, true))

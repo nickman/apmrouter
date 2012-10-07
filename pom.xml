@@ -31,7 +31,10 @@
 		<nash.version>1.0-SNAPSHOT</nash.version>
 		<sigar.version>1.6.4</sigar.version>
 		<rrd4j.version>2.2-SNAPSHOT</rrd4j.version>
-		<h2.version>1.3.149</h2.version>
+		<h2.version>1.3.168</h2.version>
+		<commons.dbcp.version>1.4</commons.dbcp.version>
+		<spring.version>3.0.7.RELEASE</spring.version>
+		
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -101,6 +104,12 @@
 				<version>${camel.version}</version>
 			</dependency>
 			<dependency>
+			  <groupId>org.springframework</groupId>
+			  <artifactId>spring-jdbc</artifactId>
+			  <version>${spring.version}</version>
+			</dependency>
+			
+			<dependency>
 				<groupId>org.apache.camel</groupId>
 				<artifactId>camel-netty</artifactId>
 				<version>${camel.version}</version>
@@ -168,6 +177,14 @@
 		      <artifactId>h2</artifactId>
 		      <version>${h2.version}</version>
 		    </dependency>
+		    
+		  <!--  Metric Catalog DB Pooling -->
+		  <dependency>
+		    <groupId>commons-dbcp</groupId>
+		    <artifactId>commons-dbcp</artifactId>
+		    <version>${commons.dbcp.version}</version>
+		  </dependency>
+		    
 		      
 		    <dependency>
 		      <groupId>org.rrd4j</groupId>
