@@ -35,7 +35,7 @@ CREATE MEMORY TEMPORARY TABLE PUBLIC.METRIC(
     NAMESPACE VARCHAR2(200) COMMENT 'The namespace of the metric',
     NAME VARCHAR2(60) COMMENT 'The point of the metric name',
     FIRST_SEEN TIMESTAMP NOT NULL COMMENT 'The first time this metric was seen',
-    LAST_SEEN DATE COMMENT 'The last time this metric was seen'
+    LAST_SEEN TIMESTAMP COMMENT 'The last time this metric was seen'
 ) NOT PERSISTENT;       
               
 
@@ -61,3 +61,4 @@ CREATE SEQUENCE SEQ_AGENT START WITH 0 INCREMENT BY 1;
 CREATE SEQUENCE SEQ_METRIC START WITH 0 INCREMENT BY 1 CACHE 128;
 
 CREATE ALIAS GET_ID FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.getID";
+CREATE ALIAS TOUCH FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.touch";

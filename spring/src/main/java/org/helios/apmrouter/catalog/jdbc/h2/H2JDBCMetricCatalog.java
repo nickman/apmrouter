@@ -28,34 +28,53 @@ import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Types;
+import java.util.HashSet;
+import java.util.Set;
 
 import javax.sql.DataSource;
 
 import org.helios.apmrouter.catalog.MetricCatalogService;
+import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
+import org.helios.apmrouter.collections.LongSlidingWindow;
 import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.util.SystemClock;
+import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedMetric;
 
 
 
 
 /**
  * <p>Title: H2JDBCMetricCatalog</p>
- * <p>Description: </p> 
+ * <p>Description: The H2 implementation of the {@link MetricCatalogService}. When realtime is set to true
+ * host, agent and metric timestamps are kept realtime with respect to their <i>last seen</i> timestamp.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.catalog.jdbc.H2JDBCMetricCatalog</code></p>
  */
 
-public class H2JDBCMetricCatalog implements MetricCatalogService {
+public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCatalogService {
 	/** The h2 datasource */
 	protected DataSource ds = null;
+	/** Indicates if the metric catalog should be kept real time */
+	protected boolean realtime = false;
+	
+	/** Sliding windows of catalog call elapsed times in ns. */
+	protected final LongSlidingWindow elapsedTimesNs = new ConcurrentLongSlidingWindow(15);
+	/** Sliding windows of catalog call elapsed times in ms. */
+	protected final LongSlidingWindow elapsedTimesMs = new ConcurrentLongSlidingWindow(15); 
+	
 	
 	/**
-	 * Startup procedure
-	 * @throws Exception on any error
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
 	 */
-	public void start() throws Exception {
+	@Override
+	public void doStart() throws Exception {
 		Connection conn = null;
 		PreparedStatement ps = null;
 		try {
@@ -81,25 +100,41 @@ public class H2JDBCMetricCatalog implements MetricCatalogService {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.catalog.MetricCatalogService#getID(java.lang.String, java.lang.String, int, java.lang.String, java.lang.String)
+	 * @see org.helios.apmrouter.catalog.MetricCatalogService#getID(long, java.lang.String, java.lang.String, int, java.lang.String, java.lang.String)
 	 */
 	@Override
-	public long getID(String host, String agent, int typeId, String namespace, String name) {
+	public long getID(long token, String host, String agent, int typeId, String namespace, String name) {
+		if(token!=-1 && !realtime) return 0;
+		SystemClock.startTimer();
+		incr("CallCount");		
 		Connection conn = null;
 		CallableStatement cs = null;
 		try {
 			conn = ds.getConnection();
-			cs = conn.prepareCall("{? = getID(?,?,?,?,?}");
+			cs = realtime ? conn.prepareCall("? = CALL TOUCH(?,?,?,?,?,?)") : conn.prepareCall("? = CALL GET_ID(?,?,?,?,?,?)");
 			cs.registerOutParameter(1, Types.NUMERIC);
-			cs.setString(2, host);
-			cs.setString(3, agent);
-			cs.setInt(4, typeId);
-			cs.setString(5, namespace);
-			cs.setString(6, name);
+			cs.setNull(1, Types.NULL);			
+			cs.setLong(2, token);
+			cs.setString(3, host);
+			cs.setString(4, agent);
+			cs.setInt(5, typeId);
+			cs.setString(6, namespace);
+			cs.setString(7, name);
 			cs.execute();
-			return cs.getLong(1);
+			long id = cs.getLong(1);
+			if(id!=0) {
+				incr("AssignedMetricIDs");
+			}
+			ElapsedTime et = SystemClock.endTimer();
+			elapsedTimesNs.insert(et.elapsedNs);
+			elapsedTimesMs.insert(et.elapsedMs);			
+			return id;
 		} catch (Exception e) {
-			throw new RuntimeException("Failed to get ID", e);
+			error("Failed to get ID for [" , String.format("%s/%s%s:%s", host, agent, namespace, name) , "]", e);
+			Throwable cause = e.getCause();
+			if(cause!=null) cause.printStackTrace(System.err);
+			//throw new RuntimeException("Failed to get ID", e);
+			return 0;
 		} finally {
 			try { cs.close(); } catch (Exception e) {}
 			try { conn.close(); } catch (Exception e) {}
@@ -113,5 +148,85 @@ public class H2JDBCMetricCatalog implements MetricCatalogService {
 	@Qualifier("H2DataSource")
 	public void setDs(DataSource ds) {
 		this.ds = ds;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
+	 */
+	@Override
+	public Set<String> getSupportedMetricNames() {
+		Set<String> metrics = new HashSet<String>(super.getSupportedMetricNames());
+		metrics.add("AssignedMetricIDs");
+		metrics.add("CallCount");		
+		return metrics;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponent#resetMetrics()
+	 */
+	@Override
+	public void resetMetrics() {
+		super.resetMetrics();
+		elapsedTimesNs.clear();
+		elapsedTimesMs.clear();
+	}
+	
+	/**
+	 * Returns the number of assigned metric IDs
+	 * @return the number of assigned metric IDs
+	 */
+	@ManagedMetric(category="MetricCatalogService", metricType=org.springframework.jmx.support.MetricType.COUNTER, description="The number of assigned metric IDs")
+	public long getAssignedMetricIDs() {
+		return getMetricValue("AssignedMetricIDs");
+	}	
+
+	/**
+	 * Returns the cumulative number of catalog calls
+	 * @return the cumulative number of catalog calls
+	 */
+	@ManagedMetric(category="MetricCatalogService", metricType=org.springframework.jmx.support.MetricType.COUNTER, description="The cumulative number of catalog calls")
+	public long getCallCount() {
+		return getMetricValue("CallCount");
+	}	
+	
+	/**
+	 * Returns the sliding average elapsed time in ns. of the last 15 catalog calls
+	 * @return the sliding average elapsed time in ns. of the last 15 catalog calls
+	 */
+	@ManagedMetric(category="MetricCatalogService", metricType=org.springframework.jmx.support.MetricType.GAUGE, description="The sliding average elapsed time in ns. of the last 15 catalog calls")
+	public long getAverageCallTimeNs() {
+		return elapsedTimesNs.avg();
+	}
+	
+	/**
+	 * Returns the sliding average elapsed time in ms. of the last 15 catalog calls
+	 * @return the sliding average elapsed time in ms. of the last 15 catalog calls
+	 */
+	@ManagedMetric(category="MetricCatalogService", metricType=org.springframework.jmx.support.MetricType.GAUGE, description="The sliding average elapsed time in ms. of the last 15 catalog calls")
+	public long getAverageCallTimeMs() {
+		return elapsedTimesMs.avg();
+	}	
+	
+
+	/**
+	 * Indicates if the metric catalog is real time 
+	 * @return true if the metric catalog is real time , false otherwise
+	 */
+	@Override
+	@ManagedAttribute(description="Indicates if the metric catalog is real time ")
+	public boolean isRealtime() {
+		return realtime;
+	}
+
+	/**
+	 * Sets the realtime attribute of the metric catalog
+	 * @param realtime true for a realtime metric catalog, false otherwise
+	 */
+	@Override
+	@ManagedAttribute(description="Indicates if the metric catalog is real time ")
+	public void setRealtime(boolean realtime) {
+		this.realtime = realtime;
 	}
 }

@@ -30,23 +30,17 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.helios.apmrouter.OpCode;
-import org.helios.apmrouter.OpCode;
+import org.helios.apmrouter.catalog.MetricCatalogService;
+import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.router.PatternRouter;
-import org.helios.apmrouter.server.ServerComponentBean;
-import org.helios.apmrouter.server.net.listener.netty.ChannelGroupAware;
-import org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroup;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.Channels;
-import org.jboss.netty.channel.group.ChannelGroup;
-import org.jboss.netty.handler.logging.LoggingHandler;
-import org.jboss.netty.logging.InternalLogLevel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 
@@ -63,7 +57,8 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	protected IMetricCatalog metricCatalog = null;
 	/** The pattern router for handing off metrics to */
 	protected PatternRouter router = null;
-
+	/** The metric catalog service */
+	protected MetricCatalogService metricCatalogService = null;
 	
 	/** The OpCodes this handler accepts */
 	protected final OpCode[] OP_CODES = new OpCode[]{ OpCode.SEND_METRIC, OpCode.SEND_METRIC_DIRECT };
@@ -162,7 +157,10 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	 * @param metric The untokenized metric
 	 */
 	protected void sendToken(final Channel incoming, final SocketAddress remoteAddress, final IMetric metric) {
-		final long token = metricCatalog.setToken(metric);		
+		long token = metricCatalogService.getID(metric.getToken(), metric.getHost(), metric.getAgent(), metric.getType().ordinal(), metric.getNamespaceF(), metric.getName());
+		if(token!=0) {
+			metricCatalog.setToken(metric.getHost(), metric.getAgent(), metric.getName(), metric.getType(), metric.getNamespace());
+		}
 		byte[] bytes = metric.getFQN().getBytes();
 		// Buffer size:  OpCode, fqn size, fqn bytes, token
 		final ChannelBuffer cb = ChannelBuffers.directBuffer(1 + 4 + bytes.length + 8 );
@@ -179,8 +177,7 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 				} else {
 					System.err.println("Failed to send roken for direct metric [" + metric + "]");
 					future.getCause().printStackTrace(System.err);
-				}
-				
+				}				
 			}
 		});					
 	}
@@ -259,6 +256,18 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	@Autowired(required=true)
 	public void setRouter(PatternRouter router) {
 		this.router = router;
+	}
+
+
+
+
+	/**
+	 * Sets the metricCatalogService
+	 * @param metricCatalogService the metricCatalogService to set
+	 */
+	@Autowired(required=true)
+	public void setMetricCatalogService(MetricCatalogService metricCatalogService) {
+		this.metricCatalogService = metricCatalogService;
 	}
 
 

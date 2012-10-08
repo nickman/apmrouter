@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.destination.graphite;
 
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -40,7 +41,10 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.helios.apmrouter.destination.BaseDestination;
+import org.helios.apmrouter.destination.MetricTextFormatter;
+import org.helios.apmrouter.destination.TextMetricAccumulator;
 import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.util.SystemClock;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
@@ -72,7 +76,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
  * <p><code>org.helios.apmrouter.destination.graphite.GraphiteDestination</code></p>
  */
 
-public class GraphiteDestination extends BaseDestination implements Runnable, ChannelPipelineFactory, ChannelFutureListener {
+public class GraphiteDestination extends BaseDestination implements MetricTextFormatter, Runnable, ChannelPipelineFactory, ChannelFutureListener {
 	/** The netty boss pool */
 	protected ExecutorService bossPool;
 	/** The nety worker pool */
@@ -112,7 +116,7 @@ public class GraphiteDestination extends BaseDestination implements Runnable, Ch
 	/** The frequency in ms. of the reconnect loop attempts */
 	protected long reconnectPeriod = 10000;
 	/** The accumulation buffer */
-	protected final GraphiteMetricAccumulator accumulator = new GraphiteMetricAccumulator(10240);
+	protected final TextMetricAccumulator accumulator = new TextMetricAccumulator(this, 10240);
 	/** The time based flush trigger in ms. */
 	protected long timeTrigger = 15000;
 	/** The size based flush trigger in number of metrics accumulated */
@@ -122,7 +126,8 @@ public class GraphiteDestination extends BaseDestination implements Runnable, Ch
 	/** The flush future */
 	protected ScheduledFuture<?> flushScheduleHandle = null;
 	
-	
+	/** The message format for the submission  */
+	public static final String METRIC_FORMAT = "%s %s %s \n";
 	
 
 
@@ -207,6 +212,7 @@ public class GraphiteDestination extends BaseDestination implements Runnable, Ch
 	 * {@inheritDoc}
 	 * @see java.lang.Runnable#run()
 	 */
+	@Override
 	public void run() {
 		int accumulatedCount = 0;
 		ChannelBuffer cb = null;
@@ -224,6 +230,7 @@ public class GraphiteDestination extends BaseDestination implements Runnable, Ch
 		if(connected.get()) {
 			final int a = accumulatedCount;
 			channel.write(cb).addListener(new ChannelFutureListener() {
+				@Override
 				public void operationComplete(ChannelFuture f) throws Exception {
 					if(f.isSuccess()) {
 						incr("MetricsForwarded", a);
@@ -280,9 +287,14 @@ public class GraphiteDestination extends BaseDestination implements Runnable, Ch
 	 * Accept Route additive for BaseDestination extensions
 	 * @param routable The metric to route
 	 */
+	@Override
 	protected void doAcceptRoute(IMetric routable) {
 		synchronized(accumulator) {
-			accumulator.append(routable.getUnmapped());
+			try {
+				accumulator.append(routable.getUnmapped());
+			} catch (Exception e) {
+				incr("MetricsForwardFailures");
+			}
 		}
 	}
 	
@@ -305,6 +317,7 @@ public class GraphiteDestination extends BaseDestination implements Runnable, Ch
 		channelGroup.add(channel);
 		closeFuture = channel.getCloseFuture();
 		closeFuture.addListener(new ChannelFutureListener() {
+			@Override
 			public void operationComplete(ChannelFuture future) throws Exception {
 				doDisconnect();
 			}
@@ -653,6 +666,25 @@ public class GraphiteDestination extends BaseDestination implements Runnable, Ch
 	@Autowired(required=true)
 	public void setScheduler(ThreadPoolTaskScheduler scheduler) {
 		this.scheduler = scheduler;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.destination.MetricTextFormatter#format(java.io.OutputStream, org.helios.apmrouter.metric.IMetric[])
+	 */
+	@Override
+	public int format(OutputStream os, IMetric...metrics) {
+		int accumulated = 0;
+		for(IMetric metric: metrics) {
+			if(!metric.getType().isLong() || metric.isMapped()) continue;	
+			try {
+				os.write(String.format(METRIC_FORMAT, metric.getFQN().replace('/', '.').replace(':', '.').replace(" ", ""), metric.getLongValue(), SystemClock.unixTime(metric.getTime())).getBytes());
+				accumulated++;
+			} catch (Exception e) {
+				incr("MetricsForwardFailures");
+			}			
+		}
+		return accumulated;
 	}
 
 

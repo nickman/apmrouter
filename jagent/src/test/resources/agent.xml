@@ -6,7 +6,16 @@
 	</props>
 	<monitors>
 		<monitor name="org.helios.apmrouter.monitor.jvm.JVMMonitor" period="5000"/>
-		<monitor name="org.helios.apmrouter.monitor.script.ScriptMonitor" period="5000"/>		
+		<monitor name="org.helios.apmrouter.monitor.script.ScriptMonitor" period="5000"/>	
+		<monitor name="org.helios.apmrouter.monitor.nativex.NativeMonitor" period="5000">
+			<properties>
+			monitor.nativex.fs.ttf=10
+			monitor.nativex.fs.rescan=10
+			monitor.nativex.tracemeta=true
+			monitor.nativex.cpu.traceall=true
+			</properties>
+		</monitor>
+					
 	</monitors>
 	<aop>
 		<trace-annotated>

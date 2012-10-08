@@ -22,38 +22,44 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.catalog;
+package org.helios.apmrouter.metric;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
- * <p>Title: MetricCatalogService</p>
- * <p>Description: Defines a metric catalog service, the exclusive and canonical repository for metrics.</p> 
+ * <p>Title: JSONFormatter</p>
+ * <p>Description: Defines a class that formats an array of {@link IMetric}s into a JSON document</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.catalog.MetricCatalogService</code></p>
+ * <p><code>org.helios.apmrouter.metric.JSONFormatter</code></p>
  */
 
-public interface MetricCatalogService {
+public interface JSONFormatter {
 	/**
-	 * Returns the unique identifier for a metric
-	 * @param token The metric ID which may be -1 meaning the metric does not exist yet
-	 * @param host The host name
-	 * @param agent The agent name
-	 * @param typeId The metric type
-	 * @param namespace The metric namespace
-	 * @param name The metric name
-	 * @return the assigned ID
+	 * Converts the passed metrics to a JSON Object
+	 * @param metrics The metrics to format
+	 * @return a compound JSON object
+	 * @throws JSONException thrown on errors writing the json document
 	 */
-	public long getID(long token, String host, String agent, int typeId, String namespace, String name);
-	
-	/**
-	 * Indicates if the metric catalog is real time 
-	 * @return true if the metric catalog is real time , false otherwise
-	 */
-	public boolean isRealtime();
+	public JSONObject toJSONObject(IMetric...metrics) throws JSONException;
 
 	/**
-	 * Sets the realtime attribute of the metric catalog
-	 * @param realtime true for a realtime metric catalog, false otherwise
+	 * Converts the passed metrics to a JSON string
+	 * @param metrics The metrics to format
+	 * @return a compound JSON string
+	 * @throws JSONException thrown on errors writing the json document
 	 */
-	public void setRealtime(boolean realtime); 	
+	public String toJSON(IMetric...metrics) throws JSONException;
+	
+	/**
+	 * Converts the passed metrics to a JSON byte array
+	 * @param metrics The metrics to format
+	 * @return a compound JSON byet array
+	 * @throws JSONException thrown on errors writing the json document
+	 */
+	public byte[] toJSONBytes(IMetric...metrics) throws JSONException;
+	
+
+	
 }

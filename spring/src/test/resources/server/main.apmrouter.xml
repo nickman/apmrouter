@@ -152,6 +152,14 @@
 		</constructor-arg>
 	</bean>
 	
+	<bean id="SerieslyDest" class="org.helios.apmrouter.destination.seriesly.SerieslyDestination" >
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>LONG.*|DELTA.*|STRING.*</value>	 			
+	 		</util:set>
+ 		</property>
+	</bean>
+	
 	<bean id="WilyDestination" class="org.helios.apmrouter.destination.wily.WilyIntroscopeDestination">
  		<property name="matchPatterns">
 	 		<util:set>

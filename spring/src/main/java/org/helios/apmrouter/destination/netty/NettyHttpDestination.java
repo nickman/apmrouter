@@ -22,38 +22,40 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.catalog;
+package org.helios.apmrouter.destination.netty;
+
+import java.util.Collection;
 
 /**
- * <p>Title: MetricCatalogService</p>
- * <p>Description: Defines a metric catalog service, the exclusive and canonical repository for metrics.</p> 
+ * <p>Title: NettyHttpDestination</p>
+ * <p>Description: Base netty destination for Http endpoints</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.catalog.MetricCatalogService</code></p>
+ * <p><code>org.helios.apmrouter.destination.netty.NettyHttpDestination</code></p>
  */
 
-public interface MetricCatalogService {
-	/**
-	 * Returns the unique identifier for a metric
-	 * @param token The metric ID which may be -1 meaning the metric does not exist yet
-	 * @param host The host name
-	 * @param agent The agent name
-	 * @param typeId The metric type
-	 * @param namespace The metric namespace
-	 * @param name The metric name
-	 * @return the assigned ID
-	 */
-	public long getID(long token, String host, String agent, int typeId, String namespace, String name);
-	
-	/**
-	 * Indicates if the metric catalog is real time 
-	 * @return true if the metric catalog is real time , false otherwise
-	 */
-	public boolean isRealtime();
+public class NettyHttpDestination extends NettyTCPDestination {
 
 	/**
-	 * Sets the realtime attribute of the metric catalog
-	 * @param realtime true for a realtime metric catalog, false otherwise
+	 * Creates a new NettyHttpDestination
+	 * @param patterns the patterns this destination accepts
 	 */
-	public void setRealtime(boolean realtime); 	
+	public NettyHttpDestination(String... patterns) {
+		super(patterns);
+	}
+
+	/**
+	 * Creates a new NettyHttpDestination
+	 * @param patterns the patterns this destination accepts
+	 */
+	public NettyHttpDestination(Collection<String> patterns) {
+		super(patterns);
+	}
+
+	/**
+	 * Creates a new NettyHttpDestination
+	 */
+	public NettyHttpDestination() {
+	}
+
 }

@@ -22,55 +22,60 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.destination.graphite;
+package org.helios.apmrouter.destination;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.helios.apmrouter.metric.IMetric;
-import org.helios.apmrouter.util.SystemClock;
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBufferOutputStream;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
 
 /**
- * <p>Title: GraphiteMetricAccumulator</p>
+ * <p>Title: TextMetricAccumulator</p>
  * <p>Description: Accumulates {@link IMetric}s as graphite metrics in preparation for a metric count or time based flush.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.destination.graphite.GraphiteMetricAccumulator</code></p>
+ * <p><code>org.helios.apmrouter.destination.TextMetricAccumulator</code></p>
  */
 
-public class GraphiteMetricAccumulator {
+public class TextMetricAccumulator {
 	/** The accumulation buffer */
 	protected final ChannelBuffer accum;
-	/** The number of accumulated graphite metrics */
+	/** The outputstream to write meteric test bytes into the accum buffer */
+	protected final OutputStream os;
+	/** The number of accumulated metrics */
 	protected final AtomicInteger metricCount = new AtomicInteger(0);
+	/** The metric formatter */
+	protected final MetricTextFormatter formatter;
 	
 	/** The message format for the submission  */
 	public static final String METRIC_FORMAT = "%s %s %s \n";
 	
 
 	/**
-	 * Creates a new GraphiteMetricAccumulator
+	 * Creates a new TextMetricAccumulator
+	 * @param formatter The metric formatter 
 	 * @param bufferSize The initial buffer size (in bytes) for the accumulation buffer
 	 */
-	public GraphiteMetricAccumulator(int bufferSize) {
+	public TextMetricAccumulator(MetricTextFormatter formatter, int bufferSize) {
 		 accum = ChannelBuffers.dynamicBuffer(bufferSize, new DirectChannelBufferFactory());
+		 os = new ChannelBufferOutputStream(accum);
+		 this.formatter = formatter;
 	}
 	
 	/**
-	 * Appends the passed {@link IMetric}s to the accumulation buffer in graphite metric format
+	 * Appends the passed {@link IMetric}s to the accumulation buffer in the configured metric format
 	 * @param metrics The metrics to accumulate
-	 * @return The number of metrics accumulated
+	 * @return The number of metrics accumulated so far
+	 * @throws IOException thrown on any error writing to the output stream
 	 */
-	public int append(IMetric...metrics) {
+	public int append(IMetric...metrics) throws IOException {
 		if(metrics!=null && metrics.length>0) {
-			for(IMetric metric: metrics) {
-				if(!metric.getType().isLong() || metric.isMapped()) continue;
-				accum.writeBytes(String.format(METRIC_FORMAT, metric.getFQN().replace('/', '.').replace(':', '.').replace(" ", ""), metric.getLongValue(), SystemClock.unixTime(metric.getTime())).getBytes());
-				metricCount.incrementAndGet();
-			}
-			
+			metricCount.addAndGet(formatter.format(os, metrics));
 		}
 		return metricCount.get();
 	}
@@ -85,15 +90,14 @@ public class GraphiteMetricAccumulator {
 	
 	/**
 	 * Copies the accumulated buffer into a new buffer, clears the accumulated buffer and returns the copy
-	 * @return the copied buffer to send to Graphite
+	 * @return the copied buffer to send to the text accepting back end
 	 */
 	public ChannelBuffer flush() {
-		
-		//ChannelBuffer toSend = ChannelBuffers.directBuffer(accum.readableBytes());
 		ChannelBuffer toSend = ChannelBuffers.buffer(accum.readableBytes());
 		toSend.writeBytes(accum);
 		accum.clear();
 		metricCount.set(0);
 		return toSend;
 	}
+
 }

@@ -22,38 +22,28 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.catalog;
+package org.helios.apmrouter.destination;
+
+import java.io.IOException;
+import java.io.OutputStream;
+
+import org.helios.apmrouter.metric.IMetric;
 
 /**
- * <p>Title: MetricCatalogService</p>
- * <p>Description: Defines a metric catalog service, the exclusive and canonical repository for metrics.</p> 
+ * <p>Title: MetricTextFormatter</p>
+ * <p>Description: Defines a formatter that converts {@link IMetric} instances into text</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.catalog.MetricCatalogService</code></p>
+ * <p><code>org.helios.apmrouter.destination.MetricTextFormatter</code></p>
  */
 
-public interface MetricCatalogService {
+public interface MetricTextFormatter {
 	/**
-	 * Returns the unique identifier for a metric
-	 * @param token The metric ID which may be -1 meaning the metric does not exist yet
-	 * @param host The host name
-	 * @param agent The agent name
-	 * @param typeId The metric type
-	 * @param namespace The metric namespace
-	 * @param name The metric name
-	 * @return the assigned ID
+	 * Converts the passed metrics into a textual byte array
+	 * @param accumulator The output stream to write the metric text to
+	 * @param metrics The metrics to format
+	 * @return the number of metrics written
+	 * @throws IOException thrown on any error writing to the output stream
 	 */
-	public long getID(long token, String host, String agent, int typeId, String namespace, String name);
-	
-	/**
-	 * Indicates if the metric catalog is real time 
-	 * @return true if the metric catalog is real time , false otherwise
-	 */
-	public boolean isRealtime();
-
-	/**
-	 * Sets the realtime attribute of the metric catalog
-	 * @param realtime true for a realtime metric catalog, false otherwise
-	 */
-	public void setRealtime(boolean realtime); 	
+	public int format(OutputStream accumulator, IMetric...metrics) throws IOException;
 }

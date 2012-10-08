@@ -36,6 +36,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 
+import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.collections.LongSlidingWindow;
 import org.helios.apmrouter.metric.ExpandedMetric;
 import org.helios.apmrouter.metric.ICEMetric;
@@ -76,9 +77,9 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 	protected final UncaughtExceptionHandler ucex = this;
 	
 	/** Sliding windows of route elapsed times in ns. */
-	protected final LongSlidingWindow elapsedTimesNs = new LongSlidingWindow(15);
+	protected final LongSlidingWindow elapsedTimesNs = new ConcurrentLongSlidingWindow(15);
 	/** Sliding windows of route elapsed times in ms. */
-	protected final LongSlidingWindow elapsedTimesMs = new LongSlidingWindow(15); 
+	protected final LongSlidingWindow elapsedTimesMs = new ConcurrentLongSlidingWindow(15); 
 	
 	
 	protected MetricConflationService conflator;
@@ -118,6 +119,17 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 			info("Registered [", entry.getKey(), "] as a Route Destination");
 		}
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponent#resetMetrics()
+	 */
+	@Override
+	public void resetMetrics() {
+		super.resetMetrics();
+		elapsedTimesNs.clear();
+		elapsedTimesMs.clear();
+	}	
 	
 	
 	/**
@@ -286,7 +298,7 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 	 * Returns the number of metrics dropped in routing
 	 * @return the number of metrics dropped in routing
 	 */
-	@ManagedMetric(category="MetricRouter", metricType=MetricType.COUNTER, description="The number of metrics dropped in routing")
+	@ManagedMetric(category="MetricRouter", metricType=org.springframework.jmx.support.MetricType.COUNTER, description="The number of metrics dropped in routing")
 	public long getDroppedMetricCount() {
 		return getMetricValue("DroppedRoutes");
 	}

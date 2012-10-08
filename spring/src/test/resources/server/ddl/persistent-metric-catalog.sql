@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS  PUBLIC.METRIC(
     NAMESPACE VARCHAR2(200) COMMENT 'The namespace of the metric',
     NAME VARCHAR2(60) COMMENT 'The point of the metric name',
     FIRST_SEEN TIMESTAMP NOT NULL COMMENT 'The first time this metric was seen',
-    LAST_SEEN DATE COMMENT 'The last time this metric was seen'
+    LAST_SEEN TIMESTAMP COMMENT 'The last time this metric was seen'
 ) ;       
               
 
@@ -54,3 +54,4 @@ CREATE SEQUENCE IF NOT EXISTS SEQ_AGENT START WITH 0 INCREMENT BY 1;
 CREATE SEQUENCE IF NOT EXISTS SEQ_METRIC START WITH 0 INCREMENT BY 1 CACHE 128;
 
 CREATE ALIAS IF NOT EXISTS GET_ID FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.getID";
+CREATE ALIAS IF NOT EXISTS TOUCH FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.touch";
