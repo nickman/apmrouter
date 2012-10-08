@@ -26,7 +26,7 @@
 	<context:mbean-export/>
 
 	
-
+	<!-- 
 	<bean id="NashServer" class="org.helios.nash.Server" init-method="start" destroy-method="stop">
 		<constructor-arg value="0.0.0.0"/>
 		<constructor-arg value="2113"/>
@@ -53,6 +53,7 @@
 			</bean>
 		</constructor-arg>		
 	</bean>
+	-->
 	
 	<bean id="SpringEventPool" class="org.helios.apmrouter.util.thread.ManagedThreadPool">
 		<qualifier value="SpringEvent"/>
@@ -167,15 +168,18 @@
 	 		</util:set>
  		</property>
  		
+ 		
+<!-- 
  		<property name="wilyAgentLib" value="/home/nwhitehead/introscope/9.1/agent/wily/Agent.jar" />
 		<property name="wilyAgentName" value="APMRouter" />
 		<property name="wilyAgentProps" value="/home/nwhitehead/introscope/9.1/agent/wily/apmrouter.profile" />
- 		
- 		<!-- 
+
+ --> 		
+ 
 		<property name="wilyAgentLib" value="C:\\Introscope\\Introscope8.2.0.0\\agents\\allapps\\Agent.jar" />
 		<property name="wilyAgentName" value="APMRouter" />
 		<property name="wilyAgentProps" value="C:\\projects\\hapmrouter\\spring\\src\\test\\resources\\wily\\wilyagent.profile" />
- 		 -->	
+	
 	</bean>
 	
 	<bean id="GraphiteDestination" class="org.helios.apmrouter.destination.graphite.GraphiteDestination">

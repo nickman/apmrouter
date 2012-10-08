@@ -7,10 +7,10 @@
 		<version>1.0-SNAPSHOT</version>
 	</parent>
 	<groupId>org.helios.apmrouter</groupId>
-	<artifactId>core</artifactId>
+	<artifactId>apmrouter-agent</artifactId>
 	<packaging>jar</packaging>
 	<version>1.0-SNAPSHOT</version>
-	<name>APMRouter-Core</name>
+	<name>APMRouter-Agent</name>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
