@@ -33,6 +33,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.helios.apmrouter.jmx.ITracerService;
+import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
@@ -73,6 +75,7 @@ public class TracerFactory {
 	static {
 		funnel = CollectionFunnel.getInstance();
 		defaultTracer = new TracerImpl(AgentIdentity.ID.getHostName(), AgentIdentity.ID.getAgentName(), funnel);
+		registerMBean((TracerImpl)defaultTracer);
 		try {
 			DIRECT_TIMEOUT = Long.parseLong(System.getProperty(DIRECT_TIMEOUT_PROP, "" + DEFAULT_DIRECT_TIMEOUT));
 		} catch (Exception e) {
@@ -113,6 +116,18 @@ public class TracerFactory {
 	 */
 	public static ITracer getTracer() {
 		return defaultTracer;
+	}
+	
+	/**
+	 * Registers the tracer MBean service
+	 * @param defaultTracer the default tracer
+	 */
+	static void registerMBean(TracerImpl defaultTracer) {
+		try {
+			JMXHelper.registerMBean(ITracerService.OBJECT_NAME, new ITracerService(defaultTracer));
+		} catch (Exception e) {
+			System.err.println("Failed to register Tracer MBean. Continuing without.");
+		}
 	}
 	
 	

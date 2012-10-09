@@ -416,4 +416,12 @@ public class TracerImpl implements ITracer {
 		return submitter.getQueuedMetrics();
 	}
 
+	/**
+	 * Returns the collection submitter 
+	 * @return the submitter
+	 */
+	public MetricSubmitter getSubmitter() { 
+		return submitter;
+	}
+
 }
