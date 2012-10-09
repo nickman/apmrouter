@@ -68,6 +68,13 @@ public class NettyTCPDestination extends NettyDestination {
 	}
 
 
+	/**
+	 * Sets the boss pool for the graphite destination
+	 * @param bossPool the netty boss thread pool
+	 */
+	public void setBossPool(ExecutorService bossPool) {
+		this.bossPool = bossPool;
+	}
 
 	/**
 	 * {@inheritDoc}

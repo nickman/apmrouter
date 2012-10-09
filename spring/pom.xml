@@ -18,7 +18,7 @@
 	<dependencies>
 		<dependency>
 			<groupId>org.helios.apmrouter</groupId>
-			<artifactId>core</artifactId>
+			<artifactId>apmrouter-agent</artifactId>
 			<version>${project.version}</version>
 		</dependency>	
 		<dependency>
@@ -80,6 +80,13 @@
 				<groupId>org.json</groupId>
 				<artifactId>json</artifactId>
 			</dependency>
+			
+			<!-- Asynch Http Client -->
+			 <dependency>
+			     <groupId>com.ning</groupId>
+			     <artifactId>async-http-client</artifactId>
+			 </dependency>
+			
 		
 		
 		<!-- logging -->

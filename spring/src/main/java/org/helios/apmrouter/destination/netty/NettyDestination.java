@@ -25,10 +25,14 @@
 package org.helios.apmrouter.destination.netty;
 
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
@@ -37,6 +41,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.helios.apmrouter.destination.BaseDestination;
+import org.helios.apmrouter.metric.IMetric;
 import org.jboss.netty.bootstrap.Bootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFactory;
@@ -46,10 +51,17 @@ import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
-import org.jboss.netty.channel.SimpleChannelDownstreamHandler;
-import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
+import org.jboss.netty.handler.logging.LoggingHandler;
+import org.jboss.netty.logging.InternalLogLevel;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedMetric;
+import org.springframework.jmx.export.annotation.ManagedOperation;
+import org.springframework.jmx.export.annotation.ManagedOperationParameter;
+import org.springframework.jmx.export.annotation.ManagedOperationParameters;
+import org.springframework.jmx.support.MetricType;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 /**
@@ -262,7 +274,338 @@ public abstract class NettyDestination extends BaseDestination implements Channe
 		return true;
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStop()
+	 */
+	@Override
+	protected void doStop() {	
+		if(reconnectScheduleHandle!=null) {
+			reconnectScheduleHandle.cancel(true);
+			reconnectScheduleHandle = null;
+		}
+		channelGroup.close().awaitUninterruptibly();
+		channelFactory.releaseExternalResources();
+		channelFactory = null;
+		resolvedHandlers.clear();
+		socketAddress = null;
+		channelGroup = null;
+	}
 	
+	/**
+	 * Returns the number of metrics forwarded to Graphite
+	 * @return the number of metrics forwarded to Graphite
+	 */
+	@ManagedMetric(category="Graphite", metricType=MetricType.COUNTER, description="the number of metrics forwarded to Graphite")
+	public long getMetricsForwarded() {
+		return getMetricValue("MetricsForwarded");
+	}
+	
+	/**
+	 * Returns the number of metrics forwarded to Graphite in the last flush
+	 * @return the number of metrics forwarded to Graphite in the last flush
+	 */
+	@ManagedMetric(category="Graphite", metricType=MetricType.COUNTER, description="the number of metrics forwarded to Graphite in the last flush")
+	public long getLastMetricsForwarded() {
+		return getMetricValue("LastMetricsForwarded");
+	}
+	
+	
+	/**
+	 * Returns the number of metrics that failed on sending to Graphite
+	 * @return the number of metrics that failed on sending to Graphite
+	 */
+	@ManagedMetric(category="Graphite", metricType=MetricType.COUNTER, description="the number of metrics that failed on sending to Graphite")
+	public long getMetricsForwardFailures() {
+		return getMetricValue("MetricsForwardFailures");
+	}
+	
+	/**
+	 * Returns the number of metrics that were dropped because Graphite was down
+	 * @return the number of metrics that were dropped because Graphite was down
+	 */
+	@ManagedMetric(category="Graphite", metricType=MetricType.COUNTER, description="the number of metrics that were dropped because Graphite was down")
+	public long getMetricsDropped() {
+		return getMetricValue("MetricsDropped");
+	}
+
+	
+	
+	/**
+	 * Accept Route additive for BaseDestination extensions
+	 * @param routable The metric to route
+	 */
+	@Override
+	protected void doAcceptRoute(IMetric routable) {
+		try {
+			final long start = System.currentTimeMillis();
+			channel.write(routable).addListener(new ChannelFutureListener() {
+				@Override
+				public void operationComplete(ChannelFuture f) throws Exception {
+					if(f.isSuccess()) {
+						incr("MetricsForwarded");
+					} else {
+						incr("MetricForwardFailures");
+					}
+				}
+			});
+		} catch (Exception e) {
+			incr("MetricsForwardFailures");
+		}
+	}
+	
+	/**
+	 * Returns the endpoint server name or IP address
+	 * @return the endpoint server name or IP address
+	 */
+	@ManagedAttribute(description="The endpoint server name or IP address")
+	public String getHost() {
+		return host;
+	}
+	
+	/**
+	 * Indicates if the channel is connected (or ready)
+	 * @return true if the channel is connected, false otherwise
+	 */
+	@ManagedAttribute(description="Indicates if the channel is connected (or ready)")
+	public boolean isConnected() {
+		return connected.get();
+	}
+
+	/**
+	 * Sets the endpoint server name or IP address
+	 * @param host the endpoint server name or IP address
+	 */
+	@ManagedAttribute(description="The endpoint server name or IP address")
+	public void setHost(String host) {
+		if(isStarted()) throw new IllegalStateException("Cannot set the host once the channel is started", new Throwable());
+		this.host = host;
+	}
+
+	/**
+	 * Sets the endpoint server listening port 
+	 * @param port the endpoint server listening port 
+	 */
+	@ManagedAttribute(description="The endpoint server port")
+	public void setPort(int port) {
+		if(isStarted()) throw new IllegalStateException("Cannot set the port once the channel is started", new Throwable());
+		this.port = port;
+	}
+
+
+
+	/**
+	 * Returns the endpoint server listening port 
+	 * @return the endpoint server listening port 
+	 */
+	@ManagedAttribute(description="The endpoint server name or IP address")
+	public int getPort() {
+		return port;
+	}
+
+
+	/**
+	 * Returns the channel handler bean names in the order they are bound into the pipelines created for this listener
+	 * @return an array of channel handler bean names
+	 */
+	@ManagedAttribute(description="The channel handler bean names")
+	public String[] getChannelHandlerNames() {
+		List<String> names = new ArrayList<String>();
+		if(isStarted()) {
+			synchronized(resolvedHandlers) {
+				names.addAll(resolvedHandlers.keySet());
+			}
+		} else {
+			names.addAll(channelHandlers.values());
+		}
+		return names.toArray(new String[names.size()]);
+	}
+	
+	/**
+	 * Sets the channel handlers bound into the pipelines created for this listener
+	 * @param channelHandlers A map of channel handler bean names keyed by the ordering int of the handlers in the pipeline
+	 */
+	public void setChannelHandlers(Map<Integer, String> channelHandlers) {
+		if(channelHandlers!=null) {
+			synchronized(this.channelHandlers) {
+				this.channelHandlers.clear();
+				this.channelHandlers.putAll(channelHandlers);				
+			}
+		}
+	}
+
+
+	/**
+	 * Returns the channel options applied to channels created by this listener
+	 * @return the channel options applied
+	 */
+	public Map<String, Object> getChannelOptions() {
+		return channelOptions;
+	}
+
+	/**
+	 * Sets the worker pool for the graphite destination
+	 * @param workerPool the netty worker thread pool
+	 */
+	public void setWorkerPool(ExecutorService workerPool) {
+		this.workerPool = workerPool;
+	}
+	
+	/**
+	 * Indicates if a logging handler is installed in the pipeline
+	 * @return true if a logging handler is installed, false otherwise
+	 */
+	@ManagedAttribute(description="Indicates if a logging handler is installed in the pipeline")
+	public boolean isLoggingHandlerInstalled() {
+		return loggingHandlerInstalled.get();
+	}
+
+	/**
+	 * Returns the logging handler location
+	 * @return the logging handler location
+	 */
+	@ManagedAttribute(description="The logging handler location")
+	public String getLoggingHandlerLocation() {
+		return loggingHandlerLocation;
+	}
+	
+	/**
+	 * Adds a logging handler to the pipeline map if not already present and if the listener is started.
+	 * @param after The name of the handler after which the logger should be added. Adds first in the pipeline if this name is null or empty.
+	 * @param level The level at which the logging handler should log, based on the names in {@link InternalLogLevel}.
+	 * @param hex true if and only if the hex dump of the received message is logged
+	 */
+	@ManagedOperation(description="Adds a logging handler to the pipeline map if not already present and if the listener is started")
+	@ManagedOperationParameters({
+		@ManagedOperationParameter(name="after", description="The name of the handler after which the logger should be added. Adds first in the pipeline if this name is null or empty."),
+		@ManagedOperationParameter(name="level", description="The level at which the logging handler should log"),
+		@ManagedOperationParameter(name="hex", description="true if and only if the hex dump of the received message is logged")
+	})
+	public void addLoggingHandler(String after, String level, boolean hex) {
+		if(loggingHandlerInstalled.get()) return;
+		if(!isStarted()) throw new IllegalStateException("This operation can only be executed once the destination is started", new Throwable()); 
+		if(after==null || after.trim().isEmpty()) {
+			after = "first";
+		} else {
+			if(!resolvedHandlers.containsKey(after)) throw new IllegalArgumentException("Invalid handler location [" + after + "]", new Throwable());
+		}
+		InternalLogLevel logLevel = InternalLogLevel.valueOf(level.trim().toUpperCase());
+		String handlerName = getClass().getSimpleName() + "." + beanName + "Logger";
+		LoggingHandler loggingHandler = new LoggingHandler(handlerName, logLevel, hex);
+		synchronized(resolvedHandlers) {
+			LinkedHashMap<String, ChannelHandler> tmp = new LinkedHashMap<String, ChannelHandler>(resolvedHandlers);
+			resolvedHandlers.clear();
+			if(after.equals("first")) {
+				resolvedHandlers.put(handlerName, loggingHandler);
+				resolvedHandlers.putAll(tmp);			
+			} else {
+				for(Map.Entry<String, ChannelHandler> entry: tmp.entrySet()) {
+					String loc = entry.getKey();
+					resolvedHandlers.put(loc, entry.getValue());
+					if(after.equals(loc)) {
+						resolvedHandlers.put(handlerName, loggingHandler);
+					}
+				}
+			}		
+			loggingHandlerInstalled.set(true);
+		}
+	}
+
+	/**
+	 * Removes the logging handler from the pipeline if it is installed and the listener is started 
+	 */
+	@ManagedOperation(description="Removes the logging handler from the pipeline if it is installed and the listener is started ")
+	public void removeLoggingHandler() {
+		if(!loggingHandlerInstalled.get()) return;
+		if(!isStarted()) throw new IllegalStateException("This operation can only be executed once the destination is started", new Throwable());
+		String handlerName = getClass().getSimpleName() + "." + beanName + "Logger";
+		synchronized(resolvedHandlers) {
+			resolvedHandlers.remove(handlerName);
+			loggingHandlerInstalled.set(false);
+		}
+	}
+	
+	/**
+	 * Returns the total number of channels created
+	 * @return the total number of channels created
+	 */
+	@ManagedMetric(category="NettyDestinations", description="The total number of channels created", metricType=MetricType.COUNTER)
+	public long getChannelsCreated() {
+		return getMetricValue("ChannelsCreated");
+	}
+	
+	/**
+	 * Returns the total number of channels closed
+	 * @return the total number of channels closed
+	 */
+	@ManagedMetric(category="NettyDestinations", description="The total number of channels closed", metricType=MetricType.COUNTER)
+	public long getChannelsClosed() {
+		return getMetricValue("ChannelsClosed");
+	}
+
+	/**
+	 * Returns the number of channels currently open
+	 * @return the number of channels currently open
+	 */
+	@ManagedMetric(category="NettyDestinations", description="The total number of channels currently open", metricType=MetricType.COUNTER)
+	public int getCurrentChannels() {
+		return channelGroup.size();
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
+	 */
+	@Override
+	public Set<String> getSupportedMetricNames() {
+		Set<String> _metrics = new HashSet<String>(super.getSupportedMetricNames());
+		_metrics.add("ChannelsCreated");
+		_metrics.add("ChannelsClosed");
+		_metrics.add("MetricsForwarded");
+		_metrics.add("LastMetricsForwarded");
+		_metrics.add("MetricsDropped");		
+		_metrics.add("MetricsForwardFailures");
+		return _metrics;
+	}
+	
+	/**
+	 * Returns the frequency of reconnect attempts in ms.
+	 * @return the frequency of reconnect attempts 
+	 */
+	@ManagedAttribute(description="The frequency of reconnect attempts in ms")
+	public long getReconnectPeriod() {
+		return reconnectPeriod;
+	}
+
+	/**
+	 * Sets the frequency of reconnect attempts in ms
+	 * @param reconnectPeriod the frequency of reconnect attempts
+	 */
+	@ManagedAttribute(description="The frequency of reconnect attempts in ms")
+	public void setReconnectPeriod(long reconnectPeriod) {
+		this.reconnectPeriod = reconnectPeriod;
+	}
+	
+	/**
+	 * Indicates if the client is currently in a reconnect loop
+	 * @return true if the client is currently in a reconnect loop, false otherwise
+	 */
+	@ManagedAttribute(description="Indicates if the client is currently in a reconnect loop")
+	public boolean isReconnecting() {
+		return reconnecting.get();
+	}
+	
+	/**
+	 * Injects the scheduler
+	 * @param scheduler the platform scheduler
+	 */
+	@Autowired(required=true)
+	public void setScheduler(ThreadPoolTaskScheduler scheduler) {
+		this.scheduler = scheduler;
+	}
+
+	
+
 	/**
 	 * Initializes the main channel (presumably through the bootstrap)
 	 * @return the ChanelFuture for the channel initialization

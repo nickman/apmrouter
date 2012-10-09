@@ -121,7 +121,13 @@
  	
  	
  	
-
+ 	<bean id="BaseDestination" class="org.helios.apmrouter.destination.BaseDestination" >
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>.*</value>	 			
+	 		</util:set>
+ 		</property>
+ 	</bean>
  	
  	<bean id="PatternRouter" class="org.helios.apmrouter.router.PatternRouter" >
  		<property name="routingQueueFair" value="true" />
@@ -147,29 +153,52 @@
 		</constructor-arg>
 	</bean>
 	
-	<bean id="SerieslyHttpClient" class="org.jboss.netty.handler.codec.http.HttpClientCodec" />
-	
-	<bean id="SerieslyDestination" class="org.helios.apmrouter.destination.seriesly.SerieslyDestination" >
+	<bean id="SerieslyDest" class="org.helios.apmrouter.destination.seriesly.SerieslyDestination" >
  		<property name="matchPatterns">
 	 		<util:set>
 				<value>LONG.*|DELTA.*|STRING.*</value>	 			
 	 		</util:set>
  		</property>
- 		<property name="dbName" value="helios" />
- 		<property name="host" value="localhost" />
- 		<property name="port" value="3133" />
- 		<property name="reconnectPeriod" value="10000" />
- 		<property name="sizeTrigger" value="5" />
- 		<property name="timeTrigger" value="5000" />
- 		<property name="channelHandlers">
- 			<map>
- 				<entry key="0" value="SerieslyHttpClient" />
- 			</map> 		
+	</bean>
+	
+	<bean id="WilyDestination" class="org.helios.apmrouter.destination.wily.WilyIntroscopeDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>LONG.*|DELTA.*|STRING.*</value>	 			
+	 		</util:set>
  		</property>
+ 		
+ 		
+<!-- 
+ 		<property name="wilyAgentLib" value="/home/nwhitehead/introscope/9.1/agent/wily/Agent.jar" />
+		<property name="wilyAgentName" value="APMRouter" />
+		<property name="wilyAgentProps" value="/home/nwhitehead/introscope/9.1/agent/wily/apmrouter.profile" />
+
+ --> 		
+ 
+		<property name="wilyAgentLib" value="C:\\Introscope\\Introscope8.2.0.0\\agents\\allapps\\Agent.jar" />
+		<property name="wilyAgentName" value="APMRouter" />
+		<property name="wilyAgentProps" value="C:\\projects\\hapmrouter\\spring\\src\\test\\resources\\wily\\wilyagent.profile" />
+	
+	</bean>
+	
+	<bean id="GraphiteDestination" class="org.helios.apmrouter.destination.graphite.GraphiteDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>LONG.*|DELTA.*</value>	 			
+	 		</util:set>
+ 		</property>
+ 		<property name="graphiteHost" value="10.5.104.24" />
+ 		<property name="graphitePort" value="2003" />
+ 		<property name="reconnectPeriod" value="15000"/>
+ 		<property name="sizeTrigger" value="5"/>
+ 		<property name="timeTrigger" value="5000"/>
+ 		
+ 		
  		<property name="workerPool" >
-			<bean id="SerieslyDestinationWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+			<bean id="GraphiteDestinationWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
 				<constructor-arg>
-					<bean id="SerieslyDestinationWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+					<bean id="GraphiteDestinationWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
 						<property name="corePoolSize" value="1" />
 						<property name="maximumPoolSize" value="100" />
 						<property name="coreThreadsStarted" value="1" />
@@ -178,9 +207,9 @@
 			</bean>
  		</property>
  		<property name="bossPool" >
-			<bean id="SerieslyDestinationBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+			<bean id="GraphiteDestinationBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
 				<constructor-arg>
-					<bean id="SerieslyDestinationBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+					<bean id="GraphiteDestinationBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
 						<property name="corePoolSize" value="1" />
 						<property name="maximumPoolSize" value="100" />
 						<property name="coreThreadsStarted" value="1" />
@@ -188,21 +217,137 @@
 				</constructor-arg>
 			</bean>
  		</property>
- 		
+	</bean>
+
+ 
+
+ 	<bean id="LocalOpenTSDB" class="org.helios.apmrouter.destination.opentsdb.OpenTSDBDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<!-- <value>LONG.*|DELTA.*</value> -->	 			
+	 		</util:set>
+ 		</property>
+ 		<!-- <property name="openTSDBHost" value="192.168.1.156" /> -->
+ 		<!--  <property name="openTSDBHost" value="heliojira.dnsalias.org.home" />  -->
+ 		<!-- <property name="openTSDBHost" value="localhost" /> -->
+ 		<!-- <property name="openTSDBHost" value="pdk-pt-cupas-01" /> -->
+	</bean>
+ 	
+	
+	<!-- 
+	<bean id="LocalTrapServer" class="org.helios.apmrouter.destination.snmp.SNMPManager">
+		<property name="address" value="udp:10.230.13.67/162" />
+		<property name="communityName" value="public" />
+		<property name="dispatcherThreadCount" value="2" />
+		<property name="retryCount" value="3" />
 	</bean>
 	
-
+	<bean id="ORDSpectrum" class="org.helios.apmrouter.destination.snmp.SNMPManager">
+		<property name="address" value="udp:10.6.105.61/162" />
+		<property name="communityName" value="public" />
+		<property name="dispatcherThreadCount" value="2" />
+		<property name="retryCount" value="3" />
+	</bean>
 	
-
- 
-
- 
 	
-
+	<bean id="PDK3Tunnel" class="org.helios.apmrouter.destination.snmp.SNMPManager">
+		<property name="address" value="tcp:cube/1053" />
+		<property name="communityName" value="public" />
+		<property name="dispatcherThreadCount" value="2" />
+		<property name="retryCount" value="3" />
+	</bean>
+	
+	
+	
+	<bean id="SNMPDestination" class="org.helios.apmrouter.destination.snmp.SNMPDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>PDU.*</value>	 			
+	 		</util:set>
+ 		</property>
+	</bean>
+	
+	
+	<bean id="GraphiteDestination" class="org.helios.apmrouter.destination.graphite.GraphiteDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>LONG-.*|DELTA-.*</value>	 			
+	 		</util:set>
+ 		</property>
+ 		<property name="graphiteHost" value="10.5.104.24" />
+ 		<property name="graphitePort" value="2003" />
+ 		<property name="reconnectPeriod" value="15000"/>
+ 		<property name="sizeTrigger" value="5"/>
+ 		<property name="timeTrigger" value="5000"/>
+ 		
+ 		
+ 		<property name="workerPool" >
+			<bean id="GraphiteDestinationWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+				<constructor-arg>
+					<bean id="GraphiteDestinationWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+						<property name="corePoolSize" value="1" />
+						<property name="maximumPoolSize" value="100" />
+						<property name="coreThreadsStarted" value="1" />
+					</bean>
+				</constructor-arg>
+			</bean>
+ 		</property>
+ 		<property name="bossPool" >
+			<bean id="GraphiteDestinationBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+				<constructor-arg>
+					<bean id="GraphiteDestinationBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+						<property name="corePoolSize" value="1" />
+						<property name="maximumPoolSize" value="100" />
+						<property name="coreThreadsStarted" value="1" />
+					</bean>
+				</constructor-arg>
+			</bean>
+ 		</property>
+	</bean>
+	
+	<bean id="CubeDestination" class="org.helios.apmrouter.destination.cube.CubeDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>LONG-.*|DELTA-.*</value>	 			
+	 		</util:set>
+ 		</property>
+ 		<property name="cubeUri" value="ws://cube:1080/1.0/event/put" />
+ 		
+ 		
+ 		<property name="workerPool" >
+			<bean id="CubeDestinationWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+				<constructor-arg>
+					<bean id="CubeDestinationWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+						<property name="corePoolSize" value="1" />
+						<property name="maximumPoolSize" value="100" />
+						<property name="coreThreadsStarted" value="1" />
+					</bean>
+				</constructor-arg>
+			</bean>
+ 		</property>
+ 		<property name="bossPool" >
+			<bean id="CubeDestinationBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+				<constructor-arg>
+					<bean id="CubeDestinationBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+						<property name="corePoolSize" value="1" />
+						<property name="maximumPoolSize" value="100" />
+						<property name="coreThreadsStarted" value="1" />
+					</bean>
+				</constructor-arg>
+			</bean>
+ 		</property>
+	</bean>
+	-->	
 	
 	<bean id="APMRouterScheduler" class="org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler" />
 	
-
+	<bean id="LogstashDestination" class="org.helios.apmrouter.destination.logstash.LogstashDestination">
+		
+	</bean>
+	
+	<bean id="Log4jLogstashSender" class="org.helios.apmrouter.destination.logstash.senders.Log4jLogstashSender">
+		<property name="loggerName" value="LOGSTASH"/>
+	</bean>
 	
 	
 

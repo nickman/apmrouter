@@ -24,25 +24,27 @@
  */
 package org.helios.apmrouter.destination.seriesly;
 
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.io.IOException;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.helios.apmrouter.destination.BaseDestination;
-import org.helios.apmrouter.destination.MetricTextFormatter;
+import org.helios.apmrouter.destination.accumulator.MetricTextAccumulator;
+import org.helios.apmrouter.destination.accumulator.MetricTextFlushReceiver;
+import org.helios.apmrouter.destination.netty.NettyTCPDestination;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.JSONFormatterImpl;
 import org.helios.apmrouter.util.SystemClock;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.ChannelPipeline;
-import org.jboss.netty.channel.ChannelPipelineFactory;
+import org.jboss.netty.handler.codec.http.DefaultHttpRequest;
+import org.jboss.netty.handler.codec.http.HttpHeaders;
+import org.jboss.netty.handler.codec.http.HttpMethod;
+import org.jboss.netty.handler.codec.http.HttpRequest;
+import org.jboss.netty.handler.codec.http.HttpVersion;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
-import org.springframework.jmx.export.annotation.ManagedMetric;
-import org.springframework.jmx.support.MetricType;
 
 /**
  * <p>Title: SerieslyDestination</p>
@@ -52,11 +54,28 @@ import org.springframework.jmx.support.MetricType;
  * <p><code>org.helios.apmrouter.destination.seriesly.SerieslyDestination</code></p>
  */
 
-public class SerieslyDestination extends BaseDestination implements MetricTextFormatter, Runnable, ChannelPipelineFactory, ChannelFutureListener  {
+public class SerieslyDestination extends NettyTCPDestination implements MetricTextFlushReceiver  {
 	/** The JSON formatter */
 	protected JSONFormatterImpl jsonFormatter = new JSONFormatterImpl(false, false);
-	/** The URL prefix of the seriesly data submission URL */
-	protected String serieslyUrl = "http://localhost:3133/helios";
+	/** THe metric text accumulator */
+	protected MetricTextAccumulator accumulator;
+	/** The seriesly db name */
+	protected String dbName = "helios";
+	//protected String serieslyUrl = uriPrefix "http://localhost:3133/helios";
+	/** The time based flush trigger in ms. */
+	protected long timeTrigger = 15000;
+	/** The size based flush trigger in number of metrics accumulated */
+	protected int sizeTrigger = 30;
+	/** Indicates if the db has been created */
+	protected final AtomicBoolean dbCreated = new AtomicBoolean(false);
+	/** The URI prefix for the seriesly server data submission endpoint */
+	protected String uriPrefixTemplate = null;
+	
+	/** JSON Opener Channel Buffer Constant */
+	protected static final ChannelBuffer JSON_OPEN = ChannelBuffers.wrappedBuffer("{".getBytes());
+	/** JSON Closer Channel Buffer Constant */
+	protected static final ChannelBuffer JSON_CLOSE = ChannelBuffers.wrappedBuffer("}".getBytes());
+	
 	/**
 	 * Creates a new SerieslyDestination
 	 * @param patterns The metric type patterns accepted by this detination
@@ -80,79 +99,136 @@ public class SerieslyDestination extends BaseDestination implements MetricTextFo
 	}
 	
 	/**
+	 * Creates the seriesly DB
+	 * @return true if the DB was created or verified successfully, false otherwise
+	 */
+	protected synchronized boolean createDb() {
+		info("Validating Seriesly DB [", dbName, "]");
+		HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.PUT, String.format("http://%s:%s/%s", host, port, dbName));
+		request.setHeader(HttpHeaders.Names.HOST, host);
+		request.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);		
+		ChannelFutureListener fl = new ChannelFutureListener() {
+			@Override
+			public void operationComplete(ChannelFuture f) throws Exception {
+				if(f.isSuccess()) {
+					dbCreated.set(true);
+					info("Validated Seriesly DB [", dbName, "]");
+				} else {
+					dbCreated.set(false);
+					error("Failed to validate Seriesly DB [", dbName, "]", f.getCause());
+					Throwable t = f.getCause().getCause();
+					if(t!=null) {
+						t.printStackTrace(System.err);
+					}
+				}				
+			}
+		};
+		
+		ChannelFuture cf = channel.write(request);
+		cf.addListener(fl);
+		if(!cf.awaitUninterruptibly(1000)) {
+			return false;
+		}
+		return dbCreated.get();
+	}
+	
+	/**
+	 * <p>Creates the seriesly URI prefix.
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.destination.netty.NettyDestination#doStart()
+	 */
+	@Override
+	protected void doStart() throws Exception {
+		super.doStart();
+		accumulator = new MetricTextAccumulator(jsonFormatter, this, 10240, sizeTrigger, timeTrigger, TimeUnit.MILLISECONDS);
+		uriPrefixTemplate =  String.format("http://%s:%s/%s?ts=%s", host, port, dbName, "%s");
+		createDb();
+	}
+	
+	/**
 	 * Accept Route additive for BaseDestination extensions
 	 * @param routable The metric to route
 	 */
 	@Override
 	protected void doAcceptRoute(IMetric routable) {
-		OutputStream output = null;
-		HttpURLConnection connection = null;
 		try {
-			connection = (HttpURLConnection)new URL(serieslyUrl  + "?ts=" + SystemClock.time()).openConnection();
-			//connection.setDoOutput(true); // Triggers POST.
-			connection.setRequestMethod("POST");
-			connection.setRequestProperty("Accept-Charset", "UTF-8");
-			connection.setRequestProperty("Content-Type", "application/json;charset=UTF-8");	
-			connection.setDoOutput(true);
-			output = connection.getOutputStream();
-			output.write(jsonFormatter.toJSONBytes(routable));
-			output.flush();
-			incr("MetricsForwarded");
+			//accumulator.append(routable);
+			flush(ChannelBuffers.wrappedBuffer(jsonFormatter.toJSONBytes(routable)), 1);
 		} catch (Exception e) {
 			incr("MetricsForwardFailures");
-		} finally {
-			try { output.close(); } catch (Exception e) {}
 		}
 	}
-
+	
 	/**
 	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.ChannelFutureListener#operationComplete(org.jboss.netty.channel.ChannelFuture)
+	 * @see org.helios.apmrouter.destination.accumulator.MetricTextFlushReceiver#flush(org.jboss.netty.buffer.ChannelBuffer, int)
 	 */
 	@Override
-	public void operationComplete(ChannelFuture future) throws Exception {
-		// TODO Auto-generated method stub
-		
-	}
-
-	/**
-	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.ChannelPipelineFactory#getPipeline()
-	 */
-	@Override
-	public ChannelPipeline getPipeline() throws Exception {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	/**
-	 * {@inheritDoc}
-	 * @see java.lang.Runnable#run()
-	 */
-	@Override
-	public void run() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.MetricTextFormatter#format(java.io.OutputStream, org.helios.apmrouter.metric.IMetric[])
-	 */
-	@Override
-	public int format(OutputStream os, IMetric... metrics) {
-		
-		int accumulated = 0;
-		for(IMetric metric: metrics) {
-			try {
-				os.write(String.format("", metric.getFQN().replace('/', '.').replace(':', '.').replace(" ", ""), metric.getLongValue(), SystemClock.unixTime(metric.getTime())).getBytes());
-				accumulated++;
-			} catch (Exception e) {
-				incr("MetricsForwardFailures");
-			}			
+	public void flush(ChannelBuffer metricText, final int metricCount) {
+		//info("Flushing [", metricCount, "] metrics");
+		if(metricCount != 1) return;
+		if(!dbCreated.get()) {
+			if(!createDb()) {
+				incr("MetricsDropped", metricCount);
+				return;
+			}
 		}
-		return accumulated;
-	}
+		String uri = String.format(uriPrefixTemplate, SystemClock.time());
+		HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.POST, uri);
+		request.setHeader(HttpHeaders.Names.HOST, host);
+		request.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
+		request.setHeader(HttpHeaders.Names.CONTENT_TYPE, "application/json;charset=UTF-8");
+		request.setHeader(HttpHeaders.Names.CONTENT_LENGTH, metricText.readableBytes());
+		//request.setContent(ChannelBuffers.copiedBuffer(JSON_OPEN, metricText, JSON_CLOSE));
+		request.setContent(metricText);
+		//request.setHeader(HttpHeaders.Names.ACCEPT_ENCODING, HttpHeaders.Values.GZIP);
+	
+		channel.write(request).addListener(new ChannelFutureListener() {
+			@Override
+			public void operationComplete(ChannelFuture f) throws Exception {
+				if(f.isSuccess()) {
+					//info("Successfully Forwarded [", metricCount, "] metrics");
+					incr("MetricsForwarded", metricCount);
+				} else {
+					//error("Failed to forward [", metricCount, "] metrics");
+					incr("MetricsForwardFailures", metricCount);
+					
+					if(getMetricsForwardFailures()<3) {
+						f.getCause().printStackTrace(System.err);
+						Throwable t = f.getCause().getCause();
+						if(t!=null) {
+							t.printStackTrace(System.err);
+						}
+					}
+				}				
+			}
+		});
+		
+	}	
+	
+	
+
+//	OutputStream output = null;
+//	HttpURLConnection connection = null;
+//	try {
+//		connection = (HttpURLConnection)new URL(serieslyUrl  + "?ts=" + SystemClock.time()).openConnection();
+//		//connection.setDoOutput(true); // Triggers POST.
+//		connection.setRequestMethod("POST");
+//		connection.setRequestProperty("Accept-Charset", "UTF-8");
+//		connection.setRequestProperty("Content-Type", "application/json;charset=UTF-8");	
+//		connection.setDoOutput(true);
+//		output = connection.getOutputStream();
+//		output.write(jsonFormatter.toJSONBytes(routable));
+//		output.flush();
+//		incr("MetricsForwarded");
+//	} catch (Exception e) {
+//		incr("MetricsForwardFailures");
+//	} finally {
+//		try { output.close(); } catch (Exception e) {}
+//	}
+
+
+
 
 
 
@@ -165,63 +241,55 @@ public class SerieslyDestination extends BaseDestination implements MetricTextFo
 	}
 
 	/**
-	 * Returns the URL prefix of the seriesly data submission URL
-	 * @return the URL prefix of the seriesly data submission URL
+	 * Returns the time based flush trigger in ms.
+	 * @return the time based flush trigger
 	 */
-	@ManagedAttribute(description="The URL prefix of the seriesly data submission URL")
-	public String getSerieslyUrl() {
-		return serieslyUrl;
+	@ManagedAttribute(description="The time based flush trigger in ms.")
+	public long getTimeTrigger() {
+		return timeTrigger;
 	}
 
 	/**
-	 * Sets the URL prefix of the seriesly data submission URL
-	 * @param serieslyUrl URL prefix of the seriesly data submission URL
+	 * Sets the time based flush trigger
+	 * @param timeTrigger the frequency that the buffer is flushed in ms.
 	 */
-	@ManagedAttribute(description="The URL prefix of the seriesly data submission URL")
-	public void setSerieslyUrl(String serieslyUrl) {
-		this.serieslyUrl = serieslyUrl;
+	public void setTimeTrigger(long timeTrigger) {
+		this.timeTrigger = timeTrigger;
 	}
-	
+
 	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
+	 * Returns the size based flush trigger
+	 * @return the size based flush trigger
 	 */
-	@Override
-	public Set<String> getSupportedMetricNames() {
-		Set<String> _metrics = new HashSet<String>(super.getSupportedMetricNames());
-		_metrics.add("MetricsForwarded");
-		_metrics.add("MetricsDropped");		
-		_metrics.add("MetricsForwardFailures");
-		return _metrics;
+	@ManagedAttribute(description="The metric size based flush trigger")
+	public int getSizeTrigger() {
+		return sizeTrigger;
 	}
-	
-	
+
 	/**
-	 * Returns the number of metrics that failed on sending to Seriesly
-	 * @return the number of metrics that failed on sending to Seriesly
+	 * Sets the size based flush trigger
+	 * @param sizeTrigger the number of metrics to accumulate before they are flushed
 	 */
-	@ManagedMetric(category="Seriesly", metricType=MetricType.COUNTER, description="the number of metrics that failed on sending to Seriesly")
-	public long getMetricsForwardFailures() {
-		return getMetricValue("MetricsForwardFailures");
+	public void setSizeTrigger(int sizeTrigger) {
+		this.sizeTrigger = sizeTrigger;
 	}
-	
+
 	/**
-	 * Returns the number of metrics that were dropped because Seriesly was down
-	 * @return the number of metrics that were dropped because Seriesly was down
+	 * Returns the name of the seriesly database
+	 * @return the name of the seriesly database
 	 */
-	@ManagedMetric(category="Seriesly", metricType=MetricType.COUNTER, description="the number of metrics that were dropped because Seriesly was down")
-	public long getMetricsDropped() {
-		return getMetricValue("MetricsDropped");
+	@ManagedAttribute(description="The name of the seriesly database")
+	public String getDbName() {
+		return dbName;
 	}
-	
+
 	/**
-	 * Returns the number of metrics forwarded to Seriesly
-	 * @return the number of metrics forwarded to Seriesly
+	 * Sets the name of the seriesly database
+	 * @param dbName the name of the seriesly database
 	 */
-	@ManagedMetric(category="Seriesly", metricType=MetricType.COUNTER, description="the number of metrics forwarded to Seriesly")
-	public long getMetricsForwarded() {
-		return getMetricValue("MetricsForwarded");
+	public void setDbName(String dbName) {
+		this.dbName = dbName;
 	}
-	
+
 
 }

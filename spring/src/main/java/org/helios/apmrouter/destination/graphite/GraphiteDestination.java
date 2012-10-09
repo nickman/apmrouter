@@ -38,11 +38,13 @@ import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.helios.apmrouter.destination.BaseDestination;
-import org.helios.apmrouter.destination.MetricTextFormatter;
-import org.helios.apmrouter.destination.TextMetricAccumulator;
+import org.helios.apmrouter.destination.accumulator.MetricTextAccumulator;
+import org.helios.apmrouter.destination.accumulator.MetricTextFlushReceiver;
+import org.helios.apmrouter.destination.accumulator.MetricTextFormatter;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.util.SystemClock;
 import org.jboss.netty.bootstrap.ClientBootstrap;
@@ -76,7 +78,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
  * <p><code>org.helios.apmrouter.destination.graphite.GraphiteDestination</code></p>
  */
 
-public class GraphiteDestination extends BaseDestination implements MetricTextFormatter, Runnable, ChannelPipelineFactory, ChannelFutureListener {
+public class GraphiteDestination extends BaseDestination implements MetricTextFormatter, MetricTextFlushReceiver, ChannelPipelineFactory, ChannelFutureListener {
 	/** The netty boss pool */
 	protected ExecutorService bossPool;
 	/** The nety worker pool */
@@ -116,15 +118,13 @@ public class GraphiteDestination extends BaseDestination implements MetricTextFo
 	/** The frequency in ms. of the reconnect loop attempts */
 	protected long reconnectPeriod = 10000;
 	/** The accumulation buffer */
-	protected final TextMetricAccumulator accumulator = new TextMetricAccumulator(this, 10240);
+	protected MetricTextAccumulator accumulator;
 	/** The time based flush trigger in ms. */
 	protected long timeTrigger = 15000;
 	/** The size based flush trigger in number of metrics accumulated */
-	protected long sizeTrigger = 15000;
+	protected int sizeTrigger = 30;
 	/** The injected task scheduler */
 	protected ThreadPoolTaskScheduler scheduler = null;
-	/** The flush future */
-	protected ScheduledFuture<?> flushScheduleHandle = null;
 	
 	/** The message format for the submission  */
 	public static final String METRIC_FORMAT = "%s %s %s \n";
@@ -139,6 +139,7 @@ public class GraphiteDestination extends BaseDestination implements MetricTextFo
 	@Override
 	protected void doStart() throws Exception {
 		info("Resolving Channel Handlers");
+		accumulator = new MetricTextAccumulator(this, this, 10240, sizeTrigger, timeTrigger, TimeUnit.MILLISECONDS);
 		resolvedHandlers.clear();
 		for(Map.Entry<Integer, String> entry: channelHandlers.entrySet()) {
 			ChannelHandler handler = applicationContext.getBean(entry.getValue(), ChannelHandler.class);
@@ -154,7 +155,6 @@ public class GraphiteDestination extends BaseDestination implements MetricTextFo
 		bstrap.setOptions(channelOptions);
 		bstrap.setPipelineFactory(this);
 		doConnect();
-		flushScheduleHandle = scheduler.scheduleAtFixedRate(this, timeTrigger);
 	}
 	
 	/**
@@ -198,9 +198,9 @@ public class GraphiteDestination extends BaseDestination implements MetricTextFo
 	 */
 	@Override
 	protected void doStop() {	
-		if(flushScheduleHandle!=null) flushScheduleHandle.cancel(false);
 		channelGroup.close().awaitUninterruptibly();
 		channelFactory.releaseExternalResources();
+		accumulator.shutdown();
 		channelFactory = null;
 		resolvedHandlers.clear();
 		socketAddress = null;
@@ -208,43 +208,30 @@ public class GraphiteDestination extends BaseDestination implements MetricTextFo
 	}
 	
 	/**
-	 * <p>Flushes the accumulated buffer to the graphite server
 	 * {@inheritDoc}
-	 * @see java.lang.Runnable#run()
+	 * @see org.helios.apmrouter.destination.accumulator.MetricTextFlushReceiver#flush(org.jboss.netty.buffer.ChannelBuffer, int)
 	 */
 	@Override
-	public void run() {
-		int accumulatedCount = 0;
-		ChannelBuffer cb = null;
-		synchronized(accumulator) {
-			accumulatedCount = accumulator.size();
-			if(accumulatedCount > 0) { 
-				cb = accumulator.flush();
-			}
-		}	
-		if(accumulatedCount < 1) {
-			set("LastMetricsForwarded", 0);
-			return;
-		}
-		String s = new String(cb.array());
+	public void flush(ChannelBuffer metricText, final int metricCount) {
 		if(connected.get()) {
-			final int a = accumulatedCount;
-			channel.write(cb).addListener(new ChannelFutureListener() {
+			channel.write(metricText).addListener(new ChannelFutureListener() {
 				@Override
 				public void operationComplete(ChannelFuture f) throws Exception {
 					if(f.isSuccess()) {
-						incr("MetricsForwarded", a);
-						set("LastMetricsForwarded", a);
+						incr("MetricsForwarded", metricCount);
+						set("LastMetricsForwarded", metricCount);
 					} else {
-						incr("MetricsForwardFailures", a);
+						incr("MetricsForwardFailures", metricCount);
 					}					
 				}
 			});
 			
 		} else {
-			incr("MetricsDropped", accumulatedCount);
+			incr("MetricsDropped", metricCount);
 		}
 	}
+
+	
 	
 	/**
 	 * Returns the number of metrics forwarded to Graphite
@@ -655,7 +642,7 @@ public class GraphiteDestination extends BaseDestination implements MetricTextFo
 	 * @param sizeTrigger the number of metrics to accumulate before they are flushed
 	 */
 	@ManagedAttribute
-	public void setSizeTrigger(long sizeTrigger) {
+	public void setSizeTrigger(int sizeTrigger) {
 		this.sizeTrigger = sizeTrigger;
 	}
 	
@@ -670,7 +657,7 @@ public class GraphiteDestination extends BaseDestination implements MetricTextFo
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.MetricTextFormatter#format(java.io.OutputStream, org.helios.apmrouter.metric.IMetric[])
+	 * @see org.helios.apmrouter.destination.accumulator.MetricTextFormatter#format(java.io.OutputStream, org.helios.apmrouter.metric.IMetric[])
 	 */
 	@Override
 	public int format(OutputStream os, IMetric...metrics) {
@@ -686,6 +673,7 @@ public class GraphiteDestination extends BaseDestination implements MetricTextFo
 		}
 		return accumulated;
 	}
+
 
 
 }

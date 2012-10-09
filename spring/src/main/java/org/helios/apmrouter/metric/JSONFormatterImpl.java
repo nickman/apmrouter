@@ -27,10 +27,12 @@ package org.helios.apmrouter.metric;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.zip.GZIPOutputStream;
 
-import org.helios.apmrouter.destination.MetricTextFormatter;
-import org.json.JSONArray;
+import org.helios.apmrouter.destination.accumulator.MetricTextFormatter;
+import org.helios.apmrouter.trace.TXContext;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -40,6 +42,7 @@ import org.json.JSONObject;
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.metric.JSONFormatterImpl</code></p>
+ * Note:  Query:  http://localhost:3133/helios/_query?from=2012-10-09T12:20:00.000Z&to=2012-10-09T12:24:00.000Z&group=3600000&ptr=/data/0/value&reducer=count
  */
 
 public class JSONFormatterImpl implements JSONFormatter, MetricTextFormatter {
@@ -80,10 +83,9 @@ public class JSONFormatterImpl implements JSONFormatter, MetricTextFormatter {
 	protected JSONObject toJSONObject(int[] counter, IMetric... metrics) throws JSONException {
 		if(metrics==null || metrics.length<1) return new JSONObject();
 		JSONObject root = new JSONObject();
-//		Map<Object, JSONObject> map = new HashMap<Object, JSONObject>(metrics.length);
-		root.put("type", "metrics");
-		JSONArray data = new JSONArray();
-		root.put("data", data);
+//		Map<Object, JSONObject> map = new HashMap<Object, JSONObject>(metrics.length);		
+		final List<JSONObject> data = new ArrayList<JSONObject>(metrics.length);
+		
 		
 		for(IMetric metric: metrics) {
 			//root.put(arg0, arg1)
@@ -92,16 +94,28 @@ public class JSONFormatterImpl implements JSONFormatter, MetricTextFormatter {
 			JSONObject jsonMetric = new JSONObject();
 			if(compressedIdentifier) {
 				jsonMetric.put("id", metric.getToken());
+				jsonMetric.put("type", metric.getType().ordinal());
 			} else {
 				jsonMetric.put("id", metric.getFQN());
+				jsonMetric.put("type", metric.getType().name());
 			}
 			if(metric.getType().isLong()) {
 				jsonMetric.put("value", metric.getLongValue());
 			} else {
 				jsonMetric.put("event", metric.getValue());
 			}	
-			data.put(jsonMetric);
+			data.add(jsonMetric);
+			TXContext txc = metric.getTXContext();
+			if(txc!=null) {
+				JSONObject txcNode = new JSONObject();
+				txcNode.put("id", txc.getTxId().toString());
+				txcNode.put("q", txc.getTxQualifier());
+				txcNode.put("t", txc.getTxThreadId());
+				jsonMetric.put("tx", txcNode);
+			}
 		}
+		root.put("data", data);
+		root.put("type", "metrics");
 		return root;
 	}
 
@@ -166,7 +180,7 @@ public class JSONFormatterImpl implements JSONFormatter, MetricTextFormatter {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.MetricTextFormatter#format(java.io.OutputStream, org.helios.apmrouter.metric.IMetric[])
+	 * @see org.helios.apmrouter.destination.accumulator.MetricTextFormatter#format(java.io.OutputStream, org.helios.apmrouter.metric.IMetric[])
 	 */
 	@Override
 	public int format(OutputStream os, IMetric... metrics) throws IOException {

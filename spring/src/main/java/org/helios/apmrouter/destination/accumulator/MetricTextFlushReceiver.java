@@ -22,28 +22,23 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.destination;
+package org.helios.apmrouter.destination.accumulator;
 
-import java.io.IOException;
-import java.io.OutputStream;
-
-import org.helios.apmrouter.metric.IMetric;
+import org.jboss.netty.buffer.ChannelBuffer;
 
 /**
- * <p>Title: MetricTextFormatter</p>
- * <p>Description: Defines a formatter that converts {@link IMetric} instances into text</p> 
+ * <p>Title: MetricTextFlushReceiver</p>
+ * <p>Description: Defines a class that will receive the flushed metric text bytes from a {@link MetricTextAccumulator} when a flush is triggered.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.destination.MetricTextFormatter</code></p>
+ * <p><code>org.helios.apmrouter.destination.MetricTextFlushReceiver</code></p>
  */
 
-public interface MetricTextFormatter {
+public interface MetricTextFlushReceiver {
 	/**
-	 * Converts the passed metrics into a textual byte array
-	 * @param accumulator The output stream to write the metric text to
-	 * @param metrics The metrics to format
-	 * @return the number of metrics written
-	 * @throws IOException thrown on any error writing to the output stream
+	 * Flushes the content of the associated {@link MetricTextAccumulator} when a flush is triggered
+	 * @param metricText The buffer of flushed text bytes
+	 * @param metricCount The number of metrics contained in the passed buffer
 	 */
-	public int format(OutputStream accumulator, IMetric...metrics) throws IOException;
+	public void flush(ChannelBuffer metricText, int metricCount);
 }
