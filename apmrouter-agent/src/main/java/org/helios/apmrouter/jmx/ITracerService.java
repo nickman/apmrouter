@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.jmx;
 
+import org.helios.apmrouter.monitor.script.ScriptContainer;
+import org.helios.apmrouter.monitor.script.ScriptMonitor;
 import org.helios.apmrouter.trace.TracerImpl;
 
 /**
@@ -42,5 +44,33 @@ public class ITracerService extends TracerImpl implements ITracerServiceMBean {
 	public ITracerService(TracerImpl tracer)  {
 		super(tracer.getHost(), tracer.getAgent(), tracer.getSubmitter());
 	}
+	
+	/**
+	 * Passes the opaque object to the named compiled script for processing
+	 * @param scriptName The script name
+	 * @param opaque The object to pass
+	 */
+	public void traceToScript(String scriptName, Object opaque) {
+		if(scriptName==null || scriptName.trim().isEmpty()) return;
+		ScriptContainer sc = ScriptMonitor.getScript(scriptName.trim().toLowerCase());
+		if(sc!=null) {
+			try {
+				sc.invoke(opaque);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	/**
+	 * Determines if the passed script name is registered in the script monitor
+	 * @param scriptName ther script name to test for
+	 * @return true if the passed script name is registered in the script monitor, false otherwise
+	 */
+	public boolean hasScript(String scriptName)	{
+		if(scriptName==null || scriptName.trim().isEmpty()) return false;
+		return ScriptMonitor.getScript(scriptName.trim().toLowerCase()) != null;
+	}
+
 
 }

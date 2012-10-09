@@ -26,34 +26,6 @@
 	<context:mbean-export/>
 
 	
-	<!-- 
-	<bean id="NashServer" class="org.helios.nash.Server" init-method="start" destroy-method="stop">
-		<constructor-arg value="0.0.0.0"/>
-		<constructor-arg value="2113"/>
-		<constructor-arg>
-			<bean id="NashBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
-				<constructor-arg>
-					<bean id="NashBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
-						<property name="corePoolSize" value="1" />
-						<property name="maximumPoolSize" value="100" />
-						<property name="coreThreadsStarted" value="1" />
-					</bean>
-				</constructor-arg>
-			</bean>
-		</constructor-arg>
-		<constructor-arg>
-			<bean id="NashWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
-				<constructor-arg>
-					<bean id="NashWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
-						<property name="corePoolSize" value="1" />
-						<property name="maximumPoolSize" value="100" />
-						<property name="coreThreadsStarted" value="1" />
-					</bean>
-				</constructor-arg>
-			</bean>
-		</constructor-arg>		
-	</bean>
-	-->
 	
 	<bean id="SpringEventPool" class="org.helios.apmrouter.util.thread.ManagedThreadPool">
 		<qualifier value="SpringEvent"/>
@@ -149,27 +121,32 @@
 	
 	<bean id="SerieslyHttpClient" class="org.jboss.netty.handler.codec.http.HttpClientCodec" />
 	
-	<bean id="SerieslyDestination" class="org.helios.apmrouter.destination.seriesly.SerieslyDestination" >
+ 	<bean id="LocalOpenTSDB" class="org.helios.apmrouter.destination.opentsdb.OpenTSDBDestination">
  		<property name="matchPatterns">
 	 		<util:set>
-				<value>LONG.*|DELTA.*|STRING.*</value>	 			
+				<value>LONG.*|DELTA.*</value>	 			
 	 		</util:set>
  		</property>
- 		<property name="dbName" value="helios" />
- 		<property name="host" value="localhost" />
- 		<property name="port" value="3133" />
- 		<property name="reconnectPeriod" value="10000" />
- 		<property name="sizeTrigger" value="5" />
- 		<property name="timeTrigger" value="5000" />
- 		<property name="channelHandlers">
- 			<map>
- 				<entry key="0" value="SerieslyHttpClient" />
- 			</map> 		
+ 		<property name="openTSDBHost" value="pdk-pt-cupas-01" />
+	</bean>
+	
+	<bean id="GraphiteDestination" class="org.helios.apmrouter.destination.graphite.GraphiteDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>LONG.*|DELTA.*</value>	 			
+	 		</util:set>
  		</property>
+ 		<property name="graphiteHost" value="10.5.104.24" />
+ 		<property name="graphitePort" value="2003" />
+ 		<property name="reconnectPeriod" value="15000"/>
+ 		<property name="sizeTrigger" value="5"/>
+ 		<property name="timeTrigger" value="5000"/>
+ 		
+ 		
  		<property name="workerPool" >
-			<bean id="SerieslyDestinationWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+			<bean id="GraphiteDestinationWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
 				<constructor-arg>
-					<bean id="SerieslyDestinationWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+					<bean id="GraphiteDestinationWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
 						<property name="corePoolSize" value="1" />
 						<property name="maximumPoolSize" value="100" />
 						<property name="coreThreadsStarted" value="1" />
@@ -178,9 +155,9 @@
 			</bean>
  		</property>
  		<property name="bossPool" >
-			<bean id="SerieslyDestinationBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+			<bean id="GraphiteDestinationBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
 				<constructor-arg>
-					<bean id="SerieslyDestinationBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+					<bean id="GraphiteDestinationBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
 						<property name="corePoolSize" value="1" />
 						<property name="maximumPoolSize" value="100" />
 						<property name="coreThreadsStarted" value="1" />
@@ -188,9 +165,7 @@
 				</constructor-arg>
 			</bean>
  		</property>
- 		
 	</bean>
-	
 
 	
 

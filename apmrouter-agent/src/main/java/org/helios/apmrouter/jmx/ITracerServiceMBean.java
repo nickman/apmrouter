@@ -38,4 +38,18 @@ import org.helios.apmrouter.trace.ITracer;
 public interface ITracerServiceMBean extends ITracer {
 	/** The Tracer MBean's JMX ObjectName */
 	public static final ObjectName OBJECT_NAME = JMXHelper.objectName("org.helios.apmrouter:service=Tracer");
+	
+	/**
+	 * Passes the opaque object to the named compiled script for processing
+	 * @param scriptName The script name
+	 * @param opaque The object to pass
+	 */
+	public void traceToScript(String scriptName, Object opaque);
+	
+	/**
+	 * Determines if the passed script name is registered in the script monitor
+	 * @param scriptName ther script name to test for
+	 * @return true if the passed script name is registered in the script monitor, false otherwise
+	 */
+	public boolean hasScript(String scriptName);
 }

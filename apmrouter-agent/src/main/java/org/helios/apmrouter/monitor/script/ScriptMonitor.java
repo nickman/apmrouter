@@ -28,9 +28,9 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.net.URL;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Set;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.script.Bindings;
 import javax.script.Compilable;
@@ -67,7 +67,7 @@ public class ScriptMonitor extends AbstractMonitor {
 	/** The script engine that manages the monitoring scripts */
 	protected final ScriptEngine scriptEngine;
 	/** A map of compiled scripts keyed by the script URL resource */
-	protected final Set<ScriptContainer> compiledScripts = new HashSet<ScriptContainer>();
+	protected static final Map<String, ScriptContainer> compiledScripts = new ConcurrentHashMap<String, ScriptContainer>();
 	/** The bindings that are passed to each script */
 	protected final Bindings scriptBindings = new SimpleBindings();
 	/** The configured maximum number of times a script can fail before it is ignored */
@@ -119,12 +119,22 @@ public class ScriptMonitor extends AbstractMonitor {
 	}
 	
 	/**
+	 * Looks up and returns the named compiled script
+	 * @param name The name of the script
+	 * @return the named script or null if one was not found
+	 */
+	public static ScriptContainer getScript(String name) {
+		if(name==null || name.trim().isEmpty()) return null;
+		return compiledScripts.get(name.trim().toLowerCase());
+	}
+	
+	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.monitor.AbstractMonitor#doCollect(long)
 	 */
 	@Override
 	protected void doCollect(long collectionSweep) {		
-		for(Iterator<ScriptContainer> iter = compiledScripts.iterator(); iter.hasNext();) {
+		for(Iterator<ScriptContainer> iter = compiledScripts.values().iterator(); iter.hasNext();) {
 			ScriptContainer sc = iter.next();
 			try {
 				scriptBindings.put(COLLECTION_SWEEP, collectionSweep);
@@ -133,8 +143,8 @@ public class ScriptMonitor extends AbstractMonitor {
 			} catch (Exception e) {
 				int err = sc.incrementErrors();
 				if(err>=maxErrors) {
-					iter.remove();
-					System.err.println("Monitor Script [" + sc.scriptUrl + "] has failed [" + err + "] consecutive times. It is being ignored.");
+					sc.setDisabled(true);
+					System.err.println("Monitor Script [" + sc.scriptUrl + "] has failed [" + err + "] consecutive times. It is being ignored until modified.");
 				}
 			}
 		}
@@ -177,7 +187,8 @@ public class ScriptMonitor extends AbstractMonitor {
 	 * @throws ScriptException rethrows any exception thrown from the container
 	 */
 	private void processHttpScript(URL scriptURL) throws ScriptException {
-		compiledScripts.add(new ScriptContainer(scriptEngine, scriptURL));
+		ScriptContainer sc = new ScriptContainer(scriptEngine, scriptBindings, scriptURL);
+		compiledScripts.put(sc.getName(), sc);
 	}
 
 	/**
@@ -192,16 +203,20 @@ public class ScriptMonitor extends AbstractMonitor {
 		File file = new File(fileName);
 		if(!file.exists()) return;
 		if(file.isFile()) {
-			compiledScripts.add(new ScriptContainer(scriptEngine, scriptURL));
+			ScriptContainer sc = new ScriptContainer(scriptEngine, scriptBindings, scriptURL);
+			compiledScripts.put(sc.getName(), sc);
 		} else if(file.isDirectory()) {
 			// FIXME: Start periodic scan of the directory for new scripts
+			// FIXME: Currently hard coded to support js only. Need to extend to discover supported extensions 
 			for(File scriptFile: file.listFiles(new FilenameFilter(){
 				@Override
 				public boolean accept(File dir, String name) {
-					return name.toLowerCase().endsWith(".js");
+					String lcName = name.toLowerCase();					
+					return lcName.endsWith(".js"); 
 				}})) {
 				try {
-					compiledScripts.add(new ScriptContainer(scriptEngine, scriptFile.toURI().toURL()));
+					ScriptContainer sc = new ScriptContainer(scriptEngine, scriptBindings, scriptFile.toURI().toURL());
+					compiledScripts.put(sc.getName(), sc);
 				} catch (Exception e) {
 					crap(e);
 				}
@@ -221,142 +236,3 @@ public class ScriptMonitor extends AbstractMonitor {
 
 }
 
-class ScriptContainer {
-	/** The source URL */
-	protected final URL scriptUrl;
-	/** The compiled script */
-	protected CompiledScript compiledScript;
-	/** The timestamp of the compiled script */
-	protected long sourceTimestamp;
-	/** This script's bindings */
-	protected Bindings instanceBindings = new SimpleBindings();
-	/** This script container's script engine/compiler */
-	protected final ScriptEngine scriptEngine;
-	/** The number of times this script has thrown an exception */
-	protected int errorCount = 0;
-	
-	
-	/**
-	 * Creates a new ScriptContainer
-	 * @param scriptEngine This script container's script engine/compiler
-	 * @param url The source URL
-	 * @throws ScriptException thrown if the script cannot be compiled
-	 */
-	public ScriptContainer(ScriptEngine scriptEngine, URL url) throws ScriptException {
-		this.scriptEngine = scriptEngine;
-		this.scriptUrl = url;
-		String src = URLHelper.getTextFromURL(scriptUrl);
-		compiledScript = ((Compilable)scriptEngine).compile(src);
-		sourceTimestamp = URLHelper.getLastModified(scriptUrl);		
-	}
-	
-	/**
-	 * Returns the number of consecutive errors
-	 * @return the number of consecutive errors
-	 */
-	public int getErrorCount() {
-		return errorCount;
-	}
-	
-	/**
-	 * Increments the consecutive error count
-	 * @return The new error count
-	 */
-	public int incrementErrors() {
-		errorCount++;
-		return errorCount;
-	}
-	
-	/**
-	 * Resets the consecutive error count
-	 */
-	public void resetErrors() {
-		errorCount=0;
-	}
-	
-	
-	/**
-	 * Invokes the script passing in the passed bindings
-	 * @param sharedBindings the shared bindings
-	 * @return the return value of the script execution
-	 * @throws ScriptException thrown on any error during invocation
-	 */
-	public Object invoke(Bindings sharedBindings) throws ScriptException {
-		checkForUpdate();
-		return compiledScript.eval(sharedBindings);
-	}
-	
-	/**
-	 * Checks to see if the script has been updated and recompiles if it has
-	 * @throws ScriptException thrown if the script cannot be recompiled
-	 */
-	protected void checkForUpdate() throws ScriptException {
-		if(URLHelper.resolves(scriptUrl)) {
-			long ts = URLHelper.getLastModified(scriptUrl);
-			if(ts>sourceTimestamp) {
-				String src = URLHelper.getTextFromURL(scriptUrl);
-				compiledScript = ((Compilable)scriptEngine).compile(src);
-				sourceTimestamp = ts;
-				System.out.println("Reloaded [" + scriptUrl + "]");
-			}
-		}
-	}
-
-
-	/**
-	 * {@inheritDoc}
-	 * @see java.lang.Object#toString()
-	 */
-	@Override
-	public String toString() {
-		StringBuilder builder = new StringBuilder();
-		builder.append("ScriptContainer [scriptUrl=\n");
-		builder.append(scriptUrl);
-		builder.append("\nsourceTimestamp=");
-		builder.append(new Date(sourceTimestamp));
-		builder.append("]");
-		return builder.toString();
-	}
-
-
-	/**
-	 * {@inheritDoc}
-	 * @see java.lang.Object#hashCode()
-	 */
-	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result
-				+ ((scriptUrl == null) ? 0 : scriptUrl.hashCode());
-		return result;
-	}
-
-
-	/**
-	 * {@inheritDoc}
-	 * @see java.lang.Object#equals(java.lang.Object)
-	 */
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj) {
-			return true;
-		}
-		if (obj == null) {
-			return false;
-		}
-		if (getClass() != obj.getClass()) {
-			return false;
-		}
-		ScriptContainer other = (ScriptContainer) obj;
-		if (scriptUrl == null) {
-			if (other.scriptUrl != null) {
-				return false;
-			}
-		} else if (!scriptUrl.equals(other.scriptUrl)) {
-			return false;
-		}
-		return true;
-	}
-	
-}

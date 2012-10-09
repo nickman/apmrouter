@@ -24,49 +24,13 @@
  */
 package org.helios.apmrouter.instrumentation;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
 /**
- * <p>Title: Trace</p>
- * <p>Description: AOP instrumentation directive</p> 
+ * <p>Title: AcessibleObjectParser</p>
+ * <p>Description: Parses the value in a {@link Trace#accessible} expression and applies it to a method or constructor call to extract the requested object.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.instrumentation.Trace</code></p>
+ * <p><code>org.helios.apmrouter.instrumentation.AcessibleObjectParser</code></p>
  */
-@Target(ElementType.METHOD)
-@Retention(RetentionPolicy.RUNTIME)
-@Documented
-public @interface Trace {
-	/**
-	 * Specifies a TXContext operation
-	 */
-	public TXDirective txcontext() default TXDirective.NOOP; 
-	/**
-	 * Specifies the metric name
-	 */
-	public String name() default "";
-	/**
-	 * Specifies the metric name
-	 */
-	public String[] namespace() default {};
-	
-	/**
-	 * Specifies the runtime performance data points that will be measured on an intercepted method
-	 */
-	public TraceCollection[] collections() default {};
-	
-	/**
-	 * Specifies the dynamic script that an object reference will be passed to for trace processing.
-	 */
-	public String script() default "";
-	
-	/**
-	 * Defines an expression that navigates to an {@link AccessibleObjectReference} and extracts it, passing it on for trace processing
-	 */
-	public String accessible() default "";
-	
+public class AcessibleObjectParser {
+
 }

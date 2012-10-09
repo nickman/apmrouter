@@ -633,7 +633,7 @@ public class GraphiteDestination extends BaseDestination implements MetricTextFo
 	 * @return the size based flush trigger
 	 */
 	@ManagedAttribute
-	public long getSizeTrigger() {
+	public int getSizeTrigger() {
 		return sizeTrigger;
 	}
 

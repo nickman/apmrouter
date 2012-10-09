@@ -1,6 +1,6 @@
 @echo ff
 pushd .
-call mvn -DskipTests compile install
+call mvn -DskipTests clean install
 cd ..\jagent
 call mvn clean install
 popd

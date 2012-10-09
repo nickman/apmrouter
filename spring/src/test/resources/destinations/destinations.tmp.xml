@@ -25,6 +25,47 @@
 	<context:annotation-config/>
 	<context:mbean-export/>
 
+		<bean id="SerieslyDestination" class="org.helios.apmrouter.destination.seriesly.SerieslyDestination" >
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>LONG.*|DELTA.*|STRING.*</value>	 			
+	 		</util:set>
+ 		</property>
+ 		<property name="dbName" value="helios" />
+ 		<property name="host" value="localhost" />
+ 		<property name="port" value="3133" />
+ 		<property name="reconnectPeriod" value="10000" />
+ 		<property name="sizeTrigger" value="5" />
+ 		<property name="timeTrigger" value="5000" />
+ 		<property name="channelHandlers">
+ 			<map>
+ 				<entry key="0" value="SerieslyHttpClient" />
+ 			</map> 		
+ 		</property>
+ 		<property name="workerPool" >
+			<bean id="SerieslyDestinationWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+				<constructor-arg>
+					<bean id="SerieslyDestinationWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+						<property name="corePoolSize" value="1" />
+						<property name="maximumPoolSize" value="100" />
+						<property name="coreThreadsStarted" value="1" />
+					</bean>
+				</constructor-arg>
+			</bean>
+ 		</property>
+ 		<property name="bossPool" >
+			<bean id="SerieslyDestinationBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+				<constructor-arg>
+					<bean id="SerieslyDestinationBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+						<property name="corePoolSize" value="1" />
+						<property name="maximumPoolSize" value="100" />
+						<property name="coreThreadsStarted" value="1" />
+					</bean>
+				</constructor-arg>
+			</bean>
+ 		</property>
+ 		
+	</bean>
 	
 	<!-- 
 	<bean id="NashServer" class="org.helios.nash.Server" init-method="start" destroy-method="stop">
