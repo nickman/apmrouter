@@ -25,46 +25,33 @@
 package org.helios.apmrouter.destination.accumulator;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.helios.apmrouter.jmx.ScheduledThreadPoolFactory;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.util.SystemClock;
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBufferOutputStream;
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.buffer.DirectChannelBufferFactory;
 
 /**
- * <p>Title: MetricTextAccumulator</p>
- * <p>Description: Accumulates {@link IMetric}s as byte text in preparation for a metric count or time based flush.</p> 
+ * <p>Title: MetricAccumulator</p>
+ * <p>Description: Accumulates and conflates {@link IMetric}s in preparation for a metric count or time based flush.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.destination.MetricTextAccumulator</code></p>
+ * <p><code>org.helios.apmrouter.destination.accumulator.MetricAccumulator</code></p>
  */
 
-public class MetricTextAccumulator implements Runnable {
+public class MetricAccumulator implements Runnable {
 	/** The scheduler shared amongst all monitor instances */
 	protected static final ScheduledThreadPoolExecutor scheduler = ScheduledThreadPoolFactory.newScheduler("MetricAccumulator");
-	/** The channel buffer factory */
-	protected static final DirectChannelBufferFactory bufferFactory = new DirectChannelBufferFactory();
-	/** The accumulation buffer */
-	protected final ChannelBuffer accum;
-	/** The outputstream to write meteric test bytes into the accum buffer */
-	protected final OutputStream os;
-	/** The number of accumulated metrics */
-	protected final AtomicInteger metricCount = new AtomicInteger(0);
-	/** The metric formatter */
-	protected final MetricTextFormatter formatter;
-	/** The flush receiver that will receive the metric text bytes buffer when a flush is triggered */
-	protected final MetricTextFlushReceiver receiver;
+	/** The flush receiver that will receive the metrics when a flush is triggered */
+	protected final MetricFlushReceiver receiver;
 	/** The last flush event timestamp */
 	protected final AtomicLong lastFlush = new AtomicLong(0L);
 	/** The metric count size flush trigger */
@@ -75,27 +62,23 @@ public class MetricTextAccumulator implements Runnable {
 	protected final AtomicBoolean flushInProgress = new AtomicBoolean(false);
 	/** The timed flush schedule handle */
 	protected ScheduledFuture<?> scheduleHandle = null;
-	
-	
-
+	/** The accumulation map */
+	protected final ConcurrentHashMap<String, IMetric> accumulatedMetrics; 
 
 	/**
-	 * Creates a new MetricTextAccumulator
-	 * @param formatter The metric formatter 
-	 * @param receiver The flush receiver that will receive the metric text bytes buffer when a flush is triggered
+	 * Creates a new MetricAccumulator
+	 * @param receiver The flush receiver that will receive the metrics when a flush is triggered
 	 * @param bufferSize The initial buffer size (in bytes) for the accumulation buffer
 	 * @param sizeTrigger The number of accumulated metrics that will trigger a flush
 	 * @param timeTrigger The elapsed time that will trigger a flush
 	 * @param unit The unit of the time trigger
 	 */
-	public MetricTextAccumulator(MetricTextFormatter formatter, MetricTextFlushReceiver receiver, int bufferSize, int sizeTrigger, long timeTrigger, TimeUnit unit) {
-		 accum = ChannelBuffers.dynamicBuffer(bufferSize, bufferFactory);
-		 os = new ChannelBufferOutputStream(accum);
-		 this.formatter = formatter;
-		 this.receiver = receiver;
-		 this.sizeTrigger = sizeTrigger;
-		 this.timeTrigger = TimeUnit.MILLISECONDS.convert(timeTrigger, unit);
-		 scheduleHandle = scheduler.scheduleAtFixedRate(this, this.timeTrigger, this.timeTrigger, TimeUnit.MILLISECONDS);
+	public MetricAccumulator(MetricFlushReceiver receiver, int bufferSize, int sizeTrigger, long timeTrigger, TimeUnit unit) {
+		accumulatedMetrics = new ConcurrentHashMap<String, IMetric>(bufferSize);
+		this.receiver = receiver;
+		this.sizeTrigger = sizeTrigger;
+		this.timeTrigger = TimeUnit.MILLISECONDS.convert(timeTrigger, unit);
+		scheduleHandle = scheduler.scheduleAtFixedRate(this, this.timeTrigger, this.timeTrigger, TimeUnit.MILLISECONDS);
 	}
 	
 	/**
@@ -105,10 +88,7 @@ public class MetricTextAccumulator implements Runnable {
 		if(!scheduleHandle.isCancelled()) {
 			scheduleHandle.cancel(true);
 		}
-		accum.clear();
-		try {
-			os.close();
-		} catch (Exception e) {}
+		accumulatedMetrics.clear();
 	}
 	
 	/**
@@ -132,8 +112,18 @@ public class MetricTextAccumulator implements Runnable {
 			throw new IllegalStateException("This MetricTextAccumulator has been shutdown", new Throwable());
 		}
 		if(metrics!=null && metrics.length>0) {
-			int newCount = metricCount.addAndGet(formatter.format(os, metrics));
-			if(newCount >= sizeTrigger) {
+			for(IMetric metric: metrics) {
+				synchronized(flushInProgress) {
+					IMetric alreadyQueued = accumulatedMetrics.get(metric.getFQN());
+					if(alreadyQueued!=null) {
+						alreadyQueued.conflate(metric);
+					} else {
+						accumulatedMetrics.put(metric.getFQN(), metric);
+					}
+				}
+			}
+			
+			if(accumulatedMetrics.size() >= sizeTrigger) {
 				flush();
 			}
 		}
@@ -144,7 +134,7 @@ public class MetricTextAccumulator implements Runnable {
 	 * @return the number of accumulated metrics
 	 */
 	public int size() {
-		return metricCount.get();
+		return accumulatedMetrics.size();
 	}
 	
 	/**
@@ -153,11 +143,13 @@ public class MetricTextAccumulator implements Runnable {
 	public void flush() {
 		if(flushInProgress.compareAndSet(false, true)) {
 			try {
-				ChannelBuffer toSend = ChannelBuffers.copiedBuffer(accum);
-				accum.clear();				
-				int mc = metricCount.getAndSet(0);
+				Map<String, IMetric> flushed = null;
+				synchronized(flushInProgress) {
+					flushed = new HashMap<String, IMetric>(accumulatedMetrics);
+					accumulatedMetrics.clear();
+				}
 				lastFlush.set(SystemClock.time());
-				receiver.flush(toSend, mc);
+				receiver.flush(flushed.values(), flushed.size());
 			} finally {
 				flushInProgress.set(false);
 			}
@@ -204,7 +196,6 @@ public class MetricTextAccumulator implements Runnable {
 	public boolean getFlushInProgress() {
 		return flushInProgress.get();
 	}
-	
 	
 
 }

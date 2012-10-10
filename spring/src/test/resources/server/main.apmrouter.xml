@@ -120,33 +120,36 @@
 	</bean>
 	
 	<bean id="SerieslyHttpClient" class="org.jboss.netty.handler.codec.http.HttpClientCodec" />
-	
- 	<bean id="LocalOpenTSDB" class="org.helios.apmrouter.destination.opentsdb.OpenTSDBDestination">
- 		<property name="matchPatterns">
-	 		<util:set>
-				<value>LONG.*|DELTA.*</value>	 			
-	 		</util:set>
- 		</property>
- 		<property name="openTSDBHost" value="pdk-pt-cupas-01" />
+	<bean id="NettyLoggingHandler" class="org.jboss.netty.handler.logging.LoggingHandler">
+		<constructor-arg value="NettyLog" type="java.lang.String" />
+		<constructor-arg value="INFO" type="org.jboss.netty.logging.InternalLogLevel" />
+		<constructor-arg value="true" type="boolean" />
 	</bean>
 	
-	<bean id="GraphiteDestination" class="org.helios.apmrouter.destination.graphite.GraphiteDestination">
+		<bean id="SerieslyDestination" class="org.helios.apmrouter.destination.seriesly.SerieslyDestination" >
  		<property name="matchPatterns">
 	 		<util:set>
-				<value>LONG.*|DELTA.*</value>	 			
+				<value>LONG.*|DELTA.*|STRING.*</value>	 			
 	 		</util:set>
  		</property>
- 		<property name="graphiteHost" value="10.5.104.24" />
- 		<property name="graphitePort" value="2003" />
- 		<property name="reconnectPeriod" value="15000"/>
- 		<property name="sizeTrigger" value="5"/>
- 		<property name="timeTrigger" value="5000"/>
- 		
- 		
+ 		<property name="dbName" value="helios" />
+ 		<property name="host" value="localhost" />
+ 		<property name="port" value="3133" />
+ 		<property name="reconnectPeriod" value="10000" />
+ 		<property name="sizeTrigger" value="200" />
+ 		<property name="timeTrigger" value="15000" />
+ 		<property name="channelHandlers">
+ 			<map>
+ 				<!-- <entry key="0" value="NettyLoggingHandler" /> -->
+ 				<entry key="1" value="SerieslyHttpClient" />
+ 				
+ 				
+ 			</map> 		
+ 		</property>
  		<property name="workerPool" >
-			<bean id="GraphiteDestinationWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+			<bean id="SerieslyDestinationWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
 				<constructor-arg>
-					<bean id="GraphiteDestinationWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+					<bean id="SerieslyDestinationWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
 						<property name="corePoolSize" value="1" />
 						<property name="maximumPoolSize" value="100" />
 						<property name="coreThreadsStarted" value="1" />
@@ -155,9 +158,9 @@
 			</bean>
  		</property>
  		<property name="bossPool" >
-			<bean id="GraphiteDestinationBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+			<bean id="SerieslyDestinationBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
 				<constructor-arg>
-					<bean id="GraphiteDestinationBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+					<bean id="SerieslyDestinationBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
 						<property name="corePoolSize" value="1" />
 						<property name="maximumPoolSize" value="100" />
 						<property name="coreThreadsStarted" value="1" />
@@ -165,8 +168,9 @@
 				</constructor-arg>
 			</bean>
  		</property>
+ 		
 	</bean>
-
+	
 	
 
  

@@ -262,9 +262,9 @@ public enum MetricType  implements IMetricDataAccessor {
 		@Override
 		public CharSequence read(ICEMetricValue metricValue) {
 			ByteBuffer buff = metricValue.getRawValue();
-//			buff.flip();
-			byte[] bytes = new byte[buff.capacity()];
-			buff.get(bytes, 0, bytes.length);
+			byte[] bytes = new byte[buff.limit()];
+			buff.position(0);
+			buff.get(bytes);
 			String s = new String(bytes);
 			return s;
 		}

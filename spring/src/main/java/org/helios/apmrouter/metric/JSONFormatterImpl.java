@@ -27,12 +27,13 @@ package org.helios.apmrouter.metric;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.zip.GZIPOutputStream;
 
 import org.helios.apmrouter.destination.accumulator.MetricTextFormatter;
 import org.helios.apmrouter.trace.TXContext;
+import org.helios.apmrouter.util.SystemClock;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -84,27 +85,22 @@ public class JSONFormatterImpl implements JSONFormatter, MetricTextFormatter {
 		if(metrics==null || metrics.length<1) return new JSONObject();
 		JSONObject root = new JSONObject();
 //		Map<Object, JSONObject> map = new HashMap<Object, JSONObject>(metrics.length);		
-		final List<JSONObject> data = new ArrayList<JSONObject>(metrics.length);
+		final Map<String, JSONObject> uncompresseddata = new HashMap<String, JSONObject>();
+		final Map<Long, JSONObject> compresseddata = new HashMap<Long, JSONObject>();
 		
-		
+		final long ts = SystemClock.time();
 		for(IMetric metric: metrics) {
 			//root.put(arg0, arg1)
 			if(metric==null || metric.getType()==MetricType.ERROR || metric.getType()==MetricType.BLOB || metric.getType()==MetricType.PDU || (compressedIdentifier && metric.getToken()==-1)) continue;
 			counter[0]++;
 			JSONObject jsonMetric = new JSONObject();
-			if(compressedIdentifier) {
-				jsonMetric.put("id", metric.getToken());
-				jsonMetric.put("type", metric.getType().ordinal());
-			} else {
-				jsonMetric.put("id", metric.getFQN());
-				jsonMetric.put("type", metric.getType().name());
-			}
+			jsonMetric.put("ts", ts);
 			if(metric.getType().isLong()) {
 				jsonMetric.put("value", metric.getLongValue());
 			} else {
 				jsonMetric.put("event", metric.getValue());
-			}	
-			data.add(jsonMetric);
+			}
+			
 			TXContext txc = metric.getTXContext();
 			if(txc!=null) {
 				JSONObject txcNode = new JSONObject();
@@ -113,8 +109,17 @@ public class JSONFormatterImpl implements JSONFormatter, MetricTextFormatter {
 				txcNode.put("t", txc.getTxThreadId());
 				jsonMetric.put("tx", txcNode);
 			}
+			
+			if(compressedIdentifier) {
+				jsonMetric.put("type", metric.getType().ordinal());
+				compresseddata.put(metric.getToken(), jsonMetric);
+			} else {
+				jsonMetric.put("type", metric.getType().name());
+				uncompresseddata.put(metric.getFQN().replace('/', '_'), jsonMetric);
+			}
+			
 		}
-		root.put("data", data);
+		root.put("data", compressedIdentifier ? compresseddata : uncompresseddata);
 		root.put("type", "metrics");
 		return root;
 	}

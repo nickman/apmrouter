@@ -31,6 +31,7 @@ import org.jboss.netty.bootstrap.Bootstrap;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 
 /**
@@ -82,7 +83,17 @@ public class NettyTCPDestination extends NettyDestination {
 	 */
 	@Override
 	protected ChannelFuture initializeChannel() {		
-		return ((ClientBootstrap)bstrap).connect(socketAddress);
+		ChannelFutureListener cfl = new ChannelFutureListener() {
+			@Override
+			public void operationComplete(ChannelFuture f) throws Exception {
+				if(f.isSuccess()) {
+					channelGroup.add(f.getChannel());
+				}
+			}
+		};
+		ChannelFuture cf = ((ClientBootstrap)bstrap).connect(socketAddress);
+		cf.addListener(cfl);
+		return cf;
 	}
 
 	/**
