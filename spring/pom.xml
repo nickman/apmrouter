@@ -134,6 +134,63 @@
 				<groupId>org.apache.camel</groupId>
 				<artifactId>camel-maven-plugin</artifactId>
 			</plugin>
+			<plugin>
+	        <groupId>org.apache.maven.plugins</groupId>
+	        <artifactId>maven-shade-plugin</artifactId>
+	        <version>1.7.1</version>
+	        <executions>
+	          <execution>
+	            <phase>package</phase>
+	            <goals>
+	              <goal>shade</goal>
+	            </goals>
+	            <configuration>
+	              <artifactSet>
+	                <excludes>
+	               	  <exclude>org.apache.camel:*</exclude>
+	                  <exclude>org.slf4j:log4j-over-slf4j</exclude>	
+	                  <exclude>ch.qos.logback:*</exclude>	 	                                                
+
+	                </excludes>
+	              </artifactSet>
+					<mainClass>org.helios.apmrouter.APMRouter</mainClass>
+				    <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+				    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>	                      					
+					<includePluginDependencies>false</includePluginDependencies>
+				<transformers>
+	                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+	                  <manifestEntries>
+	                  	<Main-Class>org.helios.apmrouter.APMRouter</Main-Class>
+	                  </manifestEntries>
+	                </transformer>
+	                <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+	                  <resource>META-INF/spring.handlers</resource>
+	                </transformer>
+	                <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+	                  <resource>META-INF/spring.schemas</resource>
+	                </transformer>
+	                <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+	                  <resource>META-INF/spring.tooling</resource>
+	                </transformer>	                
+	              </transformers>	              
+	            </configuration>
+	          </execution>
+	        </executions>
+	      </plugin>	     
+			<plugin>
+	            <artifactId>maven-assembly-plugin</artifactId>
+				<configuration>
+					<Main-Class>org.helios.apmrouter.APMRouter</Main-Class>
+				    <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+				    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>	                      					
+					<includePluginDependencies>false</includePluginDependencies>
+						<manifestEntries>
+							<Main-Class>org.helios.apmrouter.APMRouter</Main-Class>
+						</manifestEntries>
+				</configuration>
+	        </plugin>
+	         
+			
 		</plugins>
 	</build>
 </project>

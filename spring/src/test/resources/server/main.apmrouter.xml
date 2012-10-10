@@ -173,6 +173,53 @@
 	
 	-->
 
+ 	<bean id="LocalOpenTSDB" class="org.helios.apmrouter.destination.opentsdb.OpenTSDBDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>LONG.*|DELTA.*</value>	 			
+	 		</util:set>
+ 		</property>
+ 		<property name="openTSDBHost" value="pdk-pt-cupas-01" />
+	</bean>
+	
+	<bean id="GraphiteDestination" class="org.helios.apmrouter.destination.graphite.GraphiteDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>LONG.*|DELTA.*</value>	 			
+	 		</util:set>
+ 		</property>
+ 		<property name="graphiteHost" value="10.5.104.24" />
+ 		<property name="graphitePort" value="2003" />
+ 		<property name="reconnectPeriod" value="15000"/>
+ 		<property name="sizeTrigger" value="5"/>
+ 		<property name="timeTrigger" value="5000"/>
+ 		
+ 		
+ 		<property name="workerPool" >
+			<bean id="GraphiteDestinationWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+				<constructor-arg>
+					<bean id="GraphiteDestinationWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+						<property name="corePoolSize" value="1" />
+						<property name="maximumPoolSize" value="100" />
+						<property name="coreThreadsStarted" value="1" />
+					</bean>
+				</constructor-arg>
+			</bean>
+ 		</property>
+ 		<property name="bossPool" >
+			<bean id="GraphiteDestinationBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+				<constructor-arg>
+					<bean id="GraphiteDestinationBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+						<property name="corePoolSize" value="1" />
+						<property name="maximumPoolSize" value="100" />
+						<property name="coreThreadsStarted" value="1" />
+					</bean>
+				</constructor-arg>
+			</bean>
+ 		</property>
+	</bean>
+
+
 	<!-- No Op Destination -->
   	<bean id="BaseDestination" class="org.helios.apmrouter.destination.BaseDestination" >
  		<property name="matchPatterns">

@@ -25,11 +25,13 @@
 package org.helios.apmrouter;
 
 import java.io.File;
+import java.net.URL;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
 import org.apache.log4j.Logger;
+import org.apache.log4j.xml.DOMConfigurator;
 import org.helios.apmrouter.spring.ctx.ApplicationContextService;
 import org.helios.apmrouter.util.io.ConfigurableFileExtensionFilter;
 import org.helios.apmrouter.util.io.RecursiveDirectorySearch;
@@ -62,9 +64,50 @@ public class APMRouter {
 	 * @param args The spring xml configuration file directories, space separated
 	 */
 	public static void main(String[] args) {
-		LOG.info("\n\t\t*************************\n\t\tAPMRouter\n\t\t*************************\n");
+		LOG.info("\n\t\t*************************\n\t\tAPMRouter v. " + APMRouter.class.getPackage().getImplementationVersion() + "\n\t\t*************************\n");
 		try {
-			String[] configFiles = findConfig("./src/test/resources");
+			URL log4jUrl = APMRouter.class.getClassLoader().getResource("log4j.xml");
+			if(log4jUrl!=null) {
+				System.out.println("Loading log4j config from [" + log4jUrl + "]");
+				DOMConfigurator.configureAndWatch(log4jUrl.getFile(), 5000);
+			} else {
+				File log4jFile = new File("./log4j.xml");
+				if(log4jFile.canRead()) {
+					log4jUrl = log4jFile.toURI().toURL(); 
+					System.out.println("Loading log4j config from [" + log4jFile.getAbsolutePath() + "]");					
+				} else {
+					System.out.println("Log4j Config Not Found. Yer on yer own");
+				}
+			}
+			String confDir = null;
+			Set<String> confDirs = new HashSet<String>();
+			if(args.length<1) {
+				confDir = "./src/test/resources/server";
+				File dir = new File(confDir);
+				if(!dir.exists() || !dir.isDirectory()) {
+					LOG.error("No conf directory specified and DEV mode directory [" + confDir + "] does not exist. Exiting...");
+					return;
+				}
+			} else {				
+				Set<String> badDirs = new HashSet<String>();
+				for(String d: args) {
+					File dir = new File(d);
+					if(!dir.exists() || !dir.isDirectory()) {
+						badDirs.add(d);
+					} else {
+						confDirs.add(d);
+					}
+				}
+				if(!badDirs.isEmpty()) {
+					LOG.warn("These directories were not found " + badDirs);
+				}
+				if(confDirs.isEmpty()) {
+					LOG.error("No conf directories found. Exiting..." + badDirs);
+					return;
+				}
+						
+			}
+			String[] configFiles = findConfig(confDirs.toArray(new String[confDirs.size()]));
 			if(configFiles==null || configFiles.length<1) {
 				configFiles = findConfig(args);
 			}
@@ -81,6 +124,9 @@ public class APMRouter {
 				LOG.debug("Config Files:" + b.toString());
 			}
 			LOG.info("Starting...");
+			if(log4jUrl!=null) {
+				System.out.println("Loading log4j config from [" + log4jUrl + "]");
+			}
 			appContext = new GenericXmlApplicationContext(configFiles);
 			appContext.setDisplayName(ROOT_DISPLAY_NAME);
 			ApplicationContextService.register(appContext);
