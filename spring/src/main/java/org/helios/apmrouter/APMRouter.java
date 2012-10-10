@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.spring.ctx.ApplicationContextService;
 import org.helios.apmrouter.util.io.ConfigurableFileExtensionFilter;
 import org.helios.apmrouter.util.io.RecursiveDirectorySearch;
 import org.springframework.context.support.GenericXmlApplicationContext;
@@ -48,6 +49,8 @@ public class APMRouter {
 
 	/** The extension pattern for apmrouter config xml files */
 	public static final String APM_FILE_FILTER = ".apmrouter.xml";
+	/** The root application context display name */
+	public static final String ROOT_DISPLAY_NAME = "APMRouterRootAppCtx";
 	
 	/** The booted spring context */
 	private static GenericXmlApplicationContext appContext = null;
@@ -79,6 +82,8 @@ public class APMRouter {
 			}
 			LOG.info("Starting...");
 			appContext = new GenericXmlApplicationContext(configFiles);
+			appContext.setDisplayName(ROOT_DISPLAY_NAME);
+			ApplicationContextService.register(appContext);
 			LOG.info("Started");
 			MAIN_THREAD = Thread.currentThread();
 			

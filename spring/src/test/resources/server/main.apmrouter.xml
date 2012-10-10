@@ -118,7 +118,8 @@
 			</bean>
 		</constructor-arg>
 	</bean>
-	
+
+	<!-- 	
 	<bean id="SerieslyHttpClient" class="org.jboss.netty.handler.codec.http.HttpClientCodec" />
 	<bean id="NettyLoggingHandler" class="org.jboss.netty.handler.logging.LoggingHandler">
 		<constructor-arg value="NettyLog" type="java.lang.String" />
@@ -140,7 +141,6 @@
  		<property name="timeTrigger" value="15000" />
  		<property name="channelHandlers">
  			<map>
- 				<!-- <entry key="0" value="NettyLoggingHandler" /> -->
  				<entry key="1" value="SerieslyHttpClient" />
  				
  				
@@ -171,8 +171,16 @@
  		
 	</bean>
 	
-	
+	-->
 
+	<!-- No Op Destination -->
+  	<bean id="BaseDestination" class="org.helios.apmrouter.destination.BaseDestination" >
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>.*</value>	 			
+	 		</util:set>
+ 		</property>
+ 	</bean>
  
 
  

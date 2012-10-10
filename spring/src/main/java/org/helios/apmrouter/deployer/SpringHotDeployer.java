@@ -33,16 +33,17 @@ import java.io.File;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
-import java.nio.file.WatchEvent.Kind;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.springframework.context.ApplicationEvent;
+import org.springframework.context.event.ContextStartedEvent;
 
 /**
  * <p>Title: SpringHotDeployer</p>
@@ -72,8 +73,37 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	public SpringHotDeployer() {
 		hotDir = Paths.get(DEFAULT_HOT_DIR);
 		log("HotDir [" + hotDir + "]");
-		
-		
+	}
+	
+	/**
+	 * <p>Responds <code>true</code> for {@link ContextStartedEvent}s.
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#supportsEventType(java.lang.Class)
+	 */
+	@Override
+	public boolean supportsEventType(Class<? extends ApplicationEvent> eventType) {
+		return (ContextStartedEvent.class.isAssignableFrom(eventType));
+	}
+	
+	/**
+	 * <p>Responds <code>true</code>.
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#supportsSourceType(java.lang.Class)
+	 */
+	@Override
+	public boolean supportsSourceType(Class<?> sourceType) {
+		return true;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.springframework.context.ApplicationListener#onApplicationEvent(org.springframework.context.ApplicationEvent)
+	 */
+	@Override
+	public void onApplicationEvent(ApplicationEvent event) {
+		ContextStartedEvent cse = (ContextStartedEvent)event;
+		info("Root AppCtx Started [", new Date(cse.getTimestamp()), "]:[", cse.getApplicationContext().getDisplayName(), "]");
+
 	}
 	
 	public void startx() throws Exception {
