@@ -30,6 +30,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
+import org.helios.apmrouter.destination.event.DestinationStartedEvent;
+import org.helios.apmrouter.destination.event.DestinationStoppedEvent;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.router.PatternMatch;
 import org.helios.apmrouter.router.PatternMatch.PatternMatchGroup;
@@ -77,6 +79,24 @@ public class BaseDestination extends ServerComponentBean implements RouteDestina
 	 */
 	public BaseDestination() {
 		this(new String[]{});
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
+	 */
+	protected void doStart() throws Exception {
+		applicationContext.publishEvent(new DestinationStartedEvent(this, beanName));
+		super.doStart();
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStop()
+	 */
+	protected void doStop() {
+		applicationContext.publishEvent(new DestinationStoppedEvent(this, beanName));
+		super.doStop();
 	}
 	
 	/**

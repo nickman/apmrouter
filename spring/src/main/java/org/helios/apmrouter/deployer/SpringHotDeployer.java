@@ -46,18 +46,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.DelayQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 
-import javax.management.ObjectName;
-
 import org.helios.apmrouter.jmx.ConfigurationHelper;
-import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.server.ServerComponentBean;
-import org.helios.apmrouter.spring.ctx.ApplicationContextService;
-import org.helios.apmrouter.util.SystemClock;
 import org.springframework.context.ApplicationEvent;
-import org.springframework.context.event.ContextStartedEvent;
+import org.springframework.context.ApplicationListener;
+import org.springframework.context.event.ApplicationContextEvent;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.context.event.ContextStoppedEvent;
 import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.jmx.export.annotation.ManagedAttribute;
 
 /**
  * <p>Title: SpringHotDeployer</p>
@@ -68,8 +69,8 @@ import org.springframework.context.support.GenericApplicationContext;
  */
 
 public class SpringHotDeployer extends ServerComponentBean  {
-	/** The directories that are scanned for hot deploys/undeploys */
-	protected Set<Path> hotDirs = new CopyOnWriteArraySet<Path>();
+	/** The watch keys registered for each directory keyed by the path of the watched directory */
+	protected Map<Path, WatchKey> hotDirs = new ConcurrentHashMap<Path, WatchKey>();
 	/** A map of file paths to Spring contexts to associate the ctx to the file it was booted from */
 	protected final Map<String, GenericApplicationContext> deployedContexts = new ConcurrentHashMap<String, GenericApplicationContext>();
 	/** The watch event handling thread */
@@ -93,6 +94,28 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	protected Pattern fileNamePattern = null;
 	/** Configuration added hot dir names */
 	protected final Set<String> hotDirNames = new HashSet<String>();
+	/** The application listener on the root context that forwards to the child contexts */
+	protected final ApplicationListener<?> childForwarder = new ApplicationListener() {
+
+		@Override
+		public void onApplicationEvent(ApplicationEvent event) {
+			if(!(event instanceof ApplicationContextEvent)) {
+				// If an application event from root context is not an ApplicationContextEvent
+				// it should be forwarded to all the child contexts
+				for(GenericApplicationContext appCtx: deployedContexts.values()) {
+					appCtx.publishEvent(event);
+				}				
+			} else {
+				// If an application event from root context is an ApplicationContextEvent
+				// the only ones we care about are STOP and CLOSE.
+				ApplicationContextEvent appCtxEvent = (ApplicationContextEvent)event;
+				
+			}
+ 
+			
+		}
+		
+	};
 	
 	/** The name of the default hot deploy directory */
 	public static final String DEFAULT_HOT_DIR = System.getProperty("user.home") + File.separator + ".apmrouter" + File.separator + "hotdir";
@@ -131,8 +154,8 @@ public class SpringHotDeployer extends ServerComponentBean  {
 			warn("No hot deploy directories were defined or found. New directories can be added through the JMX interface.");
 		} else {
 			StringBuilder b = new StringBuilder("\n\t====================\n\tHot Deploy Directories\n\t====================");
-			for(Path p: hotDirs) {
-				b.append("\n\t").append(p.toString());
+			for(String s: hotDirNames) {
+				b.append("\n\t").append(s);
 			}
 			b.append("\n");
 			info(b);
@@ -146,25 +169,29 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	 */
 	@Override
 	protected void doStop() {
+		for(WatchKey wk: hotDirs.values()) {
+			wk.cancel();
+		}
+		hotDirs.clear();
 		keepRunning.set(false);
 		watchThread.interrupt();
 		processingThread.interrupt();
 		processingQueue.clear();
 		for(GenericApplicationContext appCtx: deployedContexts.values()) {
-			undeploy(appCtx);
+			deployer.undeploy(appCtx);
 		}
 		deployedContexts.clear();
 		super.doStop();
 	}
 	
 	/**
-	 * <p>Responds <code>true</code> for {@link ContextStartedEvent}s.
+	 * <p>Responds <code>true</code> for {@link ContextRefreshedEvent}s.
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.ServerComponentBean#supportsEventType(java.lang.Class)
 	 */
 	@Override
 	public boolean supportsEventType(Class<? extends ApplicationEvent> eventType) {
-		return (ContextStartedEvent.class.isAssignableFrom(eventType));
+		return (ContextRefreshedEvent.class.isAssignableFrom(eventType));
 	}
 	
 	/**
@@ -183,9 +210,12 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	 */
 	@Override
 	public void onApplicationEvent(ApplicationEvent event) {
-		ContextStartedEvent cse = (ContextStartedEvent)event;
-		info("Root AppCtx Started [", new Date(cse.getTimestamp()), "]:[", cse.getApplicationContext().getDisplayName(), "]");
-		startFileEventListener();
+		ContextRefreshedEvent cse = (ContextRefreshedEvent)event;
+		if(applicationContext==cse.getApplicationContext()) {
+			info("Root AppCtx Started [", new Date(cse.getTimestamp()), "]:[", cse.getApplicationContext().getDisplayName(), "]");
+			keepRunning.set(true);
+			startFileEventListener();
+		}
 	}
 	
 	/**
@@ -196,16 +226,21 @@ public class SpringHotDeployer extends ServerComponentBean  {
 		startProcessingThread();
 		try {
 			watcher = FileSystems.getDefault().newWatchService();
-			for(Path p: hotDirs) {
-				p.register(watcher, ENTRY_DELETE, ENTRY_MODIFY);
+			for(String fn: hotDirNames) {
+				Path path = Paths.get(fn);
+				WatchKey watchKey = path.register(watcher, ENTRY_DELETE, ENTRY_MODIFY);
+				hotDirs.put(path, watchKey);
 			}
+			scanHotDirsAtStart();
 			watchThread = new Thread("SpringHotDeployerWatchThread"){
 				WatchKey watchKey = null;
 				public void run() {
+					info("Started HotDeployer File Watcher Thread");
 					while(keepRunning.get()) {
 						try {
 							watchKey = watcher.take();
-							info("Got watch key [" + watchKey + "]");
+							info("Got watch key for [" + watchKey.watchable() + "]");
+							info("File Event Queue:", processingQueue.size());
 					    } catch (InterruptedException ie) {
 					        interrupted();
 					        // check state
@@ -220,11 +255,13 @@ public class SpringHotDeployer extends ServerComponentBean  {
 										info("Hot Dir for watch key [", watchKey, "] is no longer valid");
 									}
 						            continue;
-								}
+								}								
 								WatchEvent<Path> ev = (WatchEvent<Path>)event;
-							    Path fileName = ev.context();
+								Path dir = (Path)watchKey.watchable();
+								
+							    Path fileName = Paths.get(dir.toString(), ev.context().toString());
 							    if(fileNamePattern.matcher(fileName.toFile().getAbsolutePath()).matches()) {
-							    	processingQueue.offer(new FileEvent(fileName.toFile().getAbsolutePath(), ev.kind()));
+							    	enqueueFileEvent(500, new FileEvent(fileName.toFile().getAbsolutePath(), ev.kind()));							    	
 							    }
 							}
 						}
@@ -239,7 +276,7 @@ public class SpringHotDeployer extends ServerComponentBean  {
 			watchThread.setDaemon(true);
 			keepRunning.set(true);
 			watchThread.start();
-			info("HotDeploy watcher started on [" + hotDirs + "]");
+			info("HotDeploy watcher started on [" + hotDirs.keySet() + "]");
 			try { Thread.currentThread().join(); } catch (Exception e) {}
 		} catch (Exception ex) {
 			error("Failed to start hot deployer", ex);
@@ -247,13 +284,34 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	}
 	
 	/**
+	 * Scans the hot dirs looking for files to deploy at startup. 
+	 * Since there's no file change events, we need to go and look for them.
+	 */
+	protected void scanHotDirsAtStart() {
+		for(Path hotDirPath: hotDirs.keySet()) {
+			for(File f: hotDirPath.toFile().listFiles()) {
+				if(f.isDirectory() || !f.canRead()) continue;
+				if(fileNamePattern.matcher(f.getName()).matches()) {
+					enqueueFileEvent(500, new FileEvent(f.getAbsolutePath(),  ENTRY_MODIFY));
+				}
+			}
+		}
+	}
+	
+	/**
 	 * Enqueues a file event, removing any older instances that this instance will replace
+	 * @param delay The delay to add to the passed file event to give the queue a chance to conflate obsolete events already queued
 	 * @param fe The file event to enqueue
 	 */
-	protected void enqueueFileEvent(FileEvent fe) {
-		while(processingQueue.remove(fe)) {};
+	protected void enqueueFileEvent(long delay, FileEvent fe) {
+		int removes = 0;
+		while(processingQueue.remove(fe)) {removes++;};
+		fe.addDelay(delay);
 		processingQueue.add(fe);
+		info("Queued File Event for [", fe.getFileName(), "] and dropped [" , removes , "] older versions");
 	}
+	
+	protected static final AtomicLong serial = new AtomicLong(0L);
 	
 	/**
 	 * Starts the processing queue processor thread
@@ -262,19 +320,26 @@ public class SpringHotDeployer extends ServerComponentBean  {
 		processingThread = new Thread("SpringHotDeployerProcessingThread") {
 			@Override
 			public void run() {
+				info("Started HotDeployer Queue Processor Thread");
 				while(keepRunning.get()) {
 					try {
-						FileEvent fe = processingQueue.take();
+						final FileEvent fe = processingQueue.take();						
 						if(fe!=null) {
-							if(inProcess.contains(fe)) {
-								fe.setTimestamp(SystemClock.time() + 2000);
-								enqueueFileEvent(fe);
+							info("Processing File Event [" , fe.getFileName(), "]" );
+							if(inProcess.contains(fe)) {								
+								enqueueFileEvent(2000, fe);
 							} else {
-								if(fe.getEventType()==ENTRY_DELETE) {
-									killAppCtx(fe);
-								} else {
-									redeployAppCtx(fe);
-								}
+								Thread t = new Thread("SpringHotDeployer#" + serial.incrementAndGet()) {
+									public void run() {
+										if(fe.getEventType()==ENTRY_DELETE) {
+											killAppCtx(fe);
+										} else {
+											redeployAppCtx(fe);
+										}
+									}
+								};
+								t.setDaemon(true);
+								t.start();
 							}
 						}
 					} catch (Exception e) {
@@ -283,6 +348,8 @@ public class SpringHotDeployer extends ServerComponentBean  {
 				}
 			}
 		};
+		processingThread.setDaemon(true);
+		processingThread.start();
 	}
 	
 	/**
@@ -292,26 +359,10 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	protected void killAppCtx(FileEvent fe) {
 		GenericApplicationContext appCtx = deployedContexts.remove(fe.getFileName());
 		if(appCtx!=null) {
-			undeploy(appCtx);
+			deployer.undeploy(appCtx);
 		}
 	}
 	
-	/**
-	 * Unregisters the application context mbean and closes the app context
-	 * @param appCtx The app context to undeploy
-	 */
-	protected void undeploy(GenericApplicationContext appCtx) {
-		try { 
-			ObjectName on = JMXHelper.objectName(ApplicationContextService.HOT_OBJECT_NAME_PREF + ObjectName.quote(appCtx.getDisplayName()));
-			if(JMXHelper.getHeliosMBeanServer().isRegistered(on)) {
-				JMXHelper.getHeliosMBeanServer().unregisterMBean(on);
-			}
-		} catch (Exception ex) {
-			warn("Failed to undeploy AppCtx MBean for [", appCtx.getDisplayName(), "]", ex);
-		}
-		appCtx.close();
-		
-	}
 	
 	/**
 	 * Deploys the application context associated with the modified or new file.
@@ -323,7 +374,26 @@ public class SpringHotDeployer extends ServerComponentBean  {
 			killAppCtx(fe);
 		}
 		GenericApplicationContext appCtx = deployer.deploy(applicationContext, fe);
+		appCtx.addApplicationListener(new ApplicationListener(){
+			@Override
+			public void onApplicationEvent(ApplicationEvent event) {
+				if(!(event instanceof ApplicationContextEvent)) {
+					//applicationContext.publishEvent(event);
+				} else {
+					// If the event indicates a child app ctx has stopped or closed
+					// remove the appCtx from the deployed context map
+					ApplicationContextEvent appCtxEvent = (ApplicationContextEvent)event;
+					if((appCtxEvent instanceof ContextStoppedEvent) || (appCtxEvent instanceof ContextClosedEvent)) {
+						String name = appCtxEvent.getApplicationContext().getDisplayName();
+						info("Received [", event.getClass().getSimpleName(), "] from child context [", name, "]. Removing inert context");
+						deployedContexts.remove(name);
+					}
+					
+				}
+			}
+		});
 		deployedContexts.put(fe.getFileName(), appCtx);
+		info("\n\t***********************************************\n\tHot Deployed Context [", fe.getFileName(), "]\n\t***********************************************\n");
 	}
 	
 	
@@ -332,6 +402,7 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	 * Returns the regex pattern used to filter in the desired hot deployed files in the hot dirs. Defaults to <b><code>.*.apmrouter.xml</code></b> 
 	 * @return the hot deployed file name filter pattern
 	 */
+	@ManagedAttribute(description="The hot deploy file pattern")
 	public String getPattern() {
 		return pattern;
 	}
@@ -348,6 +419,7 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	 * Returns the hot directory names
 	 * @return the hot directory names
 	 */
+	@ManagedAttribute(description="The registered hot deploy directories")
 	public Set<String> getHotDirNames() {
 		return Collections.unmodifiableSet(hotDirNames);
 	}

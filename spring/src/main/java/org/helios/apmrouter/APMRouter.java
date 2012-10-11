@@ -127,9 +127,11 @@ public class APMRouter {
 			if(log4jUrl!=null) {
 				System.out.println("Loading log4j config from [" + log4jUrl + "]");
 			}
-			appContext = new GenericXmlApplicationContext(configFiles);
+			appContext = new GenericXmlApplicationContext();
 			appContext.setDisplayName(ROOT_DISPLAY_NAME);
+			appContext.load(configFiles);
 			ApplicationContextService.register(appContext);
+			appContext.refresh();			
 			LOG.info("Started");
 			MAIN_THREAD = Thread.currentThread();
 			

@@ -26,8 +26,8 @@ package org.helios.apmrouter.router;
 
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -38,6 +38,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.collections.LongSlidingWindow;
+import org.helios.apmrouter.destination.event.DestinationEvent;
 import org.helios.apmrouter.metric.ExpandedMetric;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
@@ -46,6 +47,8 @@ import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.helios.apmrouter.util.thread.ManagedThreadPool;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEvent;
+import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.support.MetricType;
@@ -82,6 +85,7 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 	protected final LongSlidingWindow elapsedTimesMs = new ConcurrentLongSlidingWindow(15); 
 	
 	
+	/** Metric conflation service */
 	protected MetricConflationService conflator;
 	
 	/**
@@ -92,6 +96,44 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 	public void setConflator(MetricConflationService conflator) {
 		this.conflator = conflator;
 	}
+	
+	/**
+	 * <p>Responds <code>true</code> for {@link ContextRefreshedEvent}s.
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#supportsEventType(java.lang.Class)
+	 */
+	@Override
+	public boolean supportsEventType(Class<? extends ApplicationEvent> eventType) {
+		return (DestinationEvent.class.isAssignableFrom(eventType));
+	}
+	
+	/**
+	 * <p>Responds <code>true</code>.
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#supportsSourceType(java.lang.Class)
+	 */
+	@Override
+	public boolean supportsSourceType(Class<?> sourceType) {
+		return RouteDestination.class.isAssignableFrom(sourceType);
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.springframework.context.ApplicationListener#onApplicationEvent(org.springframework.context.ApplicationEvent)
+	 */
+	@Override
+	public void onApplicationEvent(ApplicationEvent event) {
+		DestinationEvent de = (DestinationEvent)event;
+		RouteDestination<IMetric> rd = (RouteDestination<IMetric>) de.getSource();
+		if(de.isStarting()) {
+			info("Registering [", de.getBeanName(), "] as a Route Destination (evd ID:", de.getId(), ")");
+			destinations.add(rd);
+		} else {
+			info("Removing [", de.getBeanName(), "] as a Route Destination (evd ID:", de.getId(), ")");
+			destinations.remove(rd);			
+		}
+	}
+	
 
 	/**
 	 * {@inheritDoc}
@@ -109,15 +151,26 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 //		}
 	}
 	
+//	/**
+//	 * @param initialDests
+//	 */
+//	@Autowired(required=true)
+//	public void setDestinations(Map<String, RouteDestination> initialDests) {
+//		for(Map.Entry<String, RouteDestination> entry: initialDests.entrySet()) {
+//			destinations.add(entry.getValue());
+//			info("Registered [", entry.getKey(), "] as a Route Destination");
+//		}
+//	}
+	
+	//RouteDestination
+	
 	/**
-	 * @param initialDests
+	 * Returns the number of registered destinations
+	 * @return the number of registered destinations
 	 */
-	@Autowired(required=true)
-	public void setDestinations(Map<String, RouteDestination> initialDests) {
-		for(Map.Entry<String, RouteDestination> entry: initialDests.entrySet()) {
-			destinations.add(entry.getValue());
-			info("Registered [", entry.getKey(), "] as a Route Destination");
-		}
+	@ManagedAttribute(description="The number of registered destinations")
+	public int getDestinationCount() {
+		return destinations.size();
 	}
 	
 	/**

@@ -114,6 +114,9 @@ public class ApplicationContextService implements ApplicationContext, Applicatio
 		log = Logger.getLogger(getClass().getName() + "." + id);
 		objectName = on!=null ? on : JMXHelper.objectName(OBJECT_NAME_PREF + id);
 		try {
+			if(JMXHelper.getHeliosMBeanServer().isRegistered(objectName)) {
+				JMXHelper.getHeliosMBeanServer().unregisterMBean(objectName);
+			}
 			JMXHelper.getHeliosMBeanServer().registerMBean(this, objectName);
 		} catch (Exception ex) {
 			if(log.isDebugEnabled()) {

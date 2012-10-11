@@ -34,6 +34,7 @@ import org.helios.apmrouter.spring.ctx.ApplicationContextService;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.context.support.GenericXmlApplicationContext;
+import org.springframework.core.io.UrlResource;
 
 /**
  * <p>Title: ApplicationContextDeployer</p>
@@ -60,14 +61,34 @@ public class ApplicationContextDeployer {
 			File f = new File(fe.getFileName());
 			if(!f.canRead()) throw new Exception("Cannot read file [" + fe + "]", new Throwable());
 			GenericXmlApplicationContext appCtx = new GenericXmlApplicationContext();
-			appCtx.setDisplayName(f.getAbsolutePath());
+			appCtx.setDisplayName(f.getAbsolutePath());	
 			appCtx.setParent(parent);
-			appCtx.load(f.getAbsolutePath());
+			appCtx.load(new UrlResource(f.toURI().toURL()));
 			ObjectName on = JMXHelper.objectName(ApplicationContextService.HOT_OBJECT_NAME_PREF + ObjectName.quote(f.getAbsolutePath()));
-			ApplicationContextService.register(on, appCtx);
+			ApplicationContextService.register(on, appCtx);			
+			appCtx.refresh();
 			return appCtx;
-		} catch (Exception ex) {
+		} catch (Throwable ex) {
+			log.error("Failed to deploy application context [" + fe + "]", ex);
 			throw new RuntimeException("Failed to deploy application context [" + fe + "]", ex);
 		}
 	}
+	
+	/**
+	 * Unregisters the application context mbean and closes the app context
+	 * @param appCtx The app context to undeploy
+	 */
+	protected void undeploy(GenericApplicationContext appCtx) {
+		try { 
+			ObjectName on = JMXHelper.objectName(ApplicationContextService.HOT_OBJECT_NAME_PREF + ObjectName.quote(appCtx.getDisplayName()));
+			if(JMXHelper.getHeliosMBeanServer().isRegistered(on)) {
+				JMXHelper.getHeliosMBeanServer().unregisterMBean(on);
+			}
+		} catch (Exception ex) {
+			log.warn("Failed to undeploy AppCtx MBean for [" + appCtx.getDisplayName() + "]", ex);
+		}
+		appCtx.close();
+		
+	}
+	
 }

@@ -61,6 +61,7 @@ public class OpenTSDBDestination extends BaseDestination {
 		if(host!=null) {
 			doConnect();
 		}
+		super.doStart();
 	}
 	
 	/**
@@ -84,7 +85,9 @@ public class OpenTSDBDestination extends BaseDestination {
 	 * @see org.helios.apmrouter.server.ServerComponentBean#doStop()
 	 */
 	@Override
-	protected void doStop() {	
+	protected void doStop() {
+		try { recorder.shutdown(); } catch (Exception ex) {}
+		super.doStop();
 	}
 	
 	/**

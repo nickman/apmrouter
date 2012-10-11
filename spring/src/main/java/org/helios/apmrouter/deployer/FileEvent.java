@@ -65,6 +65,14 @@ public class FileEvent implements Delayed {
 		timestamp = eventTimestamp; 
 	}
 	
+	/**
+	 * Adds a delay to the updateable timestamp
+	 * @param ms the delay to add
+	 */
+	void addDelay(long ms) {
+		timestamp+= ms;
+	}
+	
 	
 	/**
 	 * {@inheritDoc}
@@ -80,7 +88,10 @@ public class FileEvent implements Delayed {
 	 */
 	@Override
 	public long getDelay(TimeUnit unit) {		
-		return unit.convert(timestamp-SystemClock.time(), TimeUnit.MILLISECONDS);
+		long delay = unit.convert(timestamp-SystemClock.time(), TimeUnit.MILLISECONDS);
+		System.err.println("DELAY FOR [" + this + "]:" + delay + " [" + unit.name().toLowerCase() + "]");
+		return delay;
+		
 	}
 
 

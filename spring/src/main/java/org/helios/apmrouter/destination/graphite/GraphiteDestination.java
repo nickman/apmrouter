@@ -155,6 +155,7 @@ public class GraphiteDestination extends BaseDestination implements MetricTextFo
 		bstrap.setOptions(channelOptions);
 		bstrap.setPipelineFactory(this);
 		doConnect();
+		super.doStart();
 	}
 	
 	/**
@@ -205,6 +206,7 @@ public class GraphiteDestination extends BaseDestination implements MetricTextFo
 		resolvedHandlers.clear();
 		socketAddress = null;
 		channelGroup = null;
+		super.doStop();
 	}
 	
 	/**
