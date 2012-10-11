@@ -84,16 +84,35 @@ public class ApplicationContextService implements ApplicationContext, Applicatio
 		return new ApplicationContextService(delegate);
 	}
 	
+	/**
+	 * Creates a new ApplicationContextService
+	 * @param on The provided objectname for this service
+	 * @param delegate The wrapped app context
+	 * @return the created ApplicationContextService
+	 */
+	public static ApplicationContextService register(ObjectName on, GenericApplicationContext delegate) {
+		return new ApplicationContextService(on, delegate);
+	}
+	
 	
 	/**
 	 * Creates a new ApplicationContextService
 	 * @param delegate The wrapped app context
 	 */
 	public ApplicationContextService(GenericApplicationContext delegate) {
+		this(null, delegate);
+	}
+	
+	/**
+	 * Creates a new ApplicationContextService
+	 * @param on The provided objectname for this service
+	 * @param delegate The wrapped app context
+	 */
+	public ApplicationContextService(ObjectName on, GenericApplicationContext delegate) {
 		this.delegate = delegate;
 		id = getId(this.delegate);
 		log = Logger.getLogger(getClass().getName() + "." + id);
-		objectName = JMXHelper.objectName(OBJECT_NAME_PREF + id);
+		objectName = on!=null ? on : JMXHelper.objectName(OBJECT_NAME_PREF + id);
 		try {
 			JMXHelper.getHeliosMBeanServer().registerMBean(this, objectName);
 		} catch (Exception ex) {
@@ -714,5 +733,13 @@ public class ApplicationContextService implements ApplicationContext, Applicatio
 	@Override
 	public String toString() {
 		return delegate.toString();
+	}
+
+	/**
+	 * Returns the JMX ObjectName of this service
+	 * @return the JMX ObjectName of this service
+	 */
+	public ObjectName getObjectName() {
+		return objectName;
 	}
 }

@@ -41,6 +41,8 @@ import org.springframework.context.ApplicationContext;
 public interface ApplicationContextServiceMBean extends ApplicationContext {
 	/** The AppCtx ObjectName prefix */
 	public static final String OBJECT_NAME_PREF = "org.helios.apmrouter.spring:service=AppCtx,name=";
+	/** The AppCtx ObjectName prefix for hot deployed contexts */
+	public static final String HOT_OBJECT_NAME_PREF = "org.helios.apmrouter.spring.hotdeployed:service=AppCtx,name=";
 
 	/** The JMX ObjectName of the APMRouter root app context */
 	public static final ObjectName ROOT_APP_CTX_ON = JMXHelper.objectName(OBJECT_NAME_PREF + APMRouter.ROOT_DISPLAY_NAME);
