@@ -26,15 +26,20 @@ package org.helios.apmrouter.spring.ctx;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.ObjectName;
 
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.deployer.HotDeployerClassLoader;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanDefinitionStoreException;
@@ -62,7 +67,7 @@ import org.springframework.core.io.ResourceLoader;
  * <p><code>org.helios.apmrouter.spring.ctx.ApplicationContextService</code></p>
  */
 
-public class ApplicationContextService implements ApplicationContext, ApplicationContextServiceMBean {
+public class ApplicationContextService implements ApplicationContextServiceMBean {
 	/** The wrapped app context */
 	protected final GenericApplicationContext delegate;
 	/** The app context service JMX ObjectName */
@@ -138,6 +143,23 @@ public class ApplicationContextService implements ApplicationContext, Applicatio
 			return "#" + serial.incrementAndGet();
 		}
 		return dn;		
+	}
+	
+	/**
+	 * Lists any entries in the extended classpath of this application context
+	 * @return a set of strings representing classpath entries
+	 */
+	public Set<String> getExtendedClassPath() {
+		Set<String> cp = new HashSet<String>();
+		ClassLoader cl = getClassLoader();
+		if(cl instanceof HotDeployerClassLoader) {
+			cp.addAll(((HotDeployerClassLoader)cl).getClassPathEntries());
+		} else if(cl instanceof URLClassLoader) {
+			for(URL url: ((URLClassLoader)cl).getURLs()) {
+				cp.add(url.toString());
+			}
+		}
+		return cp;
 	}
 
 	/**

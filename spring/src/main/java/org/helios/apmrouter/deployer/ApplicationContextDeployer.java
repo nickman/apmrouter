@@ -25,12 +25,17 @@
 package org.helios.apmrouter.deployer;
 
 import java.io.File;
+import java.util.Set;
 
 import javax.management.ObjectName;
 
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.spring.ctx.ApplicationContextService;
+import org.springframework.beans.MutablePropertyValues;
+import org.springframework.beans.PropertyValue;
+import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.beans.factory.config.TypedStringValue;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.context.support.GenericXmlApplicationContext;
@@ -61,6 +66,7 @@ public class ApplicationContextDeployer {
 			File f = new File(fe.getFileName());
 			if(!f.canRead()) throw new Exception("Cannot read file [" + fe + "]", new Throwable());
 			GenericXmlApplicationContext appCtx = new GenericXmlApplicationContext();
+			appCtx.setClassLoader(findClassLoader(f));
 			appCtx.setDisplayName(f.getAbsolutePath());	
 			appCtx.setParent(parent);
 			appCtx.load(new UrlResource(f.toURI().toURL()));
@@ -87,8 +93,42 @@ public class ApplicationContextDeployer {
 		} catch (Exception ex) {
 			log.warn("Failed to undeploy AppCtx MBean for [" + appCtx.getDisplayName() + "]", ex);
 		}
-		appCtx.close();
-		
+		appCtx.close();		
+	}
+	
+	/**
+	 * Creates a new GenericXmlApplicationContext configured by the passed XML file.
+	 * Attempts to locate a {@link HotDeployerClassLoader} definition in the bean definitions.
+	 * If one is found, it is instantiated and configured, then used as the GenericXmlApplicationContext's
+	 * classloader. The bean definition is removed from the context before being returned since it is no longer needed. 
+	 * @param xmlFile The file to inspect
+	 * @return the created GenericXmlApplicationContext
+	 * @throws Exception thrown on any error
+	 */
+	protected ClassLoader findClassLoader(File xmlFile) throws Exception {
+		GenericXmlApplicationContext appCtx = new GenericXmlApplicationContext();
+		appCtx.load(new UrlResource(xmlFile.toURI().toURL()));
+		for(String beanName: appCtx.getBeanDefinitionNames()) {
+			BeanDefinition beanDef = appCtx.getBeanDefinition(beanName);
+			if(HotDeployerClassLoader.class.getName().equals(beanDef.getBeanClassName())) {
+				appCtx.removeBeanDefinition(beanName);
+				HotDeployerClassLoader classLoader = new HotDeployerClassLoader();
+				MutablePropertyValues props = beanDef.getPropertyValues();
+				PropertyValue cpEntries = props.getPropertyValue("classPathEntries");
+				PropertyValue vdate = props.getPropertyValue("validateEntries");
+				if(cpEntries!=null) {
+					Set<String> entries = (Set<String>)cpEntries.getConvertedValue();
+					classLoader.setClassPathEntries(entries);
+				}
+				if(vdate!=null) {
+					boolean vdateValue = "true".equals(((TypedStringValue)vdate.getValue()).getValue());
+					classLoader.setValidateEntries(vdateValue);
+				}
+				log.info("Adding Extended ClassLoader for Hot Deployed AppCtx [" + xmlFile + "]");
+				return classLoader;
+			}
+		}
+		return null;
 	}
 	
 }

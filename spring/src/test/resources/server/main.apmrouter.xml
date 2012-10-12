@@ -28,8 +28,7 @@
 	<bean id="HotDeployer" class="org.helios.apmrouter.deployer.SpringHotDeployer">
 		<property name="hotDirNames">
 			<set>
-				<value>./spring/src/test/resources/destinations</value>
-				<value>c:/temp/hotdir</value>
+				<value>./src/test/resources/destinations</value>
 			</set>
 		</property>
 	</bean>
@@ -126,82 +125,8 @@
 		</constructor-arg>
 	</bean>
 
-	<!-- 	
-	<bean id="SerieslyHttpClient" class="org.jboss.netty.handler.codec.http.HttpClientCodec" />
-	<bean id="NettyLoggingHandler" class="org.jboss.netty.handler.logging.LoggingHandler">
-		<constructor-arg value="NettyLog" type="java.lang.String" />
-		<constructor-arg value="INFO" type="org.jboss.netty.logging.InternalLogLevel" />
-		<constructor-arg value="true" type="boolean" />
-	</bean>
-	
-		<bean id="SerieslyDestination" class="org.helios.apmrouter.destination.seriesly.SerieslyDestination" >
- 		<property name="matchPatterns">
-	 		<util:set>
-				<value>LONG.*|DELTA.*|STRING.*</value>	 			
-	 		</util:set>
- 		</property>
- 		<property name="dbName" value="helios" />
- 		<property name="host" value="localhost" />
- 		<property name="port" value="3133" />
- 		<property name="reconnectPeriod" value="10000" />
- 		<property name="sizeTrigger" value="200" />
- 		<property name="timeTrigger" value="15000" />
- 		<property name="channelHandlers">
- 			<map>
- 				<entry key="1" value="SerieslyHttpClient" />
- 				
- 				
- 			</map> 		
- 		</property>
- 		<property name="workerPool" >
-			<bean id="SerieslyDestinationWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
-				<constructor-arg>
-					<bean id="SerieslyDestinationWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
-						<property name="corePoolSize" value="1" />
-						<property name="maximumPoolSize" value="100" />
-						<property name="coreThreadsStarted" value="1" />
-					</bean>
-				</constructor-arg>
-			</bean>
- 		</property>
- 		<property name="bossPool" >
-			<bean id="SerieslyDestinationBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
-				<constructor-arg>
-					<bean id="SerieslyDestinationBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
-						<property name="corePoolSize" value="1" />
-						<property name="maximumPoolSize" value="100" />
-						<property name="coreThreadsStarted" value="1" />
-					</bean>
-				</constructor-arg>
-			</bean>
- 		</property>
- 		
-	</bean>
-	
-	-->
 
-
-
-	<!-- No Op Destination -->
-  	<bean id="BaseDestination" class="org.helios.apmrouter.destination.BaseDestination" >
- 		<property name="matchPatterns">
-	 		<util:set>
-				<value>.*</value>	 			
-	 		</util:set>
- 		</property>
- 	</bean>
- 
-
- 
-	
-
-	
 	<bean id="APMRouterScheduler" class="org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler" />
 	
-
-	
-	
-
- 	
 </beans>
 

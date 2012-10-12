@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.spring.ctx;
 
+import java.util.Set;
+
 import javax.management.ObjectName;
 
 import org.helios.apmrouter.APMRouter;
@@ -47,5 +49,9 @@ public interface ApplicationContextServiceMBean extends ApplicationContext {
 	/** The JMX ObjectName of the APMRouter root app context */
 	public static final ObjectName ROOT_APP_CTX_ON = JMXHelper.objectName(OBJECT_NAME_PREF + APMRouter.ROOT_DISPLAY_NAME);
 	
-	
+	/**
+	 * Lists any entries in the extended classpath of this application context
+	 * @return a set of strings representing classpath entries
+	 */
+	public Set<String> getExtendedClassPath();
 }
