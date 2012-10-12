@@ -54,6 +54,14 @@ public class HotDeployerClassLoader extends URLClassLoader  {
 	}
 	
 	/**
+	 * Merges the classpath entries of the passed HotDeployerClassLoader into this one.
+	 * @param otherClassLoader a HotDeployerClassLoader to merge into this one.
+	 */
+	public void merge(HotDeployerClassLoader otherClassLoader) {
+		classPathEntries.addAll(otherClassLoader.classPathEntries);
+	}
+	
+	/**
 	 * Initializes the classloader with the configured URLS
 	 * @throws Exception thrown on any error initializing
 	 */

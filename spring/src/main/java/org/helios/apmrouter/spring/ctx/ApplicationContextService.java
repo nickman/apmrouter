@@ -146,6 +146,27 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 	
 	/**
+	 * Lists any entries in the classpath of this application context 
+	 * @return a set of strings representing classpath entries
+	 */
+	public Set<String> getClassPath() {
+		Set<String> cp = new HashSet<String>();
+		ClassLoader cl = getClassLoader();
+		if(cl instanceof URLClassLoader) {
+			if(cl instanceof HotDeployerClassLoader) {
+				cl = cl.getParent();
+			}
+			if(cl!=null) {
+				for(URL url: ((URLClassLoader)cl).getURLs()) {
+					cp.add(url.toString());
+				}
+			}
+		}
+		return cp;		
+	}
+	
+	
+	/**
 	 * Lists any entries in the extended classpath of this application context
 	 * @return a set of strings representing classpath entries
 	 */
@@ -154,10 +175,6 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 		ClassLoader cl = getClassLoader();
 		if(cl instanceof HotDeployerClassLoader) {
 			cp.addAll(((HotDeployerClassLoader)cl).getClassPathEntries());
-		} else if(cl instanceof URLClassLoader) {
-			for(URL url: ((URLClassLoader)cl).getURLs()) {
-				cp.add(url.toString());
-			}
 		}
 		return cp;
 	}

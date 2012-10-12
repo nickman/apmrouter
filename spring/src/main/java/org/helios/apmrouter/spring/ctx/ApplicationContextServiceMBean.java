@@ -54,4 +54,11 @@ public interface ApplicationContextServiceMBean extends ApplicationContext {
 	 * @return a set of strings representing classpath entries
 	 */
 	public Set<String> getExtendedClassPath();
+	
+	/**
+	 * Lists any entries in the classpath of this application context 
+	 * @return a set of strings representing classpath entries
+	 */
+	public Set<String> getClassPath();
+	
 }

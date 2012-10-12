@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:util="http://www.springframework.org/schema/util"
+
+       xmlns:lang="http://www.springframework.org/schema/lang"       
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+       http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang.xsd
+       "  >
+
+	<context:annotation-config/>
+	<context:mbean-export registration="replaceExisting" />
+	
+	<bean id="ClassLoader" class="org.helios.apmrouter.deployer.HotDeployerClassLoader">
+		<property name="validateEntries" value="true" />
+		<property name="classPathEntries">
+			<set>
+				<value>c:\Users\nwhitehe\.m2\repository\org\codehaus\groovy\groovy-all\groovy-all-2.0.1.jar</value>
+			</set>
+		</property>
+	</bean>
+	
+
+	<bean id="GraphiteDestination" class="org.helios.apmrouter.destination.graphite.GraphiteDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>LONG.*|DELTA.*</value>	 			
+	 		</util:set>
+ 		</property>
+ 		<property name="graphiteHost" value="10.5.104.24" />
+ 		<property name="graphitePort" value="2003" />
+ 		<property name="reconnectPeriod" value="15000"/>
+ 		<property name="sizeTrigger" value="5"/>
+ 		<property name="timeTrigger" value="5000"/>
+ 		
+ 		
+ 		<property name="workerPool" >
+			<bean id="GraphiteDestinationWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+				<constructor-arg>
+					<bean id="GraphiteDestinationWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+						<property name="corePoolSize" value="1" />
+						<property name="maximumPoolSize" value="100" />
+						<property name="coreThreadsStarted" value="1" />
+					</bean>
+				</constructor-arg>
+			</bean>
+ 		</property>
+ 		<property name="bossPool" >
+			<bean id="GraphiteDestinationBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+				<constructor-arg>
+					<bean id="GraphiteDestinationBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+						<property name="corePoolSize" value="1" />
+						<property name="maximumPoolSize" value="100" />
+						<property name="coreThreadsStarted" value="1" />
+					</bean>
+				</constructor-arg>
+			</bean>
+ 		</property>
+	</bean>
+
+
+
+</beans>	

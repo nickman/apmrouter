@@ -239,8 +239,8 @@ public class SpringHotDeployer extends ServerComponentBean  {
 					while(keepRunning.get()) {
 						try {
 							watchKey = watcher.take();
-							info("Got watch key for [" + watchKey.watchable() + "]");
-							info("File Event Queue:", processingQueue.size());
+							debug("Got watch key for [" + watchKey.watchable() + "]");
+							debug("File Event Queue:", processingQueue.size());
 					    } catch (InterruptedException ie) {
 					        interrupted();
 					        // check state
@@ -308,7 +308,7 @@ public class SpringHotDeployer extends ServerComponentBean  {
 		while(processingQueue.remove(fe)) {removes++;};
 		fe.addDelay(delay);
 		processingQueue.add(fe);
-		info("Queued File Event for [", fe.getFileName(), "] and dropped [" , removes , "] older versions");
+		debug("Queued File Event for [", fe.getFileName(), "] and dropped [" , removes , "] older versions");
 	}
 	
 	protected static final AtomicLong serial = new AtomicLong(0L);
@@ -325,7 +325,7 @@ public class SpringHotDeployer extends ServerComponentBean  {
 					try {
 						final FileEvent fe = processingQueue.take();						
 						if(fe!=null) {
-							info("Processing File Event [" , fe.getFileName(), "]" );
+							debug("Processing File Event [" , fe.getFileName(), "]" );
 							if(inProcess.contains(fe)) {								
 								enqueueFileEvent(2000, fe);
 							} else {
@@ -385,7 +385,7 @@ public class SpringHotDeployer extends ServerComponentBean  {
 					ApplicationContextEvent appCtxEvent = (ApplicationContextEvent)event;
 					if((appCtxEvent instanceof ContextStoppedEvent) || (appCtxEvent instanceof ContextClosedEvent)) {
 						String name = appCtxEvent.getApplicationContext().getDisplayName();
-						info("Received [", event.getClass().getSimpleName(), "] from child context [", name, "]. Removing inert context");
+						debug("Received [", event.getClass().getSimpleName(), "] from child context [", name, "]. Removing inert context");
 						deployedContexts.remove(name);
 					}
 					
