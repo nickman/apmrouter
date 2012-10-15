@@ -31,6 +31,7 @@ import javax.management.ObjectName;
 import org.helios.apmrouter.APMRouter;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.GenericApplicationContext;
 
 /**
  * <p>Title: ApplicationContextServiceMBean</p>
@@ -60,5 +61,11 @@ public interface ApplicationContextServiceMBean extends ApplicationContext {
 	 * @return a set of strings representing classpath entries
 	 */
 	public Set<String> getClassPath();
+	
+	/**
+	 * Returns the wrapped {@link GenericApplicationContext} instance 
+	 * @return the wrapped {@link GenericApplicationContext} instance
+	 */
+	public GenericApplicationContext getInstance();	
 	
 }

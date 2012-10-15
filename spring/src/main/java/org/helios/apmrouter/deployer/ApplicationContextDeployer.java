@@ -29,6 +29,7 @@ import java.net.URL;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.management.ObjectName;
 
@@ -52,8 +53,19 @@ import org.springframework.core.io.UrlResource;
 public class ApplicationContextDeployer {
 	/** Instance logger */
 	protected final Logger log = Logger.getLogger(getClass());
+	/** Indicates if the default module hot deploy lib directory class loading should be disabled. By default it is enabled */
+	protected final boolean disableHotDirLibs;
 	
 	
+	
+	/**
+	 * Creates a new ApplicationContextDeployer
+	 * @param disableHotDirLibs Indicates if the default module hot deploy lib directory class loading should be disabled
+	 */
+	protected ApplicationContextDeployer(boolean disableHotDirLibs) {
+		this.disableHotDirLibs = disableHotDirLibs;
+	}
+
 	/**
 	 * Hot deploys the application context defined in the passed file
 	 * @param parent The parent context
@@ -86,6 +98,11 @@ public class ApplicationContextDeployer {
 					if(HotDeployerClassLoader.class.getName().equals(beanDef.getBeanClassName())) {
 						appCtx.removeBeanDefinition(beanName);
 					}
+				}
+				// Add any located wars
+				for(String warFileName: cl.getWars()) {
+					File warFile = new File(warFileName);
+					WARDeployer.deploy(appCtx, warFile);
 				}
 				ObjectName on = JMXHelper.objectName(ApplicationContextService.HOT_OBJECT_NAME_PREF + ObjectName.quote(f.getAbsolutePath()));
 				ApplicationContextService.register(on, appCtx);			
@@ -127,7 +144,9 @@ public class ApplicationContextDeployer {
 	 */
 	protected HotDeployerClassLoader findClassLoader(File xmlFile) throws Exception {
 		HotDeployerClassLoader cl = new HotDeployerClassLoader();
-		cl.setClassPathEntries(getHotDeployAutoEntries(xmlFile));
+		Set<String>[] locateds = getHotDeployAutoEntries(xmlFile);
+		cl.setClassPathEntries(locateds[0]);
+		cl.addWars(locateds[1]);
 		GenericXmlApplicationContext appCtx = new GenericXmlApplicationContext();
 		appCtx.load(new UrlResource(xmlFile.toURI().toURL()));
 		for(String beanName: appCtx.getBeanDefinitionNames()) {
@@ -154,12 +173,14 @@ public class ApplicationContextDeployer {
 	
 	
 	/**
-	 * Auto locates libraries for the deploying app context
+	 * Auto locates libraries and wars for the deploying app context
 	 * @param xmlFile The hot xml file
-	 * @return A set of located libs
+	 * @return An array of two sets, one with located libs, the next with wars
 	 */
-	protected Set<String> getHotDeployAutoEntries(File xmlFile) {
+	@SuppressWarnings({ "cast", "unchecked" })
+	protected Set<String>[] getHotDeployAutoEntries(File xmlFile) {
 		Set<String> entries = new HashSet<String>();
+		Set<String> wars = new HashSet<String>();
 		File libDir = new File(xmlFile.getParent(), xmlFile.getName().split("\\.")[0] + ".lib");
 		if(libDir.exists() && libDir.isDirectory()) {
 			log.info("Auto adding libs in application directory [" + libDir + "]");
@@ -167,9 +188,12 @@ public class ApplicationContextDeployer {
 				if(jar.toString().toLowerCase().endsWith(".jar")) {
 					entries.add(jar.toString());
 				}
+				if(jar.toString().toLowerCase().endsWith(".war")) {
+					wars.add(jar.toString());
+				}				
 			}			
 		}
-		return entries;
+		return ((Set<String>[])new Set[]{entries, wars});
 	}
 	
 }

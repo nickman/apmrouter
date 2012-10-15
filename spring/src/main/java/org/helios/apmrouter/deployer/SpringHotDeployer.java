@@ -29,6 +29,7 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 import static java.nio.file.StandardWatchEventKinds.OVERFLOW;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,6 +39,7 @@ import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -59,6 +61,9 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.ContextStoppedEvent;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedOperation;
+import org.springframework.jmx.export.annotation.ManagedOperationParameter;
+import org.springframework.jmx.export.annotation.ManagedOperationParameters;
 
 /**
  * <p>Title: SpringHotDeployer</p>
@@ -87,16 +92,31 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	/** A set of file events that are in process */
 	protected Set<FileEvent> inProcess = new CopyOnWriteArraySet<FileEvent>();
 	/** The application context deployer */
-	protected final ApplicationContextDeployer deployer = new ApplicationContextDeployer();
+	protected ApplicationContextDeployer deployer;
 	/** The regex pattern used to filter in the desired hot deployed files in the hot dirs. Defaults to <b><code>.*.apmrouter.xml</code></b> */
 	protected String pattern = ".*\\.apmrouter.xml";
 	/** The compiled file name filter pattern */
 	protected Pattern fileNamePattern = null;
+	
 	/** Configuration added hot dir names */
 	protected final Set<String> hotDirNames = new HashSet<String>();
+	// =======================================================================================
+	//		These settings control how much automated deployment will be done
+	// =======================================================================================
+	/** Indicates if the default hot deploy directory at <code>${user.home}/.apmrouter/hotdir</code> should be disabled. By default it is enabled */
+	protected boolean disableDefaultHotDir = false;
+	/** Indicates if the default module hot deploy lib directory class loading should be disabled. By default it is enabled */
+	protected boolean disableHotDirLibs = false;
+	/** Indicates if the default module hot deploy app directory loading should be disabled. By default it is enabled */
+	protected boolean disableHotDirApps = false;
+	/** The hot deploy application directory name pattern. This is the name of a hot deployed application directory which, unless disabled by {@link #disableHotDirApps}, when found in the root of 
+	 * a hot directory will be automatically deployed. By default it is <code>XXX.app</code> */
+	protected String hotDeployAppDirectoryExt = ".app";
+	// =======================================================================================
+	
+	
 	/** The application listener on the root context that forwards to the child contexts */
 	protected final ApplicationListener<?> childForwarder = new ApplicationListener() {
-
 		@Override
 		public void onApplicationEvent(ApplicationEvent event) {
 			if(!(event instanceof ApplicationContextEvent)) {
@@ -135,21 +155,10 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	@Override
 	protected void doStart() throws Exception {
 		super.doStart();
-		String[] hds = ConfigurationHelper.getSystemThenEnvProperty(HOT_DIR_PROP, DEFAULT_HOT_DIR).split(",");
-		for(String hd: hds) {
-			if(hd.trim().isEmpty()) continue;
-			hd = hd.trim();
-			Path hdPath = Paths.get(hd);
-			if(!Files.exists(hdPath) || Files.isDirectory(hdPath)) continue;
-			hotDirNames.add(hd);
-		}
-		for(Iterator<String> iter = hotDirNames.iterator(); iter.hasNext();) {
-			File f = new File(iter.next().trim());
-			if(!f.exists() || !f.isDirectory()) {
-				warn("Configured hot dir path was invalid [", f, "]");
-				iter.remove();
-			}			
-		}
+		deployer = new ApplicationContextDeployer(disableHotDirLibs);
+		initDefaultHotDir();
+		initEnvHotDirs();
+		validateInitialHotDirs();
 		if(hotDirNames.isEmpty()) {
 			warn("No hot deploy directories were defined or found. New directories can be added through the JMX interface.");
 		} else {
@@ -159,9 +168,152 @@ public class SpringHotDeployer extends ServerComponentBean  {
 			}
 			b.append("\n");
 			info(b);
-		}
-		
+		}		
 	}
+	
+	/**
+	 * Initializes the default hot dir unless it has been disabled. 
+	 */
+	protected void initDefaultHotDir() {
+		if(!disableDefaultHotDir) {
+			File defaultHotDir = new File(System.getProperty("user.home") + File.separator + ".apmrouter" + File.separator + "hotdir");
+			if(defaultHotDir.exists()) {
+				if(!defaultHotDir.isDirectory()) {
+					warn("\n\t###########################################\n\tProblem: The default hot deploy directory [", defaultHotDir, "] exists but it is a file\n\t###########################################\n");
+				} else {
+					hotDirNames.add(defaultHotDir.getAbsolutePath());
+					scanForApplications(defaultHotDir.toPath(), true);
+				}
+			} else {
+				if(!defaultHotDir.mkdirs()) {
+					warn("\n\t###########################################\n\tProblem: Failed to create hot deploy directory [", defaultHotDir, "]\n\t###########################################\n");
+				} else {
+					hotDirNames.add(defaultHotDir.getAbsolutePath());
+					scanForApplications(defaultHotDir.toPath(), true);
+				}
+			}
+		}
+	}
+	
+	/**
+	 * Validates the initial hot directories, removing any that are invalid
+	 */
+	protected void validateInitialHotDirs() {
+		for(Iterator<String> iter = hotDirNames.iterator(); iter.hasNext();) {
+			File f = new File(iter.next().trim());
+			if(!f.exists() || !f.isDirectory()) {
+				warn("Configured hot dir path was invalid [", f, "]");
+				iter.remove();
+			}			
+		}
+	}
+	
+	/**
+	 * Configures watches for system prop or environment defined hot directories
+	 */
+	protected void initEnvHotDirs() {
+		String[] hds = ConfigurationHelper.getSystemThenEnvProperty(HOT_DIR_PROP, DEFAULT_HOT_DIR).split(",");
+		for(String hd: hds) {
+			if(hd.trim().isEmpty()) continue;
+			hd = hd.trim();
+			Path hdPath = Paths.get(hd);
+			if(!Files.exists(hdPath) || Files.isDirectory(hdPath)) continue;
+			hotDirNames.add(hd);
+			scanForApplications(hdPath, true);
+		}
+	}
+	
+	/**
+	 * Scans the passed path for application directories and adds them to the watched set, unless apps have been disabled
+	 * @param hotDir The path to scan
+	 * @param add If true, the located application directories will be added, if false, just returns the names, taking no further action 
+	 * @return A set of the application directory names that were added
+	 */
+	protected Set<String> scanForApplications(Path hotDir, boolean add) {
+		Set<String> added = new HashSet<String>();
+		if(!disableHotDirApps && add) {			
+			for(File f: hotDir.toFile().listFiles()) {
+				if(f.isDirectory() && f.getName().toLowerCase().endsWith(hotDeployAppDirectoryExt)) {
+					hotDirNames.add(f.getAbsolutePath());
+					added.add(f.getAbsolutePath());
+				}
+			}
+		}
+		return added;
+	}
+	
+	/**
+	 * Adds a hot deploy directory
+	 * @param dirName the name of the hot deploy directory to add
+	 * @return a string message summarizing the results of the operation
+	 */
+	@ManagedOperation(description="Adds a hot deploy directory")
+	@ManagedOperationParameters({
+		@ManagedOperationParameter(name="dirName", description="The name of the hot deploy directory to add")
+	})
+	public String addHotDir(String dirName) {
+		if(dirName==null || dirName.trim().isEmpty()) {
+			return "Null or empty directory name";
+		}		
+		File f = new File(dirName.trim());
+		StringBuilder b = new StringBuilder("Adding hot directory [").append(dirName).append("]");
+		if(f.exists() && f.isDirectory()) {
+			hotDirNames.add(f.getAbsolutePath());
+			b.append("\n\tAdded [").append(f.getAbsolutePath()).append("]");
+			Set<String> apps = scanForApplications(f.toPath(), true);			
+			if(!apps.isEmpty()) {
+				for(String appDir: apps) {
+					b.append("\n\tAdded [").append(appDir).append("]");
+				}
+			}
+		} else {
+			b.append("\n\tDirectory did not exist");
+		}
+		b.append("\n");
+		try { updateWatchers(); } catch (IOException ioe) {
+			error("Failure during updateWatchers", ioe);
+		}
+		return b.toString();
+	}
+	
+	/**
+	 * Removes a hot deploy directory
+	 * @param dirName the name of the hot deploy directory to remove
+	 * @return a string message summarizing the results of the operation
+	 */
+	@ManagedOperation(description="Removes a hot deploy directory")
+	@ManagedOperationParameters({
+		@ManagedOperationParameter(name="dirName", description="The name of the hot deploy directory to remove")
+	})
+	public String removeHotDir(String dirName) {
+		if(dirName==null || dirName.trim().isEmpty()) {
+			return "Null or empty directory name";
+		}		
+		File f = new File(dirName.trim());
+		StringBuilder b = new StringBuilder("Removing hot directory [").append(dirName).append("]");
+		WatchKey watchKey = null;
+		if(f.exists() && f.isDirectory()) {
+			hotDirNames.remove(f.getAbsolutePath());
+			watchKey = hotDirs.remove(f.toPath());
+			if(watchKey!=null) watchKey.cancel();
+			b.append("\n\tRemoved [").append(f.getAbsolutePath()).append("]");
+			Set<String> apps = scanForApplications(f.toPath(), false);			
+			if(!apps.isEmpty()) {
+				for(String appDir: apps) {
+					f = new File(appDir);
+					hotDirNames.remove(appDir);
+					watchKey = hotDirs.remove(f.toPath());
+					if(watchKey!=null) watchKey.cancel();					
+					b.append("\n\tRemoved [").append(appDir).append("]");
+				}
+			}
+		} else {
+			b.append("\n\tDirectory did not exist");
+		}
+		b.append("\n");
+		return b.toString();
+	}
+	
 	
 	/**
 	 * {@inheritDoc}
@@ -219,6 +371,30 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	}
 	
 	/**
+	 * Scans the hot diretory names and registers a watcher for any unwatched names,
+	 * then removes any registered watchers that are no longer in the hot diretory names set 
+	 * @throws IOException thrown on IO exceptions related to paths
+	 */
+	protected synchronized void updateWatchers() throws IOException {
+		Map<Path, WatchKey> hotDirSnapshot = new HashMap<Path, WatchKey>(hotDirs);
+		for(String fn: hotDirNames) {
+			Path path = Paths.get(fn);
+			if(hotDirs.containsKey(path)) {
+				hotDirSnapshot.remove(path);
+			} else {
+				WatchKey watchKey = path.register(watcher, ENTRY_DELETE, ENTRY_MODIFY);
+				hotDirs.put(path, watchKey);
+				info("Added watched deployer directory [", path, "]");
+			}
+		}
+		for(Map.Entry<Path, WatchKey> remove: hotDirSnapshot.entrySet()) {
+			remove.getValue().cancel();
+			info("Cancelled watch on deployer directory [", remove.getKey(), "]");
+		}
+		hotDirSnapshot.clear();
+	}
+	
+	/**
 	 * Starts the file change listener
 	 */
 	public void startFileEventListener() {
@@ -226,12 +402,11 @@ public class SpringHotDeployer extends ServerComponentBean  {
 		startProcessingThread();
 		try {
 			watcher = FileSystems.getDefault().newWatchService();
-			for(String fn: hotDirNames) {
-				Path path = Paths.get(fn);
-				WatchKey watchKey = path.register(watcher, ENTRY_DELETE, ENTRY_MODIFY);
-				hotDirs.put(path, watchKey);
-			}
 			scanHotDirsAtStart();
+			updateWatchers();
+			
+			
+			
 			watchThread = new Thread("SpringHotDeployerWatchThread"){
 				WatchKey watchKey = null;
 				public void run() {
@@ -253,6 +428,10 @@ public class SpringHotDeployer extends ServerComponentBean  {
 									warn("OVERFLOW OCCURED");
 									if(!watchKey.reset()) {
 										info("Hot Dir for watch key [", watchKey, "] is no longer valid");
+										watchKey.cancel();
+										Path dir = (Path)watchKey.watchable();
+										hotDirNames.remove(dir.toFile().getAbsolutePath());
+										hotDirs.remove(dir);
 									}
 						            continue;
 								}								
@@ -262,6 +441,8 @@ public class SpringHotDeployer extends ServerComponentBean  {
 							    Path fileName = Paths.get(dir.toString(), ev.context().toString());
 							    if(fileNamePattern.matcher(fileName.toFile().getAbsolutePath()).matches()) {
 							    	enqueueFileEvent(500, new FileEvent(fileName.toFile().getAbsolutePath(), ev.kind()));							    	
+							    } else if(fileName.toFile().isDirectory() && fileName.toFile().getName().endsWith(hotDeployAppDirectoryExt)) {
+							    	addHotDir(fileName.toFile().getAbsolutePath());
 							    }
 							}
 						}
@@ -288,8 +469,9 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	 * Since there's no file change events, we need to go and look for them.
 	 */
 	protected void scanHotDirsAtStart() {
-		for(Path hotDirPath: hotDirs.keySet()) {
-			for(File f: hotDirPath.toFile().listFiles()) {
+		for(String hotDirPathName: hotDirNames) {
+			File hotDirPath = new File(hotDirPathName);
+			for(File f: hotDirPath.listFiles()) {
 				if(f.isDirectory() || !f.canRead()) continue;
 				if(fileNamePattern.matcher(f.getName()).matches()) {
 					enqueueFileEvent(500, new FileEvent(f.getAbsolutePath(),  ENTRY_MODIFY));
@@ -432,6 +614,79 @@ public class SpringHotDeployer extends ServerComponentBean  {
 		if(hotDirNames!=null) {
 			this.hotDirNames.addAll(hotDirNames);
 		}
+	}
+
+	/**
+	 * Returns the disabled state of the default hot directory in <code>${user.home}/.apmrouter/hotdir</code>
+	 * @return true if disabled, false if enabled
+	 */
+	@ManagedAttribute(description="The disabled state of the default hot directory")
+	public boolean isDisableDefaultHotDir() {
+		return disableDefaultHotDir;
+	}
+
+	/**
+	 * Sets the disabled state of the default hot directory in <code>${user.home}/.apmrouter/hotdir</code>
+	 * @param disableDefaultHotDir true to disable, false to enable
+	 */
+	@ManagedAttribute(description="The disabled state of the default hot directory")
+	public void setDisableDefaultHotDir(boolean disableDefaultHotDir) {
+		this.disableDefaultHotDir = disableDefaultHotDir;
+	}
+
+	/**
+	 * Returns the disabled state of the hot deployer's automatic jar library classpath extender 
+	 * @return true if disabled, false if enabled
+	 */
+	@ManagedAttribute(description="The disabled state of the hot deployer's automatic jar library classpath extender")
+	public boolean isDisableHotDirLibs() {
+		return disableHotDirLibs;
+	}
+
+	/**
+	 * Sets the disabled state of the hot deployer's automatic jar library classpath extender 
+	 * for <code>.lib</code> sub directories in hot directories or hot application directories
+	 * @param disableHotDirLibs true to disable, false to enable
+	 */
+	@ManagedAttribute(description="The disabled state of the hot deployer's automatic jar library classpath extender")
+	public void setDisableHotDirLibs(boolean disableHotDirLibs) {
+		this.disableHotDirLibs = disableHotDirLibs;
+	}
+
+	/**
+	 * Returns the disabled state of the hot deployer's automatic application deployer
+	 * @return true if disabled, false if enabled
+	 */
+	@ManagedAttribute(description="The disabled state of the hot deployer's automatic hot directory application subdirectories")
+	public boolean isDisableHotDirApps() {
+		return disableHotDirApps;
+	}
+
+	/**
+	 * Sets the disabled state of the hot deployer's automatic application deployer 
+	 * @param disableHotDirApps true to disable, false to enable
+	 */
+	@ManagedAttribute(description="The disabled state of the hot deployer's automatic hot directory application subdirectories")
+	public void setDisableHotDirApps(boolean disableHotDirApps) {
+		this.disableHotDirApps = disableHotDirApps;
+	}
+
+	/**
+	 * Returns the extension of hot deployed application directories.
+	 * @return the extension of hot deployed application directories.
+	 */
+	@ManagedAttribute(description="The hot directory application subdirectory extension")
+	public String getHotDeployAppDirectoryExt() {
+		return hotDeployAppDirectoryExt;
+	}
+
+	/**
+	 * Sets the extension of hot deployed application directories.
+	 * @param hotDeployAppDirectoryExt the extension of hot deployed application directories
+	 */
+	@ManagedAttribute(description="The hot directory application subdirectory extension")
+	public void setHotDeployAppDirectoryExt(String hotDeployAppDirectoryExt) {
+		this.hotDeployAppDirectoryExt = hotDeployAppDirectoryExt;
 	}
 	
 	

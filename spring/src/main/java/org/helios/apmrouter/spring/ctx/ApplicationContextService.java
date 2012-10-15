@@ -146,6 +146,14 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 	
 	/**
+	 * Returns the wrapped {@link GenericApplicationContext} instance 
+	 * @return the wrapped {@link GenericApplicationContext} instance
+	 */
+	public GenericApplicationContext getInstance() {
+		return this.delegate;
+	}
+	
+	/**
 	 * Lists any entries in the classpath of this application context 
 	 * @return a set of strings representing classpath entries
 	 */

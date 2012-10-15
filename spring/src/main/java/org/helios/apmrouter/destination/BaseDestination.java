@@ -30,8 +30,11 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
+import javax.management.ObjectName;
+
 import org.helios.apmrouter.destination.event.DestinationStartedEvent;
 import org.helios.apmrouter.destination.event.DestinationStoppedEvent;
+import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.router.PatternMatch;
 import org.helios.apmrouter.router.PatternMatch.PatternMatchGroup;
@@ -85,6 +88,7 @@ public class BaseDestination extends ServerComponentBean implements RouteDestina
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
 	 */
+	@Override
 	protected void doStart() throws Exception {
 		applicationContext.publishEvent(new DestinationStartedEvent(this, beanName));
 		super.doStart();
@@ -94,10 +98,23 @@ public class BaseDestination extends ServerComponentBean implements RouteDestina
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.ServerComponentBean#doStop()
 	 */
+	@Override
 	protected void doStop() {
 		applicationContext.publishEvent(new DestinationStoppedEvent(this, beanName));
 		super.doStop();
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#getObjectName()
+	 */
+	@Override
+	public ObjectName getObjectName() {
+		StringBuilder b = new StringBuilder(BaseDestination.class.getPackage().getName());		
+		objectName = JMXHelper.objectName(b.append(":service=").append(getClass().getSimpleName()).append(",name=").append(beanName));
+		return objectName;		
+	}
+	
 	
 	/**
 	 * Adds the passed patterns as destinaion route matches

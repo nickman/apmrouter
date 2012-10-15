@@ -10,7 +10,8 @@
 		<module>apmrouter-agent</module>		
 		<module>spring</module>
 		<module>jagent</module>
-		<module>sqltsdb</module>
+		<module>apmrouter-web</module>
+		<module>apmrouter-cl</module>
 	</modules>
 	<properties>
 		<chronicle.version>1.2-SNAPSHOT</chronicle.version>
@@ -35,7 +36,8 @@
 		<commons.dbcp.version>1.4</commons.dbcp.version>
 		<spring.version>3.0.7.RELEASE</spring.version>
 		<ning.version>1.7.6</ning.version>
-		
+		<jetty.version>8.1.7.v20120910</jetty.version>
+		<servlet.version>3.0.1</servlet.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -179,6 +181,20 @@
 			     <version>${ning.version}</version>
 			 </dependency>
 			
+			 <!-- Jetty Web Server -->
+		      <dependency>
+			<groupId>org.eclipse.jetty.aggregate</groupId>
+			<artifactId>jetty-all-server</artifactId>
+			<version>${jetty.version}</version>
+		      </dependency>
+		      <dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>javax.servlet-api</artifactId>
+			<version>${servlet.version}</version>
+		      </dependency>
+
+			 
+			 
 		      <!-- for time series -->
 		    <dependency>
 		      <groupId>com.h2database</groupId>

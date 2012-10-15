@@ -245,6 +245,14 @@ public class PatternMatch {
 		return true;
 	}
 
+	/**
+	 * Returns the pattern string for this pattern match
+	 * @return the patternValue
+	 */
+	public String getPatternValue() {
+		return patternValue;
+	}
+
 
 
 

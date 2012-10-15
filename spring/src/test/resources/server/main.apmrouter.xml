@@ -28,8 +28,13 @@
 	<bean id="HotDeployer" class="org.helios.apmrouter.deployer.SpringHotDeployer">
 		<property name="hotDirNames">
 			<set>
+				<!-- 
 				<value>C:/Users/nwhitehe/.apmrouter/hotdir/jolokia</value>
 				<value>C:/Users/nwhitehe/.apmrouter/hotdir/destinations</value>
+				
+				<value>/home/nwhitehead/.apmrouter/hotdir/jolokia</value>
+				<value>/home/nwhitehead/.apmrouter/hotdir/nash</value>
+				-->
 			</set>
 		</property>
 	</bean>

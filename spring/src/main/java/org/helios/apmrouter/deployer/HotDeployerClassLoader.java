@@ -27,6 +27,8 @@ package org.helios.apmrouter.deployer;
 import java.io.File;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -45,7 +47,8 @@ public class HotDeployerClassLoader extends URLClassLoader  {
 	protected final Set<String> classPathEntries = new HashSet<String>();
 	/** If true, all classpath entries are validated */
 	protected boolean validateEntries = true;
-	
+	/** Located war files that will be deployed */
+	protected final Set<String> warFiles = new HashSet<String>();
 	/**
 	 * Creates a new HotDeployerClassLoader
 	 */
@@ -130,6 +133,24 @@ public class HotDeployerClassLoader extends URLClassLoader  {
 		if(entries!=null) {
 			classPathEntries.addAll(entries);
 		}
+	}
+	
+	/**
+	 * Adds a war file to the set of located war files
+	 * @param warFiles A set of located war file names
+	 */
+	public void addWars(Collection<String> warFiles) {
+		if(warFiles!=null) {
+			this.warFiles.addAll(warFiles);
+		}
+	}
+	
+	/**
+	 * Returns the set of located war files
+	 * @return the set of located war files
+	 */
+	public Collection<String> getWars() {
+		return Collections.unmodifiableSet(warFiles);
 	}
 
 }
