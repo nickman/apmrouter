@@ -51,6 +51,7 @@ public class DefaultChannelHandler extends SimpleChannelUpstreamHandler {
 	/** The name of this handler in the pipeline */
 	public static final String NAME = "router";
 
+	/** A map of pipeline modifiers keyed by the URI that they are attached to */
 	protected final Map<String, PipelineModifier> modifierMap;
 	/**
 	 * Creates a new DefaultChannelHandler
@@ -60,6 +61,11 @@ public class DefaultChannelHandler extends SimpleChannelUpstreamHandler {
 		this.modifierMap = modifierMap;		
 	}
 	
+    /**
+     * {@inheritDoc}
+     * @see org.jboss.netty.channel.SimpleChannelUpstreamHandler#messageReceived(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.MessageEvent)
+     */
+	@Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) {   
     	Object message = e.getMessage();
     	if(message instanceof HttpRequest) { 

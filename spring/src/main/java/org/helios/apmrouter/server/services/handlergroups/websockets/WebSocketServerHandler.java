@@ -31,7 +31,7 @@ import static org.jboss.netty.handler.codec.http.HttpResponseStatus.FORBIDDEN;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 import org.apache.log4j.Logger;
-import org.helios.apmrouter.server.services.SharedChannelGroup;
+import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelDownstreamHandler;

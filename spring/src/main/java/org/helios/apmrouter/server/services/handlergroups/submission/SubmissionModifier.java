@@ -63,8 +63,9 @@ public class SubmissionModifier implements PipelineModifier {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.netty.ajax.PipelineModifier#getChannelHandler()
+	 * @see org.helios.apmrouter.server.services.PipelineModifier#getChannelHandler()
 	 */
+	@Override
 	public ChannelHandler getChannelHandler() {
 		return handler;
 	}

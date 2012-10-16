@@ -22,11 +22,16 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.server.services;
+package org.helios.apmrouter.server.services.session;
 
 import java.net.SocketAddress;
 import java.util.Collection;
+import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.apache.log4j.Logger;
 import org.jboss.netty.channel.Channel;
@@ -38,10 +43,10 @@ import org.jboss.netty.channel.group.DefaultChannelGroup;
 
 /**
  * <p>Title: SharedChannelGroup</p>
- * <p>Description: A netty channel group that supports decorated channels.</p> 
+ * <p>Description: A common netty channel group for tracking all client and server channels that supports decorated channels.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.server.services.SharedChannelGroup</code></p>
+ * <p><code>org.helios.apmrouter.server.services.session.SharedChannelGroup</code></p>
  */
 public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	/** The singleton instance */
@@ -50,11 +55,13 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	private static final Object lock = new Object();
 	/** Instance logger */
 	protected final Logger log = Logger.getLogger(getClass());
-
 	
-	/** The core channel group */
-	private ChannelGroup channelGroup = new DefaultChannelGroup("Netty Ajax Server Channel Group");
-	
+	/** A map of sets of channels keyed by their channel type */
+	protected final Map<ChannelType, Set<DecoratedChannel>> channelsByType = new EnumMap<ChannelType, Set<DecoratedChannel>>(ChannelType.class);
+	/** The core delegate channel group */
+	protected ChannelGroup channelGroup = new DefaultChannelGroup("APMRouterChannelGroup");
+	/** A set of registered channel session listeners */
+	protected final Set<ChannelSessionListener> listeners = new CopyOnWriteArraySet<ChannelSessionListener>();
 	/**
 	 * Retrieves the SharedChannelGroup singleton instance
 	 * @return the SharedChannelGroup singleton instance
@@ -70,9 +77,35 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 		return instance;
 	}
 	
+	/**
+	 * Creates a new SharedChannelGroup
+	 */
 	private SharedChannelGroup() {
-		
+		for(ChannelType type: ChannelType.values()) {
+			channelsByType.put(type, new CopyOnWriteArraySet<DecoratedChannel>());
+		}
 	}
+	
+	/**
+	 * Registers a new session listener
+	 * @param listener the listener to register
+	 */
+	public void addSessionListener(ChannelSessionListener listener) {
+		if(listener!=null) {
+			listeners.add(listener);
+		}
+	}
+	
+	/**
+	 * Removes a registered session listener
+	 * @param listener the listener to remove
+	 */
+	public void removeSessionListener(ChannelSessionListener listener) {
+		if(listener!=null) {
+			listeners.remove(listener);
+		}
+	}
+	
 	
 	/**
 	 * ChannelFutureListener impl that removes Channels from the group when they close.
@@ -86,17 +119,39 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 		}
 	}
 	
+	/**
+	 * Converts the passed channel to a {@link DecoratedChannel} and adds it to the channel group 
+	 * @param channel The channel to add
+	 * @param type The channel type
+	 * @param name The assigned channel name
+	 * @return true if the channel was not already registered in this channel group, false otherwise
+	 */
+	public boolean add(Channel channel, ChannelType type, String name) {
+		return add((channel instanceof DecoratedChannel) ? channel : new DecoratedChannel(channel, type, name));
+	}
 	
 	/**
-	 * Adds a channel to this group 
-	 * @param channel The channel to add
-	 * @return true if the channel was not already in the group
+	 * {@inheritDoc}
 	 * @see java.util.Set#add(java.lang.Object)
 	 */
 	@Override
-	public boolean add(Channel channel) {				
-		boolean isNew =  channelGroup.add(channel);
+	public boolean add(Channel channel) {
+		final DecoratedChannel dchannel;
+		if(channel instanceof DecoratedChannel) {
+			dchannel = (DecoratedChannel)channel;
+		} else {
+			dchannel = new DecoratedChannel(channel, ChannelType.OTHER, channel.getClass().getSimpleName());
+		}
+		boolean isNew =  channelGroup.add(dchannel);
 		if(isNew) {
+			channelsByType.get(dchannel.getChannelType()).add(dchannel);
+			dchannel.getCloseFuture().addListener(new ChannelFutureListener() {
+				@Override
+				public void operationComplete(ChannelFuture future) throws Exception {
+					remove(dchannel);
+				}
+			});
+			registerWithListeners(dchannel);
 			log.info("Adding Channel From [" + channel.getPipeline().getLast().getClass().getSimpleName() + "/\t" + channel.getId() + "]");
 		} else {
 			log.info("Channel From [" + channel.getPipeline().getLast().getClass().getSimpleName() + "/\t" + channel.getId() + "] already registered");
@@ -105,12 +160,44 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 	
 	/**
+	 * @param dchannel
+	 * FIXME: MUTLITHREAD, EVENTS, NOTIFS, SEND NEW CHANNEL
+	 */
+	private void registerWithListeners(final DecoratedChannel dchannel) {
+		if(listeners.isEmpty()) return;
+		final Set<ChannelSessionListener> forwardTo = new HashSet<ChannelSessionListener>();
+		ChannelFutureListener relay = new ChannelFutureListener() {			
+			@Override
+			public void operationComplete(ChannelFuture future) throws Exception {
+				for(ChannelSessionListener listener: forwardTo) {
+					listener.onClosedChannel(dchannel);
+				}				
+			}
+		};
+		for(ChannelSessionListener listener: listeners) {
+			if(listener instanceof FilteredChannelSessionListener) {
+				if(((FilteredChannelSessionListener)listener).include(dchannel)) {
+					forwardTo.add(listener);
+				}
+			} else {
+				forwardTo.add(listener);
+			}
+		}
+		dchannel.getCloseFuture().addListener(relay);		
+	}
+
+	/**
 	 * Removes a channel from the ChannelGroup
-	 * @param channnel The channel to remove
+	 * @param channel The channel to remove
 	 * @return true if the channel was present and was removed
 	 * @see java.util.Set#remove(java.lang.Object)
 	 */
 	public boolean remove(Channel channel) {
+		if(channel instanceof DecoratedChannel) {
+			DecoratedChannel dchannel = (DecoratedChannel)channel;
+			channelsByType.get(dchannel.getChannelType());
+			return channelGroup.remove(dchannel);
+		}
 		return channelGroup.remove(channel);
 	}	
 	
@@ -126,8 +213,9 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 		} 
 		return false;
 	}
+	
 	/**
-	 * @return
+	 * {@inheritDoc}
 	 * @see java.util.Set#size()
 	 */
 	@Override
@@ -136,7 +224,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @return
+	 * {@inheritDoc}
 	 * @see java.util.Set#isEmpty()
 	 */
 	@Override
@@ -145,8 +233,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @param o
-	 * @return
+	 * {@inheritDoc}
 	 * @see java.util.Set#contains(java.lang.Object)
 	 */
 	@Override
@@ -155,8 +242,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @param o
-	 * @return
+	 * {@inheritDoc}
 	 * @see java.lang.Comparable#compareTo(java.lang.Object)
 	 */
 	@Override
@@ -165,7 +251,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @return
+	 * {@inheritDoc}
 	 * @see org.jboss.netty.channel.group.ChannelGroup#getName()
 	 */
 	@Override
@@ -174,8 +260,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @param id
-	 * @return
+	 * {@inheritDoc}
 	 * @see org.jboss.netty.channel.group.ChannelGroup#find(java.lang.Integer)
 	 */
 	@Override
@@ -184,7 +269,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @return
+	 * {@inheritDoc}
 	 * @see java.util.Set#iterator()
 	 */
 	@Override
@@ -193,8 +278,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @param interestOps
-	 * @return
+	 * {@inheritDoc}
 	 * @see org.jboss.netty.channel.group.ChannelGroup#setInterestOps(int)
 	 */
 	@Override
@@ -203,7 +287,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @return
+	 * {@inheritDoc}
 	 * @see java.util.Set#toArray()
 	 */
 	@Override
@@ -212,8 +296,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @param readable
-	 * @return
+	 * {@inheritDoc}
 	 * @see org.jboss.netty.channel.group.ChannelGroup#setReadable(boolean)
 	 */
 	@Override
@@ -222,8 +305,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @param message
-	 * @return
+	 * {@inheritDoc}
 	 * @see org.jboss.netty.channel.group.ChannelGroup#write(java.lang.Object)
 	 */
 	@Override
@@ -232,8 +314,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @param a
-	 * @return
+	 * {@inheritDoc}
 	 * @see java.util.Set#toArray(T[])
 	 */
 	@Override
@@ -242,9 +323,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @param message
-	 * @param remoteAddress
-	 * @return
+	 * {@inheritDoc}
 	 * @see org.jboss.netty.channel.group.ChannelGroup#write(java.lang.Object, java.net.SocketAddress)
 	 */
 	@Override
@@ -253,7 +332,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @return
+	 * {@inheritDoc}
 	 * @see org.jboss.netty.channel.group.ChannelGroup#disconnect()
 	 */
 	@Override
@@ -262,7 +341,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @return
+	 * {@inheritDoc}
 	 * @see org.jboss.netty.channel.group.ChannelGroup#unbind()
 	 */
 	@Override
@@ -271,7 +350,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @return
+	 * {@inheritDoc}
 	 * @see org.jboss.netty.channel.group.ChannelGroup#close()
 	 */
 	@Override
@@ -279,12 +358,8 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 		return channelGroup.close();
 	}
 
-
-
-
 	/**
-	 * @param c
-	 * @return
+	 * {@inheritDoc}
 	 * @see java.util.Set#containsAll(java.util.Collection)
 	 */
 	@Override
@@ -293,48 +368,76 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @param c
-	 * @return
+	 * {@inheritDoc}
 	 * @see java.util.Set#addAll(java.util.Collection)
 	 */
 	@Override
 	public boolean addAll(Collection<? extends Channel> c) {
-		return channelGroup.addAll(c);
+		boolean changed = false;
+		for(Channel channel: c) {
+			boolean ch = add(channel);
+			if(ch) changed = true;
+		}
+		return changed;
 	}
 
 	/**
-	 * @param c
-	 * @return
+	 * {@inheritDoc}
 	 * @see java.util.Set#retainAll(java.util.Collection)
 	 */
 	@Override
 	public boolean retainAll(Collection<?> c) {
-		return channelGroup.retainAll(c);
+		boolean changed = false;
+		Set<Channel> remove = new HashSet<Channel>();
+		for(Iterator<Channel> iter = iterator(); iter.hasNext();) {
+			Channel channel = iter.next();
+			if(!c.contains(channel)) {
+				remove.add(channel);
+			}
+		}
+		for(Channel channel: remove) {
+			boolean ch = remove(channel);
+			if(ch) changed = true;
+		}		
+		return changed;
 	}
 
 	/**
-	 * @param c
-	 * @return
+	 * {@inheritDoc}
 	 * @see java.util.Set#removeAll(java.util.Collection)
 	 */
 	@Override
 	public boolean removeAll(Collection<?> c) {
-		return channelGroup.removeAll(c);
+		boolean changed = false;
+		Set<Channel> remove = new HashSet<Channel>();
+		for(Iterator<Channel> iter = iterator(); iter.hasNext();) {
+			Channel channel = iter.next();
+			if(c.contains(channel)) {
+				remove.add(channel);
+			}
+		}
+		for(Channel channel: remove) {
+			boolean ch = remove(channel);
+			if(ch) changed = true;
+		}		
+		return changed;
 	}
 
 	/**
-	 * 
+	 * {@inheritDoc}
 	 * @see java.util.Set#clear()
 	 */
 	@Override
 	public void clear() {
+		for(Set<DecoratedChannel> set : channelsByType.values()) {
+			set.clear();
+		}
 		channelGroup.clear();
 	}
 
 	/**
-	 * @param o
-	 * @return
-	 * @see java.util.Set#equals(java.lang.Object)
+	 * {@inheritDoc}
+	 * @see java.lang.Object#equals(java.lang.Object)
 	 */
 	@Override
 	public boolean equals(Object o) {
@@ -342,8 +445,8 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 
 	/**
-	 * @return
-	 * @see java.util.Set#hashCode()
+	 * {@inheritDoc}
+	 * @see java.lang.Object#hashCode()
 	 */
 	@Override
 	public int hashCode() {
