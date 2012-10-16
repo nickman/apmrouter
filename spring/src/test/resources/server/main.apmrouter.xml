@@ -23,7 +23,7 @@
 	
 	
 	<context:annotation-config/>
-	<context:mbean-export registration="replaceExisting" />
+	<context:mbean-export registration="ignoreExisting" />
 
 	<bean id="HotDeployer" class="org.helios.apmrouter.deployer.SpringHotDeployer">
 		<property name="hotDirNames">
@@ -38,6 +38,8 @@
 			</set>
 		</property>
 	</bean>
+	
+	<bean id="ChannelSessions" class="org.helios.apmrouter.server.services.session.SharedChannelGroup" factory-method="getInstance" />
 	
 	<bean id="SpringEventPool" class="org.helios.apmrouter.util.thread.ManagedThreadPool">
 		<qualifier value="SpringEvent"/>

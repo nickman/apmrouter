@@ -36,39 +36,44 @@ public class TracingDemo {
 		MetricType.setCompress(true);
 		ISender sender = SenderFactory.getInstance().getDefaultSender();
 		log("Basic Tracing Test: [" +  tracer.getHost() + "/" + tracer.getAgent() + "]");
-		DefaultMonitorBoot.boot();
-		for(int i = 0; i < LOOPS; i++) {
-			if(i>0 && i%10==0) {
-				//TXContext.rollContext();
-			}
-			SystemClock.startTimer();
-			//boolean success = sender.ping(2000);
-			ElapsedTime et = SystemClock.endTimer();
-			tracer.trace(System.currentTimeMillis(), "Foo", MetricType.LONG_COUNTER, "Bar");
-			//log("Ping [" + success + "]--  " + et );
-			//tracer.traceLong(i, "TXTest", "Foo", "Bar");
-//			for(GarbageCollectorMXBean gc: ManagementFactory.getGarbageCollectorMXBeans()) {
-//				tracer.traceDelta(gc.getCollectionCount(), "CollectionCount", "JVM", "Memory", "GC", gc.getName());
-//				tracer.traceDelta(gc.getCollectionTime(), "CollectionTime", "JVM", "Memory", "GC", gc.getName());
-//			}
-//			traceCpuUsages(tracer, sigar);
-//			traceTotalCpuUsage(tracer, sigar);
-//			traceDiskUsage(tracer, sigar);
-			//traceMemorySpacesSNMP(tracer, sigar);
-//			try {
-//				traceLogger.info("Hello World [" + i + "]");
-//				traceLogger.info("Hello Pluto [" + i + "]", new Throwable());
-//			} catch (Exception e) {}
+		traceTotalCpuUsage(tracer, sigar);
+		while(true) {
 			
-			if(i%100==0) {
-				long ns = sender.getAveragePingTime();
-				long ms = TimeUnit.MILLISECONDS.convert(ns, TimeUnit.NANOSECONDS);
-//				log("Ping Time:" + ns + " ns.  " + ms + "  ms.");
-			}
-			TXContext.clearContext();
-			SystemClock.sleep(SLEEP);
+			SystemClock.sleep(10000);
 		}
-		SystemClock.sleep(5000);
+		//DefaultMonitorBoot.boot();
+//		for(int i = 0; i < LOOPS; i++) {
+//			if(i>0 && i%10==0) {
+//				//TXContext.rollContext();
+//			}
+//			SystemClock.startTimer();
+//			//boolean success = sender.ping(2000);
+//			ElapsedTime et = SystemClock.endTimer();
+//			tracer.trace(System.currentTimeMillis(), "Foo", MetricType.LONG_COUNTER, "Bar");
+//			//log("Ping [" + success + "]--  " + et );
+//			//tracer.traceLong(i, "TXTest", "Foo", "Bar");
+////			for(GarbageCollectorMXBean gc: ManagementFactory.getGarbageCollectorMXBeans()) {
+////				tracer.traceDelta(gc.getCollectionCount(), "CollectionCount", "JVM", "Memory", "GC", gc.getName());
+////				tracer.traceDelta(gc.getCollectionTime(), "CollectionTime", "JVM", "Memory", "GC", gc.getName());
+////			}
+////			traceCpuUsages(tracer, sigar);
+////			traceTotalCpuUsage(tracer, sigar);
+////			traceDiskUsage(tracer, sigar);
+//			//traceMemorySpacesSNMP(tracer, sigar);
+////			try {
+////				traceLogger.info("Hello World [" + i + "]");
+////				traceLogger.info("Hello Pluto [" + i + "]", new Throwable());
+////			} catch (Exception e) {}
+//			
+//			if(i%100==0) {
+//				long ns = sender.getAveragePingTime();
+//				long ms = TimeUnit.MILLISECONDS.convert(ns, TimeUnit.NANOSECONDS);
+////				log("Ping Time:" + ns + " ns.  " + ms + "  ms.");
+//			}
+//			TXContext.clearContext();
+//			SystemClock.sleep(SLEEP);
+//		}
+//		SystemClock.sleep(Long.MAX_VALUE);
 	}
 	
 	public static void traceCpuUsages(ITracer tracer, APMSigar sigar) {

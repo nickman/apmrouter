@@ -58,6 +58,7 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ApplicationContextEvent;
 import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.context.event.ContextStartedEvent;
 import org.springframework.context.event.ContextStoppedEvent;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
@@ -362,12 +363,26 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	 */
 	@Override
 	public void onApplicationEvent(ApplicationEvent event) {
-		ContextRefreshedEvent cse = (ContextRefreshedEvent)event;
-		if(applicationContext==cse.getApplicationContext()) {
-			info("Root AppCtx Started [", new Date(cse.getTimestamp()), "]:[", cse.getApplicationContext().getDisplayName(), "]");
-			keepRunning.set(true);
-			startFileEventListener();
-		}
+//		ContextRefreshedEvent cse = (ContextRefreshedEvent)event;
+//		if(applicationContext==cse.getApplicationContext()) {
+//			info("Root AppCtx Started [", new Date(cse.getTimestamp()), "]:[", cse.getApplicationContext().getDisplayName(), "]");
+//			keepRunning.set(true);
+//			startFileEventListener();
+//		}
+	}
+	
+	/**
+	 * @param ctx
+	 */
+	/**
+	 * Callback when the current app context refreshes
+	 * @param cse The context refreshed event
+	 */
+	public void onApplicationContextRefresh(ContextRefreshedEvent cse) {
+		info("Root AppCtx Started [", new Date(cse.getTimestamp()), "]:[", cse.getApplicationContext().getDisplayName(), "]");
+		keepRunning.set(true);
+		startFileEventListener();
+		
 	}
 	
 	/**
@@ -457,8 +472,7 @@ public class SpringHotDeployer extends ServerComponentBean  {
 			watchThread.setDaemon(true);
 			keepRunning.set(true);
 			watchThread.start();
-			info("HotDeploy watcher started on [" + hotDirs.keySet() + "]");
-			try { Thread.currentThread().join(); } catch (Exception e) {}
+			info("HotDeploy watcher started on [" + hotDirs.keySet() + "]");			
 		} catch (Exception ex) {
 			error("Failed to start hot deployer", ex);
 		}

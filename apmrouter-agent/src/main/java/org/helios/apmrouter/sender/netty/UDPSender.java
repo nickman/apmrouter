@@ -26,22 +26,15 @@ package org.helios.apmrouter.sender.netty;
 
 import static org.helios.apmrouter.util.Methods.nvl;
 
-import java.net.Inet4Address;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.URI;
-import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
-import java.util.Collection;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeoutException;
 
-import org.apache.log4j.BasicConfigurator;
 import org.helios.apmrouter.OpCode;
-import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.sender.AbstractSender;
-import org.helios.apmrouter.sender.netty.handler.ChannelStateAware;
-import org.helios.apmrouter.sentry.PollingSentryWatched;
-import org.helios.apmrouter.sentry.SentryState;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.helios.apmrouter.trace.DirectMetricCollection.SplitDMC;
 import org.helios.apmrouter.trace.DirectMetricCollection.SplitReader;
@@ -53,7 +46,6 @@ import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
-import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.ChannelState;
 import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.Channels;
@@ -65,9 +57,6 @@ import org.jboss.netty.channel.socket.nio.NioDatagramChannel;
 import org.jboss.netty.channel.socket.nio.NioDatagramChannelFactory;
 import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLogLevel;
-import org.jboss.netty.logging.InternalLoggerFactory;
-import org.jboss.netty.logging.Log4JLoggerFactory;
-import org.jboss.netty.logging.Slf4JLoggerFactory;
 
 /**
  * <p>Title: UDPSender</p>
@@ -126,7 +115,19 @@ public class UDPSender extends AbstractSender  {
 							ping.writeLong(pingKey);
 							senderChannel.write(ping,e.getRemoteAddress());							
 							break;							
-							
+						case WHO:
+							byte[] hostBytes = AgentIdentity.ID.getHostName().getBytes();
+							byte[] agentBytes = AgentIdentity.ID.getAgentName().getBytes();
+							ChannelBuffer cb = ChannelBuffers.directBuffer(1 + 4 + 4 + hostBytes.length + agentBytes.length);
+							cb.writeByte(OpCode.WHO_RESPONSE.op());
+							cb.writeInt(hostBytes.length);
+							cb.writeBytes(hostBytes);
+							cb.writeInt(agentBytes.length);
+							cb.writeBytes(agentBytes);
+							SocketAddress sa = e.getRemoteAddress();
+							log("Sending WHO Response to [" + sa + "]");
+							e.getChannel().write(cb, sa);
+							break;
 						case SEND_METRIC_TOKEN:
 							int fqnLength = buff.readInt();
 							byte[] bytes = new byte[fqnLength];
@@ -188,13 +189,15 @@ public class UDPSender extends AbstractSender  {
 		bstrap.setOption("broadcast", false);
 		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(MAXSIZE));
 		
-			listeningSocketAddress = new InetSocketAddress("0.0.0.0", 0);
+		listeningSocketAddress = new InetSocketAddress("0.0.0.0", 0);
+		//listeningSocketAddress = new InetSocketAddress("127.0.0.1", 0);
 			
 		senderChannel = (NioDatagramChannel) channelFactory.newChannel(getPipeline());
-		senderChannel.bind(listeningSocketAddress).addListener(new ChannelFutureListener() {
+		
+		senderChannel.bind(null).addListener(new ChannelFutureListener() {
 			public void operationComplete(ChannelFuture f) throws Exception {
 				if(f.isSuccess()) {
-					log("Listening on [" + f.getChannel().getLocalAddress() + "]");					
+					log("Listening on [" + f.getChannel().getLocalAddress()+  "]");					
 				} else {
 					log("Failed to start listener. Stack trace follows");
 					f.getCause().printStackTrace(System.err);
@@ -249,7 +252,7 @@ public class UDPSender extends AbstractSender  {
 	@Override
 	public ChannelPipeline getPipeline()  {
 		ChannelPipeline pipeline = Channels.pipeline();		
-		//pipeline.addLast("logging", loggingHandler);		
+		pipeline.addLast("logging", loggingHandler);		
 		pipeline.addLast("metric-encoder", metricEncoder);
 		pipeline.addLast("listener", listenerHandler);
 		

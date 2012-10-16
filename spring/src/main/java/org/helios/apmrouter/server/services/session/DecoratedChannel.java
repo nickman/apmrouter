@@ -42,7 +42,7 @@ import org.jboss.netty.channel.ChannelPipeline;
  * <p><code>org.helios.apmrouter.server.services.session.DecoratedChannel</code></p>
  */
 
-public class DecoratedChannel implements Channel {
+public class DecoratedChannel implements Channel, DecoratedChannelMBean {
 	/** The wrapped channel */
 	protected final Channel delegate;
 	/** The assigned channel name */
@@ -66,9 +66,10 @@ public class DecoratedChannel implements Channel {
 	}
 	
 	/**
-	 * Returns the name of the channel type
-	 * @return the name of the channel type
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.services.session.DecoratedChannelMBean#getType()
 	 */
+	@Override
 	public String getType() {
 		return type.name();
 	}
@@ -82,18 +83,20 @@ public class DecoratedChannel implements Channel {
 	}
 	
 	/**
-	 * Returns the stringified remote address
-	 * @return the stringified remote address
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.services.session.DecoratedChannelMBean#getRemote()
 	 */
+	@Override
 	public String getRemote() {
 		SocketAddress sa = getRemoteAddress();
 		return sa==null ? "" : sa.toString();
 	}
 	
 	/**
-	 * Returns the stringified local address
-	 * @return the stringified local address
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.services.session.DecoratedChannelMBean#getLocal()
 	 */
+	@Override
 	public String getLocal() {
 		SocketAddress sa = getLocalAddress();
 		return sa==null ? "" : sa.toString();
@@ -101,17 +104,19 @@ public class DecoratedChannel implements Channel {
 	
 	
 	/**
-	 * Returns the channels's name
-	 * @return the channels's name
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.services.session.DecoratedChannelMBean#getName()
 	 */
+	@Override
 	public String getName() {
 		return name;
 	}
 	
 	/**
-	 * Returns the UTC long connect timestamp
-	 * @return the UTC long connect timestamp
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.services.session.DecoratedChannelMBean#getConnectTime()
 	 */
+	@Override
 	public long getConnectTime() {
 		return connectTime;		
 	}
@@ -135,7 +140,7 @@ public class DecoratedChannel implements Channel {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.Channel#getId()
+	 * @see org.helios.apmrouter.server.services.session.DecoratedChannelMBean#getId()
 	 */
 	@Override
 	public Integer getId() {
@@ -180,7 +185,7 @@ public class DecoratedChannel implements Channel {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.Channel#isOpen()
+	 * @see org.helios.apmrouter.server.services.session.DecoratedChannelMBean#isOpen()
 	 */
 	@Override
 	public boolean isOpen() {
@@ -189,7 +194,7 @@ public class DecoratedChannel implements Channel {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.Channel#isBound()
+	 * @see org.helios.apmrouter.server.services.session.DecoratedChannelMBean#isBound()
 	 */
 	@Override
 	public boolean isBound() {
@@ -198,7 +203,7 @@ public class DecoratedChannel implements Channel {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.Channel#isConnected()
+	 * @see org.helios.apmrouter.server.services.session.DecoratedChannelMBean#isConnected()
 	 */
 	@Override
 	public boolean isConnected() {
@@ -316,7 +321,7 @@ public class DecoratedChannel implements Channel {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.Channel#isReadable()
+	 * @see org.helios.apmrouter.server.services.session.DecoratedChannelMBean#isReadable()
 	 */
 	@Override
 	public boolean isReadable() {
@@ -326,7 +331,7 @@ public class DecoratedChannel implements Channel {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.Channel#isWritable()
+	 * @see org.helios.apmrouter.server.services.session.DecoratedChannelMBean#isWritable()
 	 */
 	@Override
 	public boolean isWritable() {
@@ -371,5 +376,48 @@ public class DecoratedChannel implements Channel {
 	@Override
 	public void setAttachment(Object attachment) {
 		delegate.setAttachment(attachment);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.Object#hashCode()
+	 */
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result
+				+ ((delegate == null) ? 0 : delegate.hashCode());
+		result = prime * result + ((name == null) ? 0 : name.hashCode());
+		result = prime * result + ((type == null) ? 0 : type.hashCode());
+		return result;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.Object#equals(java.lang.Object)
+	 */
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		DecoratedChannel other = (DecoratedChannel) obj;
+		if (delegate == null) {
+			if (other.delegate != null)
+				return false;
+		} else if (!delegate.equals(other.delegate))
+			return false;
+		if (name == null) {
+			if (other.name != null)
+				return false;
+		} else if (!name.equals(other.name))
+			return false;
+		if (type != other.type)
+			return false;
+		return true;
 	}
 }

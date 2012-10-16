@@ -40,6 +40,6 @@ public interface FilteredChannelSessionListener extends ChannelSessionListener {
 	 * @param channel The channel to test
 	 * @return true if the passed channel matches the type of channel this listener wants to be notified of, false otherwise
 	 */
-	public boolean include(DecoratedChannel channel);
+	public boolean include(DecoratedChannelMBean channel);
 	
 }

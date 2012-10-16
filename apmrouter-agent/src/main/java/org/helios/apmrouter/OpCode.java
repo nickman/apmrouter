@@ -50,7 +50,11 @@ public enum OpCode {
 	/** A synchronous send of a ping */
 	PING,		
 	/** A direct metric trace handshake */
-	PING_RESPONSE;
+	PING_RESPONSE,
+	/** Inquiry as to the identity of a connecting agent */
+	WHO,
+	/** Response as to the identity of a connecting agent */
+	WHO_RESPONSE;
 	
 	/** Map of OpCodes keyed by the ordinal */
 	private static final Map<Byte, OpCode> ORD2ENUM;

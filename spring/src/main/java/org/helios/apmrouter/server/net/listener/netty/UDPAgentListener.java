@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.server.net.listener.netty;
 
+import org.helios.apmrouter.server.services.session.ChannelType;
+import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
 import org.jboss.netty.channel.ChannelFuture;
@@ -31,6 +33,9 @@ import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.FixedReceiveBufferSizePredictorFactory;
 import org.jboss.netty.channel.socket.nio.NioDatagramChannel;
 import org.jboss.netty.channel.socket.nio.NioDatagramChannelFactory;
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.event.ContextRefreshedEvent;
 
 /**
  * <p>Title: UDPAgentListener</p>
@@ -61,7 +66,19 @@ public class UDPAgentListener extends BaseAgentListener {
 		bstrap.setOptions(channelOptions);
 		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(1024));
 		bstrap.setPipelineFactory(this);
+	}
+	
+	public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+		super.setApplicationContext(applicationContext);
+	}
+	
+	/**
+	 * Callback when the current app context refreshes
+	 * @param cre The context refreshed event
+	 */
+	public void onApplicationContextRefresh(ContextRefreshedEvent cre) {
 		serverChannel = (NioDatagramChannel)bstrap.bind(socketAddress);
+		SharedChannelGroup.getInstance().add(serverChannel, ChannelType.UDP_SERVER, getClass().getSimpleName());
 		closeFuture = serverChannel.getCloseFuture();
 		closeFuture.addListener(new ChannelFutureListener() {
 			public void operationComplete(ChannelFuture future) throws Exception {
@@ -73,6 +90,7 @@ public class UDPAgentListener extends BaseAgentListener {
 		connected.set(true);
 		info("Started UDP listener on [", socketAddress , "]");		
 	}
+	
 	
 	/**
 	 * {@inheritDoc}

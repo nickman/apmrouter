@@ -26,20 +26,39 @@ package org.helios.apmrouter.server.services.session;
 
 import java.net.SocketAddress;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicLong;
+
+import javax.management.ListenerNotFoundException;
+import javax.management.MBeanNotificationInfo;
+import javax.management.Notification;
+import javax.management.NotificationBroadcaster;
+import javax.management.NotificationBroadcasterSupport;
+import javax.management.NotificationFilter;
+import javax.management.NotificationListener;
 
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.jmx.ThreadPoolFactory;
+import org.helios.apmrouter.server.services.session.ChannelSessionEvent.ChannelSessionStartedEvent;
+import org.helios.apmrouter.server.services.session.ChannelSessionEvent.ChannelSessionStoppedEvent;
+import org.helios.apmrouter.util.SystemClock;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.ChannelGroupFuture;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 
 /**
  * <p>Title: SharedChannelGroup</p>
@@ -48,20 +67,31 @@ import org.jboss.netty.channel.group.DefaultChannelGroup;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.services.session.SharedChannelGroup</code></p>
  */
-public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
+public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, ApplicationContextAware, SharedChannelGroupMXBean, NotificationBroadcaster  {
 	/** The singleton instance */
 	private static volatile SharedChannelGroup instance = null;
 	/** The singleton instance ctor lock */
 	private static final Object lock = new Object();
 	/** Instance logger */
 	protected final Logger log = Logger.getLogger(getClass());
-	
+	/** Thread pool for dispatchng events and notifications */
+	protected final ThreadPoolExecutor threadPool;
+	/** The JMX notification support delegate */
+	protected final NotificationBroadcasterSupport notificationBroadcaster; 
+	/** The application context */
+	protected ApplicationContext applicationContext = null;
 	/** A map of sets of channels keyed by their channel type */
-	protected final Map<ChannelType, Set<DecoratedChannel>> channelsByType = new EnumMap<ChannelType, Set<DecoratedChannel>>(ChannelType.class);
+	protected final Map<ChannelType, Set<DecoratedChannel>> channelsByType = Collections.synchronizedMap(new EnumMap<ChannelType, Set<DecoratedChannel>>(ChannelType.class));
+	/** A map of remotely connected channels keyed by remote socket address */
+	protected final Map<SocketAddress, DecoratedChannel> channelsByRemote = new ConcurrentHashMap<SocketAddress, DecoratedChannel>();
+	
 	/** The core delegate channel group */
 	protected ChannelGroup channelGroup = new DefaultChannelGroup("APMRouterChannelGroup");
 	/** A set of registered channel session listeners */
 	protected final Set<ChannelSessionListener> listeners = new CopyOnWriteArraySet<ChannelSessionListener>();
+	
+	/** Serial number generator for jmx notifications */
+	protected final AtomicLong jmxNotifSerial = new AtomicLong(0L);
 	/**
 	 * Retrieves the SharedChannelGroup singleton instance
 	 * @return the SharedChannelGroup singleton instance
@@ -77,6 +107,8 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 		return instance;
 	}
 	
+	
+	
 	/**
 	 * Creates a new SharedChannelGroup
 	 */
@@ -84,6 +116,21 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 		for(ChannelType type: ChannelType.values()) {
 			channelsByType.put(type, new CopyOnWriteArraySet<DecoratedChannel>());
 		}
+		threadPool = (ThreadPoolExecutor) ThreadPoolFactory.newCachedThreadPool("org.helios.apmrouter.session", "SharedChannelGroupPool");
+		notificationBroadcaster = new NotificationBroadcasterSupport(threadPool, new MBeanNotificationInfo[]{
+				new MBeanNotificationInfo(new String[]{NEW_SESSION_EVENT}, Notification.class.getName(), "Notification broadcast when a channel session is initiated"),
+				new MBeanNotificationInfo(new String[]{CLOSED_SESSION_EVENT}, Notification.class.getName(), "Notification broadcast when a channel session is closed")
+		});
+		JMXHelper.registerMBean(OBJECT_NAME, this);
+		
+	}
+	
+	/**
+	 * Returns an array of the decorated channels
+	 * @return an array of the decorated channels
+	 */
+	public DecoratedChannelMBean[] getChannels() {
+		return toArray(new DecoratedChannelMBean[size()]);
 	}
 	
 	/**
@@ -120,6 +167,16 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	}
 	
 	/**
+	 * Returns the channel connected to the passed remote address
+	 * @param sa the remote address
+	 * @return a channel or null if one was not found
+	 */
+	public Channel getByRemote(SocketAddress sa) {
+		if(sa==null) return null;
+		return channelsByRemote.get(sa);
+	}
+	
+	/**
 	 * Converts the passed channel to a {@link DecoratedChannel} and adds it to the channel group 
 	 * @param channel The channel to add
 	 * @param type The channel type
@@ -142,8 +199,13 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 		} else {
 			dchannel = new DecoratedChannel(channel, ChannelType.OTHER, channel.getClass().getSimpleName());
 		}
-		boolean isNew =  channelGroup.add(dchannel);
+		
+		boolean isNew =  channelGroup.add(dchannel); 
 		if(isNew) {
+			SocketAddress remote = dchannel.getRemoteAddress();
+			if(remote!=null && !channelsByRemote.containsKey(remote)) {
+				channelsByRemote.put(dchannel.getRemoteAddress(), dchannel);
+			}
 			channelsByType.get(dchannel.getChannelType()).add(dchannel);
 			dchannel.getCloseFuture().addListener(new ChannelFutureListener() {
 				@Override
@@ -152,10 +214,8 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 				}
 			});
 			registerWithListeners(dchannel);
-			log.info("Adding Channel From [" + channel.getPipeline().getLast().getClass().getSimpleName() + "/\t" + channel.getId() + "]");
-		} else {
-			log.info("Channel From [" + channel.getPipeline().getLast().getClass().getSimpleName() + "/\t" + channel.getId() + "] already registered");
-		}
+			log.info("Adding Channel From [" +  channel.getId() + "]");
+		} 
 		return isNew;
 	}
 	
@@ -164,26 +224,88 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	 * FIXME: MUTLITHREAD, EVENTS, NOTIFS, SEND NEW CHANNEL
 	 */
 	private void registerWithListeners(final DecoratedChannel dchannel) {
+		sendChannelConnectedEvent(dchannel);
 		if(listeners.isEmpty()) return;
 		final Set<ChannelSessionListener> forwardTo = new HashSet<ChannelSessionListener>();
 		ChannelFutureListener relay = new ChannelFutureListener() {			
 			@Override
 			public void operationComplete(ChannelFuture future) throws Exception {
-				for(ChannelSessionListener listener: forwardTo) {
-					listener.onClosedChannel(dchannel);
+				sendChannelClosedEvent(dchannel);
+				for(final ChannelSessionListener listener: forwardTo) {
+					threadPool.submit(new Runnable() {
+						@Override
+						public void run() {
+							listener.onClosedChannel(dchannel);
+						}
+					});					
 				}				
 			}
 		};
-		for(ChannelSessionListener listener: listeners) {
+		for(final ChannelSessionListener listener: listeners) {
 			if(listener instanceof FilteredChannelSessionListener) {
 				if(((FilteredChannelSessionListener)listener).include(dchannel)) {
 					forwardTo.add(listener);
 				}
 			} else {
-				forwardTo.add(listener);
+				forwardTo.add(listener);				
 			}
 		}
 		dchannel.getCloseFuture().addListener(relay);		
+	}
+	
+	
+	/**
+	 * Sends a channel closed event to jmx and spring
+	 * @param dchannel The closed channel
+	 */
+	protected void sendChannelClosedEvent(final DecoratedChannelMBean dchannel) {
+		Notification notif = new Notification(CLOSED_SESSION_EVENT, OBJECT_NAME, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Channel Session Closed [" + dchannel.toString() + "]");
+		notif.setUserData(dchannel);
+		sendNotification(notif);
+		if(applicationContext != null) {
+			threadPool.submit(new Runnable() {
+				@Override
+				public void run() {
+					applicationContext.publishEvent(new ChannelSessionStoppedEvent(dchannel));
+				}
+			});								
+		}		
+	}
+	
+	/**
+	 * Sends a channel connected event to listeners, jmx and spring
+	 * @param dchannel The connected channel
+	 */
+	protected void sendChannelConnectedEvent(final DecoratedChannelMBean dchannel) {
+		for(final ChannelSessionListener listener: listeners) {
+			if(listener instanceof FilteredChannelSessionListener) {
+				if(((FilteredChannelSessionListener)listener).include(dchannel)) {
+					threadPool.submit(new Runnable() {
+						@Override
+						public void run() {
+							listener.onConnectedChannel(dchannel);
+						}
+					});					
+					
+				}
+			} else {
+				threadPool.submit(new Runnable() {
+					@Override
+					public void run() {
+						listener.onConnectedChannel(dchannel);
+					}
+				});									
+			}
+		}
+		sendNotification(new Notification(NEW_SESSION_EVENT, OBJECT_NAME, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Channel Session Started [" + dchannel.toString() + "]"));
+		if(applicationContext != null) {
+			threadPool.submit(new Runnable() {
+				@Override
+				public void run() {
+					applicationContext.publishEvent(new ChannelSessionStartedEvent(dchannel));
+				}
+			});								
+		}
 	}
 
 	/**
@@ -195,7 +317,18 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	public boolean remove(Channel channel) {
 		if(channel instanceof DecoratedChannel) {
 			DecoratedChannel dchannel = (DecoratedChannel)channel;
-			channelsByType.get(dchannel.getChannelType());
+			channelsByType.get(dchannel.getChannelType()).remove(dchannel);
+			SocketAddress sa = dchannel.getRemoteAddress();
+			if(sa!=null) {
+				channelsByRemote.remove(sa);
+			} else {
+				for(Iterator<DecoratedChannel> iter = channelsByRemote.values().iterator(); iter.hasNext();) {
+					if(iter.next().equals(dchannel)) {
+						iter.remove();
+						break;
+					}
+				}
+			}
 			return channelGroup.remove(dchannel);
 		}
 		return channelGroup.remove(channel);
@@ -222,10 +355,18 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	public int size() {
 		return channelGroup.size();
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.services.session.SharedChannelGroupMXBean#getSize()
+	 */
+	public int getSize() {
+		return size();
+	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see java.util.Set#isEmpty()
+	 * @see org.helios.apmrouter.server.services.session.SharedChannelGroupMXBean#isEmpty()
 	 */
 	@Override
 	public boolean isEmpty() {
@@ -252,7 +393,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.group.ChannelGroup#getName()
+	 * @see org.helios.apmrouter.server.services.session.SharedChannelGroupMXBean#getName()
 	 */
 	@Override
 	public String getName() {
@@ -333,7 +474,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.group.ChannelGroup#disconnect()
+	 * @see org.helios.apmrouter.server.services.session.SharedChannelGroupMXBean#disconnect()
 	 */
 	@Override
 	public ChannelGroupFuture disconnect() {
@@ -351,7 +492,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.group.ChannelGroup#close()
+	 * @see org.helios.apmrouter.server.services.session.SharedChannelGroupMXBean#close()
 	 */
 	@Override
 	public ChannelGroupFuture close() {
@@ -425,7 +566,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 
 	/**
 	 * {@inheritDoc}
-	 * @see java.util.Set#clear()
+	 * @see org.helios.apmrouter.server.services.session.SharedChannelGroupMXBean#clear()
 	 */
 	@Override
 	public void clear() {
@@ -452,4 +593,73 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener {
 	public int hashCode() {
 		return channelGroup.hashCode();
 	}
+	
+	// ==============================================================================
+	// 		Notification Broadcaster Support
+	// ==============================================================================
+	
+	/**
+	 * {@inheritDoc}
+	 * @see javax.management.NotificationBroadcaster#addNotificationListener(javax.management.NotificationListener, javax.management.NotificationFilter, java.lang.Object)
+	 */
+	@Override
+	public void addNotificationListener(NotificationListener listener,
+			NotificationFilter filter, Object handback) {
+		notificationBroadcaster.addNotificationListener(listener, filter,
+				handback);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see javax.management.NotificationBroadcaster#removeNotificationListener(javax.management.NotificationListener)
+	 */
+	@Override
+	public void removeNotificationListener(NotificationListener listener)
+			throws ListenerNotFoundException {
+		notificationBroadcaster.removeNotificationListener(listener);
+	}
+
+	/**
+	 * Removes a notification listener registered with a specific filter
+	 * @param listener The listener to remove
+	 * @param filter The filter the listener was added with
+	 * @param handback The handback the listener was added with
+	 * @throws ListenerNotFoundException thrown if the passed listener was not registered
+	 * @see javax.management.NotificationBroadcasterSupport#removeNotificationListener(javax.management.NotificationListener, javax.management.NotificationFilter, java.lang.Object)
+	 */
+	public void removeNotificationListener(NotificationListener listener,
+			NotificationFilter filter, Object handback)
+			throws ListenerNotFoundException {
+		notificationBroadcaster.removeNotificationListener(listener, filter,
+				handback);
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 * @see javax.management.NotificationBroadcaster#getNotificationInfo()
+	 */
+	@Override
+	public MBeanNotificationInfo[] getNotificationInfo() {
+		return notificationBroadcaster.getNotificationInfo();
+	}
+
+	/**
+	 * Sends a notification
+	 * @param notification the notification to send
+	 * @see javax.management.NotificationBroadcasterSupport#sendNotification(javax.management.Notification)
+	 */
+	public void sendNotification(Notification notification) {
+		notificationBroadcaster.sendNotification(notification);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.springframework.context.ApplicationContextAware#setApplicationContext(org.springframework.context.ApplicationContext)
+	 */
+	@Override
+	public void setApplicationContext(ApplicationContext applicationContext) {
+		this.applicationContext = applicationContext;
+	}
+	
 }

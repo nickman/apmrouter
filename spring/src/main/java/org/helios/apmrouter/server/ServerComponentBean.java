@@ -42,7 +42,12 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationListener;
+import org.springframework.context.event.ApplicationContextEvent;
 import org.springframework.context.event.ApplicationEventMulticaster;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.context.event.ContextStartedEvent;
+import org.springframework.context.event.ContextStoppedEvent;
 import org.springframework.context.event.SimpleApplicationEventMulticaster;
 import org.springframework.context.event.SmartApplicationListener;
 import org.springframework.context.support.GenericApplicationContext;
@@ -61,6 +66,7 @@ import org.springframework.jmx.export.naming.SelfNaming;
  */
 @ManagedResource
 public abstract class ServerComponentBean extends ServerComponent implements 
+		ApplicationContextLifecycleListener,
 		ApplicationContextAware, 
 		BeanNameAware, 
 		SmartApplicationListener,
@@ -151,6 +157,30 @@ public abstract class ServerComponentBean extends ServerComponent implements
 		log = Logger.getLogger(getClass().getName() + "." + beanName);
 
 	}
+	
+	protected final ApplicationListener lifecycleListener = new ApplicationListener<ApplicationContextEvent>() {
+		@Override
+		public void onApplicationEvent(final ApplicationContextEvent event) {
+			if(applicationContext != event.getApplicationContext()) return;
+			if(event instanceof ContextStartedEvent) {
+				eventExecutor.execute(new Runnable(){
+					public void run() { onApplicationContextStart((ContextStartedEvent)event); }
+				});
+			} else if(event instanceof ContextRefreshedEvent) {
+				eventExecutor.execute(new Runnable(){
+					public void run() { onApplicationContextRefresh((ContextRefreshedEvent)event); }
+				});
+			} else if(event instanceof ContextStoppedEvent) {
+				eventExecutor.execute(new Runnable(){
+					public void run() { onApplicationContextStop((ContextStoppedEvent)event); }
+				});								
+			} else {
+				eventExecutor.execute(new Runnable(){
+					public void run() { onApplicationContextClose((ContextClosedEvent)event); }
+				});															
+			}
+		}
+	};
 
 	/**
 	 * {@inheritDoc}
@@ -158,8 +188,11 @@ public abstract class ServerComponentBean extends ServerComponent implements
 	 */
 	@Override
 	public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+		
 		if(applicationContext instanceof GenericApplicationContext) {
 			this.applicationContext = (GenericApplicationContext)applicationContext;
+			final GenericApplicationContext appCtx = this.applicationContext; 
+			this.applicationContext.addApplicationListener(lifecycleListener);
 			eventMulticaster = new SimpleApplicationEventMulticaster(applicationContext);
 			if(eventExecutor!=null) {
 				eventMulticaster.setTaskExecutor(eventExecutor);
@@ -336,6 +369,42 @@ public abstract class ServerComponentBean extends ServerComponent implements
 	 */
 	public void setObjectName(ObjectName objectName) {
 		this.objectName = objectName;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ApplicationContextLifecycleListener#onApplicationContextStart(org.springframework.context.event.ContextStartedEvent)
+	 */
+	@Override
+	public void onApplicationContextStart(ContextStartedEvent event) {
+		trace("AppCtx [", event.getApplicationContext().getDisplayName(), "] Started");
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ApplicationContextLifecycleListener#onApplicationContextRefresh(org.springframework.context.event.ContextRefreshedEvent)
+	 */
+	@Override
+	public void onApplicationContextRefresh(ContextRefreshedEvent event) {
+		trace("AppCtx [", event.getApplicationContext().getDisplayName(), "] Refreshed");
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ApplicationContextLifecycleListener#onApplicationContextStop(org.springframework.context.event.ContextStoppedEvent)
+	 */
+	@Override
+	public void onApplicationContextStop(ContextStoppedEvent event) {
+		trace("AppCtx [", event.getApplicationContext().getDisplayName(), "] Stopped");
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ApplicationContextLifecycleListener#onApplicationContextClose(org.springframework.context.event.ContextClosedEvent)
+	 */
+	@Override
+	public void onApplicationContextClose(ContextClosedEvent event) {
+		trace("AppCtx [", event.getApplicationContext().getDisplayName(), "] Closed");		
 	}
 
 }

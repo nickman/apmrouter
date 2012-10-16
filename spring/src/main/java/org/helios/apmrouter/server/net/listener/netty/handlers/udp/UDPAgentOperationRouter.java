@@ -24,22 +24,33 @@
  */
 package org.helios.apmrouter.server.net.listener.netty.handlers.udp;
 
+import java.net.SocketAddress;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.helios.apmrouter.OpCode;
-import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.server.net.listener.netty.ChannelGroupAware;
 import org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroup;
 import org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean;
+import org.helios.apmrouter.server.net.listener.netty.handlers.AbstractAgentRequestHandler;
 import org.helios.apmrouter.server.net.listener.netty.handlers.AgentRequestHandler;
+import org.helios.apmrouter.server.services.session.ChannelType;
+import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelEvent;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelUpstreamHandler;
+import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.MessageEvent;
+import org.jboss.netty.handler.logging.LoggingHandler;
+import org.jboss.netty.logging.InternalLogLevel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.support.MetricType;
@@ -52,13 +63,12 @@ import org.springframework.jmx.support.MetricType;
  * <p><code>org.helios.apmrouter.server.net.listener.netty.handlers.udp.UDPAgentOperationRouter</code></p>
  */
 
-public class UDPAgentOperationRouter extends ServerComponentBean implements ChannelUpstreamHandler, ChannelGroupAware {
+public class UDPAgentOperationRouter extends AbstractAgentRequestHandler implements ChannelUpstreamHandler, ChannelGroupAware {
 	/** The channel group */
 	protected ManagedChannelGroupMXBean channelGroup = null;
 	
-	
-
-
+	/** A set of socket addresses to which {@link OpCode#WHO} requests have been sent to but for which a response has not been received */
+	protected final Set<SocketAddress> pendingWhos = new CopyOnWriteArraySet<SocketAddress>();
 
 	/** A map of agent request handlers keyed by the opcode */
 	protected final EnumMap<OpCode, AgentRequestHandler> handlers = new EnumMap<OpCode, AgentRequestHandler>(OpCode.class);
@@ -87,6 +97,18 @@ public class UDPAgentOperationRouter extends ServerComponentBean implements Chan
 		if(e instanceof MessageEvent) {
 			Object msg = ((MessageEvent)e).getMessage();
 			if(msg instanceof ChannelBuffer) {
+				SocketAddress remoteAddress = ((MessageEvent)e).getRemoteAddress();
+				if(!pendingWhos.contains(remoteAddress)) {
+					Channel remoteChannel = SharedChannelGroup.getInstance().getByRemote(remoteAddress);
+					if(remoteChannel==null) {
+						try {
+							remoteChannel = getChannelForRemote(e.getChannel(), remoteAddress);						
+						} catch (Exception ex) {
+							ex.printStackTrace(System.err);
+						}
+					}
+				}
+				
 				ChannelBuffer buff = (ChannelBuffer)msg;
 				incr("RequestsReceived");
 				OpCode opCode = OpCode.valueOf(buff);
@@ -102,6 +124,66 @@ public class UDPAgentOperationRouter extends ServerComponentBean implements Chan
 		}
 		ctx.sendUpstream(e);
 	}
+	
+	/** Logging handler */
+	private static final LoggingHandler clientConnLogHandler = new LoggingHandler("org.helios.UDPAgentOperationRouter", InternalLogLevel.INFO, true);
+
+	
+	/**
+	 * Acquires a channel connected to the provided remote address
+	 * @param incoming The incoming channel to acquire a new channel from, if required
+	 * @param remoteAddress The remote address to connect to
+	 * @return a channel connected to the remote address
+	 * FIXME: Need configurable timeout on remote connect
+	 */
+	protected Channel getChannelForRemote(final Channel incoming, final SocketAddress remoteAddress) {
+		Channel channel = SharedChannelGroup.getInstance().getByRemote(remoteAddress);
+		if(channel==null) {
+			synchronized(SharedChannelGroup.getInstance()) {
+				channel = SharedChannelGroup.getInstance().getByRemote(remoteAddress);
+				if(channel==null) {
+					channel = incoming.getFactory().newChannel(Channels.pipeline(clientConnLogHandler));					
+					try {
+						if(!channel.connect(remoteAddress).await(1000)) throw new Exception();
+						if(!pendingWhos.contains(remoteAddress)) {
+							sendWho(channel, remoteAddress);
+						}
+//						SharedChannelGroup.getInstance().add(channel, ChannelType.UDP_AGENT, "UDPAgent");
+					} catch (Exception  e) {
+						throw new RuntimeException("Failed to acquire remote connection to [" + remoteAddress + "]", e);
+					}
+				}
+			}
+		}
+		return channel;
+	}
+	
+	/**
+	 * Sends a {@link OpCode#WHO} request to a newly connected channel
+	 * @param channel The newly connected channel
+	 * @param remoteAddress Thre remote address of the newly connected channel
+	 */
+	protected void sendWho(Channel channel, final SocketAddress remoteAddress) {
+		byte[] bytes = remoteAddress.toString().getBytes();
+		ChannelBuffer cb = ChannelBuffers.directBuffer(bytes.length+5);
+		cb.writeByte(OpCode.WHO.op());
+		cb.writeInt(bytes.length);
+		cb.writeBytes(bytes);
+		info("Sending Who Request to [", remoteAddress, "]");
+		pendingWhos.add(remoteAddress);
+		channel.write(cb, remoteAddress).addListener(new ChannelFutureListener() {
+			public void operationComplete(ChannelFuture f) throws Exception {
+				if(f.isSuccess()) {					
+					info("Confirmed Send Of Who Request to [", remoteAddress, "]");
+				} else {
+					error("Failed to send Who request to [", remoteAddress, "]", f.getCause());
+					pendingWhos.remove(remoteAddress);
+				}
+				
+			}
+		});			
+	}
+	
 	
 	/**
 	 * Returns the total number of agent operations received
@@ -130,6 +212,16 @@ public class UDPAgentOperationRouter extends ServerComponentBean implements Chan
 		return getMetricValue("RequestsFailed");
 	}
 	
+	/**
+	 * Returns the total number of pending {@link OpCode#WHO} requests in Whoville
+	 * @return the total number of pending {@link OpCode#WHO} requests 
+	 */
+	@ManagedMetric(category="UDPOpRequests", metricType=MetricType.COUNTER, description="total number of pending who requests")
+	public int getPendingWhos() {
+		return pendingWhos.size();
+	}
+	
+	
 	
 	/**
 	 * {@inheritDoc}
@@ -157,6 +249,35 @@ public class UDPAgentOperationRouter extends ServerComponentBean implements Chan
 				((ChannelGroupAware)arh).setChannelGroup(channelGroup);
 			}
 		}
+	}
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.net.listener.netty.handlers.AgentRequestHandler#processAgentRequest(org.helios.apmrouter.OpCode, org.jboss.netty.buffer.ChannelBuffer, java.net.SocketAddress, org.jboss.netty.channel.Channel)
+	 */
+	@Override
+	public void processAgentRequest(OpCode opCode, ChannelBuffer buff, SocketAddress remoteAddress, Channel channel) {
+		if(opCode==OpCode.WHO_RESPONSE) {
+			pendingWhos.remove(remoteAddress);
+			buff.readByte();
+			int hostLength = buff.readInt();
+			byte[] hostBytes = new byte[hostLength];
+			buff.readBytes(hostBytes);
+			int agentLength = buff.readInt();
+			byte[] agentBytes = new byte[agentLength];
+			buff.readBytes(agentBytes);
+			String host = new String(hostBytes);
+			String agent = new String(agentBytes);
+			SharedChannelGroup.getInstance().add(channel, ChannelType.UDP_AGENT, "UDPAgent/" + host + "/" + agent);
+		}
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.net.listener.netty.handlers.AgentRequestHandler#getHandledOpCodes()
+	 */
+	@Override
+	public OpCode[] getHandledOpCodes() {
+		return new OpCode[]{OpCode.WHO_RESPONSE};
 	}
 
 
