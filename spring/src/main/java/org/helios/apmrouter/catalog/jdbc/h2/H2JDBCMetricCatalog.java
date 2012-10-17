@@ -27,6 +27,8 @@ package org.helios.apmrouter.catalog.jdbc.h2;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Types;
 import java.util.HashSet;
 import java.util.Set;
@@ -37,6 +39,8 @@ import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.collections.LongSlidingWindow;
 import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
+import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
@@ -94,8 +98,76 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 		} finally {
 			try { ps.close(); } catch (Exception e) {}
 			try { conn.close(); } catch (Exception e) {}
-		}
-		
+		}		
+	}
+	
+/*
+CREATE  TABLE IF NOT EXISTS PUBLIC.AGENT(
+    AGENT_ID INTEGER NOT NULL IDENTITY COMMENT 'The unqiue agent identifier',
+    HOST_ID INTEGER NOT NULL COMMENT 'The id of the host this agent is running om.',
+    NAME VARCHAR2(120) NOT NULL COMMENT 'The name of the agent.',
+    FIRST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The first time the agent was seen.',
+    LAST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The last time the agent connected.'
+) ; 
+ 
+
+CREATE TABLE IF NOT EXISTS  PUBLIC.HOST(
+    HOST_ID INTEGER NOT NULL IDENTITY COMMENT 'The primary key for the host',
+    NAME VARCHAR2(255) NOT NULL COMMENT 'The short or preferred host name',
+    IP VARCHAR2(15) COMMENT 'The ip address of the host',
+    FQN VARCHAR2(255)  COMMENT 'The fully qualified name of the host',
+    FIRST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The first time the host was seen.',
+    LAST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The last time connected.'
+) ;      
+    
+
+CREATE TABLE IF NOT EXISTS  PUBLIC.METRIC(
+    METRIC_ID LONG  NOT NULL IDENTITY COMMENT 'The unique id of the metric.',
+    AGENT_ID INTEGER NOT NULL COMMENT 'The  agent identifier for this metric',
+    TYPE_ID SMALLINT NOT NULL COMMENT 'The metric type of the metric',
+    NAMESPACE VARCHAR2(200) COMMENT 'The namespace of the metric',
+    NAME VARCHAR2(60) COMMENT 'The point of the metric name',
+    FIRST_SEEN TIMESTAMP NOT NULL COMMENT 'The first time this metric was seen',
+    LAST_SEEN TIMESTAMP COMMENT 'The last time this metric was seen'
+) ;       
+
+ */
+	
+	/** The SQL to fetch a delegate metric ID from a token */
+	public static final String GET_METRIC_SQL = "SELECT HOST.NAME, AGENT.NAME, TYPE_ID, NAMESPACE, METRIC.NAME "
+			+ "FROM HOST, AGENT, METRIC " 
+			+ "WHERE AGENT.HOST_ID = HOST.HOST_ID AND METRIC.AGENT_ID = AGENT.AGENT_ID " 
+			+ "AND METRIC_ID = ?";
+	
+	/**
+	 * Returns the delegate metric for the passed token
+	 * @param token the token
+	 * @return a delegate metric ID
+	 */
+	@Override
+	public IDelegateMetric getMetricID(long token) {
+		Connection conn = null;
+		PreparedStatement ps = null;
+		ResultSet rset = null;
+		try {
+			incr("TokenLookups");
+			conn = ds.getConnection();
+			ps = conn.prepareStatement(GET_METRIC_SQL);
+			rset = ps.executeQuery();
+			if(!rset.next()) {
+				return null;
+			}
+			CharSequence[] namespace = rset.getString(5).replaceFirst("/", "").split("/");
+			ICEMetricCatalog.getInstance().setToken(token, rset.getString(1), rset.getString(2), rset.getString(4), MetricType.valueOf(rset.getInt(3)), namespace);
+			return ICEMetricCatalog.getInstance().get(token);
+		} catch (SQLException sex) {
+			sex.printStackTrace(System.err);
+			return null;
+		} finally {
+			try { rset.close(); } catch (Exception e) {}
+			try { ps.close(); } catch (Exception e) {}
+			try { conn.close(); } catch (Exception e) {}
+		}				
 	}
 	
 	/**
@@ -159,6 +231,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 		Set<String> metrics = new HashSet<String>(super.getSupportedMetricNames());
 		metrics.add("AssignedMetricIDs");
 		metrics.add("CallCount");		
+		metrics.add("TokenLookups");
 		return metrics;
 	}
 	
@@ -180,7 +253,17 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	@ManagedMetric(category="MetricCatalogService", metricType=org.springframework.jmx.support.MetricType.COUNTER, description="The number of assigned metric IDs")
 	public long getAssignedMetricIDs() {
 		return getMetricValue("AssignedMetricIDs");
+	}
+	
+	/**
+	 * Returns the number of token lookups
+	 * @return the number of token lookups
+	 */
+	@ManagedMetric(category="MetricCatalogService", metricType=org.springframework.jmx.support.MetricType.COUNTER, description="The number of token lookups")
+	public long getTokenLookups() {
+		return getMetricValue("TokenLookups");
 	}	
+	
 
 	/**
 	 * Returns the cumulative number of catalog calls

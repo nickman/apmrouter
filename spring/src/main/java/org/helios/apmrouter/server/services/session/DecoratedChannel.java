@@ -51,6 +51,10 @@ public class DecoratedChannel implements Channel, DecoratedChannelMBean {
 	protected final long connectTime;
 	/** The channel type */
 	protected final ChannelType type;
+	/** The host (if an agent's connection) */
+	protected String host = null;
+	/** The agent (if an agent's connection) */
+	protected String agent = null;
 	
 	/**
 	 * Creates a new DecoratedChannel
@@ -63,6 +67,16 @@ public class DecoratedChannel implements Channel, DecoratedChannelMBean {
 		name = channelName + "#" + channel.getId();
 		type = channelType;
 		connectTime = SystemClock.time();
+	}
+	
+	/**
+	 * Updates the host and agent
+	 * @param host the agent host
+	 * @param agent the agent name
+	 */
+	public void setWho(String host, String agent) {
+		this.host = host;
+		this.agent = agent;
 	}
 	
 	/**
@@ -377,6 +391,25 @@ public class DecoratedChannel implements Channel, DecoratedChannelMBean {
 	public void setAttachment(Object attachment) {
 		delegate.setAttachment(attachment);
 	}
+	
+	/**
+	 * Returns the host of this agent connection
+	 * @return the host of this agent connection
+	 */
+	@Override
+	public String getHost() {
+		return host;
+	}
+
+	/**
+	 * Returns the agent of this agent connection
+	 * @return the host of this agent connection
+	 */
+	@Override
+	public String getAgent() {
+		return agent;
+	}
+	
 
 	/**
 	 * {@inheritDoc}
@@ -420,4 +453,5 @@ public class DecoratedChannel implements Channel, DecoratedChannelMBean {
 			return false;
 		return true;
 	}
+
 }

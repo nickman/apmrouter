@@ -28,6 +28,7 @@ import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.Map;
 
+import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.router.Routable;
 import org.helios.apmrouter.trace.TXContext;
 
@@ -83,6 +84,12 @@ public interface IMetric extends Routable {
 	 * @return the name of the agent that this metricId originated from
 	 */
 	public abstract String getAgent();
+	
+	/**
+	 * Returns the metric ID.
+	 * @return the metric ID.
+	 */
+	public IDelegateMetric getMetricId();
 
 	/**
 	 * Indicates if the metricId namespace is flat or mapped

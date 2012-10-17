@@ -38,8 +38,8 @@ public class TracingDemo {
 		log("Basic Tracing Test: [" +  tracer.getHost() + "/" + tracer.getAgent() + "]");
 		traceTotalCpuUsage(tracer, sigar);
 		while(true) {
-			
-			SystemClock.sleep(10000);
+			traceTotalCpuUsage(tracer, sigar);
+			SystemClock.sleep(1000);
 		}
 		//DefaultMonitorBoot.boot();
 //		for(int i = 0; i < LOOPS; i++) {

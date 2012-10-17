@@ -25,16 +25,22 @@
 package org.helios.apmrouter.server.net.listener.netty.handlers;
 
 import java.net.SocketAddress;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.router.PatternRouter;
+import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -82,23 +88,39 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	 * @param remoteAddress The remote address of the agent that sent the metrics
 	 * @param channel The channel the metrics were received on
 	 */
+	@SuppressWarnings("null")
 	@Override
 	public void processAgentRequest(OpCode opCode, ChannelBuffer buff, SocketAddress remoteAddress, Channel channel) {
 		incr("BytesReceived", buff.getInt(2));
 		DirectMetricCollection dmc = DirectMetricCollection.fromChannelBuffer(buff);		
 //		int byteOrder = buff.getByte(1);
 //		int totalSize = buff.getInt(2);
-		IMetric[] metrics = null;
+		List<IMetric> metrics = new ArrayList<IMetric>();
+		
 		try {
-			metrics = dmc.decode();
-			if(metrics.length>0) {
-				Arrays.sort(metrics);
+			Collections.addAll(metrics, dmc.decode());
+			for(Iterator<IMetric> iter = metrics.iterator(); iter.hasNext();) {
+				IMetric metric = iter.next();
+				if(metric.getMetricId()==null) {
+					IDelegateMetric metricId = metricCatalogService.getMetricID(metric.getToken());
+					if(metricId==null) {
+						iter.remove();
+						warn("Token Lookup Miss");
+					} else {
+						((ICEMetric)metric).setMetricId(metricId);
+					}					
+				}
+				
 			}
+//			if(metrics.size()>0) {
+//				Collections.sort(metrics);
+//				Arrays.sort(metrics);
+//			}
 		} catch (Exception e) {
 			e.printStackTrace(System.err);					
 		}	
 		
-		if(metrics!=null) incr("MetricsReceived", metrics.length);
+		if(metrics!=null) incr("MetricsReceived", metrics.size());
 		//dmc.destroy();
 		for(final IMetric metric: metrics) {
 			if(opCode==OpCode.SEND_METRIC_DIRECT) {
@@ -169,17 +191,19 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 		cb.writeBytes(bytes);
 		cb.writeLong(token);
 		
-		getChannelForRemote(incoming, remoteAddress).write(cb, remoteAddress).addListener(new ChannelFutureListener() {
+		SharedChannelGroup.getInstance().getByRemote(remoteAddress).write(cb, remoteAddress).addListener(new ChannelFutureListener() {
 			@Override
 			public void operationComplete(ChannelFuture future) throws Exception {
 				if(future.isSuccess()) {
 					incr("TokensSent");
 				} else {
-					System.err.println("Failed to send roken for direct metric [" + metric + "]");
+					System.err.println("Failed to send token for direct metric [" + metric + "]");
 					future.getCause().printStackTrace(System.err);
 				}				
 			}
-		});					
+		});	
+		
+		//getChannelForRemote(incoming, remoteAddress)				
 	}
 
 	/**

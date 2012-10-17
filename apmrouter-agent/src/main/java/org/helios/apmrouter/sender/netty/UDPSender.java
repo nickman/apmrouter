@@ -176,7 +176,7 @@ public class UDPSender extends AbstractSender  {
 	 * Creates a new UDPSender
 	 * @param serverURI The host/port to send to
 	 */
-	private UDPSender(URI serverURI) {
+	private UDPSender(final URI serverURI) {
 		super(serverURI);
 		
 				
@@ -186,26 +186,31 @@ public class UDPSender extends AbstractSender  {
 		channelFactory = new NioDatagramChannelFactory(workerPool);
 		bstrap = new ConnectionlessBootstrap(channelFactory);
 		bstrap.setPipelineFactory(this);
-		bstrap.setOption("broadcast", false);
+		bstrap.setOption("broadcast", true);
+		bstrap.setOption("localAddress", new InetSocketAddress(0));
+		bstrap.setOption("remoteAddress", new InetSocketAddress(serverURI.getHost(), serverURI.getPort()));
 		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(MAXSIZE));
 		
 		listeningSocketAddress = new InetSocketAddress("0.0.0.0", 0);
 		//listeningSocketAddress = new InetSocketAddress("127.0.0.1", 0);
 			
-		senderChannel = (NioDatagramChannel) channelFactory.newChannel(getPipeline());
+		//senderChannel = (NioDatagramChannel) channelFactory.newChannel(getPipeline());
+		senderChannel = bstrap.bind();
+		log("Listening on [" + senderChannel.getLocalAddress()+  "]");					
 		
-		senderChannel.bind(null).addListener(new ChannelFutureListener() {
-			public void operationComplete(ChannelFuture f) throws Exception {
-				if(f.isSuccess()) {
-					log("Listening on [" + f.getChannel().getLocalAddress()+  "]");					
-				} else {
-					log("Failed to start listener. Stack trace follows");
-					f.getCause().printStackTrace(System.err);
-					
-				}
-				
-			}
-		});
+		
+//		senderChannel.bind().addListener(new ChannelFutureListener() {
+//			public void operationComplete(ChannelFuture f) throws Exception {
+//				if(f.isSuccess()) {
+//					log("Listening on [" + f.getChannel().getLocalAddress()+  "]");					
+//				} else {
+//					log("Failed to start listener. Stack trace follows");
+//					f.getCause().printStackTrace(System.err);
+//					
+//				}
+//				
+//			}
+//		});
 		senderChannel.getConfig().setBufferFactory(new DirectChannelBufferFactory());
 //		senderChannel.connect(socketAddress).addListener(new ChannelFutureListener() {
 //			@Override
@@ -252,7 +257,7 @@ public class UDPSender extends AbstractSender  {
 	@Override
 	public ChannelPipeline getPipeline()  {
 		ChannelPipeline pipeline = Channels.pipeline();		
-		pipeline.addLast("logging", loggingHandler);		
+		//pipeline.addLast("logging", loggingHandler);		
 		pipeline.addLast("metric-encoder", metricEncoder);
 		pipeline.addLast("listener", listenerHandler);
 		

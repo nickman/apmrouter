@@ -775,9 +775,10 @@ public class DirectMetricCollection implements Runnable {
     		byte typeOrdinal = readByte();
     		MetricType type = MetricType.valueOf(typeOrdinal);
     		byte isToken = readByte();
+    		long token =  -1;
     		if(BYTE_ONE==isToken) {
-    			long token =  readLong();
-    			dmetric = ICEMetricCatalog.getInstance().get(token);    			
+    			token = readLong();
+    			dmetric = ICEMetricCatalog.getInstance().get(token);    
     		} else {    			
 				String fqn = readString();
 				dmetric = ICEMetricCatalog.getInstance().build(fqn, type);
@@ -786,11 +787,11 @@ public class DirectMetricCollection implements Runnable {
     		ICEMetric metric = null;
 			if(type.isLong()) {
 				long value = readLong();
-				metric = ICEMetric.newMetric(time, value, type, dmetric);
+				metric = ICEMetric.newMetric(time, value, type, dmetric, token);
 			} else {
 				int bbSize = readInt();
 				ByteBuffer bb = readByteBuffer(bbSize);
-				metric = ICEMetric.newMetric(time, bb, type, dmetric);		
+				metric = ICEMetric.newMetric(time, bb, type, dmetric, token);		
 			}		
 			// ==========================================================
 			//      TXCONTEXT

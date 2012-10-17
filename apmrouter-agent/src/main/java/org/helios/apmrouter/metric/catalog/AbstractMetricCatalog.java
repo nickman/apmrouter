@@ -84,6 +84,7 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 	 * @param namespace The namespace segments
 	 * @return  the assigned token
 	 */
+	@Override
 	public long setToken(String host, String agent, CharSequence name, MetricType type, CharSequence... namespace) {
 		return setToken(tokenSerial.incrementAndGet(), host,agent, name, type, namespace);
 	}
@@ -110,6 +111,7 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 	 * @param metricFqn The FQN of the IDelegateMetric to update
 	 * @param token The token 
 	 */
+	@Override
 	public void setToken(CharSequence metricFqn, long token) {
 		K key = createKey(metricFqn.toString());
 		IDelegateMetric idm = get(key);
@@ -126,6 +128,7 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 	 * @return  the assigned token
 	 * FIXME: This needs to assign a REAL token from a persistent store.
 	 */
+	@Override
 	public long setToken(IMetric metric) {
 		return setToken(metric.getHost(), metric.getAgent(), metric.getName(), metric.getType(), metric.getNamespace());
 	}
@@ -136,6 +139,7 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 	 * @param token The token to set
 	 * @return the set token
 	 */
+	@Override
 	public long setToken(IDelegateMetric metricId, long token) {
 		return setToken(token, metricId.getHost(), metricId.getAgent(), metricId.getName(), metricId.getType(), metricId.getNamespace());
 	}
@@ -151,6 +155,7 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 	 * @param namespace The namespace
 	 * @return the delta value or null if this was the first call for the metric
 	 */
+	@Override
 	public Long getDelta(long value, String host, String agent, CharSequence name, CharSequence... namespace) {
 		return _getDelta(value, host, agent, name, namespace);
 	}
@@ -167,6 +172,7 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 	 * {@inheritDoc} 
 	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#size()
 	 */
+	@Override
 	public int size() {
 		return namecache.size();
 	}
@@ -303,6 +309,7 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 	 * @param type The metric type
 	 * @return the delegate metric
 	 */
+	@Override
 	public IDelegateMetric build(String fqn, MetricType type) {
 		return ICEMetricCatalog.build(fqn, type, this);
 	}

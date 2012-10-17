@@ -50,21 +50,33 @@ public class ICEMetric implements IMetric, Comparable<ICEMetric> {
 	/** The value for this metricId */
 	protected final ICEMetricValue value;
 	/** The metricId name that this instance represents*/
-	protected final IDelegateMetric metricId;
+	protected IDelegateMetric metricId;
 	/** The attached TXContext */
 	protected TXContext txContext;
 	/** The longHashCode of the FQN */
 	protected long longHashCode = Long.MIN_VALUE;
+	/** Temp token if delegate lookup cache missed */
+	protected transient long token = -1L;
 	
 	/**
 	 * Returns the longHashCode of the FQN 
 	 * @return the longHashCode of the FQN 
 	 */
+	@Override
 	public long getLongHashCode() {
 		if(longHashCode==Long.MIN_VALUE) {
 			longHashCode = longHashCode(getFQN());
 		}
 		return longHashCode;
+	}
+	
+	/**
+	 * Returns the metric ID.
+	 * @return the metric ID.
+	 */
+	@Override
+	public IDelegateMetric getMetricId() {
+		return metricId;
 	}
 
 	/** The unmapped version of this metric */
@@ -93,6 +105,7 @@ public class ICEMetric implements IMetric, Comparable<ICEMetric> {
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.metric.IMetric#conflate(org.helios.apmrouter.metric.IMetric)
 	 */
+	@Override
 	public void conflate(IMetric metric) {
 		this.value.conflate(((ICEMetric)metric).value);
 	}
@@ -111,6 +124,24 @@ public class ICEMetric implements IMetric, Comparable<ICEMetric> {
 	
 	/**
 	 * Creates a new ICEMetric
+	 * @param timestamp THe metric value timestamp
+	 * @param value The long value of the metric
+	 * @param type The type of the metric
+	 * @param dmetric The metric ID
+	 * @param token Supplementary token in case the delegate metric lookup cache missed
+	 * @return a new ICEMetric
+	 */
+	public static ICEMetric newMetric(long timestamp, long value, MetricType type, IDelegateMetric dmetric, long token) {
+		ICEMetric imetric = new ICEMetric(new ICEMetricValue(type, value, timestamp), dmetric);
+		if(dmetric==null) {
+			imetric.token = token;
+		}
+		return imetric;
+	}
+	
+	
+	/**
+	 * Creates a new ICEMetric
 	 * @param timestamp The metric value timestamp
 	 * @param value The non-long value of the metric
 	 * @param type The type of the metric
@@ -120,6 +151,24 @@ public class ICEMetric implements IMetric, Comparable<ICEMetric> {
 	public static ICEMetric newMetric(long timestamp, ByteBuffer value, MetricType type, IDelegateMetric dmetric) {
 		return new ICEMetric(new ICEMetricValue(type, value, timestamp), dmetric);
 	}
+	
+	/**
+	 * Creates a new ICEMetric
+	 * @param timestamp The metric value timestamp
+	 * @param value The non-long value of the metric
+	 * @param type The type of the metric
+	 * @param dmetric The metric ID
+	 * @param token Supplementary token in case the delegate metric lookup failed
+	 * @return a new ICEMetric
+	 */
+	public static ICEMetric newMetric(long timestamp, ByteBuffer value, MetricType type, IDelegateMetric dmetric, long token) {
+		ICEMetric imetric = new ICEMetric(new ICEMetricValue(type, value, timestamp), dmetric);
+		if(dmetric==null) {
+			imetric.token = token;
+		}
+		return imetric;
+	}
+	
 	
 	/**
 	 * Attaches a TXContext
@@ -441,7 +490,17 @@ public class ICEMetric implements IMetric, Comparable<ICEMetric> {
 	 */
 	@Override
 	public long getToken() {
-		return metricId.getToken();
+		return metricId!=null ? metricId.getToken() : token;
+	}
+	
+	/**
+	 * Sets the metric ID on a token cache miss
+	 * @param metricId The metric ID
+	 */
+	public void setMetricId(IDelegateMetric metricId) {
+		if(this.metricId==null) {
+			this.metricId = metricId;
+		}
 	}
 	
 
@@ -527,6 +586,7 @@ public class ICEMetric implements IMetric, Comparable<ICEMetric> {
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.metric.IMetric#getUnmapped()
 	 */
+	@Override
 	public IMetric getUnmapped() {
 		if(isFlat()) return this;
 		if(unmapped==null) {

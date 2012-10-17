@@ -103,6 +103,9 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	protected final URI serverURI;
 	/** The sending channel */
 	protected Channel senderChannel;
+	/** The listener channel */
+	protected Channel listenerChannel;
+	
 	/** The server socket to send to */
 	protected InetSocketAddress socketAddress;
 	/** The server socket to listen on */

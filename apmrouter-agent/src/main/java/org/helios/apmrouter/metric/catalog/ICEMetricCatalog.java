@@ -109,6 +109,7 @@ public class ICEMetricCatalog implements IMetricCatalog {
 	 * {@inheritDoc} 
 	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#size()
 	 */
+	@Override
 	public int size() {
 		return actualCatalog.size();
 	}
@@ -118,6 +119,7 @@ public class ICEMetricCatalog implements IMetricCatalog {
 	 * @param metricIdToken The token to resolve
 	 * @return The resolved metric ID or null if not found
 	 */
+	@Override
 	public IDelegateMetric get(long metricIdToken) {
 		return actualCatalog.get(metricIdToken);
 	}
@@ -131,9 +133,26 @@ public class ICEMetricCatalog implements IMetricCatalog {
 	 * @param namespace The namespace segments
 	 * @return  the assigned token
 	 */
+	@Override
 	public long setToken(String host, String agent, CharSequence name, MetricType type, CharSequence... namespace) {
 		return actualCatalog.setToken(host, agent, name, type, namespace);
 	}
+	
+	/**
+	 * Sets the serialization token for the passed metric identifier
+	 * @param token The token to set on the metric 
+	 * @param host The host name
+	 * @param agent The agent name
+	 * @param name The metric name
+	 * @param type The metric type
+	 * @param namespace The namespace segments
+	 * @return  the assigned token
+	 */
+	@Override
+	public long setToken(long token, String host, String agent, CharSequence name, MetricType type, CharSequence... namespace) {
+		return actualCatalog.setToken(token, host, agent, name, type, namespace);
+	}
+	
 	
 
 	/**
@@ -206,6 +225,7 @@ public class ICEMetricCatalog implements IMetricCatalog {
 	 * @param type The metric type
 	 * @return the delegate metric
 	 */
+	@Override
 	public IDelegateMetric build(String fqn, MetricType type) {
 		return build(fqn, type, actualCatalog);
 	}

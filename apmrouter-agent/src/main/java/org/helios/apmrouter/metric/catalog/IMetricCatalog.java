@@ -88,6 +88,19 @@ public interface IMetricCatalog {
 			CharSequence... namespace);
 	
 	/**
+	 * Sets the serialization token for the passed metric identifier
+	 * @param token The token to set on the metric 
+	 * @param host The host name
+	 * @param agent The agent name
+	 * @param name The metric name
+	 * @param type The metric type
+	 * @param namespace The namespace segments
+	 * @return  the assigned token
+	 */
+	public long setToken(long token, String host, String agent, CharSequence name, MetricType type, CharSequence... namespace);
+	
+	
+	/**
 	 * Sets the serialization token for the passed un-tokenized metric 
 	 * @param metric the un-tokenized IMetric to tokenize
 	 * @return  the assigned token

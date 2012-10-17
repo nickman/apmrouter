@@ -99,5 +99,18 @@ public interface DecoratedChannelMBean {
 	 * @see org.jboss.netty.channel.Channel#isWritable()
 	 */
 	public abstract boolean isWritable();
+	
+	/**
+	 * Returns the host of this agent connection
+	 * @return the host of this agent connection
+	 */
+	public String getHost();
+
+	/**
+	 * Returns the agent of this agent connection
+	 * @return the host of this agent connection
+	 */
+	public String getAgent();
+	
 
 }

@@ -38,7 +38,9 @@ import org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupM
 import org.helios.apmrouter.server.net.listener.netty.handlers.AbstractAgentRequestHandler;
 import org.helios.apmrouter.server.net.listener.netty.handlers.AgentRequestHandler;
 import org.helios.apmrouter.server.services.session.ChannelType;
+import org.helios.apmrouter.server.services.session.DecoratedChannel;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
+import org.helios.apmrouter.server.services.session.VirtualUDPChannel;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
@@ -47,7 +49,6 @@ import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelUpstreamHandler;
-import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLogLevel;
@@ -63,9 +64,9 @@ import org.springframework.jmx.support.MetricType;
  * <p><code>org.helios.apmrouter.server.net.listener.netty.handlers.udp.UDPAgentOperationRouter</code></p>
  */
 
-public class UDPAgentOperationRouter extends AbstractAgentRequestHandler implements ChannelUpstreamHandler, ChannelGroupAware {
-	/** The channel group */
-	protected ManagedChannelGroupMXBean channelGroup = null;
+public class UDPAgentOperationRouter extends AbstractAgentRequestHandler implements ChannelUpstreamHandler {  //ChannelGroupAware
+//	/** The channel group */
+//	protected ManagedChannelGroupMXBean channelGroup = null;
 	
 	/** A set of socket addresses to which {@link OpCode#WHO} requests have been sent to but for which a response has not been received */
 	protected final Set<SocketAddress> pendingWhos = new CopyOnWriteArraySet<SocketAddress>();
@@ -87,6 +88,7 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 				info("Added AgentRequestHandler [", arh.getClass().getSimpleName(), "] for Op [", soc , "]");
 			}
 		}
+		handlers.put(OpCode.WHO_RESPONSE, this);
 	}
 	/**
 	 * {@inheritDoc}
@@ -142,9 +144,9 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 			synchronized(SharedChannelGroup.getInstance()) {
 				channel = SharedChannelGroup.getInstance().getByRemote(remoteAddress);
 				if(channel==null) {
-					channel = incoming.getFactory().newChannel(Channels.pipeline(clientConnLogHandler));					
+					channel = new VirtualUDPChannel(incoming, remoteAddress);
+					SharedChannelGroup.getInstance().add(channel, ChannelType.UDP_AGENT, "UDPAgent");
 					try {
-						if(!channel.connect(remoteAddress).await(1000)) throw new Exception();
 						if(!pendingWhos.contains(remoteAddress)) {
 							sendWho(channel, remoteAddress);
 						}
@@ -172,6 +174,7 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 		info("Sending Who Request to [", remoteAddress, "]");
 		pendingWhos.add(remoteAddress);
 		channel.write(cb, remoteAddress).addListener(new ChannelFutureListener() {
+			@Override
 			public void operationComplete(ChannelFuture f) throws Exception {
 				if(f.isSuccess()) {					
 					info("Confirmed Send Of Who Request to [", remoteAddress, "]");
@@ -238,18 +241,18 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 	
 	
 	
-	/**
-	 * Sets the channel group
-	 * @param channelGroup the injected channel group
-	 */
-	public void setChannelGroup(ManagedChannelGroup channelGroup) {
-		this.channelGroup = channelGroup;
-		for(AgentRequestHandler arh: handlers.values()) {
-			if(arh instanceof ChannelGroupAware) {
-				((ChannelGroupAware)arh).setChannelGroup(channelGroup);
-			}
-		}
-	}
+//	/**
+//	 * Sets the channel group
+//	 * @param channelGroup the injected channel group
+//	 */
+//	public void setChannelGroup(ManagedChannelGroup channelGroup) {
+//		this.channelGroup = channelGroup;
+//		for(AgentRequestHandler arh: handlers.values()) {
+//			if(arh instanceof ChannelGroupAware) {
+//				((ChannelGroupAware)arh).setChannelGroup(channelGroup);
+//			}
+//		}
+//	}
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.net.listener.netty.handlers.AgentRequestHandler#processAgentRequest(org.helios.apmrouter.OpCode, org.jboss.netty.buffer.ChannelBuffer, java.net.SocketAddress, org.jboss.netty.channel.Channel)
@@ -267,7 +270,8 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 			buff.readBytes(agentBytes);
 			String host = new String(hostBytes);
 			String agent = new String(agentBytes);
-			SharedChannelGroup.getInstance().add(channel, ChannelType.UDP_AGENT, "UDPAgent/" + host + "/" + agent);
+			DecoratedChannel dc = (DecoratedChannel) SharedChannelGroup.getInstance().getByRemote(remoteAddress);
+			dc.setWho(host, agent);
 		}
 	}
 	

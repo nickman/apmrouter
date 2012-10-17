@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.catalog;
 
+import org.helios.apmrouter.metric.catalog.IDelegateMetric;
+
 /**
  * <p>Title: MetricCatalogService</p>
  * <p>Description: Defines a metric catalog service, the exclusive and canonical repository for metrics.</p> 
@@ -44,6 +46,13 @@ public interface MetricCatalogService {
 	 * @return the assigned ID
 	 */
 	public long getID(long token, String host, String agent, int typeId, String namespace, String name);
+	
+	/**
+	 * Returns the delegate metric for the passed token
+	 * @param token the token
+	 * @return a delegate metric ID
+	 */
+	public IDelegateMetric getMetricID(long token);
 	
 	/**
 	 * Indicates if the metric catalog is real time 
