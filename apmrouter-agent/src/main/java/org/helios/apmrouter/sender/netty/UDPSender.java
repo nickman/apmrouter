@@ -93,7 +93,7 @@ public class UDPSender extends AbstractSender  {
 				Object msg = e.getMessage();
 				if(msg instanceof ChannelBuffer) {
 					ChannelBuffer buff = (ChannelBuffer)msg;
-					OpCode opCode = OpCode.valueOf(buff.readByte());					
+					OpCode opCode = OpCode.valueOf(buff.readByte());	
 					switch (opCode) {
 						case CONFIRM_METRIC:							
 							int keyLength = buff.readInt();
@@ -134,7 +134,8 @@ public class UDPSender extends AbstractSender  {
 							buff.readBytes(bytes);
 							String fqn = new String(bytes);
 							long token = buff.readLong();
-							metricCatalog.setToken(fqn, token);						
+							metricCatalog.setToken(fqn, token);		
+							processedTokens.incrementAndGet();
 							break;
 						default:
 							break;

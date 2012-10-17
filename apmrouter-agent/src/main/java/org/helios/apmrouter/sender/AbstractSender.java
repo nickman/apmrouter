@@ -120,6 +120,9 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	protected int heartbeatTimeoutDiscTrigger = 2;
 	/** The number of consecutive heartbeat ping timeouts */
 	protected final AtomicLong consecutiveTimeouts = new AtomicLong(0);
+	/** The number of tokens received and applied to the catalog */
+	protected final AtomicLong processedTokens = new AtomicLong(0);
+	
 	/** The metric catalog for token updates */
 	protected final IMetricCatalog metricCatalog;
 	/** The channel close future */
@@ -427,6 +430,15 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	@Override
 	public long getConsecutiveTimeouts() {
 		return consecutiveTimeouts.get();
+	}
+	
+	/**
+	 * Returns the number of processed metric tokens
+	 * @return the number of processed metric tokens
+	 */
+	@Override
+	public long getProcessedTokens() {
+		return processedTokens.longValue();
 	}
 	
 	/**

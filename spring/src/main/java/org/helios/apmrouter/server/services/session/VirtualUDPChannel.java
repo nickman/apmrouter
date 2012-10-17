@@ -25,9 +25,16 @@
 package org.helios.apmrouter.server.services.session;
 
 import java.net.SocketAddress;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.helios.apmrouter.OpCode;
+import org.helios.apmrouter.metric.AgentIdentity;
+import org.helios.apmrouter.util.TimeoutListener;
+import org.helios.apmrouter.util.TimeoutQueueMap;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelConfig;
 import org.jboss.netty.channel.ChannelFactory;
@@ -42,9 +49,10 @@ import org.jboss.netty.channel.Channels;
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.services.session.VirtualUDPChannel</code></p>
+ * FIXME: Ping related stuff should be configurable
  */
 
-public class VirtualUDPChannel implements Channel {
+public class VirtualUDPChannel implements Channel, TimeoutListener<Integer, Integer> {
 	/** Serial number generator */
 	protected static final AtomicInteger serial = new AtomicInteger(0);
 	/** The real parent channel */
@@ -57,7 +65,24 @@ public class VirtualUDPChannel implements Channel {
 	protected final AtomicBoolean connected = new AtomicBoolean(true);
 	/** The virtual channel local */
 	protected final ChannelLocal<Object> channelLocal;
+	/** The close future */
+	protected final ChannelFuture myCloseFuture;
+	// ===============================================================
+	//   Ping related stuff
+	// ===============================================================
+	/** The ping timeout in ms. */
+	protected long pingTimeout = 2000;
+	/** The maximum number of consecutive ping fails */
+	protected int maxPingFails = 3;
+	/** The number of consecutive ping fails */
+	protected final AtomicInteger consecutivePingFails = new AtomicInteger(0);
+	/** The ping schedule handle (to cancel on close) */
+	protected ScheduledFuture<?> pingSchedule;
+	/** The pending ping requests */
+	protected static final TimeoutQueueMap<Integer, Integer> timeoutMap = new TimeoutQueueMap<Integer, Integer>(5000);
+
 	
+	// ===============================================================
 	/**
 	 * Creates a new VirtualUDPChannel
 	 * @param parent The real parent channel 
@@ -65,8 +90,7 @@ public class VirtualUDPChannel implements Channel {
 	 */
 	public VirtualUDPChannel(Channel parent, SocketAddress remoteAddress) {
 		this.parent = parent;
-		this.remoteAddress = remoteAddress;
-		
+		this.remoteAddress = remoteAddress;		
 		id = serial.decrementAndGet();
 		if(id==Integer.MIN_VALUE) {
 			synchronized(serial) {
@@ -76,8 +100,68 @@ public class VirtualUDPChannel implements Channel {
 				}
 			}
 		}
+		myCloseFuture = Channels.future(this);
 		channelLocal = new ChannelLocal<Object>();
+		timeoutMap.addListener(this);
 	}
+	
+	/**
+	 * Sets the ping scheduler to be canceled on close
+	 * @param pingSchedule The ping schedule handle (to cancel on close)
+	 */
+	public void setPingSchedule(ScheduledFuture<?> pingSchedule) {
+		this.pingSchedule = pingSchedule;
+	}
+	
+	/**
+	 * <p>This callback occurs when a ping times out.
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.TimeoutListener#onTimeout(java.lang.Object, java.lang.Object)
+	 */
+	@Override
+	public void onTimeout(Integer key, Integer value) {
+		if(key.equals(getId())) {
+			int timeouts = consecutivePingFails.incrementAndGet();
+			if(timeouts>=maxPingFails) {
+				close();
+			}
+		}
+	}
+	
+	
+	/**
+	 * Sends a ping request to the agent at the end of this channel
+	 */
+	public void ping() {
+		StringBuilder key = new StringBuilder();
+		ChannelBuffer ping = encodePing(key);
+		write(ping);
+		timeoutMap.put(getId(), getId());
+	}	
+	
+	/**
+	 * Clears the current pending ping
+	 */
+	public void pingResponse() {
+		timeoutMap.remove(getId());
+	}
+
+	/**
+	 * Creates a ping channel buffer and appends the key to the passed buffer 
+	 * @param key The buffer to place the key in
+	 * @return the ping ChannelBuffer
+	 */
+	protected ChannelBuffer encodePing(final StringBuilder key) {
+		String _key = new StringBuilder(AgentIdentity.ID.getHostName()).append("-").append(AgentIdentity.ID.getAgentName()).append("-").append(System.nanoTime()).toString();
+		key.append(_key);
+		byte[] bytes = _key.getBytes();
+		ChannelBuffer ping = ChannelBuffers.buffer(1+4+bytes.length);
+		ping.writeByte(OpCode.PING.op());
+		ping.writeInt(bytes.length);
+		ping.writeBytes(bytes);
+		return ping;
+	}
+
 	
 	/**
 	 * {@inheritDoc}
@@ -85,9 +169,12 @@ public class VirtualUDPChannel implements Channel {
 	 */
 	@Override
 	public ChannelFuture close() {
+		pingSchedule.cancel(true);
+		timeoutMap.removeListener(this);
 		channelLocal.remove(this);		
 		Channels.fireChannelClosed(this);
-		return Channels.future(this);
+		myCloseFuture.setSuccess();
+		return myCloseFuture;
 	}
 
 	/**
@@ -96,7 +183,7 @@ public class VirtualUDPChannel implements Channel {
 	 */
 	@Override
 	public ChannelFuture getCloseFuture() {
-		return Channels.future(this);		
+		return myCloseFuture;
 	}
 	
 
@@ -316,6 +403,7 @@ public class VirtualUDPChannel implements Channel {
 	public void setAttachment(Object attachment) {
 		channelLocal.set(this, attachment);
 	}
+
 	
 	
 	

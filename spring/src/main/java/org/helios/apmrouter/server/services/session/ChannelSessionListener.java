@@ -45,4 +45,11 @@ public interface ChannelSessionListener {
 	 * @param channel The closed channel
 	 */
 	public void onClosedChannel(DecoratedChannelMBean channel);
+	
+	/**
+	 * Fired when a connected channel is identified
+	 * @param channel The identified channel
+	 */
+	public void onIdentifiedChannel(DecoratedChannelMBean channel);
+	
 }

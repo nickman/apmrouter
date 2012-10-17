@@ -26,7 +26,6 @@ package org.helios.apmrouter.server.net.listener.netty.handlers;
 
 import java.net.SocketAddress;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -42,6 +41,8 @@ import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.router.PatternRouter;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.helios.apmrouter.trace.DirectMetricCollection;
+import org.helios.apmrouter.util.SystemClock;
+import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
@@ -102,11 +103,14 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 			for(Iterator<IMetric> iter = metrics.iterator(); iter.hasNext();) {
 				IMetric metric = iter.next();
 				if(metric.getMetricId()==null) {
+					SystemClock.startTimer();
 					IDelegateMetric metricId = metricCatalogService.getMetricID(metric.getToken());
+					ElapsedTime et = SystemClock.endTimer();
 					if(metricId==null) {
 						iter.remove();
-						warn("Token Lookup Miss");
+						warn("Token Lookup Miss [", metric.getToken(), "]");
 					} else {
+						debug("Looked up token [" , metric.getToken() , "] in [", et, "]");
 						((ICEMetric)metric).setMetricId(metricId);
 					}					
 				}
@@ -126,7 +130,8 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 			if(opCode==OpCode.SEND_METRIC_DIRECT) {
 				sendConfirm(channel, remoteAddress,  metric);
 			}
-			if(metric.getToken()==-1) {						
+			if(metric.getToken()==-1) {			
+				incr("NonTokenizedMetrics");
 				sendToken(channel, remoteAddress,  metric);
 			}			
 		}
@@ -244,7 +249,7 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	 * Returns the number of metric confirms sent
 	 * @return the number of metric confirms sent
 	 */
-	@ManagedAttribute
+	@ManagedAttribute(description="The number of confirms sent")
 	public long getConfirmsSent() {
 		return getMetricValue("ConfirmsSent");
 	}	
@@ -253,10 +258,20 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	 * Returns the number of tokens sent
 	 * @return the number of tokens sent
 	 */
-	@ManagedAttribute
+	@ManagedAttribute(description="The number of tokens sent")
 	public long getTokensSent() {
 		return getMetricValue("TokensSent");
+	}
+	
+	/**
+	 * Returns the number of non-tokenized metrics received
+	 * @return the number of non-tokenized metrics received
+	 */
+	@ManagedAttribute(description="The number of non-tokenized metrics received")
+	public long getNonTokenizedMetrics() {
+		return getMetricValue("NonTokenizedMetrics");
 	}		
+	
 	
 
 	/**
@@ -270,6 +285,7 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 		metrics.add("MetricsReceived");
 		metrics.add("ConfirmsSent");
 		metrics.add("TokensSent");
+		metrics.add("NonTokenizedMetrics");
 		return metrics;
 	}	
 

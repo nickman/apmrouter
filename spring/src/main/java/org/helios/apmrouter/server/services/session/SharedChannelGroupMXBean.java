@@ -24,13 +24,9 @@
  */
 package org.helios.apmrouter.server.services.session;
 
-import java.util.Set;
-
-import javax.management.NotificationBroadcaster;
 import javax.management.ObjectName;
 
 import org.helios.apmrouter.jmx.JMXHelper;
-import org.jboss.netty.channel.group.ChannelGroupFuture;
 
 /**
  * <p>Title: SharedChannelGroupMXBean</p>
@@ -44,11 +40,12 @@ public interface SharedChannelGroupMXBean  {
 
 	/** The new channel session jmx event type */
 	public static final String NEW_SESSION_EVENT = "apmrouter.session.start";
+	/** The identfied channel session jmx event type */
+	public static final String IDENTIFIED_SESSION_EVENT = "apmrouter.session.identified";	
 	/** The closed channel session jmx event type */
 	public static final String CLOSED_SESSION_EVENT = "apmrouter.session.end";
 	/** The JMX ObjectName for this service */
-	public static final ObjectName OBJECT_NAME = JMXHelper
-			.objectName("org.helios.apmrouter.session:service=SharedChannelGroup");
+	public static final ObjectName OBJECT_NAME = JMXHelper.objectName("org.helios.apmrouter.session:service=SharedChannelGroup");
 
 	/**
 	 * Returns the number of registered channels

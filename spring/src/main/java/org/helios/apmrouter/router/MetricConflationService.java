@@ -151,7 +151,12 @@ public class MetricConflationService extends ServerComponentBean implements Runn
 						for(Map.Entry<String, IMetric> fentry: map.entrySet()) {
 							IMetric existing = forwards.get(fentry.getKey());
 							if(existing!=null) {
-								existing.conflate(fentry.getValue());
+								try {
+									existing.conflate(fentry.getValue());
+								} catch (Exception ex) {
+									incr("ConflationErrors");
+									//error("Failed to conflate.\n\tThis metric:", existing, "\n\tThat metric:", fentry.getValue());
+								}
 								incr("MetricsConflated");
 								continue;
 							}
@@ -271,6 +276,16 @@ public class MetricConflationService extends ServerComponentBean implements Runn
 		return getMetricValue("MetricsQueued");
 	}
 	
+	/**
+	 * Returns the number of metric conflation errors
+	 * @return the number of metric conflation errors
+	 */
+	@ManagedMetric(category="ConflationService", metricType=MetricType.COUNTER, description="the number of metric conflation errors")
+	public long getConflationErrors() {
+		return getMetricValue("ConflationErrors");
+	}
+	
+	
 	
 	
 	/**
@@ -284,6 +299,7 @@ public class MetricConflationService extends ServerComponentBean implements Runn
 		_metrics.add("MetricsForwarded");
 		_metrics.add("MetricsDropped");
 		_metrics.add("MetricsConflated");		
+		_metrics.add("ConflationErrors");
 		return _metrics;
 	}
 	

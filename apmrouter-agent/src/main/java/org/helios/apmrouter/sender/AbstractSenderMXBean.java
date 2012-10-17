@@ -136,6 +136,13 @@ public interface AbstractSenderMXBean  {
 	 * @return the logical name for this sender
 	 */
 	public String getName();	
+	
+	/**
+	 * Returns the number of processed metric tokens
+	 * @return the number of processed metric tokens
+	 */
+	public long getProcessedTokens();
+	
 
 
 }

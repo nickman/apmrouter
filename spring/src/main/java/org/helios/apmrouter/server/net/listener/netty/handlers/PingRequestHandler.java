@@ -31,6 +31,9 @@ import java.util.concurrent.CountDownLatch;
 
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
+import org.helios.apmrouter.server.services.session.DecoratedChannel;
+import org.helios.apmrouter.server.services.session.SharedChannelGroup;
+import org.helios.apmrouter.server.services.session.VirtualUDPChannel;
 import org.helios.apmrouter.util.TimeoutListener;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -70,7 +73,19 @@ public class PingRequestHandler extends AbstractAgentRequestHandler implements T
 	public void processAgentRequest(OpCode opCode, ChannelBuffer buff, final SocketAddress remoteAddress, Channel channel) {
 		switch(opCode) {
 		case PING_RESPONSE:							
-			long pingKey = buff.readLong();			
+			incr("TotalPingResponseCount");
+			long pingKey = buff.readLong();
+			
+			Channel session = SharedChannelGroup.getInstance().getByRemote(remoteAddress);
+			if(session!=null && session instanceof DecoratedChannel) {
+				if(((DecoratedChannel)session).getDelegate() instanceof VirtualUDPChannel) {
+					VirtualUDPChannel vuc = (VirtualUDPChannel)((DecoratedChannel)session).getDelegate();
+					if(vuc!=null) {
+						vuc.pingResponse();
+					}					
+				}
+			}
+			
 			CountDownLatch latch = timeoutMap.remove("" + pingKey);
 			if(latch!=null) {
 				latch.countDown();
@@ -140,13 +155,23 @@ public class PingRequestHandler extends AbstractAgentRequestHandler implements T
 	}
 	
 	/**
-	 * Returns the total ping count handled
-	 * @return the total ping count handled
+	 * Returns the total number of pings sent
+	 * @return the total number of pings sent
 	 */
-	@ManagedMetric(category="PingService", metricType=MetricType.GAUGE, description="a sliding window average of ping elapsed times to agents")
+	@ManagedMetric(category="PingService", metricType=MetricType.GAUGE, description="the total number of pings sent")
 	public long getTotalPingCount() {
 		return getMetricValue("TotalPingCount");
 	}
+	
+	/**
+	 * Returns the total number of ping responses handled
+	 * @return the total number of ping responses handled
+	 */
+	@ManagedMetric(category="PingService", metricType=MetricType.GAUGE, description="the total number of ping responses handled")
+	public long getTotalPingResponseCount() {
+		return getMetricValue("TotalPingResponseCount");
+	}
+	
 	
 	/**
 	 * {@inheritDoc}

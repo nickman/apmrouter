@@ -83,10 +83,16 @@ public class ICEMetricValue {
 	 */
 	public synchronized void conflate(ICEMetricValue metricValue) {
 		if(!type.isLong() || !metricValue.type.isLong()) {
-			throw new RuntimeException("Cannot conflate non-numeric values", new Throwable());
+			StringBuilder b = new StringBuilder("Cannot conflate non-numeric values.");
+			b.append("\n\tThis metric:").append(this.toString());
+			b.append("\n\tThat value:").append(metricValue);
+			throw new RuntimeException(b.toString(), new Throwable());
 		}
 		if(type!=metricValue.type) {
-			throw new RuntimeException("Cannot conflate values of different types", new Throwable());
+			StringBuilder b = new StringBuilder("Cannot conflate values of different types.");
+			b.append("\n\tThis metric:").append(this.toString());
+			b.append("\n\tThat value:").append(metricValue);
+			throw new RuntimeException(b.toString(), new Throwable());
 		}
 		if(type.isGauge()) {
 			this.longValue = avg(2, this.longValue + metricValue.longValue);
@@ -154,6 +160,15 @@ public class ICEMetricValue {
 	 */
 	public MetricType getType() {
 		return type;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "ICEMetricValue [time=" + new Date(time) + ", type=" + type + "]";
 	}
 	
 	

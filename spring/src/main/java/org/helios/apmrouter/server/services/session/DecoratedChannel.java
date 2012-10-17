@@ -24,15 +24,23 @@
  */
 package org.helios.apmrouter.server.services.session;
 
+import java.io.ObjectStreamException;
+import java.io.Serializable;
 import java.net.SocketAddress;
 import java.util.Date;
 
+import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.util.SystemClock;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelConfig;
 import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelPipeline;
+
+import com.sun.jmx.mbeanserver.DefaultMXBeanMappingFactory;
+import com.sun.jmx.mbeanserver.MXBeanMapping;
 
 /**
  * <p>Title: DecoratedChannel</p>
@@ -42,7 +50,9 @@ import org.jboss.netty.channel.ChannelPipeline;
  * <p><code>org.helios.apmrouter.server.services.session.DecoratedChannel</code></p>
  */
 
-public class DecoratedChannel implements Channel, DecoratedChannelMBean {
+public class DecoratedChannel implements Channel, DecoratedChannelMBean, Serializable {
+	/**  */
+	private static final long serialVersionUID = -4593645879241044163L;
 	/** The wrapped channel */
 	protected final Channel delegate;
 	/** The assigned channel name */
@@ -55,6 +65,15 @@ public class DecoratedChannel implements Channel, DecoratedChannelMBean {
 	protected String host = null;
 	/** The agent (if an agent's connection) */
 	protected String agent = null;
+	protected static final MXBeanMapping mapping; 
+	
+	static {
+		try {
+			mapping = DefaultMXBeanMappingFactory.DEFAULT.mappingForType(DecoratedChannelMBean.class, DefaultMXBeanMappingFactory.DEFAULT);
+		} catch (Exception ex) {
+			throw new RuntimeException(ex);
+		}
+	}
 	
 	/**
 	 * Creates a new DecoratedChannel
@@ -69,6 +88,20 @@ public class DecoratedChannel implements Channel, DecoratedChannelMBean {
 		connectTime = SystemClock.time();
 	}
 	
+
+	/**
+	 * Replaces this object with an opentype when being serialized
+	 * @return an open type data object representing this channel
+	 * @throws ObjectStreamException
+	 */
+	private Object writeReplace() throws ObjectStreamException {
+		try {
+			return mapping.toOpenValue(this);
+		} catch (Exception ex) {
+			throw new RuntimeException(ex);
+		}
+	}
+	
 	/**
 	 * Updates the host and agent
 	 * @param host the agent host
@@ -77,6 +110,18 @@ public class DecoratedChannel implements Channel, DecoratedChannelMBean {
 	public void setWho(String host, String agent) {
 		this.host = host;
 		this.agent = agent;
+	}
+	
+	/**
+	 * Sends a {@link OpCode#WHO} to an unidentified agent in Whoville.
+	 */
+	public void sendWho() {
+		byte[] bytes = delegate.getRemoteAddress().toString().getBytes();
+		ChannelBuffer cb = ChannelBuffers.directBuffer(bytes.length+5);
+		cb.writeByte(OpCode.WHO.op());
+		cb.writeInt(bytes.length);
+		cb.writeBytes(bytes);
+		delegate.write(cb, delegate.getRemoteAddress());
 	}
 	
 	/**
@@ -452,6 +497,14 @@ public class DecoratedChannel implements Channel, DecoratedChannelMBean {
 		if (type != other.type)
 			return false;
 		return true;
+	}
+
+	/**
+	 * Returns the 
+	 * @return the delegate
+	 */
+	public Channel getDelegate() {
+		return delegate;
 	}
 
 }

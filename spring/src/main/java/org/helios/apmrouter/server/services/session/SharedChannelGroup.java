@@ -25,6 +25,7 @@
 package org.helios.apmrouter.server.services.session;
 
 import java.net.SocketAddress;
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -34,7 +35,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.ListenerNotFoundException;
@@ -89,6 +95,16 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 	protected ChannelGroup channelGroup = new DefaultChannelGroup("APMRouterChannelGroup");
 	/** A set of registered channel session listeners */
 	protected final Set<ChannelSessionListener> listeners = new CopyOnWriteArraySet<ChannelSessionListener>();
+	/** The pring scheduler for sessions that need to be pinged */
+	protected final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2, new ThreadFactory(){
+		private final AtomicInteger serial = new AtomicInteger(0);
+		@Override
+		public Thread newThread(Runnable r) {
+			Thread t = new Thread(r, "SharedChannelGroupPingerThread#" + serial.incrementAndGet());
+			t.setDaemon(true);
+			return t;
+		}
+	});
 	
 	/** Serial number generator for jmx notifications */
 	protected final AtomicLong jmxNotifSerial = new AtomicLong(0L);
@@ -119,9 +135,19 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 		threadPool = (ThreadPoolExecutor) ThreadPoolFactory.newCachedThreadPool("org.helios.apmrouter.session", "SharedChannelGroupPool");
 		notificationBroadcaster = new NotificationBroadcasterSupport(threadPool, new MBeanNotificationInfo[]{
 				new MBeanNotificationInfo(new String[]{NEW_SESSION_EVENT}, Notification.class.getName(), "Notification broadcast when a channel session is initiated"),
-				new MBeanNotificationInfo(new String[]{CLOSED_SESSION_EVENT}, Notification.class.getName(), "Notification broadcast when a channel session is closed")
+				new MBeanNotificationInfo(new String[]{CLOSED_SESSION_EVENT}, Notification.class.getName(), "Notification broadcast when a channel session is closed"),
+				new MBeanNotificationInfo(new String[]{IDENTIFIED_SESSION_EVENT}, Notification.class.getName(), "Notification broadcast when a channel is identified")
 		});
 		JMXHelper.registerMBean(OBJECT_NAME, this);
+		scheduler.scheduleAtFixedRate(new Runnable(){
+			public void run() {
+				for(DecoratedChannel dc: channelsByRemote.values()) {
+					if(dc.host==null || dc.agent==null) {
+						dc.sendWho();
+					}
+				}
+			}
+		}, 3000, 3000, TimeUnit.MILLISECONDS);
 		
 	}
 	
@@ -214,18 +240,27 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 				}
 			});
 			registerWithListeners(dchannel);
-			log.info("Adding Channel From [" +  channel.getId() + "]");
+			if(dchannel.getDelegate() instanceof VirtualUDPChannel) {
+				final VirtualUDPChannel vuc = (VirtualUDPChannel)dchannel.getDelegate();
+				vuc.setPingSchedule(
+						scheduler.scheduleAtFixedRate(new Runnable(){
+							public void run() {
+								vuc.ping();
+							}
+						}, 10000, 10000, TimeUnit.MILLISECONDS)
+				);
+			}
 		} 
 		return isNew;
 	}
+	
 	
 	/**
 	 * @param dchannel
 	 * FIXME: MUTLITHREAD, EVENTS, NOTIFS, SEND NEW CHANNEL
 	 */
 	private void registerWithListeners(final DecoratedChannel dchannel) {
-		sendChannelConnectedEvent(dchannel);
-		if(listeners.isEmpty()) return;
+		sendChannelConnectedEvent(dchannel);		
 		final Set<ChannelSessionListener> forwardTo = new HashSet<ChannelSessionListener>();
 		ChannelFutureListener relay = new ChannelFutureListener() {			
 			@Override
@@ -297,7 +332,9 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 				});									
 			}
 		}
-		sendNotification(new Notification(NEW_SESSION_EVENT, OBJECT_NAME, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Channel Session Started [" + dchannel.toString() + "]"));
+		Notification notif = new Notification(NEW_SESSION_EVENT, OBJECT_NAME, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Channel Session Started [" + dchannel.toString() + "]");
+		notif.setUserData(dchannel);
+		sendNotification(notif);
 		if(applicationContext != null) {
 			threadPool.submit(new Runnable() {
 				@Override
@@ -306,6 +343,37 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 				}
 			});								
 		}
+	}
+	
+	/**
+	 * Sends a JMX notification indicating that a channel session has been identified.
+	 * @param dchannel The channel that has been identified.
+	 */
+	public void sendIdentifiedChannelEvent(final DecoratedChannel dchannel) {
+		for(final ChannelSessionListener listener: listeners) {
+			if(listener instanceof FilteredChannelSessionListener) {
+				if(((FilteredChannelSessionListener)listener).include(dchannel)) {
+					threadPool.submit(new Runnable() {
+						@Override
+						public void run() {
+							listener.onIdentifiedChannel(dchannel);
+						}
+					});					
+					
+				}
+			} else {
+				threadPool.submit(new Runnable() {
+					@Override
+					public void run() {
+						listener.onIdentifiedChannel(dchannel);
+					}
+				});									
+			}
+		}
+		
+		Notification notif = new Notification(IDENTIFIED_SESSION_EVENT, OBJECT_NAME, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Channel Session Identified [" + dchannel.host + "/" + dchannel.agent + "]");
+		notif.setUserData(dchannel);
+		sendNotification(notif);
 	}
 
 	/**

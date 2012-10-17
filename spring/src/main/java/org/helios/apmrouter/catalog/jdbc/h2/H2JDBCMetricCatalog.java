@@ -153,6 +153,7 @@ CREATE TABLE IF NOT EXISTS  PUBLIC.METRIC(
 			incr("TokenLookups");
 			conn = ds.getConnection();
 			ps = conn.prepareStatement(GET_METRIC_SQL);
+			ps.setLong(1, token);
 			rset = ps.executeQuery();
 			if(!rset.next()) {
 				return null;
@@ -164,9 +165,9 @@ CREATE TABLE IF NOT EXISTS  PUBLIC.METRIC(
 			sex.printStackTrace(System.err);
 			return null;
 		} finally {
-			try { rset.close(); } catch (Exception e) {}
-			try { ps.close(); } catch (Exception e) {}
-			try { conn.close(); } catch (Exception e) {}
+			if(rset!=null) try { rset.close(); } catch (Exception e) {}
+			if(ps!=null) try { ps.close(); } catch (Exception e) {}
+			if(conn!=null) try { conn.close(); } catch (Exception e) {}
 		}				
 	}
 	

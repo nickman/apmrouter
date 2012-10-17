@@ -25,6 +25,8 @@
 package org.helios.apmrouter.server.net.listener.netty.handlers;
 
 import java.net.SocketAddress;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -33,6 +35,9 @@ import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.server.net.listener.netty.ChannelGroupAware;
 import org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroup;
+import org.helios.apmrouter.server.services.session.ChannelType;
+import org.helios.apmrouter.server.services.session.SharedChannelGroup;
+import org.helios.apmrouter.server.services.session.VirtualUDPChannel;
 import org.helios.apmrouter.util.TimeoutQueueMap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -63,6 +68,10 @@ public abstract class AbstractAgentRequestHandler extends ServerComponentBean im
 	/** Logging handler */
 	private static final LoggingHandler clientConnLogHandler = new LoggingHandler("org.helios.AgentMetricHandler", InternalLogLevel.DEBUG, true);
 	
+	/** A set of socket addresses to which {@link OpCode#WHO} requests have been sent to but for which a response has not been received */
+	protected final Set<SocketAddress> pendingWhos = new CopyOnWriteArraySet<SocketAddress>();
+	
+	
 	/**
 	 * Sets the channel group
 	 * @param channelGroup the injected channel group
@@ -76,35 +85,56 @@ public abstract class AbstractAgentRequestHandler extends ServerComponentBean im
 	 * @param incoming The incoming channel to acquire a new channel from, if required
 	 * @param remoteAddress The remote address to connect to
 	 * @return a channel connected to the remote address
-	 * FIXME: Need configurable timeout on remote connect
 	 */
 	protected Channel getChannelForRemote(final Channel incoming, final SocketAddress remoteAddress) {
-		Channel channel = channelGroup.findRemote(remoteAddress);
+		Channel channel = SharedChannelGroup.getInstance().getByRemote(remoteAddress);
 		if(channel==null) {
-			synchronized(channelGroup) {
-				channel = channelGroup.findRemote(remoteAddress);
+			synchronized(SharedChannelGroup.getInstance()) {
+				channel = SharedChannelGroup.getInstance().getByRemote(remoteAddress);
 				if(channel==null) {
-					channel = incoming.getFactory().newChannel(Channels.pipeline(clientConnLogHandler));
-					channelGroup.add(channel, "AgentConnection/" + remoteAddress);
+					channel = new VirtualUDPChannel(incoming, remoteAddress);
+					SharedChannelGroup.getInstance().add(channel, ChannelType.UDP_AGENT, "UDPAgent");
 					try {
-						if(!channel.connect(remoteAddress).await(1000)) throw new Exception();
+						if(!pendingWhos.contains(remoteAddress)) {
+							sendWho(channel, remoteAddress);
+						}
+//						SharedChannelGroup.getInstance().add(channel, ChannelType.UDP_AGENT, "UDPAgent");
 					} catch (Exception  e) {
 						throw new RuntimeException("Failed to acquire remote connection to [" + remoteAddress + "]", e);
 					}
-					final ChannelGroup cg = channelGroup;
-					channel.getCloseFuture().addListener(new ChannelFutureListener() {
-						@Override
-						public void operationComplete(ChannelFuture future) throws Exception {
-							System.err.println("Client Channel Closed. Did Agent Go Away ?");
-							cg.remove(future.getChannel());
-						}
-					});
-					channelGroup.add(channel);
 				}
 			}
 		}
 		return channel;
 	}
+	
+	/**
+	 * Sends a {@link OpCode#WHO} request to a newly connected channel
+	 * @param channel The newly connected channel
+	 * @param remoteAddress Thre remote address of the newly connected channel
+	 */
+	protected void sendWho(Channel channel, final SocketAddress remoteAddress) {
+		byte[] bytes = remoteAddress.toString().getBytes();
+		ChannelBuffer cb = ChannelBuffers.directBuffer(bytes.length+5);
+		cb.writeByte(OpCode.WHO.op());
+		cb.writeInt(bytes.length);
+		cb.writeBytes(bytes);
+		info("Sending Who Request to [", remoteAddress, "]");
+		pendingWhos.add(remoteAddress);
+		channel.write(cb, remoteAddress).addListener(new ChannelFutureListener() {
+			@Override
+			public void operationComplete(ChannelFuture f) throws Exception {
+				if(f.isSuccess()) {					
+					info("Confirmed Send Of Who Request to [", remoteAddress, "]");
+				} else {
+					error("Failed to send Who request to [", remoteAddress, "]", f.getCause());
+					pendingWhos.remove(remoteAddress);
+				}
+				
+			}
+		});			
+	}
+	
 	
 	
 	

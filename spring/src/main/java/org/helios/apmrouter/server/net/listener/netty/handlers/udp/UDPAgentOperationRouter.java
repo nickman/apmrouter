@@ -68,8 +68,6 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 //	/** The channel group */
 //	protected ManagedChannelGroupMXBean channelGroup = null;
 	
-	/** A set of socket addresses to which {@link OpCode#WHO} requests have been sent to but for which a response has not been received */
-	protected final Set<SocketAddress> pendingWhos = new CopyOnWriteArraySet<SocketAddress>();
 
 	/** A map of agent request handlers keyed by the opcode */
 	protected final EnumMap<OpCode, AgentRequestHandler> handlers = new EnumMap<OpCode, AgentRequestHandler>(OpCode.class);
@@ -131,61 +129,7 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 	private static final LoggingHandler clientConnLogHandler = new LoggingHandler("org.helios.UDPAgentOperationRouter", InternalLogLevel.INFO, true);
 
 	
-	/**
-	 * Acquires a channel connected to the provided remote address
-	 * @param incoming The incoming channel to acquire a new channel from, if required
-	 * @param remoteAddress The remote address to connect to
-	 * @return a channel connected to the remote address
-	 * FIXME: Need configurable timeout on remote connect
-	 */
-	protected Channel getChannelForRemote(final Channel incoming, final SocketAddress remoteAddress) {
-		Channel channel = SharedChannelGroup.getInstance().getByRemote(remoteAddress);
-		if(channel==null) {
-			synchronized(SharedChannelGroup.getInstance()) {
-				channel = SharedChannelGroup.getInstance().getByRemote(remoteAddress);
-				if(channel==null) {
-					channel = new VirtualUDPChannel(incoming, remoteAddress);
-					SharedChannelGroup.getInstance().add(channel, ChannelType.UDP_AGENT, "UDPAgent");
-					try {
-						if(!pendingWhos.contains(remoteAddress)) {
-							sendWho(channel, remoteAddress);
-						}
-//						SharedChannelGroup.getInstance().add(channel, ChannelType.UDP_AGENT, "UDPAgent");
-					} catch (Exception  e) {
-						throw new RuntimeException("Failed to acquire remote connection to [" + remoteAddress + "]", e);
-					}
-				}
-			}
-		}
-		return channel;
-	}
 	
-	/**
-	 * Sends a {@link OpCode#WHO} request to a newly connected channel
-	 * @param channel The newly connected channel
-	 * @param remoteAddress Thre remote address of the newly connected channel
-	 */
-	protected void sendWho(Channel channel, final SocketAddress remoteAddress) {
-		byte[] bytes = remoteAddress.toString().getBytes();
-		ChannelBuffer cb = ChannelBuffers.directBuffer(bytes.length+5);
-		cb.writeByte(OpCode.WHO.op());
-		cb.writeInt(bytes.length);
-		cb.writeBytes(bytes);
-		info("Sending Who Request to [", remoteAddress, "]");
-		pendingWhos.add(remoteAddress);
-		channel.write(cb, remoteAddress).addListener(new ChannelFutureListener() {
-			@Override
-			public void operationComplete(ChannelFuture f) throws Exception {
-				if(f.isSuccess()) {					
-					info("Confirmed Send Of Who Request to [", remoteAddress, "]");
-				} else {
-					error("Failed to send Who request to [", remoteAddress, "]", f.getCause());
-					pendingWhos.remove(remoteAddress);
-				}
-				
-			}
-		});			
-	}
 	
 	
 	/**
@@ -272,6 +216,8 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 			String agent = new String(agentBytes);
 			DecoratedChannel dc = (DecoratedChannel) SharedChannelGroup.getInstance().getByRemote(remoteAddress);
 			dc.setWho(host, agent);
+			SharedChannelGroup.getInstance().sendIdentifiedChannelEvent(dc);
+			info("Agent at [", remoteAddress, "] identified itself as [", host, "/", agent, "]");
 		}
 	}
 	

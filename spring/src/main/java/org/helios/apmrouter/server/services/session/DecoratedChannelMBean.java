@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.server.services.session;
 
+import java.net.SocketAddress;
+
 /**
  * <p>Title: DecoratedChannelMBean</p>
  * <p>Description: </p> 
