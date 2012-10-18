@@ -14,7 +14,8 @@ CREATE MEMORY TEMPORARY TABLE PUBLIC.AGENT(
     HOST_ID INTEGER NOT NULL COMMENT 'The id of the host this agent is running om.',
     NAME VARCHAR2(120) NOT NULL COMMENT 'The name of the agent.',
     FIRST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The first time the agent was seen.',
-    LAST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The last time the agent connected.'
+    LAST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The last time the agent connected.',
+    CONNECTED TIMESTAMP NULL COMMENT 'The time the agent connected or null if not connected.'
 ) NOT PERSISTENT; 
  
 
@@ -24,7 +25,8 @@ CREATE MEMORY TEMPORARY TABLE PUBLIC.HOST(
     IP VARCHAR2(15) COMMENT 'The ip address of the host',
     FQN VARCHAR2(255)  COMMENT 'The fully qualified name of the host',
     FIRST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The first time the host was seen.',
-    LAST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The last time connected.'
+    LAST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The last time connected.',
+    CONNECTED TIMESTAMP NULL COMMENT 'The time an agent from this host connected or null if not connected.'
 ) NOT PERSISTENT;      
     
 
