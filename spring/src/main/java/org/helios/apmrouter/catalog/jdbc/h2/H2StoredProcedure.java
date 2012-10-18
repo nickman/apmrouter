@@ -39,6 +39,17 @@ import java.sql.SQLException;
 
 public class H2StoredProcedure {
 	
+	public static void hostAgentState(Connection conn, boolean connected, String host, String ip, String agent) throws SQLException {
+		if(connected) {
+			int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", 1, host, ip).intValue();
+			key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", 1, hostId, agent).intValue();
+		} else {
+			int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL)", 1, host, ip).intValue();
+			key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, NULL)", 1, hostId, agent).intValue();			
+		}
+
+	}
+	
 	/**
 	 * Upsert on a metric's last seen timestamp.
 	 * @param conn The h2 provided connection
