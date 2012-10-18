@@ -221,7 +221,14 @@ public class TimeoutQueueMap<K, V>  implements Runnable, Map<K, V> {
 				referenceMap.remove(mapKey.key);
 				timeOutCount.incrementAndGet();
 				for(TimeoutListener<K, V> listener: timeOutListeners) {
-					listener.onTimeout(mapKey.key, mapKey.delayed);
+					if(listener instanceof ValueFilteredTimeoutListener) {
+						ValueFilteredTimeoutListener<K,V> filteringListener = (ValueFilteredTimeoutListener<K,V>)listener;
+						if(filteringListener.include(mapKey.delayed)) {
+							filteringListener.onTimeout(mapKey.key, mapKey.delayed);
+						}
+					} else {
+						listener.onTimeout(mapKey.key, mapKey.delayed);
+					}
 				}
 			} catch (Exception e) {	
 				if(!running) return;

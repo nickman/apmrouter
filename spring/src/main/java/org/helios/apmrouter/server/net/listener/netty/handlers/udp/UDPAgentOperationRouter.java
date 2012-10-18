@@ -29,24 +29,16 @@ import java.util.Collection;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.helios.apmrouter.OpCode;
-import org.helios.apmrouter.server.net.listener.netty.ChannelGroupAware;
-import org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroup;
-import org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean;
 import org.helios.apmrouter.server.net.listener.netty.handlers.AbstractAgentRequestHandler;
 import org.helios.apmrouter.server.net.listener.netty.handlers.AgentRequestHandler;
-import org.helios.apmrouter.server.services.session.ChannelType;
 import org.helios.apmrouter.server.services.session.DecoratedChannel;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
-import org.helios.apmrouter.server.services.session.VirtualUDPChannel;
+import org.helios.apmrouter.util.ValueFilteredTimeoutListener;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelEvent;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelUpstreamHandler;
 import org.jboss.netty.channel.MessageEvent;
@@ -64,7 +56,7 @@ import org.springframework.jmx.support.MetricType;
  * <p><code>org.helios.apmrouter.server.net.listener.netty.handlers.udp.UDPAgentOperationRouter</code></p>
  */
 
-public class UDPAgentOperationRouter extends AbstractAgentRequestHandler implements ChannelUpstreamHandler {  //ChannelGroupAware
+public class UDPAgentOperationRouter extends AbstractAgentRequestHandler implements ChannelUpstreamHandler, ValueFilteredTimeoutListener<String, OpCode> {  //ChannelGroupAware
 //	/** The channel group */
 //	protected ManagedChannelGroupMXBean channelGroup = null;
 	
@@ -87,6 +79,7 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 			}
 		}
 		handlers.put(OpCode.WHO_RESPONSE, this);
+		handlers.put(OpCode.BYE, this);
 	}
 	/**
 	 * {@inheritDoc}
@@ -98,7 +91,19 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 			Object msg = ((MessageEvent)e).getMessage();
 			if(msg instanceof ChannelBuffer) {
 				SocketAddress remoteAddress = ((MessageEvent)e).getRemoteAddress();
-				if(!pendingWhos.contains(remoteAddress)) {
+				ChannelBuffer buff = (ChannelBuffer)msg;
+				incr("RequestsReceived");
+				OpCode opCode = OpCode.valueOf(buff);
+				if(opCode==OpCode.BYE) {
+					info("Processing BYE for client at [" + remoteAddress + "]");
+					DecoratedChannel dc = (DecoratedChannel) SharedChannelGroup.getInstance().getByRemote(remoteAddress);
+					if(dc!=null) {
+						dc.close();
+					}
+					return;
+				}
+				
+				if(!containsPendingOp(remoteAddress, OpCode.WHO)) {
 					Channel remoteChannel = SharedChannelGroup.getInstance().getByRemote(remoteAddress);
 					if(remoteChannel==null) {
 						try {
@@ -108,10 +113,6 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 						}
 					}
 				}
-				
-				ChannelBuffer buff = (ChannelBuffer)msg;
-				incr("RequestsReceived");
-				OpCode opCode = OpCode.valueOf(buff);
 				try {
 					handlers.get(opCode).processAgentRequest(opCode, buff, ((MessageEvent) e).getRemoteAddress(), e.getChannel());
 					incr("RequestsCompleted");
@@ -160,14 +161,13 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 	}
 	
 	/**
-	 * Returns the total number of pending {@link OpCode#WHO} requests in Whoville
-	 * @return the total number of pending {@link OpCode#WHO} requests 
+	 * Returns the total number of timed out {@link OpCode#Who} requests
+	 * @return the total number of timed out {@link OpCode#Who} requests
 	 */
-	@ManagedMetric(category="UDPOpRequests", metricType=MetricType.COUNTER, description="total number of pending who requests")
-	public int getPendingWhos() {
-		return pendingWhos.size();
+	@ManagedMetric(category="UDPOpRequests", metricType=MetricType.COUNTER, description="total number of timed out WHO requests")
+	public long getTimedOutWhos() {
+		return getMetricValue("TimedOutWhoOps");
 	}
-	
 	
 	
 	/**
@@ -180,6 +180,7 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 		metrics.add("RequestsReceived");
 		metrics.add("RequestsCompleted");
 		metrics.add("RequestsFailed");
+		metrics.add("TimedOutWhoOps");
 		return metrics;
 	}	
 	
@@ -203,8 +204,8 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 	 */
 	@Override
 	public void processAgentRequest(OpCode opCode, ChannelBuffer buff, SocketAddress remoteAddress, Channel channel) {
-		if(opCode==OpCode.WHO_RESPONSE) {
-			pendingWhos.remove(remoteAddress);
+		if(opCode==OpCode.WHO_RESPONSE) {			
+			removePendingOp(remoteAddress, OpCode.WHO);
 			buff.readByte();
 			int hostLength = buff.readInt();
 			byte[] hostBytes = new byte[hostLength];
@@ -227,7 +228,28 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 	 */
 	@Override
 	public OpCode[] getHandledOpCodes() {
-		return new OpCode[]{OpCode.WHO_RESPONSE};
+		return new OpCode[]{OpCode.WHO_RESPONSE, OpCode.BYE};
+	}
+	
+	/**
+	 * <p>Callback when a {@link OpCode#WHO} op times out.
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.TimeoutListener#onTimeout(java.lang.Object, java.lang.Object)
+	 */
+	@Override
+	public void onTimeout(String key, OpCode value) {
+		incr("TimedOutWhoOps");
+		debug("Who op timed out [", key, "]");		
+	}
+	
+	/**
+	 * <p>Specifies interest in {@link OpCode#WHO} ops only. 
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.ValueFilteredTimeoutListener#include(java.lang.Object)
+	 */
+	@Override
+	public boolean include(OpCode value) {
+		return OpCode.WHO==value;
 	}
 
 

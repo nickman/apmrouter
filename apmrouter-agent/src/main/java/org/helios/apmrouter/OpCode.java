@@ -54,7 +54,9 @@ public enum OpCode {
 	/** Inquiry as to the identity of a connecting agent */
 	WHO,
 	/** Response as to the identity of a connecting agent */
-	WHO_RESPONSE;
+	WHO_RESPONSE,
+	/** Indicates a client is about to disconnect */
+	BYE;
 	
 	/** Map of OpCodes keyed by the ordinal */
 	private static final Map<Byte, OpCode> ORD2ENUM;

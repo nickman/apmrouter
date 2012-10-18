@@ -42,6 +42,9 @@ import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.server.services.session.ChannelSessionListener;
+import org.helios.apmrouter.server.services.session.DecoratedChannelMBean;
+import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,7 +64,7 @@ import org.springframework.jmx.export.annotation.ManagedMetric;
  * <p><code>org.helios.apmrouter.catalog.jdbc.H2JDBCMetricCatalog</code></p>
  */
 
-public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCatalogService {
+public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCatalogService, ChannelSessionListener {
 	/** The h2 datasource */
 	protected DataSource ds = null;
 	/** Indicates if the metric catalog should be kept real time */
@@ -98,7 +101,8 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 		} finally {
 			try { ps.close(); } catch (Exception e) {}
 			try { conn.close(); } catch (Exception e) {}
-		}		
+		}
+		SharedChannelGroup.getInstance().addSessionListener(this);
 	}
 	
 /*
@@ -107,7 +111,7 @@ CREATE  TABLE IF NOT EXISTS PUBLIC.AGENT(
     HOST_ID INTEGER NOT NULL COMMENT 'The id of the host this agent is running om.',
     NAME VARCHAR2(120) NOT NULL COMMENT 'The name of the agent.',
     FIRST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The first time the agent was seen.',
-    LAST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The last time the agent connected.'
+    LAST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The last time the agent connected.'    
 ) ; 
  
 
@@ -312,5 +316,36 @@ CREATE TABLE IF NOT EXISTS  PUBLIC.METRIC(
 	@ManagedAttribute(description="Indicates if the metric catalog is real time ")
 	public void setRealtime(boolean realtime) {
 		this.realtime = realtime;
+	}
+
+	/**
+	 * <p>NoOp</p>
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onConnectedChannel(org.helios.apmrouter.server.services.session.DecoratedChannelMBean)
+	 */
+	@Override
+	public void onConnectedChannel(DecoratedChannelMBean channel) {
+	}
+
+	/**
+	 * <p>Updates the catalog service to mark the agent down</p>
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onClosedChannel(org.helios.apmrouter.server.services.session.DecoratedChannelMBean)
+	 */
+	@Override
+	public void onClosedChannel(DecoratedChannelMBean channel) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	/**
+	 * <p>Updates the catalog service to mark the agent up</p>
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onIdentifiedChannel(org.helios.apmrouter.server.services.session.DecoratedChannelMBean)
+	 */
+	@Override
+	public void onIdentifiedChannel(DecoratedChannelMBean channel) {
+		// TODO Auto-generated method stub
+		
 	}
 }

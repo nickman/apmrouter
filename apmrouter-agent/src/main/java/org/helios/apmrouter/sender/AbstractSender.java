@@ -65,6 +65,7 @@ import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.ChannelState;
@@ -134,6 +135,9 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	/** The netty channel factory */
 	protected ChannelFactory channelFactory;
 	
+	/** Final shutdown flag */
+	protected static final AtomicBoolean shutdown = new AtomicBoolean(false);
+	
 	
 	/** The ping schedule handle */
 	protected ScheduledFuture<?> pingScheduleHandle = null;
@@ -161,6 +165,21 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 			System.err.println("Failed to publish management interface for sender [" + serverURI + "]. Continuing without");
 			e.printStackTrace(System.err);
 		}
+		Runtime.getRuntime().addShutdownHook(new Thread(){
+			@Override
+			public void run() {
+				try {	
+					shutdown.set(true);
+					senderChannel.write(ChannelBuffers.wrappedBuffer(new byte[]{OpCode.BYE.op()}), socketAddress).addListener(new ChannelFutureListener() {
+						@Override
+						public void operationComplete(ChannelFuture f) throws Exception {						
+							channelFactory.releaseExternalResources();
+						}
+					});
+					log("Attempted to send Bye");
+				} catch (Exception ex) {}
+			}
+		});
 	}
 	
 	/**

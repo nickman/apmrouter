@@ -169,6 +169,15 @@ public class ICEMetric implements IMetric, Comparable<ICEMetric> {
 		return imetric;
 	}
 	
+	protected void cleanNamespace(CharSequence[] ns) {
+		if(ns==null || ns.length<1) return;
+		for(int i = 0; i < ns.length; i++) {
+			if(ns[i].toString().indexOf("\\/")!=-1) {
+				
+			}
+		}
+	}
+	
 	
 	/**
 	 * Attaches a TXContext

@@ -25,8 +25,6 @@
 package org.helios.apmrouter.server.net.listener.netty.handlers;
 
 import java.net.SocketAddress;
-import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -44,10 +42,10 @@ import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.Channels;
-import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLogLevel;
+import org.springframework.jmx.export.annotation.ManagedMetric;
+import org.springframework.jmx.support.MetricType;
 
 /**
  * <p>Title: AbstractAgentRequestHandler</p>
@@ -68,9 +66,54 @@ public abstract class AbstractAgentRequestHandler extends ServerComponentBean im
 	/** Logging handler */
 	private static final LoggingHandler clientConnLogHandler = new LoggingHandler("org.helios.AgentMetricHandler", InternalLogLevel.DEBUG, true);
 	
-	/** A set of socket addresses to which {@link OpCode#WHO} requests have been sent to but for which a response has not been received */
-	protected final Set<SocketAddress> pendingWhos = new CopyOnWriteArraySet<SocketAddress>();
+	/** A timeout map of socket addresses to which OpCodes such as {@link OpCode#WHO} requests have been sent to but for which a response has not been received */
+	private static final TimeoutQueueMap<String, OpCode> pendingOps = new TimeoutQueueMap<String, OpCode>(5000); 
 	
+	/**
+	 * Removes a pending operation
+	 * @param remoteAddress The remote address the op was sent to
+	 * @param opCode The op code of the request that was sent
+	 */
+	protected static void removePendingOp(SocketAddress remoteAddress, OpCode opCode) {
+		if(remoteAddress==null) throw new IllegalArgumentException("The passed remote address was null", new Throwable());
+		if(opCode==null) throw new IllegalArgumentException("The passed op code was null", new Throwable());
+		String key = new StringBuilder(remoteAddress.toString()).append("|").append(opCode.name()).toString();
+		pendingOps.remove(key);		
+	}
+	
+	/**
+	 * Adds a pending operation
+	 * @param remoteAddress The remote address the op was sent to
+	 * @param opCode The op code of the request that was sent
+	 */
+	protected static void addPendingOp(SocketAddress remoteAddress, OpCode opCode) {
+		if(remoteAddress==null) throw new IllegalArgumentException("The passed remote address was null", new Throwable());
+		if(opCode==null) throw new IllegalArgumentException("The passed op code was null", new Throwable());
+		String key = new StringBuilder(remoteAddress.toString()).append("|").append(opCode.name()).toString();
+		pendingOps.put(key, opCode);
+	}
+	
+	/**
+	 * Determines if there is a pending op for the passed address and op code
+	 * @param remoteAddress The remote address the op was sent to
+	 * @param opCode The op code of the request that was sent
+	 * @return true if there is a pending op for the passed address and op code, false otherwise
+	 */
+	protected static boolean containsPendingOp(SocketAddress remoteAddress, OpCode opCode) {
+		if(remoteAddress==null) throw new IllegalArgumentException("The passed remote address was null", new Throwable());
+		if(opCode==null) throw new IllegalArgumentException("The passed op code was null", new Throwable());
+		String key = new StringBuilder(remoteAddress.toString()).append("|").append(opCode.name()).toString();
+		return pendingOps.containsValue(key);
+	}
+	
+	/**
+	 * Returns the total number of pending {@link OpCode#WHO} requests in Whoville
+	 * @return the total number of pending {@link OpCode#WHO} requests 
+	 */
+	@ManagedMetric(category="UDPOpRequests", metricType=MetricType.COUNTER, description="total number of pending op requests")
+	public int getPendingOps() {
+		return pendingOps.size();
+	}
 	
 	/**
 	 * Sets the channel group
@@ -95,10 +138,6 @@ public abstract class AbstractAgentRequestHandler extends ServerComponentBean im
 					channel = new VirtualUDPChannel(incoming, remoteAddress);
 					SharedChannelGroup.getInstance().add(channel, ChannelType.UDP_AGENT, "UDPAgent");
 					try {
-						if(!pendingWhos.contains(remoteAddress)) {
-							sendWho(channel, remoteAddress);
-						}
-//						SharedChannelGroup.getInstance().add(channel, ChannelType.UDP_AGENT, "UDPAgent");
 					} catch (Exception  e) {
 						throw new RuntimeException("Failed to acquire remote connection to [" + remoteAddress + "]", e);
 					}
@@ -120,7 +159,7 @@ public abstract class AbstractAgentRequestHandler extends ServerComponentBean im
 		cb.writeInt(bytes.length);
 		cb.writeBytes(bytes);
 		info("Sending Who Request to [", remoteAddress, "]");
-		pendingWhos.add(remoteAddress);
+		addPendingOp(remoteAddress, OpCode.WHO);
 		channel.write(cb, remoteAddress).addListener(new ChannelFutureListener() {
 			@Override
 			public void operationComplete(ChannelFuture f) throws Exception {
@@ -128,7 +167,7 @@ public abstract class AbstractAgentRequestHandler extends ServerComponentBean im
 					info("Confirmed Send Of Who Request to [", remoteAddress, "]");
 				} else {
 					error("Failed to send Who request to [", remoteAddress, "]", f.getCause());
-					pendingWhos.remove(remoteAddress);
+					removePendingOp(remoteAddress, OpCode.WHO);
 				}
 				
 			}

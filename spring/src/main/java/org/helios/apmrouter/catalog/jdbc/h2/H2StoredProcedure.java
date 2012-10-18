@@ -31,7 +31,7 @@ import java.sql.SQLException;
 
 /**
  * <p>Title: H2StoredProcedure</p>
- * <p>Description: </p> 
+ * <p>Description: Java stored procedure to manage various bits-and-pieces in the catalog daabase.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure</code></p>

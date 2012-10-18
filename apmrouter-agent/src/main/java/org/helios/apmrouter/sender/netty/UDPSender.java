@@ -272,7 +272,7 @@ public class UDPSender extends AbstractSender  {
 	 */
 	@Override
 	public void send(final DirectMetricCollection dcm) {
-		
+		if(shutdown.get()) return;
 		if(dcm==null) return;
 		final int METRIC_COUNT = dcm.getMetricCount(); 
 		try {
@@ -287,7 +287,7 @@ public class UDPSender extends AbstractSender  {
 						} else {
 							//long d = failed.addAndGet(mcount);
 							//System.err.println("SenderFactory Fails:" + d );
-							if(future.getCause()!=null) {
+							if(future.getCause()!=null && !shutdown.get()) {
 								if(future.getCause() instanceof ClosedChannelException) {
 									log("SenderFactory Channel Disconnected");
 									processDisconnect();

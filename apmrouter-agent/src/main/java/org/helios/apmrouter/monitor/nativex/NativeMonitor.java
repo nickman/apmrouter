@@ -552,10 +552,10 @@ public class NativeMonitor extends AbstractMonitor {
 			for(FileSystem fs: hsigar.getFileSystemList()) {
 				String dirName = fs.getDirName();
 				if(fileSystemState.containsKey(dirName)) continue;
-				tracer.traceString(fs.getDevName(), "DeviceName", PLAT, FS_RESOURCE, META_TAG, dirName.replace(":\\", ""));
-				tracer.traceString(fs.getOptions(), "Options", PLAT, FS_RESOURCE, META_TAG, dirName.replace(":\\", ""));
-				tracer.traceString(fs.getSysTypeName(), "SysType", PLAT, FS_RESOURCE, META_TAG, dirName.replace(":\\", ""));
-				tracer.traceString(fs.getTypeName(), "Type", PLAT, FS_RESOURCE, META_TAG, dirName.replace(":\\", ""));
+				tracer.traceString(fs.getDevName(), "DeviceName", PLAT, FS_RESOURCE, META_TAG, "dirname=" + dirName.replace(":\\", "").replace("/", "~"));
+				tracer.traceString(fs.getOptions(), "Options", PLAT, FS_RESOURCE, META_TAG, "dirname=" + dirName.replace(":\\", "").replace("/", "~"));
+				tracer.traceString(fs.getSysTypeName(), "SysType", PLAT, FS_RESOURCE, META_TAG, "dirname=" + dirName.replace(":\\", "").replace("/", "~"));
+				tracer.traceString(fs.getTypeName(), "Type", PLAT, FS_RESOURCE, META_TAG, "dirname=" + dirName.replace(":\\", "").replace("/", "~"));
 			}
 		}
 		
