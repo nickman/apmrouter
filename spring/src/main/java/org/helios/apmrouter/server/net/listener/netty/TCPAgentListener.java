@@ -24,14 +24,95 @@
  */
 package org.helios.apmrouter.server.net.listener.netty;
 
+import java.util.concurrent.ExecutorService;
+
+import org.helios.apmrouter.server.services.session.ChannelType;
+import org.helios.apmrouter.server.services.session.SharedChannelGroup;
+import org.jboss.netty.bootstrap.ServerBootstrap;
+import org.jboss.netty.buffer.DirectChannelBufferFactory;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
+import org.jboss.netty.channel.socket.ServerSocketChannel;
+import org.jboss.netty.channel.socket.nio.NioDatagramChannel;
+import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
+import org.springframework.context.event.ContextRefreshedEvent;
+
 /**
  * <p>Title: TCPAgentListener</p>
- * <p>Description: </p> 
+ * <p>Description: Base netty TCP server </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.net.listener.netty.TCPAgentListener</code></p>
  */
 
-public class TCPAgentListener {
+public class TCPAgentListener extends BaseAgentListener {
+	/** The netty channel factory's boss thread pool */
+	protected ExecutorService bossPool = null;
+	/** The agent listener channel factory */
+	protected NioServerSocketChannelFactory channelFactory;  
+	/** The agent listener bootstrap */
+	protected ServerBootstrap bstrap; 
+	/** The server channel */
+	protected ServerSocketChannel serverChannel;
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.net.listener.netty.BaseAgentListener#doStart()
+	 */
+	@Override
+	protected void doStart() throws Exception {
+		super.doStart();
+		channelFactory = new NioServerSocketChannelFactory(bossPool, workerPool);	
+		bstrap = new ServerBootstrap(channelFactory);
+		bstrap.setOptions(channelOptions);
+		bstrap.setPipelineFactory(this);
+	}
+
+	
+	/**
+	 * Callback when the current app context refreshes
+	 * @param cre The context refreshed event
+	 */
+	public void onApplicationContextRefresh(ContextRefreshedEvent cre) {
+		serverChannel = (ServerSocketChannel)bstrap.bind(socketAddress);
+		SharedChannelGroup.getInstance().add(serverChannel, ChannelType.TCP_SERVER, getClass().getSimpleName());
+		closeFuture = serverChannel.getCloseFuture();
+		closeFuture.addListener(new ChannelFutureListener() {
+			public void operationComplete(ChannelFuture future) throws Exception {
+				connected.set(false);
+			}
+		});		
+		serverChannel.getConfig().setBufferFactory(new DirectChannelBufferFactory());
+		channelGroup.add(serverChannel, "DataServiceListener/" + socketAddress);
+		connected.set(true);
+		info("Started TCP listener on [", socketAddress , "]");		
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.net.listener.netty.BaseAgentListener#doStop()
+	 */
+	@Override
+	protected void doStop() {
+		info("Closing ChannelGroup....");
+		channelGroup.close().awaitUninterruptibly();
+		info("Closing ChannelFactory....");
+		channelFactory.releaseExternalResources();
+		super.doStop();
+	}
+	
+	
+	
+	
+	
+	
+	
+	/**
+	 * Sets the boss pool for this listener
+	 * @param bossPool the bossPool to set
+	 */
+	public void setBossPool(ExecutorService bossPool) {
+		this.bossPool = bossPool;
+	}
 
 }

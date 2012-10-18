@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.server.services;
 
+import java.util.Set;
+
 import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelPipeline;
 
@@ -53,4 +55,10 @@ public interface PipelineModifier {
 	 * @return the channel handler to insert into the pipeline
 	 */
 	public ChannelHandler getChannelHandler();
+	
+	/**
+	 * Returns an unmodifiable set of URI patterns that this modifier is activated for 
+	 * @return an unmodifiable set of URI patterns that this modifier is activated for
+	 */
+	public Set<String> getUriPatterns();	
 }

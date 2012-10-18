@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:jms="http://www.springframework.org/schema/jms"
+
+       xmlns:lang="http://www.springframework.org/schema/lang"       
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/jms http://www.springframework.org/schema/jms/spring-jms.xsd
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+       http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+       
+       http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang.xsd
+       "  >
+	
+	
+	
+	
+	
+	<bean id="DataServiceWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+		<constructor-arg>
+			<bean id="DataServiceWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+				<property name="corePoolSize" value="1" />
+				<property name="maximumPoolSize" value="100" />
+				<property name="coreThreadsStarted" value="1" />
+			</bean>
+		</constructor-arg>
+	</bean>
+	
+	<bean id="DataServiceBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+		<constructor-arg>
+			<bean id="DataServiceBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+				<property name="corePoolSize" value="1" />
+				<property name="maximumPoolSize" value="100" />
+				<property name="coreThreadsStarted" value="1" />
+			</bean>
+		</constructor-arg>
+	</bean>
+	
+ 	<bean id="DataServiceListener" class="org.helios.apmrouter.server.services.DataServer">
+ 		<property name="bindHost" value="0.0.0.0" />
+ 		<property name="bindPort" value="8087" />
+ 		<property name="channelHandlers">
+ 			<map>
+ 				
+ 			</map>
+ 		</property>
+ 		<property name="workerPool" ref="DataServiceWorkers" />
+ 		<property name="bossPool" ref="DataServiceBoss" />
+ 	</bean>
+ 	
+ 	<bean id="ServerPipelineFactory" class="org.helios.apmrouter.server.services.ServerPipelineFactory" />
+ 	
+ 	<bean id="WebSocketModifier" class="org.helios.apmrouter.server.services.handlergroups.websockets.WebSocketModifier">
+ 		<property name="uriPatterns">
+ 			<set><value>ws</value></set>
+ 		</property>
+ 	</bean>
+ 	
+ 	<bean id="SubmissionModifier" class="org.helios.apmrouter.server.services.handlergroups.submission.SubmissionModifier">
+ 		<property name="uriPatterns">
+ 			<set><value>sub</value></set>
+ 		</property>
+ 	</bean>
+ 	
+ 	<bean id="FileServer" class="org.helios.apmrouter.server.services.handlergroups.fileserver.FileServerModifier">
+ 		<constructor-arg value="." />
+ 		<property name="uriPatterns">
+ 			<set><value>fs</value></set>
+ 		</property>
+ 		
+ 	</bean>
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
+ 	
+
+ 	
+	
+</beans>
+

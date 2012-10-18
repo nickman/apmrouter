@@ -33,6 +33,7 @@ import org.helios.apmrouter.server.services.events.PipelineModifierStarted;
 import org.helios.apmrouter.server.services.events.PipelineModifierStopped;
 import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelPipeline;
+import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.support.MetricType;
@@ -45,7 +46,7 @@ import org.springframework.jmx.support.MetricType;
  * <p><code>org.helios.apmrouter.server.services.AbstractPipelineModifier</code></p>
  */
 
-public abstract class AbstractPipelineModifier extends ServerComponentBean implements PipelineModifier {
+public abstract class AbstractPipelineModifier extends ServerComponentBean implements PipelineModifier, BeanNameAware {
 	/** The name of the modifier from the perspective of a channel pipeline */
 	protected String name = null;
 	/** A set of uriPatterns that this modifier will be activated for */
@@ -81,13 +82,7 @@ public abstract class AbstractPipelineModifier extends ServerComponentBean imple
 		return name;
 	}
 	
-	/**
-	 * Sets the name of this modifier
-	 * @param name the name of this modifier
-	 */
-	public void setName(String name) {
-		this.name = name;
-	}
+
 	
 	
 
@@ -132,6 +127,17 @@ public abstract class AbstractPipelineModifier extends ServerComponentBean imple
 			uriPatterns.addAll(uris);
 		}
 	}
+	
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.springframework.beans.factory.BeanNameAware#setBeanName(java.lang.String)
+	 */
+	@Override
+	public void setBeanName(String name) {
+		this.name = name;		
+	}
+	
 
 	/**
 	 * Returns an unmodifiable set of URI patterns that this modifier is activated for 

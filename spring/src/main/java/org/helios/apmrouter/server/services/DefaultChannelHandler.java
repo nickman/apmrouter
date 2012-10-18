@@ -71,6 +71,14 @@ public class DefaultChannelHandler extends SimpleChannelUpstreamHandler {
     	if(message instanceof HttpRequest) { 
 	        HttpRequest request = (HttpRequest)message;
 	        PipelineModifier modifier = getModifier(request.getUri());
+	        if(modifier==null) {
+	        	if("/favicon.ico".equals(request.getUri())) {
+	        		modifier = getModifier("fs");
+	        	} else {
+	        		log.error("Request with unhandled URI [" + request.getUri() + "]");
+	        		throw new RuntimeException("Request with unhandled URI [" + request.getUri() + "]", new Throwable());
+	        	}
+	        }
 	        if(!modifier.getName().equals(ctx.getAttachment())) {
 	        	clearLastHandler(ctx.getPipeline());
 	        	modifier.modifyPipeline(ctx.getPipeline());

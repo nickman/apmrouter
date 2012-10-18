@@ -28,8 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.helios.apmrouter.server.services.PipelineModifier;
-import org.helios.apmrouter.server.services.handlergroups.URIHandler;
+import org.helios.apmrouter.server.services.AbstractPipelineModifier;
 import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.handler.execution.ExecutionHandler;
@@ -41,12 +40,12 @@ import org.jboss.netty.handler.execution.ExecutionHandler;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.services.handlergroups.submission.SubmissionModifier</code></p>
  */
-@URIHandler(uri={"submission"})
-public class SubmissionModifier implements PipelineModifier {
+
+public class SubmissionModifier extends AbstractPipelineModifier {
 	/** The handler that this modifier adds at the end of the pipeline */
 	protected final ChannelHandler handler = new SubmissionHandler();
-	/** The name of the handler this modifier adds */
-	public static final String NAME = "submission";
+	/** The execution handler's pipeline name */
+	protected String execName = null;
 	/** An execution handler to hand off the metric submissions to */
 	protected static final ExecutionHandler execHandler = new ExecutionHandler(Executors.newCachedThreadPool(			
 			new ThreadFactory() {
@@ -58,41 +57,42 @@ public class SubmissionModifier implements PipelineModifier {
 				}
 			}
 	), false, true);
-	/** The name of the execution handler this modifier adds */
-	public static final String EXEC_NAME = "exec-submission";
 	
+
+	/**
+	 * <p>Overriden to set the pipeline name of an associated execution handler. 
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.services.AbstractPipelineModifier#setBeanName(java.lang.String)
+	 */
+	public void setBeanName(String name) {
+		super.setBeanName(name);
+		execName = name + "-Exec";
+		
+	}
+	
+
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.services.PipelineModifier#getChannelHandler()
+	 * @see org.helios.apmrouter.server.services.AbstractPipelineModifier#doGetChannelHandler()
 	 */
 	@Override
-	public ChannelHandler getChannelHandler() {
+	protected ChannelHandler doGetChannelHandler() {
 		return handler;
 	}
 
-	
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.netty.ajax.PipelineModifier#modifyPipeline(org.jboss.netty.channel.ChannelPipeline)
-	 */
-	@Override
-	public void modifyPipeline(ChannelPipeline pipeline) {
-		if(pipeline.get(EXEC_NAME)==null) {
-			pipeline.addLast(EXEC_NAME, execHandler);
-		}
-		if(pipeline.get(NAME)==null) {
-			pipeline.addLast(NAME, handler);
-		}
-		
-	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.netty.ajax.PipelineModifier#getName()
+	 * @see org.helios.apmrouter.server.services.AbstractPipelineModifier#doModifyPipeline(org.jboss.netty.channel.ChannelPipeline)
 	 */
 	@Override
-	public String getName() {
-		return NAME;
+	protected void doModifyPipeline(ChannelPipeline pipeline) {
+		if(pipeline.get(execName)==null) {
+			pipeline.addLast(execName, execHandler);
+		}
+		if(pipeline.get(name)==null) {
+			pipeline.addLast(name, handler);
+		}
 	}
 
 }

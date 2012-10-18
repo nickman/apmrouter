@@ -26,6 +26,7 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -117,7 +118,9 @@ public class HttpStaticFileServerHandler extends SimpleChannelUpstreamHandler {
     /** This class's class loader */
     protected final ClassLoader classLoader = getClass().getClassLoader();
     /** The content root representation */
-    public static String contentRoot;
+    protected String contentRoot = ".";
+    /** The URI prefixed for this handler */
+    protected final Set<String> uris;
     
     /** A cache of loaded resources shared amongst file server handler instances */
     protected static final Map<String, HttpResponse> contentCache = new ConcurrentHashMap<String, HttpResponse>(1024);
@@ -131,8 +134,12 @@ public class HttpStaticFileServerHandler extends SimpleChannelUpstreamHandler {
 
     /**
      * Creates a new HttpStaticFileServerHandler
+     * @param contentRoot The file content root
+     * @param uris The uris that are configured to activate this handler
      */
-    public HttpStaticFileServerHandler() {
+    public HttpStaticFileServerHandler(String contentRoot, Set<String> uris) {
+    	this.contentRoot = contentRoot;
+    	this.uris = uris;
     	inJar = getClass().getProtectionDomain().getCodeSource().getLocation().toString().toLowerCase().endsWith(".jar");
     	LOG.info("HTTP File Server Resource Mode:" + inJar);
     }
@@ -151,6 +158,10 @@ public class HttpStaticFileServerHandler extends SimpleChannelUpstreamHandler {
         }
 
         String path = request.getUri();
+        int i = path.startsWith("/") ? 1 : 0;
+        if(uris.contains(path.split("/")[i])) {
+        	path = path.substring(path.indexOf("/", i)+1);
+        }
         if (path == null) {
             sendError(ctx, FORBIDDEN);
             return;
@@ -430,5 +441,8 @@ public class HttpStaticFileServerHandler extends SimpleChannelUpstreamHandler {
     private void setContentTypeHeader(HttpResponse response, String resourceName) {
         response.setHeader(HttpHeaders.Names.CONTENT_TYPE, mimeTypesMap.getContentType(resourceName));
     }
+
+
+
 
 }

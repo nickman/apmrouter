@@ -68,9 +68,7 @@ public class UDPAgentListener extends BaseAgentListener {
 		bstrap.setPipelineFactory(this);
 	}
 	
-	public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-		super.setApplicationContext(applicationContext);
-	}
+
 	
 	/**
 	 * Callback when the current app context refreshes

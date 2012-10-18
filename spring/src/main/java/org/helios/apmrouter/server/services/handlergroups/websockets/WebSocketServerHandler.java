@@ -30,7 +30,10 @@ import static org.jboss.netty.handler.codec.http.HttpMethod.GET;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.FORBIDDEN;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
+import java.util.Collections;
+
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.server.services.session.ChannelType;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
@@ -121,14 +124,33 @@ public class WebSocketServerHandler implements ChannelUpstreamHandler, ChannelDo
             sendHttpResponse(ctx, req, new DefaultHttpResponse(HTTP_1_1, FORBIDDEN));
             return;
         }
+        
         // Handshake
         WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory(getWebSocketLocation(req), null, false);
         this.handshaker = wsFactory.newHandshaker(req);
         if (this.handshaker == null) {
             wsFactory.sendUnsupportedWebSocketVersionResponse(ctx.getChannel());
         } else {
-            this.handshaker.handshake(ctx.getChannel(), req).addListener(WebSocketServerHandshaker.HANDSHAKE_LISTENER);
-            SharedChannelGroup.getInstance().add(ctx.getChannel());
+        	ChannelFuture cf = handshaker.handshake(ctx.getChannel(), req); 
+            cf.addListener(WebSocketServerHandshaker.HANDSHAKE_LISTENER);
+            cf.addListener(new ChannelFutureListener() {
+				@Override
+				public void operationComplete(ChannelFuture f) throws Exception {
+					if(f.isSuccess()) {
+						Channel wsChannel = f.getChannel();						
+						wsChannel.write(new JSONObject(Collections.singletonMap("sessionid", wsChannel.getId()))).addListener(new ChannelFutureListener() {
+							@Override
+							public void operationComplete(ChannelFuture f) throws Exception {
+								if(f.isSuccess()) {
+									if(f.getChannel().isOpen()) {
+										SharedChannelGroup.getInstance().add(f.getChannel(), ChannelType.WEBSOCKET_REMOTE, "WebSocketClient-" + f.getChannel().getId());
+									}
+								}								
+							}
+						});
+					}
+				}
+			});
         }
 	}
 	

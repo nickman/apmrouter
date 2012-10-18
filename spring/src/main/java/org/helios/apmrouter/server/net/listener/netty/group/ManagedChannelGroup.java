@@ -81,7 +81,9 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 		channelGroup = new DefaultChannelGroup(name);
 		ObjectName on = JMXHelper.objectName("org.helios.apmrouter.server:service=ChannelGroup,name=" + name);
 		try {
-			ManagementFactory.getPlatformMBeanServer().registerMBean(this, on);
+			if(!ManagementFactory.getPlatformMBeanServer().isRegistered(on)) {
+				ManagementFactory.getPlatformMBeanServer().registerMBean(this, on);
+			}
 		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
 		}

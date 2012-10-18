@@ -22,46 +22,38 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.server.services.handlergroups.websockets;
+package org.helios.apmrouter.server.services;
 
-import java.util.HashSet;
-import java.util.Set;
-
-import org.helios.apmrouter.server.services.AbstractPipelineModifier;
-import org.jboss.netty.channel.ChannelHandler;
+import org.helios.apmrouter.server.net.listener.netty.TCPAgentListener;
 import org.jboss.netty.channel.ChannelPipeline;
-
+import org.springframework.beans.factory.annotation.Autowired;
 /**
- * <p>Title: WebSocketModifier</p>
- * <p>Description: Pipeline modifier for websockets push</p> 
+ * <p>Title: DataServer</p>
+ * <p>Description: The multi-protocol data-server for fetching and subscribing to metric-data</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.server.services.handlergroups.websockets.WebSocketModifier</code></p>
+ * <p><code>org.helios.apmrouter.server.services.DataServer</code></p>
  */
-
-public class WebSocketModifier extends AbstractPipelineModifier {
-	/** The handler that this modifier adds at the end of the pipeline */
-	protected final ChannelHandler handler = new WebSocketServerHandler();
+public class DataServer extends TCPAgentListener  {
+	/** The data server pipeline factory */
+	protected ServerPipelineFactory pipelineFactory;
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.services.AbstractPipelineModifier#doGetChannelHandler()
+	 * @see org.helios.apmrouter.server.net.listener.netty.BaseAgentListener#getPipeline()
 	 */
 	@Override
-	protected ChannelHandler doGetChannelHandler() {
-		return handler;
+	public ChannelPipeline getPipeline() throws Exception {
+		return pipelineFactory.getPipeline();
 	}
 
-
 	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.services.AbstractPipelineModifier#doModifyPipeline(org.jboss.netty.channel.ChannelPipeline)
+	 * Sets the data server's delegate pipeline factory
+	 * @param pipelineFactory the delegate pipeline factory to set
 	 */
-	@Override
-	protected void doModifyPipeline(ChannelPipeline pipeline) {
-		if(pipeline.get(name)==null) {
-			pipeline.addLast(name, handler);
-		}
+	@Autowired(required=true)
+	public void setPipelineFactory(ServerPipelineFactory pipelineFactory) {
+		this.pipelineFactory = pipelineFactory;
 	}
 
 }

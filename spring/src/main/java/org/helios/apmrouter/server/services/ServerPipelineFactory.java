@@ -25,8 +25,11 @@
 package org.helios.apmrouter.server.services;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.server.services.handlergroups.URIHandler;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
@@ -36,6 +39,7 @@ import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.handler.stream.ChunkedWriteHandler;
 import org.jboss.netty.logging.InternalLogLevel;
+import org.springframework.jmx.export.annotation.ManagedAttribute;
 
 /**
  * <p>Title: ServerPipelineFactory</p>
@@ -46,20 +50,44 @@ import org.jboss.netty.logging.InternalLogLevel;
  * <p><code>org.helios.apmrouter.server.services.ServerPipelineFactory</code></p>
  */
 
-public class ServerPipelineFactory implements ChannelPipelineFactory {
+public class ServerPipelineFactory extends ServerComponentBean implements ChannelPipelineFactory {
 	/** Instance logger */
 	protected final Logger log = Logger.getLogger(getClass());
 	/** The modifier map */
-	protected final Map<String, PipelineModifier> modifierMap;
+	protected final Map<String, PipelineModifier> modifierMap = new ConcurrentHashMap<String, PipelineModifier>();
+	/** The modifier URI map */
+	protected final Map<String, PipelineModifier> uriMap = new ConcurrentHashMap<String, PipelineModifier>();
+	
 	/** The logging handler logger */
 	protected final Logger logHandlerLogger = Logger.getLogger(LoggingHandler.class);
 	
 	/**
 	 * Creates a new ServerPipelineFactory
-	 * @param modifierMap The modifier map
 	 */
-	public ServerPipelineFactory(final Map<String, PipelineModifier> modifierMap) {
-		this.modifierMap = modifierMap;
+	public ServerPipelineFactory() {
+
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
+	 */
+	@Override
+	public void doStart() throws Exception {
+		Map<String, PipelineModifier> modifiers = applicationContext.getBeansOfType(PipelineModifier.class);
+		for(Map.Entry<String, PipelineModifier> entry: modifiers.entrySet()) {
+			if(!modifierMap.containsKey(entry.getKey())) {
+				modifierMap.put(entry.getKey(), entry.getValue());
+			}
+			for(String uri: entry.getValue().getUriPatterns()) {
+				if(uriMap.containsKey(uri)) {
+					warn("PipelineModifier URI overlap. The modifier [", uriMap.get(uri).getName(), "] was already registered so [", entry.getValue().getName(), "] will not be registered for URI [", uri, "]" );
+				} else {
+					uriMap.put(uri, entry.getValue());
+				}
+			}
+		}
+		info("DataService ServerPipelineFactory started with [", modifierMap.size(), "] pipeline modifiers");
 	}
 	
 	/**
@@ -89,9 +117,28 @@ public class ServerPipelineFactory implements ChannelPipelineFactory {
 		if(logHandlerLogger.isDebugEnabled()) {
 			pipeline.addLast("logger", new LoggingHandler(InternalLogLevel.INFO));
 		}		
-		pipeline.addLast(DefaultChannelHandler.NAME, new DefaultChannelHandler(modifierMap)); 
+		pipeline.addLast(DefaultChannelHandler.NAME, new DefaultChannelHandler(uriMap)); 
 		if(log.isDebugEnabled()) log.debug("Created Pipeline [" + pipeline + "]");
 		return pipeline;
 	}
 
+	
+	/**
+	 * Returns the number of pipeline modifiers registered
+	 * @return the number of pipeline modifiers registered
+	 */
+	@ManagedAttribute(description="The number of pipeline modifiers registered")
+	public int getModifierCount() {
+		return modifierMap.size();
+	}
+	
+	/**
+	 * Returns the names of the registered pipeline modifiers
+	 * @return the names of the registered pipeline modifiers
+	 */
+	@ManagedAttribute(description="The names of the registered pipeline modifiers")
+	public String[] getModifierNames() {
+		return modifierMap.keySet().toArray(new String[modifierMap.size()]);
+	}
+	
 }

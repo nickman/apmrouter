@@ -24,7 +24,9 @@
  */
 package org.helios.apmrouter.server.services.handlergroups.fileserver;
 
-import org.helios.apmrouter.server.services.PipelineModifier;
+import java.util.Collections;
+
+import org.helios.apmrouter.server.services.AbstractPipelineModifier;
 import org.helios.apmrouter.server.services.handlergroups.URIHandler;
 import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelPipeline;
@@ -36,38 +38,39 @@ import org.jboss.netty.channel.ChannelPipeline;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.services.handlergroups.fileserver.FileServerModifier</code></p>
  */
-@URIHandler(uri={"ui", ""})
-public class FileServerModifier implements PipelineModifier {
+
+public class FileServerModifier extends AbstractPipelineModifier {
 	/** The handler that this modifier adds at the end of the pipeline */
-	protected final ChannelHandler handler = new HttpStaticFileServerHandler();
-	/** The name of the handler this modifier adds */
-	public static final String NAME = "fileserver";
+	protected final ChannelHandler handler;
+	
+	/**
+	 * Creates a new FileServerModifier
+	 * @param contentRoot The content root directory
+	 */
+	public FileServerModifier(String contentRoot) {
+		super();
+		handler = new HttpStaticFileServerHandler(contentRoot, Collections.unmodifiableSet(uriPatterns));
+	}
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.netty.ajax.PipelineModifier#getChannelHandler()
+	 * @see org.helios.apmrouter.server.services.AbstractPipelineModifier#doGetChannelHandler()
 	 */
-	public ChannelHandler getChannelHandler() {
+	@Override
+	protected ChannelHandler doGetChannelHandler() {
 		return handler;
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.netty.ajax.PipelineModifier#modifyPipeline(org.jboss.netty.channel.ChannelPipeline)
+	 * @see org.helios.apmrouter.server.services.AbstractPipelineModifier#doModifyPipeline(org.jboss.netty.channel.ChannelPipeline)
 	 */
 	@Override
-	public void modifyPipeline(final ChannelPipeline pipeline) {
-		if(pipeline.get(NAME)==null) {
-			pipeline.addLast(NAME, handler);
+	protected void doModifyPipeline(ChannelPipeline pipeline) {
+		if(pipeline.get(name)==null) {
+			pipeline.addLast(name, handler);
 		}
-	}
-	
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.netty.ajax.PipelineModifier#getName()
-	 */
-	public String getName() {
-		return NAME;
+		
 	}
 
 }
