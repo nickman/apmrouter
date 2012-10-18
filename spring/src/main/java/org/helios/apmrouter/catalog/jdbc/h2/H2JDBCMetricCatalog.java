@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.catalog.jdbc.h2;
 
+import java.net.InetSocketAddress;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -43,7 +44,7 @@ import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.server.services.session.ChannelSessionListener;
-import org.helios.apmrouter.server.services.session.DecoratedChannelMBean;
+import org.helios.apmrouter.server.services.session.DecoratedChannel;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
@@ -105,37 +106,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 		SharedChannelGroup.getInstance().addSessionListener(this);
 	}
 	
-/*
-CREATE  TABLE IF NOT EXISTS PUBLIC.AGENT(
-    AGENT_ID INTEGER NOT NULL IDENTITY COMMENT 'The unqiue agent identifier',
-    HOST_ID INTEGER NOT NULL COMMENT 'The id of the host this agent is running om.',
-    NAME VARCHAR2(120) NOT NULL COMMENT 'The name of the agent.',
-    FIRST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The first time the agent was seen.',
-    LAST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The last time the agent connected.'    
-) ; 
- 
 
-CREATE TABLE IF NOT EXISTS  PUBLIC.HOST(
-    HOST_ID INTEGER NOT NULL IDENTITY COMMENT 'The primary key for the host',
-    NAME VARCHAR2(255) NOT NULL COMMENT 'The short or preferred host name',
-    IP VARCHAR2(15) COMMENT 'The ip address of the host',
-    FQN VARCHAR2(255)  COMMENT 'The fully qualified name of the host',
-    FIRST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The first time the host was seen.',
-    LAST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The last time connected.'
-) ;      
-    
-
-CREATE TABLE IF NOT EXISTS  PUBLIC.METRIC(
-    METRIC_ID LONG  NOT NULL IDENTITY COMMENT 'The unique id of the metric.',
-    AGENT_ID INTEGER NOT NULL COMMENT 'The  agent identifier for this metric',
-    TYPE_ID SMALLINT NOT NULL COMMENT 'The metric type of the metric',
-    NAMESPACE VARCHAR2(200) COMMENT 'The namespace of the metric',
-    NAME VARCHAR2(60) COMMENT 'The point of the metric name',
-    FIRST_SEEN TIMESTAMP NOT NULL COMMENT 'The first time this metric was seen',
-    LAST_SEEN TIMESTAMP COMMENT 'The last time this metric was seen'
-) ;       
-
- */
 	
 	/** The SQL to fetch a delegate metric ID from a token */
 	public static final String GET_METRIC_SQL = "SELECT HOST.NAME, AGENT.NAME, TYPE_ID, NAMESPACE, METRIC.NAME "
@@ -213,10 +184,44 @@ CREATE TABLE IF NOT EXISTS  PUBLIC.METRIC(
 			//throw new RuntimeException("Failed to get ID", e);
 			return 0;
 		} finally {
-			try { cs.close(); } catch (Exception e) {}
-			try { conn.close(); } catch (Exception e) {}
+			if(cs!=null) try { cs.close(); } catch (Exception e) {}
+			if(conn!=null) try { conn.close(); } catch (Exception e) {}
 		}
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.MetricCatalogService#hostAgentState(boolean, java.lang.String, java.lang.String, java.lang.String, java.lang.String)
+	 */
+	public void hostAgentState(boolean connected, String host, String ip, String agent, String agentURI) {
+		SystemClock.startTimer();
+		incr("CallCount");		
+		Connection conn = null;
+		CallableStatement cs = null;
+		try {
+			conn = ds.getConnection();
+			cs = conn.prepareCall("CALL HOSTAGENTSTATE(?,?,?,?,?)");
+			cs.setBoolean(1, connected);
+			cs.setString(2, host);
+			cs.setString(3, ip);
+			cs.setString(4, agent);
+			cs.setString(5, agentURI);
+			cs.execute();
+			ElapsedTime et = SystemClock.endTimer();
+			elapsedTimesNs.insert(et.elapsedNs);
+			elapsedTimesMs.insert(et.elapsedMs);			
+		} catch (Exception e) {
+			error("Failed to update host/agent state for [" , String.format("%s/%s:%s", connected, host, agent) , "]", e);
+			Throwable cause = e.getCause();
+			if(cause!=null) cause.printStackTrace(System.err);
+		} finally {
+			if(cs!=null) try { cs.close(); } catch (Exception e) {}
+			if(conn!=null) try { conn.close(); } catch (Exception e) {}
+		}
+	}
+	
+	
+	
 	/**
 	 * Sets the h2 datasource
 	 * @param ds the h2 datasource
@@ -321,31 +326,33 @@ CREATE TABLE IF NOT EXISTS  PUBLIC.METRIC(
 	/**
 	 * <p>NoOp</p>
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onConnectedChannel(org.helios.apmrouter.server.services.session.DecoratedChannelMBean)
+	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onConnectedChannel(org.helios.apmrouter.server.services.session.DecoratedChannel)
 	 */
 	@Override
-	public void onConnectedChannel(DecoratedChannelMBean channel) {
+	public void onConnectedChannel(DecoratedChannel channel) {
+		// No OP
 	}
 
 	/**
 	 * <p>Updates the catalog service to mark the agent down</p>
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onClosedChannel(org.helios.apmrouter.server.services.session.DecoratedChannelMBean)
+	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onClosedChannel(org.helios.apmrouter.server.services.session.DecoratedChannel)
 	 */
 	@Override
-	public void onClosedChannel(DecoratedChannelMBean channel) {
-		// TODO Auto-generated method stub
+	public void onClosedChannel(DecoratedChannel channel) {
+		hostAgentState(false, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getType() + "/" + channel.getRemoteAddress().toString());
+		info("Marked [", channel.getHost(), "/", channel.getAgent(), "] DOWN");
 		
 	}
 
 	/**
 	 * <p>Updates the catalog service to mark the agent up</p>
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onIdentifiedChannel(org.helios.apmrouter.server.services.session.DecoratedChannelMBean)
+	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onIdentifiedChannel(org.helios.apmrouter.server.services.session.DecoratedChannel)
 	 */
 	@Override
-	public void onIdentifiedChannel(DecoratedChannelMBean channel) {
-		// TODO Auto-generated method stub
-		
+	public void onIdentifiedChannel(DecoratedChannel channel) {
+		hostAgentState(true, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getURI());
+		info("Marked [", channel.getHost(), "/", channel.getAgent(), "] UP");
 	}
 }

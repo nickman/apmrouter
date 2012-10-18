@@ -26,6 +26,7 @@ package org.helios.apmrouter.server.services.session;
 
 import java.io.ObjectStreamException;
 import java.io.Serializable;
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Date;
 
@@ -139,6 +140,23 @@ public class DecoratedChannel implements Channel, DecoratedChannelMBean, Seriali
 	 */
 	public ChannelType getChannelType() {
 		return type;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.services.session.DecoratedChannelMBean#getURI()
+	 */
+	@Override
+	public String getURI() {		
+		if(type.name().startsWith("UDP")) {
+			if(getRemoteAddress()==null) return "udp://" ; 
+			return "udp://" + ((InetSocketAddress)getRemoteAddress()).getAddress().getHostAddress() + ":" + ((InetSocketAddress)getRemoteAddress()).getPort(); 
+		} else if(type.name().startsWith("TCP")) {
+			if(getRemoteAddress()==null) return "tcp://" ; 
+			return "tcp://" + ((InetSocketAddress)getRemoteAddress()).getAddress().getHostAddress() + ":" + ((InetSocketAddress)getRemoteAddress()).getPort(); 
+		} else {
+			return "unknown";
+		}
 	}
 	
 	/**

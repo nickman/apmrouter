@@ -48,6 +48,16 @@ public interface MetricCatalogService {
 	public long getID(long token, String host, String agent, int typeId, String namespace, String name);
 	
 	/**
+	 * Called when an agent connects or disconnects (or times out)
+	 * @param connected true for a connect, false for a disconnect
+	 * @param host The host name
+	 * @param ip The host IP address
+	 * @param agent The agent name
+	 * @param agentURI The agent's listening URI
+	 */
+	public void hostAgentState(boolean connected, String host, String ip, String agent, String agentURI);
+	
+	/**
 	 * Returns the delegate metric for the passed token
 	 * @param token the token
 	 * @return a delegate metric ID

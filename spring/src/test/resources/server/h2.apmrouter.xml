@@ -57,6 +57,9 @@
 	        <constructor-arg value="-tcp,-tcpAllowOthers,-tcpPort,3083" />
 	    </bean>	   
 	
+		<!-- 
+			To connect remotely:   jdbc:h2:file:~/.apmrouter/h2/db;JMX=TRUE;MULTI_THREADED=TRUE;DB_CLOSE_DELAY=-1
+		 -->
 	
 	<bean id="H2DataSource" class="org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy" >
 		<qualifier value="H2DataSource" />

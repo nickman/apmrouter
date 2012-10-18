@@ -318,7 +318,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 					threadPool.submit(new Runnable() {
 						@Override
 						public void run() {
-							listener.onConnectedChannel(dchannel);
+							listener.onConnectedChannel((DecoratedChannel)dchannel);
 						}
 					});					
 					
@@ -327,7 +327,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 				threadPool.submit(new Runnable() {
 					@Override
 					public void run() {
-						listener.onConnectedChannel(dchannel);
+						listener.onConnectedChannel((DecoratedChannel)dchannel);
 					}
 				});									
 			}

@@ -28,6 +28,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.regex.Pattern;
 
 /**
  * <p>Title: H2StoredProcedure</p>
@@ -39,15 +40,39 @@ import java.sql.SQLException;
 
 public class H2StoredProcedure {
 	
-	public static void hostAgentState(Connection conn, boolean connected, String host, String ip, String agent) throws SQLException {
+	/**
+	 * Called when an agent connects or disconnects (or times out)
+	 * @param conn The H2 supplied connection
+	 * @param connected true for a connect, false for a disconnect
+	 * @param host The host name
+	 * @param ip The host IP address
+	 * @param agent The agent name
+	 * @param agentURI The agent's listening URI
+	 * @throws SQLException thrown on any SQL error
+	 */
+	public static void hostAgentState(Connection conn, boolean connected, String host, String ip, String agent, String agentURI) throws SQLException {
 		if(connected) {
 			int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", 1, host, ip).intValue();
-			key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", 1, hostId, agent).intValue();
+			int agentId = key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?, CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", 1, hostId, agent, agentURI).intValue();
+			PreparedStatement  ps = null;
+			try {
+				ps = conn.prepareStatement("UPDATE HOST SET CONNECTED = CURRENT_TIMESTAMP WHERE HOST_ID = ?");
+				ps.setInt(1, hostId);
+				ps.executeUpdate();
+				ps.close();
+				ps = conn.prepareStatement("UPDATE AGENT SET CONNECTED = CURRENT_TIMESTAMP, URI = ? WHERE AGENT_ID = ?");
+				ps.setString(1, agentURI);
+				ps.setInt(2, agentId);
+				ps.executeUpdate();				
+			} catch (Exception ex) {
+				throw new SQLException("Failed to touch agentHost State [" + String.format("%s/%s", host, agent) + "]", ex);
+			} finally {
+				if(ps!=null) try { ps.close(); } catch (Exception ex) {}
+			}
 		} else {
 			int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL)", 1, host, ip).intValue();
-			key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, NULL)", 1, hostId, agent).intValue();			
+			key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, NULL)", 1, hostId, agent).intValue();			
 		}
-
 	}
 	
 	/**
@@ -97,8 +122,26 @@ public class H2StoredProcedure {
 		int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", 1, host).intValue();
 		int agentId = key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", 1, hostId, agent).intValue();
 		long metricId = key(conn, "SELECT METRIC_ID FROM METRIC WHERE AGENT_ID=? AND NAMESPACE=? AND NAME=?", new Object[]{agentId, namespace, name}, 
-				"INSERT INTO METRIC (AGENT_ID, TYPE_ID, NAMESPACE, NAME, FIRST_SEEN, LAST_SEEN) VALUES (?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", 1, agentId, typeId, namespace, name).longValue();
+				"INSERT INTO METRIC (AGENT_ID, TYPE_ID, NAMESPACE, LEVEL, NAME, FIRST_SEEN, LAST_SEEN) VALUES (?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", 1, agentId, typeId, namespace, nsLevel(namespace), name).longValue();
 		return metricId;
+	}
+	
+	/** Split pattern for namespaces */
+	private static final Pattern NS_DELIM = Pattern.compile("/");
+	
+	/**
+	 * Returns the number of entries in the passed namespace
+	 * @param namespace The namespace to get the count for
+	 * @return the number of namespace entries
+	 */
+	private static int nsLevel(String namespace) {
+		if(namespace==null || namespace.trim().isEmpty()) return 0;
+		String[] frags = NS_DELIM.split(namespace);
+		int cnt = 0;
+		for(String s: frags) {
+			if(s!=null && !s.trim().isEmpty()) cnt++;
+		}
+		return cnt;
 	}
 	
 	/**

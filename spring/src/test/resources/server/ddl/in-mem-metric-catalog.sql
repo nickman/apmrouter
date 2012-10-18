@@ -15,7 +15,8 @@ CREATE MEMORY TEMPORARY TABLE PUBLIC.AGENT(
     NAME VARCHAR2(120) NOT NULL COMMENT 'The name of the agent.',
     FIRST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The first time the agent was seen.',
     LAST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The last time the agent connected.',
-    CONNECTED TIMESTAMP NULL COMMENT 'The time the agent connected or null if not connected.'
+    CONNECTED TIMESTAMP NULL COMMENT 'The time the agent connected or null if not connected.',
+    URI VARCHAR2(120) NULL COMMENT 'The listening URI of the connected agent.'
 ) NOT PERSISTENT; 
  
 
@@ -35,6 +36,7 @@ CREATE MEMORY TEMPORARY TABLE PUBLIC.METRIC(
     AGENT_ID INTEGER NOT NULL COMMENT 'The  agent identifier for this metric',
     TYPE_ID SMALLINT NOT NULL COMMENT 'The metric type of the metric',
     NAMESPACE VARCHAR2(200) COMMENT 'The namespace of the metric',
+    LEVEL SMALLINT NOT NULL COMMENT 'The number of namespaces in the namespace',
     NAME VARCHAR2(60) COMMENT 'The point of the metric name',
     FIRST_SEEN TIMESTAMP NOT NULL COMMENT 'The first time this metric was seen',
     LAST_SEEN TIMESTAMP COMMENT 'The last time this metric was seen'
@@ -64,3 +66,4 @@ CREATE SEQUENCE SEQ_METRIC START WITH 0 INCREMENT BY 1 CACHE 128;
 
 CREATE ALIAS GET_ID FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.getID";
 CREATE ALIAS TOUCH FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.touch";
+CREATE ALIAS IF NOT EXISTS HOSTAGENTSTATE FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.hostAgentState";

@@ -24,11 +24,10 @@
  */
 package org.helios.apmrouter.server.services.session;
 
-import java.net.SocketAddress;
 
 /**
  * <p>Title: DecoratedChannelMBean</p>
- * <p>Description: </p> 
+ * <p>Description: MBean interface for the {@link DecoratedChannel}</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.services.session.DecoratedChannelMBean</code></p>
@@ -47,6 +46,12 @@ public interface DecoratedChannelMBean {
 	 * @return the stringified remote address
 	 */
 	public abstract String getRemote();
+	
+	/**
+	 * Returns the remote URI for this channel
+	 * @return the remote URI for this channel
+	 */
+	public abstract String getURI();	
 
 	/**
 	 * Returns the stringified local address

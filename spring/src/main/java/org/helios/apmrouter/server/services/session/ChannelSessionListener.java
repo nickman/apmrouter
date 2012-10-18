@@ -38,18 +38,18 @@ public interface ChannelSessionListener {
 	 * Fired when a new channel is added to the {@link SharedChannelGroup}
 	 * @param channel the new channel that was added
 	 */
-	public void onConnectedChannel(DecoratedChannelMBean channel);
+	public void onConnectedChannel(DecoratedChannel channel);
 	
 	/**
 	 * Fired when a connected channel is closed and removed from the {@link SharedChannelGroup}
 	 * @param channel The closed channel
 	 */
-	public void onClosedChannel(DecoratedChannelMBean channel);
+	public void onClosedChannel(DecoratedChannel channel);
 	
 	/**
 	 * Fired when a connected channel is identified
 	 * @param channel The identified channel
 	 */
-	public void onIdentifiedChannel(DecoratedChannelMBean channel);
+	public void onIdentifiedChannel(DecoratedChannel channel);
 	
 }
