@@ -22,11 +22,12 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.dataservice.json;
+package org.helios.apmrouter.dataservice.json.catalog;
 
 import java.util.Map;
 
 import org.helios.apmrouter.catalog.MetricCatalogService;
+import org.helios.apmrouter.dataservice.json.JSONRequestHandler;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.jboss.netty.channel.Channel;
 import org.json.JSONArray;
