@@ -29,6 +29,8 @@ import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.util.SystemClock;
@@ -38,6 +40,7 @@ import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelConfig;
 import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelPipeline;
 
 import com.sun.jmx.mbeanserver.DefaultMXBeanMappingFactory;
@@ -114,6 +117,22 @@ public class DecoratedChannel implements Channel, DecoratedChannelMBean, Seriali
 	}
 	
 	/**
+	 * Returns the names of the channel handlers in the pipeline
+	 * @return the names of the channel handlers in the pipeline
+	 */
+	@Override
+	public String[] getPipelineNames() {
+		Map<String, ChannelHandler> copy = new LinkedHashMap<String, ChannelHandler>(delegate.getPipeline().toMap());
+		String[] names = new String[copy.size()];
+		int cnt = 0;
+		for(Map.Entry<String, ChannelHandler> entry: copy.entrySet()) {
+			names[cnt] = entry.getKey() + " [" + entry.getValue().getClass().getSimpleName() + "]";
+			cnt++;
+		}
+		return names; 
+	}
+	
+	/**
 	 * Sends a {@link OpCode#WHO} to an unidentified agent in Whoville.
 	 */
 	public void sendWho() {
@@ -154,6 +173,9 @@ public class DecoratedChannel implements Channel, DecoratedChannelMBean, Seriali
 		} else if(type.name().startsWith("TCP")) {
 			if(getRemoteAddress()==null) return "tcp://" ; 
 			return "tcp://" + ((InetSocketAddress)getRemoteAddress()).getAddress().getHostAddress() + ":" + ((InetSocketAddress)getRemoteAddress()).getPort(); 
+		} else if(type.name().startsWith("WEBSOCKET")) {
+			if(getRemoteAddress()==null) return "ws://" ; 
+			return "ws://" + ((InetSocketAddress)getRemoteAddress()).getAddress().getHostAddress() + ":" + ((InetSocketAddress)getRemoteAddress()).getPort();			
 		} else {
 			return "unknown";
 		}

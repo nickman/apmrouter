@@ -29,6 +29,7 @@
 				<property name="corePoolSize" value="1" />
 				<property name="maximumPoolSize" value="100" />
 				<property name="coreThreadsStarted" value="1" />
+				<property name="queueSize" value="1" />
 			</bean>
 		</constructor-arg>
 	</bean>
@@ -39,48 +40,96 @@
 				<property name="corePoolSize" value="1" />
 				<property name="maximumPoolSize" value="100" />
 				<property name="coreThreadsStarted" value="1" />
+				<property name="queueSize" value="1" />
 			</bean>
 		</constructor-arg>
 	</bean>
 	
  	<bean id="DataServiceListener" class="org.helios.apmrouter.server.services.DataServer">
- 		<property name="bindHost" value="0.0.0.0" />
- 		<property name="bindPort" value="8087" />
- 		<property name="channelHandlers">
- 			<map>
- 				
- 			</map>
- 		</property>
  		<property name="workerPool" ref="DataServiceWorkers" />
  		<property name="bossPool" ref="DataServiceBoss" />
+ 	 		<property name="bindHost" value="0.0.0.0" />
+ 		<property name="bindPort" value="8087" />
+ 	
+		 <property name="channelOptions">
+		 	<map>
+		 		<entry key="child.keepAlive"><value type="boolean" >true</value> </entry>
+		 	</map>
+		 </property> 		
  	</bean>
  	
- 	<bean id="ServerPipelineFactory" class="org.helios.apmrouter.server.services.ServerPipelineFactory" />
+ 	<!-- 
  	
- 	<bean id="WebSocketModifier" class="org.helios.apmrouter.server.services.handlergroups.websockets.WebSocketModifier">
+ 	 -->
+ 	 
+ 	 <bean id="ProtocolSwitch" class="org.helios.apmrouter.server.unification.protocol.ProtocolSwitch" />
+ 	 
+ 	 <bean id="ServerPipelineFactory" class="org.helios.apmrouter.server.unification.ServerPipelineFactory" />
+ 	 
+ 	 <bean id="HttpProtocol" class="org.helios.apmrouter.server.unification.protocol.http.HttpProtocolInitiator" />
+ 	 
+ 	 <bean id="HttpPipelineModifier" class="org.helios.apmrouter.server.unification.pipeline.http.HttpPipelineModifier"/>
+ 	 
+ 	 <bean id="HttpRequestRouter" class="org.helios.apmrouter.server.unification.pipeline.http.HttpRequestRouter" />
+ 	 
+ 	<bean id="fs" class="org.helios.apmrouter.server.unification.pipeline.http.HttpStaticFileServerHandler" >
+ 		<constructor-arg value="./src/main/resources/www" />
+ 	</bean>
+ 	 
+ 	 <bean id="ws" class="org.helios.apmrouter.server.unification.pipeline.http.WebSocketRequestHandler" />
+ 	
+ 	<bean id="JSONRequestRouter" class="org.helios.apmrouter.dataservice.json.JSONRequestRouter" />
+ 	
+ 	<bean id="hostagent" class="org.helios.apmrouter.dataservice.json.HostAgent" />
+
+
+
+	<bean id="ProxyWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+		<constructor-arg>
+			<bean id="ProxyWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+				<property name="corePoolSize" value="1" />
+				<property name="maximumPoolSize" value="100" />
+				<property name="coreThreadsStarted" value="1" />
+				<property name="queueSize" value="1" />
+			</bean>
+		</constructor-arg>
+	</bean>
+	
+	<bean id="ProxyBoss" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+		<constructor-arg>
+			<bean id="ProxyBossConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+				<property name="corePoolSize" value="1" />
+				<property name="maximumPoolSize" value="100" />
+				<property name="coreThreadsStarted" value="1" />
+				<property name="queueSize" value="1" />
+			</bean>
+		</constructor-arg>
+	</bean>
+ 	
+ 	
+ 	<bean id="ProxyChannelFactory" class="org.helios.apmrouter.server.unification.pipeline.http.proxy.ProxyChannelFactory">
+ 		<property name="workerPool" ref="ProxyWorkers" />
+ 		<property name="bossPool" ref="ProxyBoss" />
+		 <property name="channelOptions">
+		 	<map>
+		 		<entry key="keepAlive"><value type="boolean" >true</value> </entry>
+		 		<entry key="tcpNoDelay"><value type="boolean" >true</value> </entry>
+		 		<entry key="reuseAddress"><value type="boolean" >true</value> </entry>
+		 		<entry key="connectTimeoutMillis"><value type="int" >1000</value> </entry>		 		
+		 	</map>
+		 </property> 		
+ 	</bean>
+ 	
+ 	<bean id="jmxProxy" class="org.helios.apmrouter.server.unification.pipeline.http.proxy.HttpRequestProxy">
+ 		<property name="targetHost" value="localhost" />
+ 		<property name="targetPort" value="8161" />
  		<property name="uriPatterns">
- 			<set><value>ws</value></set>
+ 			<set>
+ 				<value>/jolokia</value>
+ 				<value>/jolokia/</value>
+ 			</set>
  		</property>
- 	</bean>
- 	
- 	<bean id="SubmissionModifier" class="org.helios.apmrouter.server.services.handlergroups.submission.SubmissionModifier">
- 		<property name="uriPatterns">
- 			<set><value>sub</value></set>
- 		</property>
- 	</bean>
- 	
- 	<bean id="FileServer" class="org.helios.apmrouter.server.services.handlergroups.fileserver.FileServerModifier">
- 		<constructor-arg value="." />
- 		<property name="uriPatterns">
- 			<set><value>fs</value></set>
- 		</property>
- 		
- 	</bean>
- 	
- 	
- 	
- 	
- 	
+ 	</bean> 
  	
  	
 

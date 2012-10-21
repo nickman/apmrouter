@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.catalog;
 
+import java.util.Map;
+
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 
 /**
@@ -75,4 +77,11 @@ public interface MetricCatalogService {
 	 * @param realtime true for a realtime metric catalog, false otherwise
 	 */
 	public void setRealtime(boolean realtime); 	
+	
+	/**
+	 * Lists registered hosts
+	 * @param onlineOnly If true, only lists online hosts
+	 * @return A map of host names keyed by host ID
+	 */
+	public Map<Integer, String> listHosts(boolean onlineOnly);
 }

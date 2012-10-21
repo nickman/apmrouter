@@ -84,7 +84,6 @@ public class UDPAgentListener extends BaseAgentListener {
 			}
 		});		
 		serverChannel.getConfig().setBufferFactory(new DirectChannelBufferFactory());
-		channelGroup.add(serverChannel, "UDPAgentListener/" + socketAddress);
 		connected.set(true);
 		info("Started UDP listener on [", socketAddress , "]");		
 	}
@@ -97,7 +96,6 @@ public class UDPAgentListener extends BaseAgentListener {
 	@Override
 	protected void doStop() {
 		info("Closing ChannelGroup....");
-		channelGroup.close().awaitUninterruptibly();
 		info("Closing ChannelFactory....");
 		channelFactory.releaseExternalResources();
 		super.doStop();

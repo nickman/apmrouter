@@ -26,6 +26,7 @@ package org.helios.apmrouter.server.net.listener.netty;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,20 +39,16 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.helios.apmrouter.server.ServerComponentBean;
-import org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroup;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
-import org.jboss.netty.channel.group.ChannelGroup;
-import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.jboss.netty.handler.execution.ExecutionHandler;
 import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLogLevel;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.logging.Log4JLoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedOperation;
 
@@ -67,8 +64,6 @@ import org.springframework.jmx.export.annotation.ManagedOperation;
 public class BaseAgentListener extends ServerComponentBean implements ChannelPipelineFactory {
 	/** The netty channel factory's worker thread pool */
 	protected ExecutorService workerPool = null;
-	/** The managed channel group */
-	protected final ManagedChannelGroup channelGroup = ManagedChannelGroup.getInstance("APMRouterChannelGroup");
 	/** The interface that this listener will bind to */
 	protected String bindHost = null;
 	/** The port that this listener will bind to */
@@ -115,9 +110,6 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 		try {
 			for(Map.Entry<Integer, String> entry: channelHandlers.entrySet()) {
 				ChannelHandler handler = applicationContext.getBean(entry.getValue(), ChannelHandler.class);
-				if(handler instanceof ChannelGroupAware) {
-					((ChannelGroupAware)handler).setChannelGroup(channelGroup);
-				}
 				debug("Resolved Channel Handler [", entry.getValue(), "]");
 				resolvedHandlers.put(beanName, handler);
 			}
@@ -166,14 +158,6 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 		return pipeline;
 	}
 
-	/**
-	 * Returns the channel group for this agent listener
-	 * @return the agent listener channel group
-	 */
-	//@ManagedAttribute
-	public ChannelGroup getChannelGroup() {
-		return channelGroup;
-	}
 
 	/**
 	 * Returns the interface this listener is bound to 
@@ -259,6 +243,30 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 	 */
 	public Map<String, Object> getChannelOptions() {
 		return channelOptions;
+	}
+	
+	/**
+	 * Returns the channel options in string format
+	 * @return the channel options in string format
+	 */
+	@ManagedAttribute(description="The channel options")
+	public Map<String, String> getChannelOptionNames() {
+		Map<String, String> map = new HashMap<String, String>(channelOptions.size());
+		for(Map.Entry<String, Object> entry: channelOptions.entrySet()) {
+			map.put(entry.getKey(), entry.getValue().toString());
+		}
+		return map;
+	}
+	
+	
+	/**
+	 * Adds the passed map of channel options to the listener's channel options
+	 * @param options A map of channel options
+	 */
+	public void setChannelOptions(Map<String, Object> options) {
+		if(options!=null) {
+			channelOptions.putAll(options);
+		}
 	}
 
 	/**
@@ -366,14 +374,6 @@ public class BaseAgentListener extends ServerComponentBean implements ChannelPip
 		return getMetricValue("channelsClosed");
 	}
 	
-	/**
-	 * Returns the number of channels currently open
-	 * @return the number of channels currently open
-	 */
-	@ManagedAttribute
-	public int getCurrentChannels() {
-		return channelGroup.size();
-	}
 	
 
 	

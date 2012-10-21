@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 
 import org.helios.apmrouter.server.services.session.ChannelType;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
+import org.helios.apmrouter.server.unification.ServerPipelineFactory;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
 import org.jboss.netty.channel.ChannelFuture;
@@ -64,8 +65,9 @@ public class TCPAgentListener extends BaseAgentListener {
 		super.doStart();
 		channelFactory = new NioServerSocketChannelFactory(bossPool, workerPool);	
 		bstrap = new ServerBootstrap(channelFactory);
+		channelOptions.put("child.keepAlive", true);
 		bstrap.setOptions(channelOptions);
-		bstrap.setPipelineFactory(this);
+		bstrap.setPipelineFactory(applicationContext.getBean(ServerPipelineFactory.class));
 	}
 
 	
@@ -73,17 +75,18 @@ public class TCPAgentListener extends BaseAgentListener {
 	 * Callback when the current app context refreshes
 	 * @param cre The context refreshed event
 	 */
+	@Override
 	public void onApplicationContextRefresh(ContextRefreshedEvent cre) {
-		serverChannel = (ServerSocketChannel)bstrap.bind(socketAddress);
-		SharedChannelGroup.getInstance().add(serverChannel, ChannelType.TCP_SERVER, getClass().getSimpleName());
-		closeFuture = serverChannel.getCloseFuture();
+		closeFuture = bstrap.bind(socketAddress).getCloseFuture();
+		//SharedChannelGroup.getInstance().add(serverChannel, ChannelType.TCP_SERVER, getClass().getSimpleName());
 		closeFuture.addListener(new ChannelFutureListener() {
+			@Override
 			public void operationComplete(ChannelFuture future) throws Exception {
 				connected.set(false);
+				info("Stopped TCP listener on [", socketAddress , "]");		
 			}
 		});		
-		serverChannel.getConfig().setBufferFactory(new DirectChannelBufferFactory());
-		channelGroup.add(serverChannel, "DataServiceListener/" + socketAddress);
+		//serverChannel.getConfig().setBufferFactory(new DirectChannelBufferFactory());
 		connected.set(true);
 		info("Started TCP listener on [", socketAddress , "]");		
 	}
@@ -95,7 +98,6 @@ public class TCPAgentListener extends BaseAgentListener {
 	@Override
 	protected void doStop() {
 		info("Closing ChannelGroup....");
-		channelGroup.close().awaitUninterruptibly();
 		info("Closing ChannelFactory....");
 		channelFactory.releaseExternalResources();
 		super.doStop();

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app version="2.4" xmlns="http://java.sun.com/xml/ns/j2ee"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee http://java.sun.com/xml/ns/j2ee/web-app_2_4.xsd">
+ <description>Helios Web Console</description>
+ <display-name>Helios Web Console</display-name>
+ <listener>
+  <listener-class>org.helios.spring.web.HeliosContextLoaderListener</listener-class>
+ </listener>
+  
+ <servlet>
+  <servlet-name>Jersey</servlet-name>
+  <servlet-class>com.sun.jersey.spi.spring.container.servlet.SpringServlet</servlet-class>
+  <init-param>
+   <param-name>com.sun.jersey.config.property.resourceConfigClass</param-name>
+   <param-value>com.sun.jersey.api.core.PackagesResourceConfig</param-value>
+  </init-param>
+  <init-param>
+   <param-name>com.sun.jersey.config.property.packages</param-name>
+   <param-value>org.helios.server.ot.session.camel.marshal; org.helios.ot.trace; org.helios.server.ot.session.requester; org.helios.server.ot.cache; org.codehaus.jackson.jaxrs</param-value>
+  </init-param>
+  <init-param>
+   <param-name>com.sun.jersey.api.json.POJOMappingFeature</param-name>
+   <param-value>false</param-value>
+  </init-param>
+  <load-on-startup>1</load-on-startup>
+ </servlet>
+ <filter>
+ 	<filter-name>continuation</filter-name>
+ 	<filter-class>org.eclipse.jetty.continuation.ContinuationFilter</filter-class>
+ </filter>
+ <filter-mapping>
+ 	<filter-name>continuation</filter-name>
+ 	<url-pattern>/api/*</url-pattern>
+ </filter-mapping>
+
+ <servlet-mapping>
+  <servlet-name>Jersey</servlet-name>
+  <url-pattern>/api/*</url-pattern>
+ </servlet-mapping>
+ <session-config>
+  <session-timeout>1</session-timeout>
+ </session-config>
+ </web-app>

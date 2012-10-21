@@ -58,6 +58,12 @@ public interface DecoratedChannelMBean {
 	 * @return the stringified local address
 	 */
 	public abstract String getLocal();
+	
+	/**
+	 * Returns the names of the channel handlers in the pipeline
+	 * @return the names of the channel handlers in the pipeline
+	 */
+	public abstract String[] getPipelineNames();
 
 	/**
 	 * Returns the channels's name

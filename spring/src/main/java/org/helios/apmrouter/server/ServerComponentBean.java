@@ -24,6 +24,9 @@
  */
 package org.helios.apmrouter.server;
 
+import java.lang.reflect.Method;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -89,6 +92,51 @@ public abstract class ServerComponentBean extends ServerComponent implements
 	protected ObjectName objectName = null;
 	/** The started state of this component */
 	protected final AtomicBoolean started = new AtomicBoolean(false);
+	/** Application Event types that this component accepts */
+	protected final Set<Class<? extends ApplicationEvent>> supportedEventTypes = new HashSet<Class<? extends ApplicationEvent>>();
+	/** Source types that this component accepts application events from */
+	protected final Set<Class<?>> supportedEventSourceTypes = new HashSet<Class<?>>();
+	
+	
+	/**
+	 * Creates a new ServerComponentBean.
+	 * Inspects the application context methods, and if overriden in this class, adds the type to the supported event types.
+	 */
+	protected ServerComponentBean() {
+		testAppEventSupport("onApplicationContextClose", ContextClosedEvent.class, ContextClosedEvent.class);
+		testAppEventSupport("onApplicationContextRefresh", ContextRefreshedEvent.class, ContextRefreshedEvent.class);
+		testAppEventSupport("onApplicationContextStart", ContextStartedEvent.class, ContextStartedEvent.class);
+		testAppEventSupport("onApplicationContextStop", ContextStoppedEvent.class, ContextStoppedEvent.class);
+	}
+	
+	/**
+	 * Returns a declared method for this class
+	 * @param name The name of the method
+	 * @param params The parameter types of the method
+	 * @return the method or null if one was not found
+	 */
+	protected Method getDeclaredMethod(String name, Class<?>...params) {
+		try {
+			return getClass().getDeclaredMethod(name, params);
+		} catch (Exception ex) {
+			return null;
+		}
+	}
+	
+	/**
+	 * Looks up the method defined by <code>name</code> and <params> and if overriden, adds the <code>supported</code> class to the supported event types.
+	 * @param name The name of the method to lookup
+	 * @param supported The event type being tested for
+	 * @param params The parameter types of the method to lookup
+	 */
+	protected void testAppEventSupport(String name, Class<? extends ApplicationEvent> supported, Class<?>...params) {
+		Method method = getDeclaredMethod(name, params);
+		if(method!=null && method.getDeclaringClass()==getClass()) {
+			supportedEventTypes.add(supported);
+		}
+	}
+	
+	
 	
 	/**
 	 * {@inheritDoc}
@@ -135,7 +183,8 @@ public abstract class ServerComponentBean extends ServerComponent implements
 	 */
 	@Override
 	public boolean supportsEventType(Class<? extends ApplicationEvent> eventType) {
-		return false;
+		if(supportedEventTypes.isEmpty()) return false;
+		return supportedEventTypes.contains(eventType);
 	}
 
 	/**
@@ -144,7 +193,8 @@ public abstract class ServerComponentBean extends ServerComponent implements
 	 */
 	@Override
 	public boolean supportsSourceType(Class<?> sourceType) {
-		return false;
+		if(supportedEventSourceTypes.isEmpty()) return true;
+		return supportedEventSourceTypes.contains(sourceType);
 	}
 
 	/**
@@ -156,6 +206,14 @@ public abstract class ServerComponentBean extends ServerComponent implements
 		beanName = name;
 		log = Logger.getLogger(getClass().getName() + "." + beanName);
 
+	}
+	
+	/**
+	 * Returns the bean name
+	 * @return the bean name
+	 */
+	public String getBeanName() {
+		return beanName;
 	}
 	
 	protected final ApplicationListener lifecycleListener = new ApplicationListener<ApplicationContextEvent>() {

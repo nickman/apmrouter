@@ -38,6 +38,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -105,7 +106,9 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 					tpc.maximumPoolSize, 
 					tpc.keepAliveTime, 
 					TimeUnit.MILLISECONDS, 
-					new ArrayBlockingQueue<Runnable>(tpc.queueSize, tpc.fairQueue),
+					tpc.queueSize==1 
+					? new SynchronousQueue<Runnable>(false)
+					: new ArrayBlockingQueue<Runnable>(tpc.queueSize, tpc.fairQueue),
 					this, this);
 		inner.allowCoreThreadTimeOut(tpc.coreThreadsTimeout);
 		for(int i = 0; i < tpc.coreThreadsStarted; i++) {

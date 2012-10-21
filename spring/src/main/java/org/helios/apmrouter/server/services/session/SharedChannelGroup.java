@@ -214,6 +214,22 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 	}
 	
 	/**
+	 * Converts the passed channel to a {@link DecoratedChannel} and adds it to the channel group 
+	 * @param channel The channel to add
+	 * @param type The channel type
+	 * @param name The assigned channel name
+	 * @return true if the channel was not already registered in this channel group, false otherwise
+	 */
+	public boolean add(Channel channel, ChannelType type, String name, String host, String agent) {
+		DecoratedChannel dc = (channel instanceof DecoratedChannel) ? (DecoratedChannel)channel : new DecoratedChannel(channel, type, name); 
+		boolean b = add(dc);
+		dc.setWho(host, agent);
+		sendIdentifiedChannelEvent(dc);
+		return b;
+	}
+	
+	
+	/**
 	 * {@inheritDoc}
 	 * @see java.util.Set#add(java.lang.Object)
 	 */

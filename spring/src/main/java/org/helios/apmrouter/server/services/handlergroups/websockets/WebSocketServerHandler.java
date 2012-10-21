@@ -30,9 +30,12 @@ import static org.jboss.netty.handler.codec.http.HttpMethod.GET;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.FORBIDDEN;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.Collections;
 
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.dataservice.json.JSONRequestRouter;
 import org.helios.apmrouter.server.services.session.ChannelType;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -59,6 +62,7 @@ import org.jboss.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory;
 import org.jboss.netty.util.CharsetUtil;
 import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
 
 
 /**
@@ -74,6 +78,8 @@ public class WebSocketServerHandler implements ChannelUpstreamHandler, ChannelDo
 	private WebSocketServerHandshaker handshaker;
 	/** Instance logger */
 	protected final Logger log = Logger.getLogger(getClass());
+	/** The JSON Request Router */
+	protected JSONRequestRouter router = null;
 	/**
 	 * {@inheritDoc}
 	 * @see org.jboss.netty.channel.ChannelDownstreamHandler#handleDownstream(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.ChannelEvent)
@@ -137,17 +143,10 @@ public class WebSocketServerHandler implements ChannelUpstreamHandler, ChannelDo
 				@Override
 				public void operationComplete(ChannelFuture f) throws Exception {
 					if(f.isSuccess()) {
-						Channel wsChannel = f.getChannel();						
-						wsChannel.write(new JSONObject(Collections.singletonMap("sessionid", wsChannel.getId()))).addListener(new ChannelFutureListener() {
-							@Override
-							public void operationComplete(ChannelFuture f) throws Exception {
-								if(f.isSuccess()) {
-									if(f.getChannel().isOpen()) {
-										SharedChannelGroup.getInstance().add(f.getChannel(), ChannelType.WEBSOCKET_REMOTE, "WebSocketClient-" + f.getChannel().getId());
-									}
-								}								
-							}
-						});
+						Channel wsChannel = f.getChannel();
+						//SharedChannelGroup.getInstance().add(f.getChannel(), ChannelType.WEBSOCKET_REMOTE, "WebSocketClient-" + f.getChannel().getId());
+						wsChannel.write(new JSONObject(Collections.singletonMap("sessionid", wsChannel.getId())));
+						//wsChannel.getPipeline().remove(DefaultChannelHandler.NAME);
 					}
 				}
 			});
@@ -187,10 +186,33 @@ public class WebSocketServerHandler implements ChannelUpstreamHandler, ChannelDo
                     .getName()));
         }
 
-        // Send the uppercase string back.
+        
         String request = ((TextWebSocketFrame) frame).getText();
-        log.info(String.format("Channel %s received %s", ctx.getChannel().getId(), request));
-        ctx.getChannel().write(new TextWebSocketFrame(request.toUpperCase()));
+        JSONObject wsRequest = null;
+        try {
+        	wsRequest = new JSONObject(request);
+        	if("who".equals(wsRequest.get("t"))) {
+        		SocketAddress sa = ctx.getChannel().getRemoteAddress();
+        		String host = "unknown";
+        		String agent = "unknown";
+        		if(sa!=null) {
+        			host = ((InetSocketAddress)sa).getHostName();        			
+        		}
+        		if(wsRequest.get("agent")!=null) {
+        			agent = wsRequest.get("agent").toString();
+        		}
+        		SharedChannelGroup.getInstance().add(ctx.getChannel(), ChannelType.WEBSOCKET_REMOTE, "ClientWebSocket", host, agent);
+        	} else {
+        		router.invoke(wsRequest, ctx.getChannel());
+        	}
+        	
+        		
+        } catch (Exception ex) {
+        	log.error("Failed to parse request [" + request + "]", ex);
+        }
+        
+//        log.info(String.format("Channel %s received %s", ctx.getChannel().getId(), request));
+//        ctx.getChannel().write(new TextWebSocketFrame(request.toUpperCase()));
 		
 	}
 
@@ -209,6 +231,15 @@ public class WebSocketServerHandler implements ChannelUpstreamHandler, ChannelDo
 	 */
 	public WebSocketServerHandshaker getHandshaker() {
 		return handshaker;
+	}
+
+	/**
+	 * Sets the json request router
+	 * @param router the router to set
+	 */
+	@Autowired(required=true)
+	public void setRouter(JSONRequestRouter router) {
+		this.router = router;
 	}
 	
 	

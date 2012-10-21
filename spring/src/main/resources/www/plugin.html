@@ -1,0 +1,91 @@
+<html>
+	<head>
+		<title>Helios Plugin Test</title>
+		<script type="text/javascript" src="js/jquery.min.js"></script>
+		<script type="text/javascript" src="js/class.js"></script>
+		<script type="text/javascript" src="js/jmx/jmx.js"></script>
+		<script type="text/javascript" src="js/heliosClient.js"></script>
+		<script type="text/javascript" src="js/ui/jquery-ui-1.8.9.custom.min.js"></script>
+    	<script type="text/javascript" src='js/dynatree/jquery.dynatree.min.js'></script>
+    	<script type="text/javascript" src='js/dynatree/helios.dynatree.js'></script>
+		
+		<link type="text/css" href="js/ui/css/smoothness/jquery-ui-1.8.9.custom.css" rel="stylesheet" />	
+		<link rel='stylesheet' type='text/css' href='js/dynatree/skin/ui.dynatree.css'>	
+		
+		<script type="text/javascript">
+			var sTree = null;
+			$(function(){
+				$('#terminate').bind('click', function() {
+					$.helios.termSession(function () {
+						console.info("====== Session Terminated ======"); 
+					});
+				});
+				$('#ajaxActivity').ajaxStop(function(){
+					$(this).attr('src', 'img/red-light-16X16.png');
+				});
+				$('#ajaxActivity').ajaxStart(function(){
+					$(this).attr('src', 'img/green-light-16X16.png');
+				});
+				sTree = $("#singularityTree").dynatree({
+		            onActivate: function(node) {
+		            	
+		            },
+		            onFocus: function(node) {
+						if(node.data.nodeData!=null) {
+							$('#singularityTreeValue').text(node.data.nodeData);
+						}
+		            },
+		            onBlur: function(node) {
+		            	$('#singularityTreeValue').text("");
+		            },		            
+		            persist: false 
+		        });
+				$("#singularityTree").heliosState({
+					node: "/",
+					snapshot: function(data) {
+						//console.info("Singularity Snapshot:%o", data);
+						var tree = $("#singularityTree").dynatree("getTree");						
+						$.each(data, function(fullPath, value) {
+							$("#singularityTree").dynatree("fillNodes", fullPath);
+							$("#singularityTree").dynatree("getTree").getNodeByKey(fullPath).data.nodeData = value;
+						});						
+					},
+					paths: function(path) {
+						//console.info("Singularity Path Update:%o", path);
+						
+					},
+					values: function(path, value) {
+						//console.info("Singularity Value Update:%o --> %s", path, value);
+						var builtPath = $.helios.buildPath(path);
+						$("#singularityTree").dynatree("fillNodes", builtPath);
+						$("#singularityTree").dynatree("getTree").getNodeByKey(builtPath).data.nodeData = value[0];
+						
+					}					
+				});
+				
+			});
+		</script>
+		
+	</head>
+	<body class="console-base" id="root-body">
+		<table>
+			<tr>
+				<td><button id="terminate">Terminate Session</button></td>
+				<td><div><img id="ajaxActivity" src="img/red-light-16X16.png"></img></div></td>
+			</tr>
+			<tr>
+				<td><div id="singularityTreeValue"></div></td>
+				<td></td>
+			</tr>			
+			<tr>
+				<td><div id="singularityTree"></div></td>
+				<td></td>
+			</tr>
+			
+		</table>
+		<p></p>
+		<p></p>
+		
+		
+	</body>
+</html>

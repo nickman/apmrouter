@@ -25,6 +25,8 @@
 package org.helios.apmrouter.server.services;
 
 import org.helios.apmrouter.server.net.listener.netty.TCPAgentListener;
+import org.helios.apmrouter.server.unification.ServerPipelineFactory;
+import org.jboss.netty.buffer.DirectChannelBufferFactory;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.springframework.beans.factory.annotation.Autowired;
 /**
@@ -37,6 +39,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class DataServer extends TCPAgentListener  {
 	/** The data server pipeline factory */
 	protected ServerPipelineFactory pipelineFactory;
+	
+	protected DataServer() {
+		super();
+		channelOptions.put("child.keepAlive", true);
+		//channelOptions.put("child.bufferFactory", new DirectChannelBufferFactory());
+	}
 
 	/**
 	 * {@inheritDoc}

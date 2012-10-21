@@ -31,7 +31,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import javax.sql.DataSource;
@@ -193,6 +195,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.catalog.MetricCatalogService#hostAgentState(boolean, java.lang.String, java.lang.String, java.lang.String, java.lang.String)
 	 */
+	@Override
 	public void hostAgentState(boolean connected, String host, String ip, String agent, String agentURI) {
 		SystemClock.startTimer();
 		incr("CallCount");		
@@ -218,6 +221,48 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			if(cs!=null) try { cs.close(); } catch (Exception e) {}
 			if(conn!=null) try { conn.close(); } catch (Exception e) {}
 		}
+	}
+	
+	/** The base host SQL */
+	public static final String LIST_HOSTS_SQL = "SELECT NAME, HOST_ID FROM HOST";
+	/** The online host SQL */
+	public static final String LIST_ONLINE_HOSTS_SQL = "SELECT NAME, HOST_ID FROM HOST WHERE CONNECTED IS NOT NULL";
+	
+	
+	/**
+	 * Lists registered hosts
+	 * @param onlineOnly If true, only lists online hosts
+	 * @return A map of host names keyed by host ID
+	 */
+	public Map<Integer, String> listHosts(boolean onlineOnly) {
+		SystemClock.startTimer();
+		incr("CallCount");		
+		Connection conn = null;
+		PreparedStatement ps = null;
+		ResultSet rset = null;
+		Map<Integer, String> map = new HashMap<Integer, String>();
+		try {
+			conn = ds.getConnection();
+			ps = conn.prepareStatement(onlineOnly ? LIST_ONLINE_HOSTS_SQL : LIST_HOSTS_SQL);
+			rset = ps.executeQuery();
+			while(rset.next()) {
+				map.put(rset.getInt(2), rset.getString(1));
+			}
+			ElapsedTime et = SystemClock.endTimer();
+			elapsedTimesNs.insert(et.elapsedNs);
+			elapsedTimesMs.insert(et.elapsedMs);
+			return map;
+		} catch (Exception e) {
+			error("Failed to list hosts" , e);
+			Throwable cause = e.getCause();
+			if(cause!=null) cause.printStackTrace(System.err);
+			throw new RuntimeException("Failed to list hosts" , e);
+		} finally {
+			if(rset!=null) try { rset.close(); } catch (Exception e) {}
+			if(ps!=null) try { ps.close(); } catch (Exception e) {}
+			if(conn!=null) try { conn.close(); } catch (Exception e) {}
+		}
+		
 	}
 	
 	
@@ -334,25 +379,29 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	}
 
 	/**
-	 * <p>Updates the catalog service to mark the agent down</p>
+	 * <p>Updates the catalog service to mark the agent down if the agent name is not null or empty</p>
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onClosedChannel(org.helios.apmrouter.server.services.session.DecoratedChannel)
 	 */
 	@Override
 	public void onClosedChannel(DecoratedChannel channel) {
-		hostAgentState(false, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getType() + "/" + channel.getRemoteAddress().toString());
-		info("Marked [", channel.getHost(), "/", channel.getAgent(), "] DOWN");
+		if(channel.getAgent()!=null && !channel.getAgent().trim().isEmpty()) {
+			hostAgentState(false, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getType() + "/" + channel.getRemoteAddress().toString());
+			info("Marked [", channel.getHost(), "/", channel.getAgent(), "] DOWN");
+		}
 		
 	}
 
 	/**
-	 * <p>Updates the catalog service to mark the agent up</p>
+	 * <p>Updates the catalog service to mark the agent up if the agent name is not null or empty</p>
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onIdentifiedChannel(org.helios.apmrouter.server.services.session.DecoratedChannel)
 	 */
 	@Override
 	public void onIdentifiedChannel(DecoratedChannel channel) {
-		hostAgentState(true, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getURI());
-		info("Marked [", channel.getHost(), "/", channel.getAgent(), "] UP");
+		if(channel.getAgent()!=null && !channel.getAgent().trim().isEmpty()) {
+			hostAgentState(true, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getURI());
+			info("Marked [", channel.getHost(), "/", channel.getAgent(), "] UP");
+		}
 	}
 }

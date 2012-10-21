@@ -1,0 +1,37 @@
+<html>
+	<head>
+		<title>APMRouter Admin Root</title>
+	</head>
+	<script type="text/javascript">	
+		var ws;
+		var r = "{t:'req', svc:'hostagent', op:'listhosts'}";
+		var r2 = "{t:'req', svc:'hostagent', op:'listhosts', args:[false]}";
+		function startWebSocket() {
+			var wsUrl = 'ws://' + document.location.host + '/ws';
+			//console.info('WebSocket URL:[%s]', wsUrl);
+			ws = new WebSocket(wsUrl); 
+			ws.onopen = function() {
+			    console.info("WebSocket Opened");
+			    // navigator.userAgent
+			    //ws.send("{t :'who',agent:''}");
+			}; 
+			ws.onerror = function(e) {
+				console.info("WebSocket Error");
+				console.dir(e);
+			}; 
+			ws.onclose = function() { 			
+				console.info("WebSocket Closed"); 
+			}; 
+			ws.onmessage = function(msg) {			
+				try {
+					var json = JSON.parse(msg.data);
+					console.dir(json);
+				} finally {
+				}
+			}; 
+		}	
+	</script>
+	<body>
+		<h4>APMRouter Admin Root</h4>
+	</body>
+</html>
