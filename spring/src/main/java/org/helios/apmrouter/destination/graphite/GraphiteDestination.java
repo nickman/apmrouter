@@ -667,7 +667,7 @@ public class GraphiteDestination extends BaseDestination implements MetricTextFo
 		for(IMetric metric: metrics) {
 			if(!metric.getType().isLong() || metric.isMapped()) continue;	
 			try {
-				os.write(String.format(METRIC_FORMAT, metric.getFQN().replace('/', '.').replace(':', '.').replace(" ", ""), metric.getLongValue(), SystemClock.unixTime(metric.getTime())).getBytes());
+				os.write(String.format(METRIC_FORMAT, metric.getFQN().replace('/', '.').replace(':', '.').replace("..", ".").replace(" ", ""), metric.getLongValue(), SystemClock.unixTime(metric.getTime())).getBytes());
 				accumulated++;
 			} catch (Exception e) {
 				incr("MetricsForwardFailures");

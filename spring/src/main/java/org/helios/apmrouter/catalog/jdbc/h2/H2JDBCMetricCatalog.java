@@ -135,8 +135,10 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			if(!rset.next()) {
 				return null;
 			}
-			CharSequence[] namespace = rset.getString(5).replaceFirst("/", "").split("/");
-			ICEMetricCatalog.getInstance().setToken(token, rset.getString(1), rset.getString(2), rset.getString(4), MetricType.valueOf(rset.getInt(3)), namespace);
+			
+			
+			CharSequence[] namespace = rset.getString(4).replaceFirst("/", "").split("/");
+			ICEMetricCatalog.getInstance().setToken(token, rset.getString(1), rset.getString(2), rset.getString(5), MetricType.valueOf(rset.getInt(3)), namespace);
 			return ICEMetricCatalog.getInstance().get(token);
 		} catch (SQLException sex) {
 			sex.printStackTrace(System.err);

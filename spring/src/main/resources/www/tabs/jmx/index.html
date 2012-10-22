@@ -2,17 +2,22 @@
 	<head>
 		<title>JMX Browser</title>
 		<link rel="stylesheet" href="themes/blue/style.css"> 
-		<link rel="stylesheet" href="themes/apple/style.css"> 
+		<link rel="stylesheet" href="themes/apple/style.css">
+		<link rel="stylesheet" href="tabs/jmx/jmxtab.css"> 
+		<link type="text/css" href="js/ui/css/smoothness/jquery-ui-1.8.9.custom.css" rel="stylesheet" />
 		<script type="text/javascript" src="js/jquery-1.8.2.min.js"></script>
+		<script type="text/javascript" src="js/ui/jquery-ui-1.8.9.custom.min.js"></script>
 		<script type="text/javascript" src="js/jolokia/jolokia-min.js"></script>
 		<script type="text/javascript" src="js/handlebars-1.0.rc.1.js"></script>
 		<script type="text/javascript" src="js/jquery.tablesorter.min.js"></script> 
 		
 		<script type="text/javascript" src="js/jquery.jstree.js"></script>
 		
+		
 		<script type="text/javascript">
 			$(function(){
 				// jQuery Init Stuff Here.
+				$( "#jmxAccordion" ).accordion();
 			var data = searchAll();
 			$("#nav")
 			   .jstree ({
@@ -129,7 +134,7 @@
 			   });
 		</script>		
 		<script id="attributes-template" type="text/x-handlebars-template">
-		<table id="attributes-table" class="tablesorter">
+		<table id="attributes-table" class="tablesorter" onload="$( '#jmxAccordion' ).accordion('destroy').accordion();" >
 		   <thead>
 		      <th>Name</th>
 		      <th>Value</th>
@@ -152,61 +157,100 @@
 		
 		<script type="text/javascript">
 		var currentMbean;
-		function listMbean(mbean) {
-		   var path = mbean.replace(new RegExp("/", 'g'), "!/");
-		   path = path.replace(":", "/");
-		   var meta = new Jolokia({"url": "jolokia"}).request(
-		     {"type": "list", "path": path}, 
-		     {method: "post"});
-		   currentMbean = mbean;
-		   currentMeta = meta;
-		   $("#mbeanInfo").html("<h2 id='mbeanName'>" + mbean + "</h2><p>" + meta.value.desc + "</p>");
-		   var attributes = { 'attributes' : [] };
-		   for (var attr in meta.value.attr) {
-		      if (meta.value.attr.hasOwnProperty(attr)) {
-		         attributes['attributes'].push({
-		            'name' : attr,
-		            'value' : meta.value.attr[attr]
-		         });
-		      }
-		   }
-		   var source = $("#attributes-template").html();
-		   var template = Handlebars.compile(source);
-		   $("#attributes").html(template(attributes));
-		   $("#attributes-table").tablesorter({widgets: ['zebra']});
-		   // inject the values
-		   var values = new Jolokia({"url": "jolokia"}).request(
-		     {"type": "read", "mbean": mbean}, 
-		     {method: "post"});
-		   for (var attr in values.value) {
-		      if (values.value.hasOwnProperty(attr)) {
-		         var value = values.value[attr];
-		         if (meta.value.attr[attr].rw) {
-		            $("#attr-input-" + attr).val(value);
-		         } else {
-		            $("#" + attr).html(value);
-		         }
-		      }
-		   }
-		}
-		
-		
-		function updateAttribute(name) {
-		   var mbean = currentMbean;
-		   var value = $("#attr-input-" + name).val();
-		    new Jolokia({"url": "jolokia"}).request(
-		     {"type": "write", "mbean": mbean, "attribute": name, "value": value}, 
-		     {method: "post"});
-		   listMbean(mbean);
-		}
+
+			function listMbean(mbean) {
+				var path = mbean.replace(new RegExp("/", 'g'), "!/");
+				path = path.replace(":", "/");
+				var meta = new Jolokia({
+					"url" : "jolokia"
+				}).request({
+					"type" : "list",
+					"path" : path
+				}, {
+					method : "post"
+				});
+				currentMbean = mbean;
+				currentMeta = meta;
+				$("#mbeanInfo").html(
+						"<h2 id='mbeanName'>" + mbean + "</h2><p>"
+								+ meta.value.desc + "</p>");
+				var attributes = {
+					'attributes' : []
+				};
+				for ( var attr in meta.value.attr) {
+					if (meta.value.attr.hasOwnProperty(attr)) {
+						attributes['attributes'].push({
+							'name' : attr,
+							'value' : meta.value.attr[attr]
+						});
+					}
+				}
+				var source = $("#attributes-template").html();
+				var template = Handlebars.compile(source);
+				$("#attributes").html(template(attributes));
+				$("#attributes-table").tablesorter({
+					widgets : [ 'zebra' ]
+				});
+				// inject the values
+				var values = new Jolokia({
+					"url" : "jolokia"
+				}).request({
+					"type" : "read",
+					"mbean" : mbean
+				}, {
+					method : "post"
+				});
+				for ( var attr in values.value) {
+					if (values.value.hasOwnProperty(attr)) {
+						var value = values.value[attr];
+						if (meta.value.attr[attr].rw) {
+							$("#attr-input-" + attr).val(value);
+						} else {
+							$("#" + attr).html(value);
+						}
+					}
+				}
+
+			}
+
+			function updateAttribute(name) {
+				var mbean = currentMbean;
+				var value = $("#attr-input-" + name).val();
+				new Jolokia({
+					"url" : "jolokia"
+				}).request({
+					"type" : "write",
+					"mbean" : mbean,
+					"attribute" : name,
+					"value" : value
+				}, {
+					method : "post"
+				});
+				listMbean(mbean);
+				
+			}
 		</script>
 		
 	</head>
 	<body>
-		<table border='0'><tr><td>
-			<div id="nav" class="jstree"></div>
-		</td><td>
-			<div id="attributes"></div>
-		</td></tr></table>
+	    <div id="navframe" class="jmxtree">
+	        <div id="nav"></div>
+	    </div>	    
+	    <div id="jmxDetail" class="right">
+	    	<div id="jmxAccordion" class="right-inner">
+	    		<h3>&nbsp;&nbsp;&nbsp;&nbsp;Attributes</h3>
+	        	<div id="attributes">	
+	        		<p></p>        		
+	        	</div>
+	        	<h3>&nbsp;&nbsp;&nbsp;&nbsp;Operations</h3>
+	        	<div id="operations">
+	        		<p></p>	        		
+	        	</div>
+	        	<h3>&nbsp;&nbsp;&nbsp;&nbsp;Notifications</h3>
+	        	<div id="notifications">
+	        		<p></p>	        		
+	        	</div>
+	        </div>
+	    </div>
 	</body>
 </html>

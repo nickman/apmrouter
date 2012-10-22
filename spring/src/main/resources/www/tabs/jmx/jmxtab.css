@@ -1,0 +1,22 @@
+html, body {
+	padding: 0;
+	margin: 0;
+}
+.wrapper {
+	margin: 0px auto;
+}
+.jmxtree {
+	float: left;
+	width: 30%;			
+	min-height:200px;
+	overflow: auto;			
+}
+.right {
+	float:left;
+	width:70%;
+}
+.right-inner {
+	position:fixed;
+	width: 70%;		
+	min-height:200px;
+}

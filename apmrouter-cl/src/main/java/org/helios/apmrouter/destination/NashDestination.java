@@ -103,7 +103,12 @@ public class NashDestination extends BaseDestination implements NashRequestHandl
 	 */
 	@Override
 	public void onNashRequest(final NashRequest request) {
-		String pattern = request.getArguments()[0];
+		String pattern = null;
+		if(request.getArguments()==null || request.getArguments().length<1) {
+			pattern = ".*";
+		} else {
+			pattern = request.getArguments()[0].replace("'", "");
+		}		
 		PatternMatch pm = PatternMatch.getInstance(pattern);		
 		request.getChannel().getCloseFuture().addListener(new ChannelFutureListener() {
 			@Override

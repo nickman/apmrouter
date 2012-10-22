@@ -86,4 +86,11 @@ public interface SubscriptionCriteria<S, F, E> {
 	 */
 	public E getEventExtendedFilter();
 	
+	/**
+	 * Creates and returns a {@link SubscriptionCriteriaInstance} for this criteria
+	 * @return a SubscriptionCriteriaInstance for this criteria
+	 */
+	public SubscriptionCriteriaInstance instantiate();
+	
+	
 }

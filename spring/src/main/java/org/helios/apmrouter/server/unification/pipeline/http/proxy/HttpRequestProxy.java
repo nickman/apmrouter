@@ -53,6 +53,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.unification.pipeline.http.HttpRequestProxy</code></p>
+ * TODO: Remap URIs if required. e.g. "/jolokia" --> "/jmx"
  */
 
 public class HttpRequestProxy extends AbstractHttpRequestHandler {

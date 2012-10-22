@@ -127,6 +127,9 @@
  			<set>
  				<value>/jolokia</value>
  				<value>/jolokia/</value>
+ 				<value>/jmx/</value>
+ 				<value>/jmx/</value>
+ 				
  			</set>
  		</property>
  	</bean> 

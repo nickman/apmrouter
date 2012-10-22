@@ -22,13 +22,16 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.subscription.criteria.jmx;
+package org.helios.apmrouter.subscription.impls.jmx;
 
-import javax.management.MBeanServerConnection;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
+
 import javax.management.NotificationFilter;
 import javax.management.ObjectName;
 
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
+import org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance;
 
 /**
  * <p>Title: JMXSubscriptionCriteria</p>
@@ -38,16 +41,52 @@ import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
  * <p><code>org.helios.apmrouter.subscription.criteria.jmx.JMXSubscriptionCriteria</code></p>
  */
 
-public class JMXSubscriptionCriteria implements SubscriptionCriteria<MBeanServerConnection, ObjectName, NotificationFilter> {
+public class JMXSubscriptionCriteria implements SubscriptionCriteria<String, ObjectName, NotificationFilter> {
+	/** The target MBeanServer's JMXServiceURL string for this subscription */
+	protected final String jmxServiceURL;
+	/** The JMX ObjectName or pattern of the MBeans to subscribe to notifications from */
+	protected final ObjectName objectName;
+	/** The optional notification filter */
+	protected final NotificationFilter filter;
+	/** Indicates if the object name is a pattern */
+	protected final boolean pattern;
+	/** A set of ObjectNames this criteria is activated for */
+	protected final Set<ObjectName> objectNames = new CopyOnWriteArraySet<ObjectName>();
+	/** A set of ObjectNames this criteria failed to activated for */
+	protected final Set<ObjectName> failedObjectNames = new CopyOnWriteArraySet<ObjectName>();
+	
+	
+	
+	/**
+	 * Creates a new JMXSubscriptionCriteria
+	 * @param jmxServiceURL The target MBeanServer's JMXServiceURL string for this subscription
+	 * @param objectName The JMX ObjectName or pattern of the MBeans to subscribe to notifications from
+	 * @param filter The optional notification filter
+	 */
+	public JMXSubscriptionCriteria(String jmxServiceURL, ObjectName objectName, NotificationFilter filter) {
+		super();
+		this.jmxServiceURL = jmxServiceURL;
+		this.objectName = objectName;
+		this.filter = filter;
+		pattern = this.objectName.isPattern();
+		
+	}
+	
+
+	public SubscriptionCriteriaInstance instantiate() {
+		return new JMXSubscriptionCriteriaInstance(this);
+	}
+
+
+
 
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.subscription.criteria.SubscriptionCriteria#getEventSource()
 	 */
 	@Override
-	public MBeanServerConnection getEventSource() {
-		// TODO Auto-generated method stub
-		return null;
+	public String getEventSource() {
+		return jmxServiceURL;
 	}
 
 	/**
@@ -56,8 +95,7 @@ public class JMXSubscriptionCriteria implements SubscriptionCriteria<MBeanServer
 	 */
 	@Override
 	public ObjectName getEventFilter() {
-		// TODO Auto-generated method stub
-		return null;
+		return objectName;
 	}
 
 	/**
@@ -66,9 +104,19 @@ public class JMXSubscriptionCriteria implements SubscriptionCriteria<MBeanServer
 	 */
 	@Override
 	public NotificationFilter getEventExtendedFilter() {
-		// TODO Auto-generated method stub
-		return null;
+		return filter;
 	}
+
+	/**
+	 * Indicates if the object name is a pattern
+	 * @return true if the object name is a pattern, false otherwise
+	 */
+	public boolean isPattern() {
+		return pattern;
+	}
+
+
+
 
 
 }
