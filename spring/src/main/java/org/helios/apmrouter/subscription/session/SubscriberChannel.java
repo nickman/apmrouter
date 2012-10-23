@@ -39,7 +39,7 @@ public interface SubscriberChannel {
 	 * Returns the unique subscriber ID that this channel is delivering to
 	 * @return the unique subscriber ID that this channel is delivering to
 	 */
-	public String getSubscriberId();
+	public long getSubscriberId();
 	
 	/**
 	 * Sends an event to the subscriber

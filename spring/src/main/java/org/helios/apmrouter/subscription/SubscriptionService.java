@@ -24,13 +24,23 @@
  */
 package org.helios.apmrouter.subscription;
 
+import java.util.HashSet;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
+import org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilder;
+import org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilderStartedEvent;
+import org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilderStoppedEvent;
 import org.helios.apmrouter.subscription.session.DefaultSubscriptionSessionImpl;
 import org.helios.apmrouter.subscription.session.NettySubscriberChannel;
 import org.helios.apmrouter.subscription.session.SubscriptionSession;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelLocal;
+import org.springframework.context.ApplicationEvent;
+import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.jmx.export.annotation.ManagedAttribute;
 
 /**
  * <p>Title: SubscriptionService</p>
@@ -51,6 +61,63 @@ import org.jboss.netty.channel.ChannelLocal;
 public class SubscriptionService extends ServerComponentBean {
 	/** A channel local of subscription sessions */
 	protected final ChannelLocal<SubscriptionSession> subSessions = new ChannelLocal<SubscriptionSession>(true);
+	/** A map of available {@link SubscriptionCriteriaBuilder} instances keyed by their bean name */
+	protected final Map<String, SubscriptionCriteriaBuilder<?,?,?>> builders = new ConcurrentHashMap<String, SubscriptionCriteriaBuilder<?,?,?>>();
+	
+	/**
+	 * <p>Responds <code>true</code> for {@link SubscriptionCriteriaBuilderStartedEvent}s or {@link SubscriptionCriteriaBuilderStoppedEvent}s.
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#supportsEventType(java.lang.Class)
+	 */
+	@Override
+	public boolean supportsEventType(Class<? extends ApplicationEvent> eventType) {
+		return (SubscriptionCriteriaBuilderStartedEvent.class.isAssignableFrom(eventType)||SubscriptionCriteriaBuilderStoppedEvent.class.isAssignableFrom(eventType));
+	}
+	
+	/**
+	 * <p>Responds <code>true</code>.
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#supportsSourceType(java.lang.Class)
+	 */
+	@Override
+	public boolean supportsSourceType(Class<?> sourceType) {
+		return true;
+	}
+	
+	/**
+	 * Called when a new {@link SubscriptionCriteriaBuilder} starts.
+	 * @param event The start event
+	 */
+	public void onApplicationEvent(SubscriptionCriteriaBuilderStartedEvent event) {
+		builders.put(event.getBeanName(), event.getSource());
+	}
+	
+	/**
+	 * Called when a new {@link SubscriptionCriteriaBuilder} stops.
+	 * @param event The stop event
+	 */
+	public void onApplicationEvent(SubscriptionCriteriaBuilderStoppedEvent event) {
+		builders.remove(event.getBeanName()); 
+	}
+	
+	/**
+	 * On start, searches the app context for {@link SubscriptionCriteriaBuilder}s not already registered.
+	 * @param event The app context refresh event
+	 */
+	@SuppressWarnings("rawtypes")
+	@Override
+	public void onApplicationContextRefresh(ContextRefreshedEvent event) {
+		Map<String, SubscriptionCriteriaBuilder> inits = event.getApplicationContext().getBeansOfType(SubscriptionCriteriaBuilder.class);
+		if(!inits.isEmpty()) {
+			for(Map.Entry<String, SubscriptionCriteriaBuilder> entry: inits.entrySet()) {
+				if(!builders.containsKey(entry.getKey())) {
+					builders.put(entry.getKey(), entry.getValue());
+					info("Adding Discovered SubscriptionCriteriaBuilder [", entry.getKey(), "]" );
+				}
+			}
+		}
+	}	
+
 	
 	/**
 	 * Starts or returns the ID of the subscription session for the passed channel
@@ -116,5 +183,23 @@ public class SubscriptionService extends ServerComponentBean {
 		startSubscriptionSession(channel);
 		SubscriptionSession session = subSessions.get(channel);
 		return session.addCriteria(criteria, session);
+	}
+	
+	/**
+	 * Returns the names of the available builders
+	 * @return the names of the available builders
+	 */
+	@ManagedAttribute(description="The names of the available builders")
+	public String[] getAvailableBuilders() {
+		return new HashSet<String>(builders.keySet()).toArray(new String[builders.size()]);
+	}
+	
+	/**
+	 * Returns the named builder
+	 * @param builderName The name of the builder
+	 * @return the named builder of null if one was not found
+	 */
+	public SubscriptionCriteriaBuilder<?,?,?> getBuilder(String builderName) {
+		return builders.get(builderName);
 	}
 }

@@ -24,14 +24,9 @@
  */
 package org.helios.apmrouter.dataservice.json.jmx;
 
-import java.lang.management.ManagementFactory;
-
 import javax.management.MBeanServer;
-import javax.management.MBeanServerConnection;
-import javax.management.ObjectName;
 
 import org.helios.apmrouter.dataservice.json.JSONRequestHandler;
-import org.helios.apmrouter.jmx.JMXHelper;
 import org.jboss.netty.channel.Channel;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -65,32 +60,6 @@ public class JMXDataService {
 	 */
 	@JSONRequestHandler(name="subscribe")
 	public void subscribe(JSONObject request, Channel channel)  throws JSONException {
-		if(!request.has("args")) {
-			throw new JSONException("No args supplied");
-		}
-		JSONObject args = request.getJSONObject("args");
-		if(!args.has("on")) {
-			throw new JSONException("No objectname supplied");
-		}
-		ObjectName on = null;
-		String domain = null;
-		MBeanServerConnection conn = null;
-		try {
-			on = new ObjectName(args.getString("on").trim());
-		} catch (Exception ex) {
-			throw new JSONException("Invalid objectname [" + args.getString("on") + "]");
-		}
-		if(args.has("server")) {
-			domain = args.getString("server").trim();
-			try {
-				conn = JMXHelper.getLocalMBeanServer(domain, false);
-			} catch (Exception ex) {
-				throw new JSONException("Unable to find JMX MBeanServer for domain [" + domain + "]");
-			}
-		} else {
-			conn = ManagementFactory.getPlatformMBeanServer();
-		}
-		JSONObject response = new JSONObject();
-		channel.write(response);
+		
 	}
 }

@@ -51,10 +51,10 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 	protected final Set<SubscriptionCriteria<?,?,?>> criteria = new CopyOnWriteArraySet<SubscriptionCriteria<?,?,?>>();
 	/** The resolved criteria keyed by the criteria Id.*/
 	protected final Map<Long, SubscriptionCriteriaInstance<?>> resolvedCriteria = new ConcurrentHashMap<Long, SubscriptionCriteriaInstance<?>>();
-	/** The unique ID for this session */
-	public final long sessionId; 
-	/** Serial number generator for subscriptions  */
-	protected static final AtomicLong serial = new AtomicLong(0L);
+//	/** The unique ID for this session */
+//	public final long sessionId; 
+//	/** Serial number generator for subscriptions  */
+//	protected static final AtomicLong serial = new AtomicLong(0L);
 	
 	
 	
@@ -64,8 +64,7 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 	 */
 	public DefaultSubscriptionSessionImpl(SubscriberChannel subscriberChannel) {
 		super();
-		this.subscriberChannel = subscriberChannel;
-		sessionId = serial.incrementAndGet();
+		this.subscriberChannel = subscriberChannel;		
 	}
 
 
@@ -76,8 +75,11 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 	 */
 	@Override
 	public void terminate() {
-		// TODO Auto-generated method stub
-
+		for(SubscriptionCriteriaInstance<?> sci: resolvedCriteria.values()) {
+			sci.terminate();
+		}
+		resolvedCriteria.clear();
+		criteria.clear();
 	}
 
 	/**
@@ -119,7 +121,7 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 	 */
 	@Override
 	public long getSubscriptionSessionId() {
-		return sessionId;
+		return subscriberChannel.getSubscriberId();
 	}
 
 }

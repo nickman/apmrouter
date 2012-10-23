@@ -24,7 +24,6 @@
  */
 package org.helios.apmrouter.subscription.session;
 
-import org.helios.apmrouter.server.services.session.DecoratedChannel;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -46,7 +45,7 @@ public class NettySubscriberChannel extends AbstractSubscriberChannel {
 	 * @param channel The event sender transport channel
 	 */
 	public NettySubscriberChannel(Channel channel) {
-		super((channel instanceof DecoratedChannel) ? ((DecoratedChannel)channel).getName() : channel.getRemoteAddress().toString() + ":" + channel.getId());
+		super(channel.getId());
 		this.channel = channel;
 		this.channel.getCloseFuture().addListener(new ChannelFutureListener() {
 			@Override

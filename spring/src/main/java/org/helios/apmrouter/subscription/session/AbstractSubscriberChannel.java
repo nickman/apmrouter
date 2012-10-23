@@ -38,13 +38,13 @@ public abstract class AbstractSubscriberChannel extends ServerComponentBean impl
 	/** The session delivering the events which should be cancelled when the underlying transport of this channel closes  */
 	protected SubscriptionSession session = null;
 	/** The unique subscriber ID that this channel is delivering to */
-	protected final String subscriberId;
+	protected final long subscriberId;
 	
 	/**
 	 * Creates a new AbstractSubscriberChannel
 	 * @param subscriberId The unique subscriber ID that this channel is delivering to
 	 */
-	protected AbstractSubscriberChannel(String subscriberId) {
+	protected AbstractSubscriberChannel(long subscriberId) {
 		this.subscriberId = subscriberId;
 	}
 	
@@ -63,7 +63,7 @@ public abstract class AbstractSubscriberChannel extends ServerComponentBean impl
 	 * @see org.helios.apmrouter.subscription.session.SubscriberChannel#getSubscriberId()
 	 */
 	@Override
-	public String getSubscriberId() {
+	public long getSubscriberId() {
 		return subscriberId;
 	}
 

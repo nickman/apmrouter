@@ -98,7 +98,7 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 	}
 	
 	/**
-	 * <p>Responds <code>true</code> for {@link ContextRefreshedEvent}s.
+	 * <p>Responds <code>true</code> for {@link DestinationEvent}s.
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.ServerComponentBean#supportsEventType(java.lang.Class)
 	 */
