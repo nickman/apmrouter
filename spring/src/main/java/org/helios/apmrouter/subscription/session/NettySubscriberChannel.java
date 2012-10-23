@@ -35,10 +35,9 @@ import org.jboss.netty.channel.ChannelFutureListener;
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.subscription.session.NettySubscriberChannel</code></p>
- * @param <T> The expected tpe of the events
  */
 
-public class NettySubscriberChannel<T> extends AbstractSubscriberChannel<T> {
+public class NettySubscriberChannel extends AbstractSubscriberChannel {
 	/** The event sender transport channel */
 	protected final Channel channel;
 	
@@ -62,7 +61,7 @@ public class NettySubscriberChannel<T> extends AbstractSubscriberChannel<T> {
 	 * @see org.helios.apmrouter.subscription.session.SubscriberChannel#send(java.lang.Object)
 	 */
 	@Override
-	public void send(T event) {
+	public void send(Object event) {
 		if(channel.isOpen()) {
 			channel.write(event).addListener(new ChannelFutureListener() {
 				@Override

@@ -32,10 +32,9 @@ import org.helios.apmrouter.server.ServerComponentBean;
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.subscription.session.AbstractSubscriberChannel</code></p>
- * @param <T> The expected type of the event
  */
 
-public abstract class AbstractSubscriberChannel<T> extends ServerComponentBean implements SubscriberChannel<T> {
+public abstract class AbstractSubscriberChannel extends ServerComponentBean implements SubscriberChannel {
 	/** The session delivering the events which should be cancelled when the underlying transport of this channel closes  */
 	protected SubscriptionSession session = null;
 	/** The unique subscriber ID that this channel is delivering to */
@@ -59,6 +58,11 @@ public abstract class AbstractSubscriberChannel<T> extends ServerComponentBean i
 		
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.subscription.session.SubscriberChannel#getSubscriberId()
+	 */
+	@Override
 	public String getSubscriberId() {
 		return subscriberId;
 	}

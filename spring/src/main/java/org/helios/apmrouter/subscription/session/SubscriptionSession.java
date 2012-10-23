@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.subscription.session;
 
+import org.helios.apmrouter.subscription.criteria.FailedCriteriaResolutionException;
+import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance;
 
 /**
@@ -39,4 +41,25 @@ public interface SubscriptionSession {
 	 * Terminates this session, causing all the subsidiary subscription criteria instances to be closed.
 	 */
 	public void terminate();
+	
+	/**
+	 * Returns the unique ID for this session
+	 * @return the unique ID for this session
+	 */
+	public long getSubscriptionSessionId();
+	
+	/**
+	 * Cancels the subscription criteria with the passed id.
+	 * @param criteriaId The id of the c=subscription criteria to cancel
+	 */
+	public void cancelCriteria(long criteriaId);
+	
+	/**
+	 * Adds a new subscription to the subscription session
+	 * @param criteria The subscription criteria
+	 * @param session The subscription session the criteria is being added for
+	 * @return the assigned Id for the created subscription criteria, or the id of the existing criteria if the same instance has alreay been registered.
+	 * @throws FailedCriteriaResolutionException thrown if the criteria cannot be resolved
+	 */
+	public long addCriteria(SubscriptionCriteria<?,?,?> criteria, SubscriptionSession session) throws FailedCriteriaResolutionException;
 }

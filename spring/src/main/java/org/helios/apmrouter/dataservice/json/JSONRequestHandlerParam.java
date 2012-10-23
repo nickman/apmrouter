@@ -2,7 +2,7 @@
  * Helios, OpenSource Monitoring
  * Brought to you by the Helios Development Group
  *
- * Copyright 2012, Helios Development Group and individual contributors
+ * Copyright 2007, Helios Development Group and individual contributors
  * as indicated by the @author tags. See the copyright.txt file in the
  * distribution for a full listing of individual contributors.
  *
@@ -22,34 +22,39 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.subscription.session;
+package org.helios.apmrouter.dataservice.json;
+
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+import javax.management.openmbean.OpenType;
 
 /**
- * <p>Title: SubscriberChannel</p>
- * <p>Description: Defines the construct responsible for delivering emitted events to the subscriber, and for
- * terminating the {@link SubscriptionSession} when the channel closes.</p> 
+ * <p>Title: JSONRequestHandlerParam</p>
+ * <p>Description: Annotation to specify a parameter supported/expected in the passed JSON payload to a json request handler</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.subscription.session.SubscriberChannel</code></p>
+ * <p><code>org.helios.apmrouter.dataservice.json.JSONRequestHandlerParam</code></p>
  */
-
-public interface SubscriberChannel {
-	
+@Target({ElementType.ANNOTATION_TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface JSONRequestHandlerParam {
 	/**
-	 * Returns the unique subscriber ID that this channel is delivering to
-	 * @return the unique subscriber ID that this channel is delivering to
+	 * The optional name for this parameter
 	 */
-	public String getSubscriberId();
-	
+	public String name() default "";
 	/**
-	 * Sends an event to the subscriber
-	 * @param event The event to send
+	 * The optional description for this parameter
 	 */
-	public void send(Object event);
-	
+	public String description() default "";
 	/**
-	 * Sets the {@link SubscriptionSession} on this subscriber channel
-	 * @param session the {@link SubscriptionSession} this channel is sending events for
+	 * The type of this parameter
 	 */
-	public void setSubscriptionSession(SubscriptionSession session);
+	public Class<? extends OpenType<?>> type(); 
+	
+	
 }

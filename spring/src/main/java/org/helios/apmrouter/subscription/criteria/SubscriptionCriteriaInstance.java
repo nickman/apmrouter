@@ -39,7 +39,7 @@ public interface SubscriptionCriteriaInstance<T> {
 	/**
 	 * Directs the instance to resolve its criteria and activate
 	 * @param session The subscription session managing this instance
-	 * @throws FailedCriteriaResolutionException
+	 * @throws FailedCriteriaResolutionException thrown if criteria cannot be resolved
 	 */
 	public void resolve(SubscriptionSession session) throws FailedCriteriaResolutionException;
 	
@@ -47,4 +47,16 @@ public interface SubscriptionCriteriaInstance<T> {
 	 * Terminates the instance and de-allocates all resources.
 	 */
 	public void terminate();
+	
+	/**
+	 * Returns the Id of the resolved criteria instance
+	 * @return the Id of the resolved criteria instance
+	 */
+	public long getCriteriaId();
+	
+	/**
+	 * Returns the subscription criteria that this instance was resolved from
+	 * @return the subscription criteria that this instance was resolved from
+	 */
+	public SubscriptionCriteria getSubscriptionCriteria();
 }

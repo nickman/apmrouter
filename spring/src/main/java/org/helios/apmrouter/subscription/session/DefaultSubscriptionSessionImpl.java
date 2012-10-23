@@ -24,7 +24,17 @@
  */
 package org.helios.apmrouter.subscription.session;
 
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.atomic.AtomicLong;
+
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.subscription.criteria.FailedCriteriaResolutionException;
+import org.helios.apmrouter.subscription.criteria.RecoverableFailedCriteriaResolutionException;
+import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
+import org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance;
 
 /**
  * <p>Title: DefaultSubscriptionSessionImpl</p>
@@ -35,6 +45,30 @@ import org.helios.apmrouter.server.ServerComponentBean;
  */
 
 public class DefaultSubscriptionSessionImpl extends ServerComponentBean implements SubscriptionSession {
+	/** The session's subscriber channel */
+	protected final SubscriberChannel subscriberChannel;
+	/** The registered criteria */
+	protected final Set<SubscriptionCriteria<?,?,?>> criteria = new CopyOnWriteArraySet<SubscriptionCriteria<?,?,?>>();
+	/** The resolved criteria keyed by the criteria Id.*/
+	protected final Map<Long, SubscriptionCriteriaInstance<?>> resolvedCriteria = new ConcurrentHashMap<Long, SubscriptionCriteriaInstance<?>>();
+	/** The unique ID for this session */
+	public final long sessionId; 
+	/** Serial number generator for subscriptions  */
+	protected static final AtomicLong serial = new AtomicLong(0L);
+	
+	
+	
+	/**
+	 * Creates a new DefaultSubscriptionSessionImpl
+	 * @param subscriberChannel The session's subscriber channel
+	 */
+	public DefaultSubscriptionSessionImpl(SubscriberChannel subscriberChannel) {
+		super();
+		this.subscriberChannel = subscriberChannel;
+		sessionId = serial.incrementAndGet();
+	}
+
+
 
 	/**
 	 * {@inheritDoc}
@@ -44,6 +78,48 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 	public void terminate() {
 		// TODO Auto-generated method stub
 
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.subscription.session.SubscriptionSession#addCriteria(org.helios.apmrouter.subscription.criteria.SubscriptionCriteria, org.helios.apmrouter.subscription.session.SubscriptionSession)
+	 */
+	@Override
+	public long addCriteria(SubscriptionCriteria<?,?,?> criteria, SubscriptionSession session) throws FailedCriteriaResolutionException {
+		if(criteria==null) throw new IllegalArgumentException("The passed criteria was null", new Throwable());
+		this.criteria.add(criteria);
+		try {
+			SubscriptionCriteriaInstance<?> sci = criteria.instantiate();
+			sci.resolve(session);
+			resolvedCriteria.put(sci.getCriteriaId(), sci);
+			return sci.getCriteriaId();
+		} catch (FailedCriteriaResolutionException fce) {
+			if(!(fce instanceof RecoverableFailedCriteriaResolutionException)) {
+				this.criteria.remove(criteria);
+			}
+			throw fce;
+		}
+	}
+	
+	/**
+	 * Cancels the subscription criteria with the passed id.
+	 * @param criteriaId The id of the c=subscription criteria to cancel
+	 */
+	public void cancelCriteria(long criteriaId) {
+		SubscriptionCriteriaInstance<?> sci = resolvedCriteria.remove(criteriaId);
+		if(sci!=null) {
+			sci.terminate();
+			criteria.remove(sci.getSubscriptionCriteria());
+		}
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.subscription.session.SubscriptionSession#getSubscriptionSessionId()
+	 */
+	@Override
+	public long getSubscriptionSessionId() {
+		return sessionId;
 	}
 
 }

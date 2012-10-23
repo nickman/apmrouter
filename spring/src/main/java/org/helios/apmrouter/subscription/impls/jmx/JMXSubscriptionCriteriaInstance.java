@@ -128,8 +128,18 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 	}
 	
 	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance#getSubscriptionCriteria()
+	 */
+	@Override
+	public SubscriptionCriteria getSubscriptionCriteria() {
+		return criteria;
+	}
+	
+	/**
 	 * Terminates this criteria instance
 	 */
+	@Override
 	public void terminate() {
 		objectNames.addAll(failedObjectNames);
 		failedObjectNames.clear();
@@ -176,6 +186,15 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 		if(jmxSubId.equals(handback)) {
 			// relay notification to subscriber
 		}		
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance#getCriteriaId()
+	 */
+	@Override
+	public long getCriteriaId() {
+		return jmxSubId;
 	}
 	
 	/**

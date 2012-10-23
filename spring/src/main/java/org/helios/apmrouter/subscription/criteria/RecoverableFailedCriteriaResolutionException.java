@@ -2,7 +2,7 @@
  * Helios, OpenSource Monitoring
  * Brought to you by the Helios Development Group
  *
- * Copyright 2012, Helios Development Group and individual contributors
+ * Copyright 2007, Helios Development Group and individual contributors
  * as indicated by the @author tags. See the copyright.txt file in the
  * distribution for a full listing of individual contributors.
  *
@@ -22,34 +22,29 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.subscription.session;
+package org.helios.apmrouter.subscription.criteria;
 
 /**
- * <p>Title: SubscriberChannel</p>
- * <p>Description: Defines the construct responsible for delivering emitted events to the subscriber, and for
- * terminating the {@link SubscriptionSession} when the channel closes.</p> 
+ * <p>Title: RecoverableFailedCriteriaResolutionException</p>
+ * <p>Description: An exception thrown when a {@link SubscriptionCriteria} cannot be resolved or becomes unresolved, but is considered recoverable.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.subscription.session.SubscriberChannel</code></p>
+ * <p><code>org.helios.apmrouter.subscription.criteria.RecoverableFailedCriteriaResolutionException</code></p>
  */
 
-public interface SubscriberChannel {
-	
+public class RecoverableFailedCriteriaResolutionException extends FailedCriteriaResolutionException {
+
+	/**  */
+	private static final long serialVersionUID = 3296818139275172801L;
+
 	/**
-	 * Returns the unique subscriber ID that this channel is delivering to
-	 * @return the unique subscriber ID that this channel is delivering to
+	 * Creates a new RecoverableFailedCriteriaResolutionException
+	 * @param criteria The criteria that could not be resolved
+	 * @param message The resolution failure message
+	 * @param cause The resolution failure cause
 	 */
-	public String getSubscriberId();
-	
-	/**
-	 * Sends an event to the subscriber
-	 * @param event The event to send
-	 */
-	public void send(Object event);
-	
-	/**
-	 * Sets the {@link SubscriptionSession} on this subscriber channel
-	 * @param session the {@link SubscriptionSession} this channel is sending events for
-	 */
-	public void setSubscriptionSession(SubscriptionSession session);
+	public RecoverableFailedCriteriaResolutionException(SubscriptionCriteria<?, ?, ?> criteria, String message,	Throwable cause) {
+		super(criteria, message, cause);
+	}
+
 }
