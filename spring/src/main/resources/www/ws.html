@@ -2,7 +2,16 @@
 	<head>
 		<title>APMRouter Admin Root</title>
 	</head>
+	<script type="text/javascript" src="js/apmrclient.js" ></script>
+	<body>
+		<h4>APMRouter Admin Root</h4>
+	</body>
+</html>
+
+<!-- 
+
 	<script type="text/javascript">	
+	    var reqId = 0;
 		var ws;
 		var r = "{t:'req', svc:'hostagent', op:'listhosts'}";
 		var r2 = "{t:'req', svc:'hostagent', op:'listhosts', args:[false]}";
@@ -12,6 +21,7 @@
 			ws = new WebSocket(wsUrl); 
 			ws.onopen = function() {
 			    console.info("WebSocket Opened");
+			    sendWho();
 			    // navigator.userAgent
 			    //ws.send("{t :'who',agent:''}");
 			}; 
@@ -30,8 +40,21 @@
 				}
 			}; 
 		}	
+		function send(req) {
+			reqId++;
+			req['rid']=reqId;
+			ws.send(JSON.stringify(req));
+			return reqId;
+		}
+		
+		function sendWho() {
+			return send({'t': 'who', 'agent' : 'Anonymous'});
+		}
+		
+		function svcOp(svc, op) {
+			var req = {'t': 'req', 'svc' : svc, 'op' : op};
+			return send(req);
+		}
 	</script>
-	<body>
-		<h4>APMRouter Admin Root</h4>
-	</body>
-</html>
+
+ -->

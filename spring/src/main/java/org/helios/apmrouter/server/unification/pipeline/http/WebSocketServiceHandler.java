@@ -22,7 +22,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.server.services.session;
+package org.helios.apmrouter.server.unification.pipeline.http;
 
 import static org.jboss.netty.handler.codec.http.HttpHeaders.isKeepAlive;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.setContentLength;
@@ -35,7 +35,11 @@ import java.net.SocketAddress;
 import java.util.Collections;
 
 import org.helios.apmrouter.dataservice.json.JSONRequestRouter;
+import org.helios.apmrouter.dataservice.json.JsonResponse;
+import org.helios.apmrouter.dataservice.json.marshalling.JSONMarshaller;
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.server.services.session.ChannelType;
+import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelDownstreamHandler;
@@ -69,14 +73,16 @@ import org.springframework.beans.factory.annotation.Autowired;
  * <p>Description: WebSocket handler for fronting JSON based data-services</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.server.services.session.WebSocketServiceHandler</code></p>
+ * <p><code>org.helios.apmrouter.server.unification.pipeline.http.WebSocketServiceHandler</code></p>
  */
-
 public class WebSocketServiceHandler extends ServerComponentBean implements ChannelUpstreamHandler, ChannelDownstreamHandler {
 	/** The JSON Request Router */
 	protected JSONRequestRouter router = null;
+	/** The JSON Marshaller */
+	protected JSONMarshaller marshaller = null;
+	
 	/** A channel local for the websocket handshaker */
-	protected final ChannelLocal<WebSocketServerHandshaker> wsHandShaker = new ChannelLocal<WebSocketServerHandshaker>(true); 
+	protected final ChannelLocal<WebSocketServerHandshaker> wsHandShaker = new ChannelLocal<WebSocketServerHandshaker>(true);
 
 	/**
 	 * {@inheritDoc}
@@ -109,12 +115,12 @@ public class WebSocketServiceHandler extends ServerComponentBean implements Chan
             return;
         }
 		Object message = ((MessageEvent)e).getMessage();
-		if(!(message instanceof JSONObject) && !(message instanceof CharSequence)) {
+		if((message instanceof JsonResponse) || (message instanceof JSONObject) || (message instanceof CharSequence)) {
+			WebSocketFrame frame = new TextWebSocketFrame(marshaller.marshallToText(message));		
+			ctx.sendDownstream(new DownstreamMessageEvent(channel, Channels.future(channel), frame, channel.getRemoteAddress()));					
+		} else {
             ctx.sendDownstream(e);
-            return;			
 		}
-		WebSocketFrame frame = new TextWebSocketFrame(message.toString());		
-		ctx.sendDownstream(new DownstreamMessageEvent(channel, Channels.future(channel), frame, channel.getRemoteAddress()));		
 	}		
 
 	/**
@@ -243,6 +249,15 @@ public class WebSocketServiceHandler extends ServerComponentBean implements Chan
 	@Autowired(required=true)
 	public void setRouter(JSONRequestRouter router) {
 		this.router = router;
+	}
+
+	/**
+	 * Sets the JSONMarshaller
+	 * @param marshaller the marshaller to set
+	 */
+	@Autowired(required=true)
+	public void setMarshaller(JSONMarshaller marshaller) {
+		this.marshaller = marshaller;
 	}
 
 

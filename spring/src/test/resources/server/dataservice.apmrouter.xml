@@ -76,11 +76,11 @@
  		<constructor-arg value="./src/main/resources/www" />
  	</bean>
  	 
- 	 <bean id="ws" class="org.helios.apmrouter.server.unification.pipeline.http.WebSocketRequestHandler" />
+ 	 <bean id="ws" class="org.helios.apmrouter.server.unification.pipeline.http.WebSocketServiceHandler" />
  	
  	<bean id="JSONRequestRouter" class="org.helios.apmrouter.dataservice.json.JSONRequestRouter" />
  	
- 	<bean id="hostagent" class="org.helios.apmrouter.dataservice.json.catalog.CatalogJSONDataService" />
+ 	<bean id="catalog" class="org.helios.apmrouter.dataservice.json.catalog.CatalogJSONDataService" />
 
 
 
@@ -134,7 +134,7 @@
  		</property>
  	</bean> 
  	
- 	
+ 	<bean id="JSONMarshaller" class="org.helios.apmrouter.dataservice.json.marshalling.GSONJSONMarshaller"/>
 
  	
 	

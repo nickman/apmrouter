@@ -29,10 +29,9 @@ import java.util.Map;
 import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.dataservice.json.JSONRequestHandler;
 import org.helios.apmrouter.dataservice.json.JsonRequest;
+import org.helios.apmrouter.dataservice.json.JsonResponse;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.jboss.netty.channel.Channel;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -60,15 +59,13 @@ public class CatalogJSONDataService extends ServerComponentBean {
 	 * Returns a JSON list of hosts
 	 * @param request The JSON request
 	 * @param channel The channel to respond on
-	 * @throws JSONException thrown on JSON marshalling errors
 	 */
 	@JSONRequestHandler(name="listhosts")
-	public void listHosts(JsonRequest request, Channel channel)  throws JSONException {
+	public void listHosts(JsonRequest request, Channel channel)   {
 		boolean onlineOnly = request.getArgument(0, false);
 		Map<Integer, String> hosts = catalog.listHosts(onlineOnly);
-		JSONObject response = new JSONObject();
-		response.putOnce("t", "listhosts");
-		response.put("data", hosts);
+		JsonResponse response = request.response();
+		response.setContent(hosts);
 		channel.write(response);
 	}
 }

@@ -68,6 +68,14 @@ public class JsonRequest {
 	}
 	
 	/**
+	 * Returns a {@link JsonResponse} for this request
+	 * @return a {@link JsonResponse} for this request
+	 */
+	public JsonResponse response() {
+		return new JsonResponse(rid, JsonResponse.RESP_TYPE_RESP);
+	}
+	
+	/**
 	 * Adds an op argument to the mao
 	 * @param key The argument key (if the args was an array, this is the sequence, if it was a map, this is the key)
 	 * @param value The argument value
@@ -75,7 +83,6 @@ public class JsonRequest {
 	public void addArg(Object key, Object value) {
 		arguments.put(key, value);
 	}
-	
 	
 	/**
 	 * Returns the named argument from the argument map

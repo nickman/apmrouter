@@ -50,6 +50,7 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketFrame;
 import org.jboss.netty.util.CharsetUtil;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 
@@ -66,11 +67,14 @@ public class HttpRequestRouter extends ServerComponentBean  implements ChannelUp
 	protected Map<String, HttpRequestHandler> handlers = new ConcurrentHashMap<String, HttpRequestHandler>();
 	/** A map of {@link HttpRequestHandler}s keyed by the URI pattern they respond to */
 	protected ConcurrentHashMap<String, HttpRequestHandler> uriRoutes = new ConcurrentHashMap<String, HttpRequestHandler>();
-	
+	/** The websocket handler to be inserted into the pipeline if a request comes in with a URI suffix of {@link #WS_URI_SUFFIX} */
+	protected WebSocketServiceHandler webSocketHandler = null;
     /** Default page URI */
     public static final String DEFAULT_URI = "index.html";
     /** Root URI */
     public static final String ROOT_URI = "/";
+    /** WebSocket URI Suffix */
+    public static final String WS_URI_SUFFIX = "/ws";
 	
 	
 	/**
@@ -192,6 +196,11 @@ public class HttpRequestRouter extends ServerComponentBean  implements ChannelUp
 		}
 		// now we have a request...
 		String uri = request.getUri();
+		if(uri.endsWith(WS_URI_SUFFIX)) {
+			ctx.getPipeline().addLast(webSocketHandler.getBeanName(), webSocketHandler);
+			ctx.sendUpstream(e);
+			return;
+		}
         if(uri.isEmpty() || ROOT_URI.equals(uri)) {
         	uri = "index.html";
         }
@@ -259,6 +268,15 @@ public class HttpRequestRouter extends ServerComponentBean  implements ChannelUp
         	ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
         }
     }
+
+	/**
+	 * Sets the websocket handler to be inserted into the pipeline if a request comes in with a URI suffix of {@link #WS_URI_SUFFIX}
+	 * @param webSocketHandler the webSocketHandler to set
+	 */
+    @Autowired(required=true)
+	public void setWebSocketHandler(WebSocketServiceHandler webSocketHandler) {
+		this.webSocketHandler = webSocketHandler;
+	}
 	
 	
 

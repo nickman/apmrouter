@@ -24,6 +24,20 @@
  */
 package org.helios.apmrouter.dataservice.json;
 
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonSerializer;
+import com.google.gson.annotations.SerializedName;
+
 /**
  * <p>Title: JsonResponse</p>
  * <p>Description: The standard object container for sending a response to a JSON data service caller</p> 
@@ -34,11 +48,24 @@ package org.helios.apmrouter.dataservice.json;
 
 public class JsonResponse {
 	/** The client provided request ID that this response is being sent for */
+	@SerializedName("rerid")
 	protected final long reRequestId;
 	/** The identifier of the subscription this message is being sent for. Should be ignored if -1 */
-	protected final long subId;
+	@SerializedName("sub")
+	protected final Long subId;
 	/** The type flag. Currently "err" for an error message, "resp" for a response, "sub" for subcription event */
+	@SerializedName("t")
 	protected final String type;
+	/** The content payload */
+	@SerializedName("msg")
+	protected Object content = null;
+	
+	/** Response flag for an error message */
+	public static final String RESP_TYPE_ERR = "err";
+	/** Response flag for a request response */
+	public static final String RESP_TYPE_RESP = "resp";
+	/** Response flag for a subscription event delivery */
+	public static final String RESP_TYPE_SUB = "sub";
 	
 	/**
 	 * Creates a new JsonResponse
@@ -49,7 +76,7 @@ public class JsonResponse {
 	public JsonResponse(long reRequestId, long subId, String type) {
 		super();
 		this.reRequestId = reRequestId;
-		this.subId = subId;
+		this.subId = subId==-1L ? null : subId;
 		this.type = type;
 	}
 	
@@ -61,8 +88,92 @@ public class JsonResponse {
 	public JsonResponse(long reRequestId, String type) {
 		super();
 		this.reRequestId = reRequestId;
-		this.subId = -1L;
+		this.subId = null;
 		this.type = type;
+	}
+	
+	public static void main(String[] args) {
+		log("GSON Test");
+		JsonResponse resp = new JsonResponse(3, 94, RESP_TYPE_RESP);
+		Map<Integer, String> hosts = new HashMap<Integer, String>();
+		int cnt = 0;
+		List<String> sp = new ArrayList<String>(System.getProperties().stringPropertyNames());
+		while(cnt < 10) {
+			hosts.put(cnt, sp.get(cnt) + ":" + System.getProperty(sp.get(cnt)));
+			cnt++;
+		}
+		resp.setContent(hosts);
+		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		log(gson.toJson(resp));
+	}
+	
+	private static class MapSerializer implements JsonSerializer<Map<?,?>> {
+		public JsonElement serialize(Map<?,?> src, Type typeOfSrc, JsonSerializationContext context) {
+			if(!src.isEmpty()) {
+				Map.Entry<?, ?> entry = src.entrySet().iterator().next();
+				boolean keysAreNumbers = isNumber(entry.getKey());
+				boolean valuesAreNumbers = isNumber(entry.getValue());
+				if(keysAreNumbers || valuesAreNumbers) {
+					JsonObject map = new JsonObject();
+				}
+			}
+			return context.serialize(src, typeOfSrc);
+		}
+		
+		private static boolean isNumber(Object obj) {
+			if(obj==null) return false;
+			if(obj instanceof Number) return true;
+			try {
+				Double.parseDouble(obj.toString());
+				return true;
+			} catch (Exception ex) {
+				return false;
+			}
+		}
+	}
+
+	public static void log(Object msg) {
+		System.out.println(msg);
+	}
+
+	/**
+	 * Returns the content payload
+	 * @return the content
+	 */
+	public Object getContent() {
+		return content;
+	}
+
+	/**
+	 * Sets the payload content
+	 * @param content the content to set
+	 */
+	public void setContent(Object content) {
+		this.content = content;
+	}
+
+	/**
+	 * Returns the in reference to request id
+	 * @return the in reference to request id
+	 */
+	public long getReRequestId() {
+		return reRequestId;
+	}
+
+	/**
+	 * Returns the subscription id
+	 * @return the subId
+	 */
+	public long getSubId() {
+		return subId;
+	}
+
+	/**
+	 * Returns the type flag
+	 * @return the type
+	 */
+	public String getType() {
+		return type;
 	}
 	
 	
