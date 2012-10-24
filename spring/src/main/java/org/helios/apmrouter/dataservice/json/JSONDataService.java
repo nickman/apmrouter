@@ -25,7 +25,6 @@
 package org.helios.apmrouter.dataservice.json;
 
 import org.jboss.netty.channel.Channel;
-import org.json.JSONObject;
 
 /**
  * <p>Title: JSONDataService</p>
@@ -41,5 +40,5 @@ public interface JSONDataService {
 	 * @param request The JSON encoded request
 	 * @param channel The channel on which the request was made
 	 */
-	public void processRequest(JSONObject request, Channel channel);
+	public void processRequest(JsonRequest request, Channel channel);
 }

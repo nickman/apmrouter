@@ -80,7 +80,7 @@
  	
  	<bean id="JSONRequestRouter" class="org.helios.apmrouter.dataservice.json.JSONRequestRouter" />
  	
- 	<bean id="hostagent" class="org.helios.apmrouter.dataservice.json.catalog.HostAgent" />
+ 	<bean id="hostagent" class="org.helios.apmrouter.dataservice.json.catalog.CatalogJSONDataService" />
 
 
 

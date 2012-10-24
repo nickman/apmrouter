@@ -26,7 +26,6 @@ package org.helios.apmrouter.dataservice.json;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -72,10 +71,10 @@ public class JSONRequestHandlerImpl implements JSONDataService {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.dataservice.json.JSONDataService#processRequest(org.json.JSONObject, org.jboss.netty.channel.Channel)
+	 * @see org.helios.apmrouter.dataservice.json.JSONDataService#processRequest(org.helios.apmrouter.dataservice.json.JSONRequestRouter.JsonRequest, org.jboss.netty.channel.Channel)
 	 */
 	@Override
-	public void processRequest(JSONObject request, Channel channel) {
+	public void processRequest(JsonRequest request, Channel channel) {
 		try {
 			methodHandle.invoke(impl, request, channel);
 		} catch (Throwable e) {
@@ -92,10 +91,10 @@ public class JSONRequestHandlerImpl implements JSONDataService {
 	protected JSONObject renderInvocationError(Throwable t) {
 		try {
 			JSONObject err = new JSONObject();
-			err.putOnce("t", "err");
-			err.putOnce("svc", serviceName);
-			err.putOnce("op", name);
-			err.putOnce("err", t.getMessage());
+			err.putOnce(JSONRequestRouter.REQUEST_FLAG, "err");
+			err.putOnce(JSONRequestRouter.SERVICE_NAME, serviceName);
+			err.putOnce(JSONRequestRouter.OP_NAME, name);
+			err.putOnce(JSONRequestRouter.ERR_NAME, t.getMessage());
 			return err;
 		} catch (Exception ex) {
 			throw new RuntimeException("Failed to build error response", ex);
@@ -110,13 +109,12 @@ public class JSONRequestHandlerImpl implements JSONDataService {
 	 */
 	public static Map<String, JSONRequestHandlerImpl> generateHandlers(String serviceName, Object serviceImpl) {
 		Map<String, JSONRequestHandlerImpl> map = new ConcurrentHashMap<String, JSONRequestHandlerImpl>();
-		Lookup lookup = MethodHandles.lookup();
 		for(Method m: serviceImpl.getClass().getMethods()) {
 			JSONRequestHandler rh = m.getAnnotation(JSONRequestHandler.class);
 			if(rh!=null) {
 				String name = rh.name();
 				try {
-					MethodType desc = MethodType.methodType(void.class, new Class[]{JSONObject.class, Channel.class});
+					MethodType desc = MethodType.methodType(void.class, new Class[]{JsonRequest.class, Channel.class});
 					MethodHandle mh = MethodHandles.lookup().findVirtual(serviceImpl.getClass(), m.getName(), desc);					
 					map.put(name, new JSONRequestHandlerImpl(serviceImpl, mh, name, serviceName));
 				} catch (Exception e) {
@@ -128,7 +126,7 @@ public class JSONRequestHandlerImpl implements JSONDataService {
 			if(rh!=null) {
 				String name = rh.name();
 				try {
-					MethodType desc = MethodType.methodType(void.class, new Class[]{JSONObject.class, Channel.class});
+					MethodType desc = MethodType.methodType(void.class, new Class[]{JsonRequest.class, Channel.class});
 					MethodHandle mh = MethodHandles.lookup().findVirtual(serviceImpl.getClass(), m.getName(), desc);					
 					map.put(name, new JSONRequestHandlerImpl(serviceImpl, mh, name, serviceName));
 				} catch (Exception e) {

@@ -28,22 +28,22 @@ import java.util.Map;
 
 import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.dataservice.json.JSONRequestHandler;
+import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.jboss.netty.channel.Channel;
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
- * <p>Title: HostAgent</p>
- * <p>Description: Data services for host/agent data</p> 
+ * <p>Title: CatalogJSONDataService</p>
+ * <p>Description: Data services for the metric catalog service</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.dataservice.json.HostAgent</code></p>
+ * <p><code>org.helios.apmrouter.dataservice.json.catalog.CatalogJSONDataService</code></p>
  */
-@JSONRequestHandler(name="hostagent")
-public class HostAgent extends ServerComponentBean {
+@JSONRequestHandler(name="catalog")
+public class CatalogJSONDataService extends ServerComponentBean {
 	/** The metric catalog service */
 	protected MetricCatalogService catalog = null;
 
@@ -63,16 +63,8 @@ public class HostAgent extends ServerComponentBean {
 	 * @throws JSONException thrown on JSON marshalling errors
 	 */
 	@JSONRequestHandler(name="listhosts")
-	public void listHosts(JSONObject request, Channel channel)  throws JSONException {
-		boolean onlineOnly = false;
-		try {
-			if(request.has("args")) {
-				JSONArray args = request.getJSONArray("args");
-				onlineOnly = args.getBoolean(0);
-			}
-		} catch (Exception e) {
-			warn("Failed to extract args", e);
-		}
+	public void listHosts(JsonRequest request, Channel channel)  throws JSONException {
+		boolean onlineOnly = request.getArgument(0, false);
 		Map<Integer, String> hosts = catalog.listHosts(onlineOnly);
 		JSONObject response = new JSONObject();
 		response.putOnce("t", "listhosts");

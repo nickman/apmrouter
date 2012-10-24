@@ -31,7 +31,7 @@ package org.helios.apmrouter.subscription.criteria;
  * Examples:
  * =========
  * JMX:  [Domain/MBeanServer], ObjectName/Pattern, [Filter]
- * Catalog: Type(HostAgent/Metric), [Regex]
+ * Catalog: Type(CatalogJSONDataService/Metric), [Regex]
  * LiveMetrics: Regex
  * ===========================================================
  * 

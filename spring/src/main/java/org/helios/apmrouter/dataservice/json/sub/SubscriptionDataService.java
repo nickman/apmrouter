@@ -26,6 +26,7 @@ package org.helios.apmrouter.dataservice.json.sub;
 
 import org.helios.apmrouter.dataservice.json.JSONRequestHandler;
 import org.helios.apmrouter.subscription.SubscriptionService;
+import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilder;
 import org.jboss.netty.channel.Channel;
 import org.json.JSONException;
@@ -51,7 +52,7 @@ public class SubscriptionDataService {
 		SubscriptionCriteriaBuilder<?,?,?> builder = subService.getBuilder(request.getString("type"));
 		SubscriptionCriteria<?,?,?> criteria =  builder.build(request);
 		long sessionId = subService.startSubscriptionSession(channel);
-		subService.addCriteria(channel, criteria)
+		subService.addCriteria(channel, criteria);
 	}
 	
 	@JSONRequestHandler(name="stop")
