@@ -101,6 +101,13 @@
 				<artifactId>json</artifactId>
 			</dependency>
 			
+		<!-- JSON SAX Parser -->
+			<dependency>
+			  <groupId>com.googlecode.json-simple</groupId>
+			  <artifactId>json-simple</artifactId>
+			</dependency>
+		
+			
 			<!-- Asynch Http Client -->
 			 <dependency>
 			     <groupId>com.ning</groupId>
