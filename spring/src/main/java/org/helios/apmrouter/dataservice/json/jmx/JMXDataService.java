@@ -24,9 +24,13 @@
  */
 package org.helios.apmrouter.dataservice.json.jmx;
 
+import java.util.Map;
+
 import javax.management.MBeanServer;
 
 import org.helios.apmrouter.dataservice.json.JSONRequestHandler;
+import org.helios.apmrouter.dataservice.json.JsonRequest;
+import org.helios.apmrouter.dataservice.json.JsonResponse;
 import org.jboss.netty.channel.Channel;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -56,10 +60,14 @@ public class JMXDataService {
 	 * </p>
 	 * @param request The JSON request
 	 * @param channel The channel to respond on
-	 * @throws JSONException thrown on JSON marshalling errors
 	 */
-	@JSONRequestHandler(name="subscribe")
-	public void subscribe(JSONObject request, Channel channel)  throws JSONException {
-		
+	@JSONRequestHandler(name="sub")
+	public void subscribe(JsonRequest request, Channel channel)   {
+		boolean onlineOnly = request.getArgument(0, false);
+//		Map<Integer, String> hosts = catalog.listHosts(onlineOnly);
+		JsonResponse response = request.response();
+//		response.setContent(hosts);
+		channel.write(response);
 	}
+
 }

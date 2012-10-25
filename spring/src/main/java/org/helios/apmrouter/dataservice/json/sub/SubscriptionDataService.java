@@ -24,13 +24,15 @@
  */
 package org.helios.apmrouter.dataservice.json.sub;
 
+import static org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilder.JSON_EVENT_SOURCE;
+
 import org.helios.apmrouter.dataservice.json.JSONRequestHandler;
+import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.subscription.SubscriptionService;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilder;
 import org.jboss.netty.channel.Channel;
 import org.json.JSONException;
-import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -47,21 +49,36 @@ public class SubscriptionDataService {
 	protected SubscriptionService subService = null;
 	
 	
+	
+	/**
+	 * Starts a subscription
+	 * @param request The JSON subscription request
+	 * @param channel The subscribing channel
+	 */
 	@JSONRequestHandler(name="start")
-	public void start(JSONObject request, Channel channel)  throws JSONException {
-		SubscriptionCriteriaBuilder<?,?,?> builder = subService.getBuilder(request.getString("type"));
+	public void start(JsonRequest request, Channel channel)  {
+		SubscriptionCriteriaBuilder<?,?,?> builder = subService.getBuilder(request.arguments.get(JSON_EVENT_SOURCE).toString());
 		SubscriptionCriteria<?,?,?> criteria =  builder.build(request);
-		long sessionId = subService.startSubscriptionSession(channel);
 		subService.addCriteria(channel, criteria);
 	}
 	
+	/**
+	 * Stops a subscription
+	 * @param request The JSON stop subscription request
+	 * @param channel The subscribed channel
+	 */
 	@JSONRequestHandler(name="stop")
-	public void stop(JSONObject request, Channel channel)  throws JSONException {
+	public void stop(JsonRequest request, Channel channel) {
 		
 	}
 	
+	/**
+	 * Stops all subscriptions for a channel
+	 * @param request The JSON stop all subscription request
+	 * @param channel The subscribed channel
+	 */
 	@JSONRequestHandler(name="stopall")
-	public void stopAll(JSONObject request, Channel channel)  throws JSONException {
+	public void stopAll(JsonRequest request, Channel channel) {
 		
 	}
 

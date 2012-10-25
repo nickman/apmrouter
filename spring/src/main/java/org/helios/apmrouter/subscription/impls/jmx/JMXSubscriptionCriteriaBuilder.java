@@ -27,35 +27,32 @@ package org.helios.apmrouter.subscription.impls.jmx;
 import javax.management.NotificationFilter;
 import javax.management.ObjectName;
 
+import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.helios.apmrouter.subscription.criteria.builder.AbstractSubscriptionCriteriaBuilder;
 import org.json.JSONException;
-import org.json.JSONObject;
 
 /**
  * <p>Title: JMXSubscriptionCriteriaBuilder</p>
  * <p>Description: A subscription criteria builder for JMX</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.subscription.impls.jmx.SubscriptionCriteriaBuilder</code></p>
+ * <p><code>org.helios.apmrouter.subscription.impls.jmx.JMXSubscriptionCriteriaBuilder</code></p>
  */
-
 public class JMXSubscriptionCriteriaBuilder extends AbstractSubscriptionCriteriaBuilder<String, ObjectName, NotificationFilter> {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilder#build(org.json.JSONObject)
+	 * @see org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilder#build(org.helios.apmrouter.dataservice.json.JsonRequest)
 	 * FIXME: Implement the notification filter editor
 	 */
 	@Override
-	public SubscriptionCriteria<String, ObjectName, NotificationFilter> build(JSONObject subRequest) throws JSONException {
-		String eventSource = subRequest.getString(JSON_EVENT_SOURCE);
-		ObjectName objectName = JMXHelper.objectName(subRequest.getString(JSON_EVENT_FILTER));
-		String filterExpression = null;
-		if(subRequest.has(JSON_EXTENDED_EVENT_FILTER)) {
-			filterExpression = subRequest.getString(JSON_EXTENDED_EVENT_FILTER);
-		}
+	public SubscriptionCriteria<String, ObjectName, NotificationFilter> build(JsonRequest subRequest)  {
+		String eventSource = subRequest.getArgument(JSON_EVENT_SOURCE, "");
+		if(eventSource.isEmpty()) throw new RuntimeException("No event source provided", new Throwable());
+		ObjectName objectName = JMXHelper.objectName(subRequest.getArgument(JSON_EVENT_FILTER, ""));
+		String filterExpression = subRequest.getArgumentOrNull(JSON_EXTENDED_EVENT_FILTER, String.class);
 		return new JMXSubscriptionCriteria(eventSource, objectName, null);
 	}
 

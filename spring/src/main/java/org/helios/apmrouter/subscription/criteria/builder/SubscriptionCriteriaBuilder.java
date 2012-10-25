@@ -24,16 +24,16 @@
  */
 package org.helios.apmrouter.subscription.criteria.builder;
 
+import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.json.JSONException;
-import org.json.JSONObject;
 
 /**
  * <p>Title: SubscriptionCriteriaBuilder</p>
  * <p>Description: Defines a builder class for specific types of {@link SubscriptionCriteria}. Typically, there will be one defined class of this type per criteria type.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaBuilder</code></p>
+ * <p><code>org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilder</code></p>
  * @param <S> The expected type of the source instance identifier/locator
  * @param <F> The expected type of the filter expression
  * @param <E> The expected type of the extended filter expression
@@ -43,16 +43,15 @@ public interface SubscriptionCriteriaBuilder<S, F, E> {
 	/** The json key for the event source */
 	public static final String JSON_EVENT_SOURCE = "es";
 	/** The json key for the filter */
-	public static final String JSON_EVENT_FILTER = "fil";
+	public static final String JSON_EVENT_FILTER = "f";
 	/** The json key for the extended filter */
-	public static final String JSON_EXTENDED_EVENT_FILTER = "efil";
+	public static final String JSON_EXTENDED_EVENT_FILTER = "exf";
 	
 	/**
 	 * Builds a typed {@link SubscriptionCriteria} from the passed arguments. 
 	 * @param subRequest The subscripton request
 	 * @return a typed {@link SubscriptionCriteria}
-	 * @throws JSONException thrown on any JSON unmarshalling error
 	 */
-	public SubscriptionCriteria<S, F, E> build(JSONObject subRequest) throws JSONException;
+	public SubscriptionCriteria<S, F, E> build(JsonRequest subRequest);
 	
 }

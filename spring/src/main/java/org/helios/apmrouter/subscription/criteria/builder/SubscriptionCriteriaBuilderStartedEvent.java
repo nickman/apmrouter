@@ -53,8 +53,9 @@ public class SubscriptionCriteriaBuilderStartedEvent extends ApplicationEvent {
 	 * {@inheritDoc}
 	 * @see java.util.EventObject#getSource()
 	 */
+	@Override
 	public SubscriptionCriteriaBuilder<?,?,?> getSource() {
-		return getSource();
+		return (SubscriptionCriteriaBuilder<?, ?, ?>) super.getSource();
 	}
 
 	/**

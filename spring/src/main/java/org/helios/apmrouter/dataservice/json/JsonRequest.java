@@ -99,6 +99,21 @@ public class JsonRequest {
 	}
 	
 	/**
+	 * Returns the named argument from the argument map returning null if not found
+	 * @param key The argument key
+	 * @param type The expected type of the value
+	 * @return the value for the passed key
+	 */
+	public <T> T getArgumentOrNull(String key,  Class<T> type) {
+		Object value = arguments.get(key);
+		if(value==null) {
+			return null;
+		}
+		return (T)value;
+	}
+	
+	
+	/**
 	 * Returns the indexed argument from the argument array
 	 * @param index The argument index
 	 * @param defaultValue The default value to return if the key does not resolve

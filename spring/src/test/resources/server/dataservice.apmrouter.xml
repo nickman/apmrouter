@@ -82,6 +82,11 @@
  	
  	<bean id="catalog" class="org.helios.apmrouter.dataservice.json.catalog.CatalogJSONDataService" />
 
+	<bean id="sub" class="org.helios.apmrouter.dataservice.json.sub.SubscriptionDataService" />
+	
+	<bean id="SubscriptionService" class="org.helios.apmrouter.subscription.SubscriptionService" />
+	
+	<bean id="jmxBuilder" class="org.helios.apmrouter.subscription.impls.jmx.JMXSubscriptionCriteriaBuilder" />
 
 
 	<bean id="ProxyWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
