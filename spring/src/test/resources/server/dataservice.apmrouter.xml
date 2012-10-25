@@ -86,7 +86,7 @@
 	
 	<bean id="SubscriptionService" class="org.helios.apmrouter.subscription.SubscriptionService" />
 	
-	<bean id="jmxBuilder" class="org.helios.apmrouter.subscription.impls.jmx.JMXSubscriptionCriteriaBuilder" />
+	<bean id="jmx" class="org.helios.apmrouter.subscription.impls.jmx.JMXSubscriptionCriteriaBuilder" />
 
 
 	<bean id="ProxyWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
