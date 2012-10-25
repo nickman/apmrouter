@@ -30,6 +30,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import javax.management.NotificationFilter;
 import javax.management.ObjectName;
 
+import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance;
 
@@ -73,8 +74,12 @@ public class JMXSubscriptionCriteria implements SubscriptionCriteria<String, Obj
 	}
 	
 
-	public SubscriptionCriteriaInstance instantiate() {
-		return new JMXSubscriptionCriteriaInstance(this);
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.subscription.criteria.SubscriptionCriteria#instantiate(org.helios.apmrouter.dataservice.json.JsonRequest)
+	 */
+	public SubscriptionCriteriaInstance<?> instantiate(JsonRequest request) {
+		return new JMXSubscriptionCriteriaInstance(this, request);
 	}
 
 

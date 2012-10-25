@@ -67,9 +67,14 @@ public class LocalJMXConnector implements JMXConnector {
 	 */
 	@Override
 	public void connect() throws IOException {
-		domain = localURL.getURLPath().substring(1);
+		String urlPath = localURL.getURLPath().trim();
+		if(urlPath.startsWith("/")) {
+			urlPath = urlPath.substring(1);			
+		}
+		domain = urlPath;
 		if(domain==null || domain.trim().isEmpty()) {
-			throw new IOException("Invalid domain. Was empty or null", new Throwable());
+			//throw new IOException("Invalid domain. Was empty or null", new Throwable());
+			domain = "DefaultDomain";
 		}
 		domain = domain.trim();
 		mbeanServer = JMXHelper.getLocalMBeanServer(domain, false);
@@ -154,7 +159,7 @@ public class LocalJMXConnector implements JMXConnector {
 		try {
 			log("Local JMXServiceURL Test");
 			//System.setProperty("jmx.remote.protocol.provider.pkgs", "org.helios.apmrouter.jmx.connector");
-			JMXServiceURL jurl = new JMXServiceURL("service:jmx:local:///DefaultDomain");
+			JMXServiceURL jurl = new JMXServiceURL("service:jmx:local://");
 			log("URL:[" + jurl.getURLPath() + "]");
 			JMXConnector connector = JMXConnectorFactory.connect(jurl, Collections.singletonMap("jmx.remote.protocol.provider.class.loader", LocalJMXConnector.class.getClassLoader()));
 			log("Connected to [" + connector.getMBeanServerConnection().getDefaultDomain() + "]");

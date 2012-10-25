@@ -31,7 +31,6 @@ import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.helios.apmrouter.subscription.criteria.builder.AbstractSubscriptionCriteriaBuilder;
-import org.json.JSONException;
 
 /**
  * <p>Title: JMXSubscriptionCriteriaBuilder</p>
@@ -49,11 +48,14 @@ public class JMXSubscriptionCriteriaBuilder extends AbstractSubscriptionCriteria
 	 */
 	@Override
 	public SubscriptionCriteria<String, ObjectName, NotificationFilter> build(JsonRequest subRequest)  {
-		String eventSource = subRequest.getArgument(JSON_EVENT_SOURCE, "");
-		if(eventSource.isEmpty()) throw new RuntimeException("No event source provided", new Throwable());
+		String eventSource = subRequest.getArgument(JSON_EVENT_SOURCE, ""); // e.g. "jmx"		
+		if(eventSource.isEmpty()) throw new RuntimeException("No event source type provided", new Throwable());
+		String eventSourceName = subRequest.getArgument(JSON_EVENT_SOURCE_NAME, ""); // e.g. "service:jmx:local://DefaultDomain"		
+		if(eventSource.isEmpty()) throw new RuntimeException("No event source name provided", new Throwable());
+		
 		ObjectName objectName = JMXHelper.objectName(subRequest.getArgument(JSON_EVENT_FILTER, ""));
 		String filterExpression = subRequest.getArgumentOrNull(JSON_EXTENDED_EVENT_FILTER, String.class);
-		return new JMXSubscriptionCriteria(eventSource, objectName, null);
+		return new JMXSubscriptionCriteria(eventSourceName, objectName, null);
 	}
 
 }

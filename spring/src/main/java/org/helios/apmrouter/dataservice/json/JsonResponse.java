@@ -50,10 +50,6 @@ public class JsonResponse {
 	/** The client provided request ID that this response is being sent for */
 	@SerializedName("rerid")
 	protected final long reRequestId;
-	/** The identifier of the subscription this message is being sent for. Should be ignored if -1 */
-	@SerializedName("sub")
-	protected final Long subId;
-	/** The type flag. Currently "err" for an error message, "resp" for a response, "sub" for subcription event */
 	@SerializedName("t")
 	protected final String type;
 	/** The content payload */
@@ -70,31 +66,17 @@ public class JsonResponse {
 	/**
 	 * Creates a new JsonResponse
 	 * @param reRequestId The client provided request ID that this response is being sent for
-	 * @param subId The identifier of the subscription this message is being sent for. Should be ignored if -1 
-	 * @param type The type flag. Currently "err" for an error message, "resp" for a response, "sub" for subcription event
-	 */
-	public JsonResponse(long reRequestId, long subId, String type) {
-		super();
-		this.reRequestId = reRequestId;
-		this.subId = subId==-1L ? null : subId;
-		this.type = type;
-	}
-	
-	/**
-	 * Creates a new JsonResponse
-	 * @param reRequestId The client provided request ID that this response is being sent for
 	 * @param type The type flag. Currently "err" for an error message, "resp" for a response, "sub" for subcription event
 	 */
 	public JsonResponse(long reRequestId, String type) {
 		super();
 		this.reRequestId = reRequestId;
-		this.subId = null;
 		this.type = type;
 	}
 	
 	public static void main(String[] args) {
 		log("GSON Test");
-		JsonResponse resp = new JsonResponse(3, 94, RESP_TYPE_RESP);
+		JsonResponse resp = new JsonResponse(3, RESP_TYPE_RESP);
 		Map<Integer, String> hosts = new HashMap<Integer, String>();
 		int cnt = 0;
 		List<String> sp = new ArrayList<String>(System.getProperties().stringPropertyNames());
@@ -147,9 +129,11 @@ public class JsonResponse {
 	/**
 	 * Sets the payload content
 	 * @param content the content to set
+	 * @return this json response
 	 */
-	public void setContent(Object content) {
+	public JsonResponse setContent(Object content) {
 		this.content = content;
+		return this;
 	}
 
 	/**
@@ -160,13 +144,6 @@ public class JsonResponse {
 		return reRequestId;
 	}
 
-	/**
-	 * Returns the subscription id
-	 * @return the subId
-	 */
-	public long getSubId() {
-		return subId;
-	}
 
 	/**
 	 * Returns the type flag

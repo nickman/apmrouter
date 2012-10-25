@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated Oct 25, 2012 12:35:07 PM by Hibernate Tools 3.4.0.CR1 -->
+<hibernate-mapping >
+    <class entity-name="agent" table="AGENT" schema="PUBLIC" catalog="DB"  >
+        <id name="agentId" type="java.lang.Integer">
+            <column name="AGENT_ID" />
+            <generator class="identity" />
+        </id>
+        <many-to-one name="host" entity-name="host" fetch="select" embed-xml="true">
+            <column name="HOST_ID" not-null="true">
+                <comment>The id of the host this agent is running on.</comment>
+            </column>
+        </many-to-one>
+        <property name="name" type="string"  >
+            <column name="NAME" length="120" not-null="true" unique="true"  >
+                <comment>The name of the agent.</comment>
+            </column>
+        </property>
+        <property name="firstConnected" type="timestamp" >
+            <column name="FIRST_CONNECTED" length="23" not-null="true">
+                <comment>The first time the agent was seen.</comment>
+            </column>
+        </property>
+        <property name="lastConnected" type="timestamp">
+            <column name="LAST_CONNECTED" length="23" not-null="true">
+                <comment>The last time the agent connected.</comment>
+            </column>
+        </property>
+        <property name="connected" type="timestamp">
+            <column name="CONNECTED" length="23">
+                <comment>The time the agent connected or null if not connected.</comment>
+            </column>
+        </property>
+        <property name="uri" type="string">
+            <column name="URI" length="120">
+                <comment>The listening URI of the connected agent.</comment>
+            </column>
+        </property>
+        <set name="metrics" table="METRIC" inverse="true" lazy="true" fetch="select" embed-xml="false">
+            <key>
+                <column name="AGENT_ID" not-null="true">
+                    <comment>The agent identifier for this metric</comment>
+                </column>
+            </key>
+            <one-to-many entity-name="metric" />
+        </set>
+    </class>
+</hibernate-mapping>

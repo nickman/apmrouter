@@ -40,6 +40,8 @@ import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
 
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.dataservice.json.JsonRequest;
+import org.helios.apmrouter.dataservice.json.JsonResponse;
 import org.helios.apmrouter.subscription.criteria.FailedCriteriaResolutionException;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance;
@@ -58,6 +60,9 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 	private static final long serialVersionUID = -8406458051126347970L;
 	/** The criteria this instance was resolved from */
 	protected final JMXSubscriptionCriteria criteria;
+	/** The original json request issued for this subscription */
+	protected final JsonRequest request;
+	
 	/** The JMXConnector used to connect to the MBeanServer */
 	protected JMXConnector jmxConnector = null;
 	/** The managing subscription session */
@@ -80,10 +85,12 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 	/**
 	 * Creates a new JMXSubscriptionCriteriaInstance
 	 * @param criteria The criteria this instance will be resolved from
+	 * @param request The original json request issued for this subscription
 	 */
-	JMXSubscriptionCriteriaInstance(JMXSubscriptionCriteria criteria) {
+	JMXSubscriptionCriteriaInstance(JMXSubscriptionCriteria criteria, JsonRequest request) {
 		super();
 		this.criteria = criteria;
+		this.request = request;
 		jmxSubId = serial.incrementAndGet();
 	}
 	
@@ -96,6 +103,7 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 		try {
 			JMXServiceURL serviceURL = new JMXServiceURL(criteria.getEventSource());
 			jmxConnector = JMXConnectorFactory.connect(serviceURL);
+			this.session = session;
 			mbeanServerConnection = jmxConnector.getMBeanServerConnection();
 			LOG.info("Resolved JMX Criteria MBeanServer [" + serviceURL + "]");
 		} catch (Exception ex) {
@@ -184,7 +192,7 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 	@Override
 	public void handleNotification(Notification notification, Object handback) {
 		if(jmxSubId.equals(handback)) {
-			// relay notification to subscriber
+			session.send(request.subResponse().setContent(notification));			
 		}		
 	}
 	
@@ -249,10 +257,10 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.subscription.criteria.SubscriptionCriteria#instantiate()
+	 * @see org.helios.apmrouter.subscription.criteria.SubscriptionCriteria#instantiate(org.helios.apmrouter.dataservice.json.JsonRequest)
 	 */
 	@Override
-	public SubscriptionCriteriaInstance instantiate() {
+	public SubscriptionCriteriaInstance<Notification> instantiate(JsonRequest request) {
 		return this;
 	}
 

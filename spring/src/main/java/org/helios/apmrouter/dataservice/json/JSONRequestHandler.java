@@ -30,6 +30,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+import org.springframework.stereotype.Component;
+
 /**
  * <p>Title: JSONRequestHandler</p>
  * <p>Description: Annotates a named JSON data service method</p> 
@@ -41,6 +43,7 @@ import java.lang.annotation.Target;
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
+@Component
 public @interface JSONRequestHandler {
 	/**
 	 * The name of the request handler. If on a method, it is the op name, if on a class, the service name.

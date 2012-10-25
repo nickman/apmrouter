@@ -24,16 +24,12 @@
  */
 package org.helios.apmrouter.dataservice.json.jmx;
 
-import java.util.Map;
-
 import javax.management.MBeanServer;
 
 import org.helios.apmrouter.dataservice.json.JSONRequestHandler;
 import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.dataservice.json.JsonResponse;
 import org.jboss.netty.channel.Channel;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 /**
  * <p>Title: JMXDataService</p>

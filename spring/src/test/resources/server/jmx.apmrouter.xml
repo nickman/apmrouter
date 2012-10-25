@@ -36,7 +36,7 @@
 		<constructor-arg ref="MBeanServer" />
 	</bean>
 	
-	
+	<bean id="gconsole" class="org.helios.apmrouter.GroovyService" />
 	
 	
 

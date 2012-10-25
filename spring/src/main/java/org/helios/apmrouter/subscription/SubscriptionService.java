@@ -28,6 +28,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilder;
@@ -133,7 +134,7 @@ public class SubscriptionService extends ServerComponentBean {
 			synchronized(this) {
 				session = subSessions.get(channel);
 				if(session==null) {
-					session = new DefaultSubscriptionSessionImpl(new NettySubscriberChannel(channel));
+					session = new DefaultSubscriptionSessionImpl(new NettySubscriberChannel(channel));					
 					subSessions.set(channel, session);					
 				}
 			}
@@ -176,13 +177,14 @@ public class SubscriptionService extends ServerComponentBean {
 	 * If a session does not already exist, it will be created, but an additional call to {@link SubscriptionService#getSessionId(Channel)} may be required to get the session Id. 
 	 * @param channel The channel to add criteria for
 	 * @param criteria The criteria to add
+	 * @param request The original json request
 	 * @return the Id of the criteria subscription
 	 */
-	public long addCriteria(Channel channel, SubscriptionCriteria<?,?,?> criteria) {
+	public long addCriteria(Channel channel, SubscriptionCriteria<?,?,?> criteria, JsonRequest request) {
 		if(channel==null) throw new IllegalArgumentException("The passed channel was null", new Throwable());
 		startSubscriptionSession(channel);
 		SubscriptionSession session = subSessions.get(channel);
-		return session.addCriteria(criteria, session);
+		return session.addCriteria(criteria, session, request);
 	}
 	
 	/**

@@ -76,6 +76,14 @@ public class JsonRequest {
 	}
 	
 	/**
+	 * Returns a subscription send {@link JsonResponse} for the subscription issued by this request
+	 * @return a subscription send {@link JsonResponse} for the subscription issued by this request
+	 */
+	public JsonResponse subResponse() {
+		return new JsonResponse(rid, JsonResponse.RESP_TYPE_SUB);
+	}	
+	
+	/**
 	 * Adds an op argument to the mao
 	 * @param key The argument key (if the args was an array, this is the sequence, if it was a map, this is the key)
 	 * @param value The argument value

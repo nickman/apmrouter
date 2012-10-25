@@ -20,8 +20,19 @@
        "  >
 	
 	
+	<context:component-scan base-package="org.helios" >
+		<context:include-filter type="annotation" expression="org.helios.apmrouter.dataservice.json.JSONRequestHandler"/>
+		<context:include-filter type="assignable" expression="org.helios.apmrouter.subscription.criteria.builder.AbstractSubscriptionCriteriaBuilder"/>
+	</context:component-scan>
 	
+<!-- 
 	
+ -->
+<bean id="catalog" class="org.helios.apmrouter.dataservice.json.catalog.CatalogJSONDataService" />
+<bean id="sub" class="org.helios.apmrouter.dataservice.json.sub.SubscriptionDataService" />
+<bean id="jmx" class="org.helios.apmrouter.subscription.impls.jmx.JMXSubscriptionCriteriaBuilder" /> 	
+
+
 	
 	<bean id="DataServiceWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
 		<constructor-arg>
@@ -80,13 +91,10 @@
  	
  	<bean id="JSONRequestRouter" class="org.helios.apmrouter.dataservice.json.JSONRequestRouter" />
  	
- 	<bean id="catalog" class="org.helios.apmrouter.dataservice.json.catalog.CatalogJSONDataService" />
-
-	<bean id="sub" class="org.helios.apmrouter.dataservice.json.sub.SubscriptionDataService" />
 	
 	<bean id="SubscriptionService" class="org.helios.apmrouter.subscription.SubscriptionService" />
 	
-	<bean id="jmx" class="org.helios.apmrouter.subscription.impls.jmx.JMXSubscriptionCriteriaBuilder" />
+	
 
 
 	<bean id="ProxyWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
@@ -139,9 +147,23 @@
  		</property>
  	</bean> 
  	
- 	<bean id="JSONMarshaller" class="org.helios.apmrouter.dataservice.json.marshalling.GSONJSONMarshaller"/>
-
+ 	<bean id="JSONMarshaller" class="org.helios.apmrouter.dataservice.json.marshalling.GSONJSONMarshaller">
+ 		<property name="adapterInstances">
+ 			<map>
+ 				<entry value-ref="ObjectNameSerializer" >
+ 					<key><value type="java.lang.Class">javax.management.ObjectName</value></key>
+ 				</entry>
+ 				<entry value-ref="CompositeDataSupportSerializer" >
+ 					<key><value type="java.lang.Class">javax.management.openmbean.CompositeDataSupport</value></key>
+ 				</entry>
+ 				
+ 			</map>
+ 		</property>
+ 	</bean>
  	
+	<bean id="CompositeDataSupportSerializer" class="org.helios.apmrouter.dataservice.json.marshalling.encoders.CompositeDataSupportSerializer"/>
+ 	<bean id="ObjectNameSerializer" class="org.helios.apmrouter.dataservice.json.marshalling.encoders.ObjectNameSerializer"/>
+
 	
 </beans>
 

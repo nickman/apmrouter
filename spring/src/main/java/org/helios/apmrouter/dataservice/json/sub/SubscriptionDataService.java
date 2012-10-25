@@ -59,7 +59,7 @@ public class SubscriptionDataService {
 	public void start(JsonRequest request, Channel channel)  {
 		SubscriptionCriteriaBuilder<?,?,?> builder = subService.getBuilder(request.arguments.get(JSON_EVENT_SOURCE).toString());
 		SubscriptionCriteria<?,?,?> criteria =  builder.build(request);
-		subService.addCriteria(channel, criteria);
+		subService.addCriteria(channel, criteria, request);
 	}
 	
 	/**

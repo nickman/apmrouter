@@ -89,9 +89,9 @@ var apmr =  {
 		var req = {'t': 'req', 'svc' : svc, 'op' : op};
 		return this.send(req);
 	},
-	sub : function(op, type, filter, ex) {
+	sub : function(op, type, esn, filter, ex) {
 		var req = {'t': 'req', 'svc' : 'sub', 'op' : op};
-		var args = {'es' : type, 'f' : filter};
+		var args = {'es' : type, 'esn': esn, 'f' : filter};
 		if(ex!=null) {
 			args['exf'] = ex;
 		}
@@ -99,7 +99,7 @@ var apmr =  {
 		console.info("Sending Sub Request:%o", req);
 		return this.send(req);
 		
-		//  apmr.sub("start", "jmx", 'java.lang:type=GarbageCollector,name=*')
+		//  apmr.sub("start", "jmx", "service:jmx:local://DefaultDomain", "java.lang:type=GarbageCollector,name=*")
 	}
 	
 	

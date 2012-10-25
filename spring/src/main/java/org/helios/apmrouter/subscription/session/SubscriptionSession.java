@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.subscription.session;
 
+import org.helios.apmrouter.dataservice.json.JsonRequest;
+import org.helios.apmrouter.dataservice.json.JsonResponse;
 import org.helios.apmrouter.subscription.criteria.FailedCriteriaResolutionException;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance;
@@ -49,6 +51,13 @@ public interface SubscriptionSession {
 	public long getSubscriptionSessionId();
 	
 	/**
+	 * Sends a {@link JsonResponse} to the subscriber
+	 * @param response the {@link JsonResponse} to send
+	 */
+	public void send(JsonResponse response);
+	
+	
+	/**
 	 * Cancels the subscription criteria with the passed id.
 	 * @param criteriaId The id of the c=subscription criteria to cancel
 	 */
@@ -58,8 +67,9 @@ public interface SubscriptionSession {
 	 * Adds a new subscription to the subscription session
 	 * @param criteria The subscription criteria
 	 * @param session The subscription session the criteria is being added for
+	 * @param request The original json request
 	 * @return the assigned Id for the created subscription criteria, or the id of the existing criteria if the same instance has alreay been registered.
 	 * @throws FailedCriteriaResolutionException thrown if the criteria cannot be resolved
 	 */
-	public long addCriteria(SubscriptionCriteria<?,?,?> criteria, SubscriptionSession session) throws FailedCriteriaResolutionException;
+	public long addCriteria(SubscriptionCriteria<?,?,?> criteria, SubscriptionSession session, JsonRequest request) throws FailedCriteriaResolutionException;
 }

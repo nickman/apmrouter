@@ -42,7 +42,6 @@
 		<gson.version>2.2.2</gson.version>
 		<json-lib.version>2.4</json-lib.version>
 		<xom.version>1.2.5</xom.version>
-		<groovy.version>2.0.5</groovy.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -217,13 +216,7 @@
 				  <artifactId>hibernate-core</artifactId>
 				  <version>${hibernate.version}</version>
 				</dependency>
-
-				<!--  Groovy Console -->
-				<dependency>
-  				<groupId>org.codehaus.groovy</groupId>
-  				<artifactId>groovy-all</artifactId>
-  				<version>${groovy.version}</version>
-			</dependency>				
+				
 				
 				<!-- JSON Marshalling -->
 				<dependency>

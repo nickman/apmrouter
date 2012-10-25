@@ -19,7 +19,10 @@
 		<dependency>
 		  <groupId>com.google.code.gson</groupId>
 		  <artifactId>gson</artifactId>
-		  <version>2.2.2</version>
+		</dependency>
+		<dependency>
+		  <groupId>org.hibernate</groupId>
+		  <artifactId>hibernate-core</artifactId>
 		</dependency>
 	
 		<dependency>
@@ -39,6 +42,17 @@
 		  <groupId>org.springframework</groupId>
 		  <artifactId>spring-jdbc</artifactId>
 		</dependency>
+		<dependency>
+		  <groupId>org.springframework</groupId>
+		  <artifactId>org.springframework.orm</artifactId>
+		</dependency>
+		<dependency>
+		  <groupId>net.javacrumbs</groupId>
+		  <artifactId>json-xml</artifactId>
+		  <version>1.2</version>
+		</dependency>
+		   
+		
 		<dependency>
 			<groupId>org.apache.camel</groupId>
 			<artifactId>camel-netty</artifactId>
@@ -93,9 +107,19 @@
 			     <artifactId>async-http-client</artifactId>
 			 </dependency>
 			
+			<!--  Groovy Console -->
+			<dependency>
+  				<groupId>org.codehaus.groovy</groupId>
+  				<artifactId>groovy-all</artifactId>
+			</dependency>				
 		
 		
 		<!-- logging -->
+		<dependency>
+			<groupId>log4j</groupId>
+			<artifactId>log4j</artifactId>
+		</dependency>
+		
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
@@ -103,10 +127,6 @@
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-log4j12</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>log4j</groupId>
-			<artifactId>log4j</artifactId>
 		</dependency>
 			<dependency>
 				<groupId>org.javassist</groupId>

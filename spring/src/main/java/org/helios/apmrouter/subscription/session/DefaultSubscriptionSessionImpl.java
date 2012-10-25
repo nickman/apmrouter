@@ -28,8 +28,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.atomic.AtomicLong;
 
+import org.helios.apmrouter.dataservice.json.JsonRequest;
+import org.helios.apmrouter.dataservice.json.JsonResponse;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.subscription.criteria.FailedCriteriaResolutionException;
 import org.helios.apmrouter.subscription.criteria.RecoverableFailedCriteriaResolutionException;
@@ -64,7 +65,8 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 	 */
 	public DefaultSubscriptionSessionImpl(SubscriberChannel subscriberChannel) {
 		super();
-		this.subscriberChannel = subscriberChannel;		
+		this.subscriberChannel = subscriberChannel;
+		this.subscriberChannel.setSubscriptionSession(this);		
 	}
 
 
@@ -81,19 +83,28 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 		resolvedCriteria.clear();
 		criteria.clear();
 	}
+	
+	/**
+	 * Sends a {@link JsonResponse} to the subscriber
+	 * @param response the {@link JsonResponse} to send
+	 */
+	public void send(JsonResponse response) {
+		subscriberChannel.send(response);
+	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.subscription.session.SubscriptionSession#addCriteria(org.helios.apmrouter.subscription.criteria.SubscriptionCriteria, org.helios.apmrouter.subscription.session.SubscriptionSession)
+	 * @see org.helios.apmrouter.subscription.session.SubscriptionSession#addCriteria(org.helios.apmrouter.subscription.criteria.SubscriptionCriteria, org.helios.apmrouter.subscription.session.SubscriptionSession, org.helios.apmrouter.dataservice.json.JsonRequest)
 	 */
 	@Override
-	public long addCriteria(SubscriptionCriteria<?,?,?> criteria, SubscriptionSession session) throws FailedCriteriaResolutionException {
+	public long addCriteria(SubscriptionCriteria<?,?,?> criteria, SubscriptionSession session, JsonRequest request) throws FailedCriteriaResolutionException {
 		if(criteria==null) throw new IllegalArgumentException("The passed criteria was null", new Throwable());
 		this.criteria.add(criteria);
 		try {
-			SubscriptionCriteriaInstance<?> sci = criteria.instantiate();
+			SubscriptionCriteriaInstance<?> sci = criteria.instantiate(request);
 			sci.resolve(session);
 			resolvedCriteria.put(sci.getCriteriaId(), sci);
+			session.send(request.response());
 			return sci.getCriteriaId();
 		} catch (FailedCriteriaResolutionException fce) {
 			if(!(fce instanceof RecoverableFailedCriteriaResolutionException)) {

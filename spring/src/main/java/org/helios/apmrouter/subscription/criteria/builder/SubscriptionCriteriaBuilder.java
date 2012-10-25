@@ -40,8 +40,11 @@ import org.json.JSONException;
  */
 
 public interface SubscriptionCriteriaBuilder<S, F, E> {
-	/** The json key for the event source */
+	/** The json key for the event source (which specifies the builder) */
 	public static final String JSON_EVENT_SOURCE = "es";
+	/** The json key for the event source name */
+	public static final String JSON_EVENT_SOURCE_NAME = "esn";
+	
 	/** The json key for the filter */
 	public static final String JSON_EVENT_FILTER = "f";
 	/** The json key for the extended filter */

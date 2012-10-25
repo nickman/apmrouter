@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.subscription.criteria;
 
+import org.helios.apmrouter.dataservice.json.JsonRequest;
+
 /**
  * <p>Title: SubscriptionCriteria</p>
  * <p>Description: Defines the source and filtering of events delivered to a <b><code>Subscriber</code></b></p>
@@ -88,9 +90,10 @@ public interface SubscriptionCriteria<S, F, E> {
 	
 	/**
 	 * Creates and returns a {@link SubscriptionCriteriaInstance} for this criteria
+	 * @param request The original json request
 	 * @return a SubscriptionCriteriaInstance for this criteria
 	 */
-	public SubscriptionCriteriaInstance instantiate();
+	public SubscriptionCriteriaInstance<?> instantiate(JsonRequest request);
 	
 	
 }
