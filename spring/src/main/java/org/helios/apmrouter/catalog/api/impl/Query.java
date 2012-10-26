@@ -32,8 +32,12 @@ package org.helios.apmrouter.catalog.api.impl;
  * <p><code>org.helios.apmrouter.catalog.api.impl.Query</code></p>
  */
 
-public class Query implements Parsed {
+public class Query implements Parsed<ExtendedDetachedCriteria> {
+	/** The detached criteria for this query */
+	protected ExtendedDetachedCriteria edc = null;
 	
+	/** The JSON key for the entity name */
+	public static final String ENTITY_OP = "ent";
 	/**
 	 * Creates a new Query
 	 * @return a new Query
@@ -49,17 +53,29 @@ public class Query implements Parsed {
 		
 	}
 	
+	public Parsed<ExtendedDetachedCriteria> applyPrimitive(String key, Object value) {
+		log("Applying [" + key + "]:" + value);
+		if(ENTITY_OP.equals(key)) {
+			edc = new ExtendedDetachedCriteria(value.toString());
+		} else {
+			edc.applyPrimitive(key, value);			
+		}
+		return edc;
+	}
 	
 	
-//	String maxSize = attrs.getValue("maxSize");
-//	String fetchSize = attrs.getValue("fetchSize");
-//	String firstResult = attrs.getValue("firstResult");
-//	String cacheEnabled = attrs.getValue("cacheEnabled");
-//	String cacheMode = attrs.getValue("cacheMode");
-//	String flushMode = attrs.getValue("flushMode");
-//	String fetchMode = attrs.getValue("fetchMode");
-//	String lockMode = attrs.getValue("lockMode");
-//	String timeOut = attrs.getValue("timeOut");
-//	String rowCountOnly = attrs.getValue("rowCountOnly");
+	private static void log(Object msg) {
+		System.out.println(msg);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.api.impl.Parsed#get()
+	 */
+	@Override
+	public ExtendedDetachedCriteria get() {
+		return edc;
+	}
+	
 	
 }

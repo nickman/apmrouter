@@ -32,6 +32,7 @@ package org.helios.apmrouter.catalog.api.impl;
  * <p><code>org.helios.apmrouter.catalog.api.impl.Parsed</code></p>
  */
 
-public interface Parsed {
-	
+public interface Parsed<T> {
+	public Parsed<T> applyPrimitive(String op, Object value);
+	public T get();
 }

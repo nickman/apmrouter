@@ -25,7 +25,11 @@
 package org.helios.apmrouter.catalog.api.impl;
 
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.Stack;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.log4j.Logger;
 import org.json.simple.parser.ContentHandler;
@@ -45,7 +49,18 @@ public class JSONQueryParser implements ContentHandler {
 	private static final Logger LOG = Logger.getLogger(JSONQueryParser.class);
 	
 	protected final AtomicInteger ind = new AtomicInteger(0);
-	protected Parsed parsed = null;
+	protected final ThreadLocal<Stack<String>> currentKey = new ThreadLocal<Stack<String>>(){
+		@Override
+		protected Stack<String> initialValue() {
+			return new Stack<String>();
+		}		
+	};
+	protected final ThreadLocal<Stack<Parsed>> parsed = new ThreadLocal<Stack<Parsed>>(){
+		@Override
+		protected Stack<Parsed> initialValue() {
+			return new Stack<Parsed>();
+		}
+	};
 	
 	private void log(Object msg) {
 		StringBuilder b = new StringBuilder();
@@ -54,12 +69,12 @@ public class JSONQueryParser implements ContentHandler {
 		System.out.println(b);
 	}
 	
-	public void parse(String jsonText) {
+	public ExtendedDetachedCriteria parse(String jsonText) {
 		JSONParser parser = new JSONParser();
-		ind.set(0);
-		parsed = null;
+		ind.set(0);		
 		try {
 			parser.parse(jsonText, this);
+			return (ExtendedDetachedCriteria)parsed.get().pop();
 		} catch (Exception ex) {
 			throw new RuntimeException("Parser failure", ex);
 		}
@@ -73,6 +88,8 @@ public class JSONQueryParser implements ContentHandler {
 	public boolean endArray() throws ParseException, IOException {
 		ind.decrementAndGet();
 		log("End Array");		
+		Parsed<Object[]> arrayAccumulator = parsed.get().pop();
+		parsed.get().peek().applyPrimitive(currentKey.get().peek(), arrayAccumulator.get());
 		return true;
 	}
 
@@ -105,6 +122,7 @@ public class JSONQueryParser implements ContentHandler {
 	public boolean endObjectEntry() throws ParseException, IOException {
 		ind.decrementAndGet();
 		log("End ObjectEntry");		
+		currentKey.get().pop();
 		return true;
 	}
 
@@ -115,6 +133,7 @@ public class JSONQueryParser implements ContentHandler {
 	@Override
 	public boolean primitive(Object value) throws ParseException, IOException {
 		log("Primitive:" + value);
+		parsed.get().peek().applyPrimitive(currentKey.get().peek(), value);
 		return true;
 	}
 
@@ -126,6 +145,9 @@ public class JSONQueryParser implements ContentHandler {
 	public boolean startArray() throws ParseException, IOException {
 		log("Start Array");
 		ind.incrementAndGet();
+		parsed.get().push(new ArrayAccumulator());
+		
+		
 		return true;
 	}
 
@@ -158,10 +180,11 @@ public class JSONQueryParser implements ContentHandler {
 	public boolean startObjectEntry(String entryName) throws ParseException, IOException {
 		log("Start Object Entry [" + entryName + "]");
 		ind.incrementAndGet();
-		if(parsed==null) {
-			parsed = ParsedFactory.createPrimary(entryName);
-			log("Created [" + parsed.getClass().getSimpleName() + "]");
+		if(parsed.get().size()==0) {
+			parsed.get().push(ParsedFactory.createPrimary(entryName));
+			log("=== Created [" + parsed.get().peek().getClass().getSimpleName() + "]");		
 		}
+		currentKey.get().push(entryName);
 		return true;
 	}
 

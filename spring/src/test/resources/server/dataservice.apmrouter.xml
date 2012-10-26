@@ -20,6 +20,8 @@
        "  >
 	
 	
+	<tx:annotation-driven transaction-manager="txManager"  />
+	
 	<context:component-scan base-package="org.helios" >
 		<context:include-filter type="annotation" expression="org.helios.apmrouter.dataservice.json.JSONRequestHandler"/>
 		<context:include-filter type="assignable" expression="org.helios.apmrouter.subscription.criteria.builder.AbstractSubscriptionCriteriaBuilder"/>
