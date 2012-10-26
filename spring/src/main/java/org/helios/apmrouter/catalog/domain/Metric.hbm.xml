@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated Oct 25, 2012 9:05:54 PM by Hibernate Tools 3.6.0 -->
+<hibernate-mapping>
+    <class name="org.helios.apmrouter.catalog.domain.Metric" table="METRIC" schema="PUBLIC" catalog="DB">
+        <id name="metricId" type="java.lang.Long">
+            <column name="METRIC_ID" />
+            <generator class="identity" />
+        </id>
+        <many-to-one name="traceType" class="org.helios.apmrouter.catalog.domain.TraceType" fetch="select">
+            <column name="TYPE_ID" not-null="true">
+                <comment>The metric type of the metric</comment>
+            </column>
+        </many-to-one>
+        <many-to-one name="agent" class="org.helios.apmrouter.catalog.domain.Agent" fetch="select">
+            <column name="AGENT_ID" not-null="true">
+                <comment>The agent identifier for this metric</comment>
+            </column>
+        </many-to-one>
+        <property name="namespace" type="string">
+            <column name="NAMESPACE" length="200">
+                <comment>The namespace of the metric</comment>
+            </column>
+        </property>
+        <property name="level" type="short">
+            <column name="LEVEL" not-null="true">
+                <comment>The number of namespaces in the namespace</comment>
+            </column>
+        </property>
+        <property name="name" type="string">
+            <column name="NAME" length="60">
+                <comment>The point of the metric name</comment>
+            </column>
+        </property>
+        <property name="firstSeen" type="timestamp">
+            <column name="FIRST_SEEN" length="23" not-null="true">
+                <comment>The first time this metric was seen</comment>
+            </column>
+        </property>
+        <property name="lastSeen" type="timestamp">
+            <column name="LAST_SEEN" length="23">
+                <comment>The last time this metric was seen</comment>
+            </column>
+        </property>
+    </class>
+</hibernate-mapping>

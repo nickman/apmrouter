@@ -84,7 +84,7 @@ public class JsonRequest {
 	}	
 	
 	/**
-	 * Adds an op argument to the mao
+	 * Adds an op argument to the map
 	 * @param key The argument key (if the args was an array, this is the sequence, if it was a map, this is the key)
 	 * @param value The argument value
 	 */

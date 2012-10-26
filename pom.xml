@@ -42,7 +42,7 @@
 		<gson.version>2.2.2</gson.version>
 		<json-lib.version>2.4</json-lib.version>
 		<xom.version>1.2.5</xom.version>
-		<groovy.version>2.0.5</groovy.version>
+		<groovy.version>2.0.1</groovy.version>
 		<json-simple.version>1.1.1</json-simple.version>
 	</properties>
 	<dependencyManagement>

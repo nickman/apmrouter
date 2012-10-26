@@ -34,6 +34,8 @@
     </bean>
  
     <tx:annotation-driven />
+    
+    <bean id="jqp" class="org.helios.apmrouter.catalog.api.impl.JSONQueryParser" />
  
 <!-- 
     <bean id="transactionManager"

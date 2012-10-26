@@ -1,0 +1,714 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html>
+	<head>
+		<title>Hibernate Mappings - Table Info</title>
+		<link rel="stylesheet" type="text/css" href="../../assets/doc-style.css" title="Style"/>
+	</head>
+	<body>
+
+	<div id="header">
+
+		<div id="logo">
+			<a href="http://www.hibernate.org/" target="_blank">
+				<img src="../../assets/hibernate_logo.gif" alt="Hibernate"/>
+			</a>
+		</div>
+
+		<ul><li><a href="../index.html" target="_top">Tables</a></li><li><a href="../../entities/index.html" target="_top">Entities</a></li></ul>
+
+		<hr/>
+
+	</div>
+
+		<h4>Schema DB.PUBLIC</h4>
+		<h2>Table METRIC</h2>
+
+			<p></p>
+
+		<table id="column_summary">
+			<thead>
+				<tr>
+					<th class="MainTableHeading" colspan="7">
+						Column Summary
+					</th>
+				</tr>
+				<tr>
+					<th style="width: 14%">
+						Name
+					</th>
+					<th style="width: 14%">
+						SqlType
+					</th>
+					<th style="width: 14%">
+						Length
+					</th>
+					<th style="width: 14%">
+						Precision
+					</th>
+					<th style="width: 14%">
+						Scale
+					</th>
+					<th style="width: 14%">
+						Nullable
+					</th>
+					<th style="width: 14%">
+						Unique
+					</th>
+				</tr>
+			</thead>
+			<tbody>
+					<tr>
+						<td>
+							<a href="#column_detail_METRIC_ID">
+								METRIC_ID
+							</a>
+						</td>
+						<td>
+							bigint
+						</td>
+						<td>
+							255
+						</td>
+						<td>
+							19
+						</td>
+						<td>
+							2
+						</td>
+						<td>
+							false
+						</td>
+						<td>
+							true
+						</td>
+					</tr>
+					<tr>
+						<td>
+							<a href="#column_detail_AGENT_ID">
+								AGENT_ID
+							</a>
+						</td>
+						<td>
+							N/D
+						</td>
+						<td>
+							255
+						</td>
+						<td>
+							19
+						</td>
+						<td>
+							2
+						</td>
+						<td>
+							false
+						</td>
+						<td>
+							false
+						</td>
+					</tr>
+					<tr>
+						<td>
+							<a href="#column_detail_TYPE_ID">
+								TYPE_ID
+							</a>
+						</td>
+						<td>
+							smallint
+						</td>
+						<td>
+							255
+						</td>
+						<td>
+							19
+						</td>
+						<td>
+							2
+						</td>
+						<td>
+							false
+						</td>
+						<td>
+							false
+						</td>
+					</tr>
+					<tr>
+						<td>
+							<a href="#column_detail_NAMESPACE">
+								NAMESPACE
+							</a>
+						</td>
+						<td>
+							varchar(200)
+						</td>
+						<td>
+							200
+						</td>
+						<td>
+							19
+						</td>
+						<td>
+							2
+						</td>
+						<td>
+							true
+						</td>
+						<td>
+							false
+						</td>
+					</tr>
+					<tr>
+						<td>
+							<a href="#column_detail_LEVEL">
+								LEVEL
+							</a>
+						</td>
+						<td>
+							smallint
+						</td>
+						<td>
+							255
+						</td>
+						<td>
+							19
+						</td>
+						<td>
+							2
+						</td>
+						<td>
+							false
+						</td>
+						<td>
+							false
+						</td>
+					</tr>
+					<tr>
+						<td>
+							<a href="#column_detail_NAME">
+								NAME
+							</a>
+						</td>
+						<td>
+							varchar(60)
+						</td>
+						<td>
+							60
+						</td>
+						<td>
+							19
+						</td>
+						<td>
+							2
+						</td>
+						<td>
+							true
+						</td>
+						<td>
+							false
+						</td>
+					</tr>
+					<tr>
+						<td>
+							<a href="#column_detail_FIRST_SEEN">
+								FIRST_SEEN
+							</a>
+						</td>
+						<td>
+							timestamp
+						</td>
+						<td>
+							23
+						</td>
+						<td>
+							19
+						</td>
+						<td>
+							2
+						</td>
+						<td>
+							false
+						</td>
+						<td>
+							false
+						</td>
+					</tr>
+					<tr>
+						<td>
+							<a href="#column_detail_LAST_SEEN">
+								LAST_SEEN
+							</a>
+						</td>
+						<td>
+							timestamp
+						</td>
+						<td>
+							23
+						</td>
+						<td>
+							19
+						</td>
+						<td>
+							2
+						</td>
+						<td>
+							true
+						</td>
+						<td>
+							false
+						</td>
+					</tr>
+			</tbody>
+		</table>
+
+		<table id="primary_key">
+			<thead>
+				<tr>
+					<th class="MainTableHeading" colspan="2">
+						Primary Key
+					</th>
+				</tr>
+				<tr>
+					<th style="width: 50%">
+						Name
+					</th>
+					<th style="width: 50%">
+						Columns
+					</th>
+				</tr>
+			</thead>
+			<tbody>
+					<tr>
+						<td>
+								CONSTRAINT_8
+						</td>
+						<td>
+								<a href="#column_detail_METRIC_ID">
+									METRIC_ID
+								</a>
+						</td>
+					</tr>
+			</tbody>
+		</table>
+
+			<table id="foreign_keys">
+				<thead>
+					<tr>
+						<th class="MainTableHeading" colspan="3">
+							Foreign Keys
+						</th>
+					</tr>
+					<tr>
+						<th style="width: 33%">
+							Name
+						</th>
+						<th style="width: 33%">
+							Referenced Table
+						</th>
+						<th style="width: 33%">
+							Columns
+						</th>
+					</tr>
+				</thead>
+				<tbody>
+						<tr>
+							<td>
+								METRIC_TRACE_TYPE_FK
+							</td>
+							<td>
+								<a href="TRACE_TYPE.html" target="generalFrame">
+									TRACE_TYPE
+								</a>
+							</td>
+							<td>
+									<a href="#column_detail_TYPE_ID">
+										TYPE_ID
+									</a>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								METRIC_AGENT_FK
+							</td>
+							<td>
+								<a href="AGENT.html" target="generalFrame">
+									AGENT
+								</a>
+							</td>
+							<td>
+									<a href="#column_detail_AGENT_ID">
+										AGENT_ID
+									</a>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								FK8758E9B0ECADFBF2
+							</td>
+							<td>
+								<a href="AGENT.html" target="generalFrame">
+									AGENT
+								</a>
+							</td>
+							<td>
+									<a href="#column_detail_AGENT_ID">
+										AGENT_ID
+									</a>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								FK8758E9B0B58DE2B7
+							</td>
+							<td>
+								<a href="TRACE_TYPE.html" target="generalFrame">
+									TRACE_TYPE
+								</a>
+							</td>
+							<td>
+									<a href="#column_detail_TYPE_ID">
+										TYPE_ID
+									</a>
+							</td>
+						</tr>
+				</tbody>
+			</table>
+			
+			<table id="unique_keys">
+				<thead>
+					<tr>
+						<th class="MainTableHeading" colspan="2">
+							Unique Keys
+						</th>
+					</tr>
+					<tr>
+						<th style="width: 50%">
+							Name
+						</th>
+						<th style="width: 50%">
+							Columns
+						</th>
+					</tr>
+				</thead>
+				<tbody>
+						<tr>
+							<td>
+								PRIMARY_KEY_8
+							</td>
+							<td>
+									<a href="#column_detail_METRIC_ID">
+										METRIC_ID
+									</a>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								METRIC_AK
+							</td>
+							<td>
+									<a href="#column_detail_AGENT_ID">
+										AGENT_ID
+									</a>
+									<a href="#column_detail_TYPE_ID">
+										TYPE_ID
+									</a>
+									<a href="#column_detail_NAMESPACE">
+										NAMESPACE
+									</a>
+									<a href="#column_detail_NAME">
+										NAME
+									</a>
+							</td>
+						</tr>
+				</tbody>
+			</table>
+		
+			<table id="indexes">
+				<thead>
+					<tr>
+						<th class="MainTableHeading" colspan="2">
+							Indexes
+						</th>
+					</tr>
+					<tr>
+						<th style="width: 50%">
+							Name
+						</th>
+						<th style="width: 50%">
+							Columns
+						</th>
+					</tr>
+				</thead>
+				<tbody>
+						<tr>
+							<td>
+								METRIC_TRACE_TYPE_FK_INDEX_8
+							</td>
+							<td>
+									<a href="#column_detail_TYPE_ID">
+										TYPE_ID
+									</a>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								METRIC_AGENT_FK_INDEX_8
+							</td>
+							<td>
+									<a href="#column_detail_AGENT_ID">
+										AGENT_ID
+									</a>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								METRIC_NAMES
+							</td>
+							<td>
+									<a href="#column_detail_AGENT_ID">
+										AGENT_ID
+									</a>
+									<a href="#column_detail_NAMESPACE">
+										NAMESPACE
+									</a>
+									<a href="#column_detail_NAME">
+										NAME
+									</a>
+							</td>
+						</tr>
+				</tbody>
+			</table>
+		
+			<p id="column_detail" class="MainTableHeading">
+				Column Detail
+			</p>
+				
+				<h3 id="column_detail_METRIC_ID">METRIC_ID</h3>
+				
+				<ul>
+					<li>
+						<strong>Type:</strong> bigint
+					</li>
+					<li>
+						<strong>Length:</strong> 255
+					</li>
+					<li>
+						<strong>Precision:</strong> 19
+					</li>
+					<li>
+						<strong>Scale:</strong> 2
+					</li>
+					<li>
+						<strong>Nullable:</strong> false
+					</li>
+					<li>
+						<strong>Unique:</strong> true
+					</li>
+					<li>
+						<strong>Comment:</strong> The unique id of the metric.
+					</li>
+				</ul>
+
+
+				<hr/>
+				<h3 id="column_detail_AGENT_ID">AGENT_ID</h3>
+				
+				<ul>
+					<li>
+						<strong>Type:</strong> N/D
+					</li>
+					<li>
+						<strong>Length:</strong> 255
+					</li>
+					<li>
+						<strong>Precision:</strong> 19
+					</li>
+					<li>
+						<strong>Scale:</strong> 2
+					</li>
+					<li>
+						<strong>Nullable:</strong> false
+					</li>
+					<li>
+						<strong>Unique:</strong> false
+					</li>
+					<li>
+						<strong>Comment:</strong> The  agent identifier for this metric
+					</li>
+				</ul>
+
+
+				<hr/>
+				<h3 id="column_detail_TYPE_ID">TYPE_ID</h3>
+				
+				<ul>
+					<li>
+						<strong>Type:</strong> smallint
+					</li>
+					<li>
+						<strong>Length:</strong> 255
+					</li>
+					<li>
+						<strong>Precision:</strong> 19
+					</li>
+					<li>
+						<strong>Scale:</strong> 2
+					</li>
+					<li>
+						<strong>Nullable:</strong> false
+					</li>
+					<li>
+						<strong>Unique:</strong> false
+					</li>
+					<li>
+						<strong>Comment:</strong> The metric type of the metric
+					</li>
+				</ul>
+
+
+				<hr/>
+				<h3 id="column_detail_NAMESPACE">NAMESPACE</h3>
+				
+				<ul>
+					<li>
+						<strong>Type:</strong> varchar(200)
+					</li>
+					<li>
+						<strong>Length:</strong> 200
+					</li>
+					<li>
+						<strong>Precision:</strong> 19
+					</li>
+					<li>
+						<strong>Scale:</strong> 2
+					</li>
+					<li>
+						<strong>Nullable:</strong> true
+					</li>
+					<li>
+						<strong>Unique:</strong> false
+					</li>
+					<li>
+						<strong>Comment:</strong> The namespace of the metric
+					</li>
+				</ul>
+
+
+				<hr/>
+				<h3 id="column_detail_LEVEL">LEVEL</h3>
+				
+				<ul>
+					<li>
+						<strong>Type:</strong> smallint
+					</li>
+					<li>
+						<strong>Length:</strong> 255
+					</li>
+					<li>
+						<strong>Precision:</strong> 19
+					</li>
+					<li>
+						<strong>Scale:</strong> 2
+					</li>
+					<li>
+						<strong>Nullable:</strong> false
+					</li>
+					<li>
+						<strong>Unique:</strong> false
+					</li>
+					<li>
+						<strong>Comment:</strong> The number of namespaces in the namespace
+					</li>
+				</ul>
+
+
+				<hr/>
+				<h3 id="column_detail_NAME">NAME</h3>
+				
+				<ul>
+					<li>
+						<strong>Type:</strong> varchar(60)
+					</li>
+					<li>
+						<strong>Length:</strong> 60
+					</li>
+					<li>
+						<strong>Precision:</strong> 19
+					</li>
+					<li>
+						<strong>Scale:</strong> 2
+					</li>
+					<li>
+						<strong>Nullable:</strong> true
+					</li>
+					<li>
+						<strong>Unique:</strong> false
+					</li>
+					<li>
+						<strong>Comment:</strong> The point of the metric name
+					</li>
+				</ul>
+
+
+				<hr/>
+				<h3 id="column_detail_FIRST_SEEN">FIRST_SEEN</h3>
+				
+				<ul>
+					<li>
+						<strong>Type:</strong> timestamp
+					</li>
+					<li>
+						<strong>Length:</strong> 23
+					</li>
+					<li>
+						<strong>Precision:</strong> 19
+					</li>
+					<li>
+						<strong>Scale:</strong> 2
+					</li>
+					<li>
+						<strong>Nullable:</strong> false
+					</li>
+					<li>
+						<strong>Unique:</strong> false
+					</li>
+					<li>
+						<strong>Comment:</strong> The first time this metric was seen
+					</li>
+				</ul>
+
+
+				<hr/>
+				<h3 id="column_detail_LAST_SEEN">LAST_SEEN</h3>
+				
+				<ul>
+					<li>
+						<strong>Type:</strong> timestamp
+					</li>
+					<li>
+						<strong>Length:</strong> 23
+					</li>
+					<li>
+						<strong>Precision:</strong> 19
+					</li>
+					<li>
+						<strong>Scale:</strong> 2
+					</li>
+					<li>
+						<strong>Nullable:</strong> true
+					</li>
+					<li>
+						<strong>Unique:</strong> false
+					</li>
+					<li>
+						<strong>Comment:</strong> The last time this metric was seen
+					</li>
+				</ul>
+
+
+				<hr/>
+				
+
+	</body>
+</html>
