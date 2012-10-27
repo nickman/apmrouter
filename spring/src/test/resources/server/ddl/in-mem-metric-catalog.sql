@@ -11,8 +11,9 @@ drop sequence IF EXISTS  SEQ_METRIC;
 
 CREATE MEMORY TEMPORARY TABLE PUBLIC.AGENT(
     AGENT_ID INTEGER NOT NULL IDENTITY COMMENT 'The unqiue agent identifier',
-    HOST_ID INTEGER NOT NULL COMMENT 'The id of the host this agent is running om.',
+    HOST_ID INTEGER NOT NULL COMMENT 'The id of the host this agent is running on.',
     NAME VARCHAR2(120) NOT NULL COMMENT 'The name of the agent.',
+    MIN_LEVEL SMALLINT NOT NULL COMMENT 'The lowest level of metrics for this agent.',
     FIRST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The first time the agent was seen.',
     LAST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The last time the agent connected.',
     CONNECTED TIMESTAMP NULL COMMENT 'The time the agent connected or null if not connected.',
