@@ -42,6 +42,7 @@ import org.json.simple.parser.ParseException;
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.catalog.api.impl.JSONQueryParser</code></p>
+ * <p>Note: Rolling back to NamedQueries only.
  */
 
 public class JSONQueryParser implements ContentHandler {
