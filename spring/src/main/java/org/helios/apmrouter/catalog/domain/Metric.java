@@ -1,6 +1,6 @@
 package org.helios.apmrouter.catalog.domain;
 
-// Generated Oct 25, 2012 9:05:53 PM by Hibernate Tools 3.6.0
+// Generated Oct 27, 2012 1:30:47 PM by Hibernate Tools 3.6.0
 
 import java.util.Date;
 

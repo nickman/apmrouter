@@ -15,9 +15,12 @@ xmlQuery = """
     </Projections>
 </Query>
 """;
+
+
+// "ent" : "agent", "fs" : 20, "t" : 5, "c" : false, "mr" : 100, "fr" : 0, "fmd" : ["foo", "JOIN"]
 jsonQuery = """
 { "q" {
-    "ent" : "agent", "fs" : 20, "t" : 5, "c" : false, "mr" : 100, "fr" : 0, "fmd" : ["foo", "JOIN"]
+    "ent" : "agent", "fs" : 20, "t" : 5, "proj" : "rc"
 }}
 """;
 

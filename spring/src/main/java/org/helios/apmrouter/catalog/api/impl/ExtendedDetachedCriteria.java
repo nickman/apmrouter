@@ -35,6 +35,7 @@ import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -44,7 +45,7 @@ import org.hibernate.FetchMode;
 import org.hibernate.FlushMode;
 import org.hibernate.Session;
 import org.hibernate.criterion.DetachedCriteria;
-import org.hibernate.impl.CriteriaImpl;
+import org.hibernate.criterion.ProjectionList;
 
 /**
  * <p>Title: ExtendedDetachedCriteria</p>
@@ -55,7 +56,7 @@ import org.hibernate.impl.CriteriaImpl;
  * <p><code>org.helios.apmrouter.catalog.api.impl.ExtendedDetachedCriteria</code></p>
  */
 
-public class ExtendedDetachedCriteria extends DetachedCriteria implements Parsed<ExtendedDetachedCriteria>  {
+public class ExtendedDetachedCriteria extends DetachedCriteria implements Parsed<ExtendedDetachedCriteria>, ExecutableQuery  {
 
 	/**  */
 	private static final long serialVersionUID = -1135481743060334307L;
@@ -78,6 +79,13 @@ public class ExtendedDetachedCriteria extends DetachedCriteria implements Parsed
 	public static final String EXT_CACHEREGION = "cr";
 	/** The op code to set the fetch mode for this query */
 	public static final String EXT_FETCHMODE = "fmd";
+	/** The op code to to start setting projections on the query */
+	public static final String EXT_PROJS = "projs";
+	/** The op code to to add a projection to the projection list of this query */
+	public static final String EXT_PROJ = "proj";
+	/** The op code to to add a criterion to this query */
+	public static final String EXT_CRIT = "cond";
+	
 	
 	/** The recognized op codes */
 	public static final Set<String> ATTR_OP_CODES;
@@ -94,6 +102,9 @@ public class ExtendedDetachedCriteria extends DetachedCriteria implements Parsed
 	private final Map<String, Serializable> extendedCriteria = new HashMap<String, Serializable>();
 	/** a map of {@link Criteria} methods keyed by method name */
 	private static final Map<String, Method> criteriaMethods = new HashMap<String, Method>();
+	
+	/** The running projection list for this query */
+	protected ProjectionListAccumulator projectionList = null;
 	
 	static {
 		Set<String> tmp = new HashSet<String>();
@@ -123,28 +134,49 @@ public class ExtendedDetachedCriteria extends DetachedCriteria implements Parsed
 			}
 		}
 		for(Method m: ExtendedDetachedCriteria.class.getDeclaredMethods()) {
-			saveHandle(m);
+			if(!Modifier.isStatic(m.getModifiers()) && m.getName().startsWith("set")) {
+				saveHandle(m);
+			}
 		}
+		saveHandle(EXT_PROJS, ExtendedDetachedCriteria.class, "setProjection", Object[].class);
+		saveHandle(EXT_PROJ, ExtendedDetachedCriteria.class, "setProjection", Object[].class);
+		saveHandle(EXT_CRIT, ExtendedDetachedCriteria.class, "createCriteria", Object.class);
 //		System.out.println("Criteria Codes:" + criteriaMethodHandles.keySet());
 //		System.out.println("My Codes:" + myMethodHandles.keySet());
 	}
 	
-	private static void saveHandle(Method method){
+	private static void saveHandle(String key, Class<?> clazz, String name, Class<?>...pattern){
 		try {
-			if(!Modifier.isStatic(method.getModifiers()) && method.getName().startsWith("set")) {
-				MethodType desc = MethodType.methodType(method.getDeclaringClass(), method.getParameterTypes());
-				MethodHandle mh = MethodHandles.lookup().findVirtual(method.getDeclaringClass(), method.getName(), desc);
-				String key = (method.getName().equals("setFetchMode")) ? "fmd" : getKey(method.getName());
-				myMethodHandles.put(key, mh);
-				if(method.getDeclaringClass()!=ExtendedDetachedCriteria.class) {
-					System.out.println(method.toGenericString());
-				}
-				
+			Method m = null;
+			try {
+				m = clazz.getDeclaredMethod(name, pattern);
+			} catch (NoSuchMethodException nex) {
+				m = clazz.getMethod(name, pattern);
+			}
+			saveHandle(key, m);
+		} catch (Exception ex) {
+			throw new RuntimeException(ex);
+		}
+	}
+	
+	private static void saveHandle(Method method){
+		saveHandle(null, method);
+	}
+	
+	private static void saveHandle(String dkey, Method method){
+		try {
+			MethodType desc = MethodType.methodType(method.getReturnType(), method.getParameterTypes());
+			MethodHandle mh = MethodHandles.lookup().findVirtual(method.getDeclaringClass(), method.getName(), desc);
+			String key = dkey!=null ? dkey : (method.getName().equals("setFetchMode")) ? "fmd" : getKey(method.getName());
+			myMethodHandles.put(key, mh);
+			if(method.getDeclaringClass()!=ExtendedDetachedCriteria.class) {
+				System.out.println(method.toGenericString());
+			}
+			if(method.getDeclaringClass()==Criteria.class) {
 				Method cmethod = criteriaMethods.get(method.getName());
 				desc = MethodType.methodType(Criteria.class, cmethod.getParameterTypes());
 				mh = MethodHandles.lookup().findVirtual(Criteria.class, method.getName(), desc);
 				criteriaMethodHandles.put(key, mh);
-				
 			}
 		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
@@ -158,21 +190,45 @@ public class ExtendedDetachedCriteria extends DetachedCriteria implements Parsed
 	/** The last int of upper case letters */
 	private static final int UPPER = 'Z';
 	
+	@Override
 	public Parsed<ExtendedDetachedCriteria> applyPrimitive(String op, Object value) {
+		Object nestedReturn = null;
 		try {
 			if(value.getClass().isArray()) {
 				Object[] args = new Object[Array.getLength(value)+1];
 				args[0] = this;
 				System.arraycopy(value, 0, args, 1, args.length-1);
-				myMethodHandles.get(op).invokeWithArguments(args);
+				nestedReturn = myMethodHandles.get(op).invokeWithArguments(args);
 			} else {
-				myMethodHandles.get(op).invoke(this, value);
+				nestedReturn = myMethodHandles.get(op).invoke(this, value);
 			}
-			
+			if(nestedReturn!=null && nestedReturn!=this && nestedReturn instanceof Parsed) {
+				return (Parsed<ExtendedDetachedCriteria>)nestedReturn;
+			}
 			return this;
 		} catch (Throwable t)  {
 			throw new RuntimeException(t);
 		}
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.api.impl.ExecutableQuery#execute(org.hibernate.Session)
+	 */
+	@Override
+	public List<?> execute(Session session) {
+		Criteria criteria = getExecutableCriteria(session);
+		return criteria.list();
+	}	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.api.impl.ExecutableQuery#unique(org.hibernate.Session)
+	 */
+	@Override
+	public Object unique(Session session) {
+		Criteria criteria = getExecutableCriteria(session);
+		return criteria.uniqueResult();		
 	}
 	
 	private static String getKey(String methodName) {
@@ -188,7 +244,7 @@ public class ExtendedDetachedCriteria extends DetachedCriteria implements Parsed
 
 	/**
 	 * Creates a new ExtendedDetachedCriteria
-	 * @param entityName
+	 * @param entityName the entity name this query is for
 	 */
 	public ExtendedDetachedCriteria(String entityName) {
 		super(entityName);
@@ -196,29 +252,37 @@ public class ExtendedDetachedCriteria extends DetachedCriteria implements Parsed
 
 	/**
 	 * Creates a new ExtendedDetachedCriteria
-	 * @param entityName
-	 * @param alias
+	 * @param entityName the entity name this query is for
+	 * @param alias the entity alias
 	 */
 	public ExtendedDetachedCriteria(String entityName, String alias) {
 		super(entityName, alias);
 	}
 
 	/**
-	 * Creates a new ExtendedDetachedCriteria
-	 * @param impl
-	 * @param criteria
+	 * Sets or adds a projection
+	 * @param args The projection op arguments
+	 * @return the projection list parsed.
 	 */
-	public ExtendedDetachedCriteria(CriteriaImpl impl, Criteria criteria) {
-		super(impl, criteria);
+	public Parsed<ProjectionList> setProjection(Object...args) {
+		if(projectionList==null) {
+			projectionList = new ProjectionListAccumulator();
+		}
+		Object[] pargs = null;
+		if(args.length>1) {
+			pargs = new Object[args.length-1];
+			System.arraycopy(args, 1, pargs, 0, pargs.length);
+		} 
+		return projectionList.applyPrimitive((String)args[0], pargs); 
 	}
-	
-	
 	
 	/**
 	 * {@inheritDoc}
 	 * @see org.hibernate.criterion.DetachedCriteria#getExecutableCriteria(org.hibernate.Session)
 	 */
+	@Override
 	public Criteria getExecutableCriteria(Session session) {
+		if(projectionList!=null) this.setProjection(projectionList.get());
 		Criteria criteria = super.getExecutableCriteria(session);
 		for(Map.Entry<String, Serializable> ext: extendedCriteria.entrySet()) {
 			try {
@@ -231,6 +295,25 @@ public class ExtendedDetachedCriteria extends DetachedCriteria implements Parsed
 	}
 	
 	public static void main(String[] args) {}
+	
+	/**
+	 * Returns a new nested detached criteria
+	 * @param value The value to create the with  
+	 * @return a new ExtendedDetachedCriteria
+	 */
+	public ExtendedDetachedCriteria createCriteria(Object value) {
+		try {
+			if(value.getClass().isArray()) {
+				
+				Object[] args = new Object[Array.getLength(value)];
+				System.arraycopy(value, 0, args, 0, args.length);
+				return new ExtendedDetachedCriteria((String)args[0], (String)args[1]);
+			}
+			return new ExtendedDetachedCriteria((String)value);
+		} catch (Throwable t)  {
+			throw new RuntimeException(t);
+		}
+	}
 	
 	/**
 	 * Specify an association fetching strategy for an association or a
@@ -350,6 +433,8 @@ public class ExtendedDetachedCriteria extends DetachedCriteria implements Parsed
 	public ExtendedDetachedCriteria get() {		
 		return this;
 	}
+
+
 
 	
 

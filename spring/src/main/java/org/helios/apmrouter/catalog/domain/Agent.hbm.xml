@@ -1,50 +1,49 @@
 <?xml version="1.0"?>
 <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
-"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
-<!-- Generated Oct 25, 2012 9:05:54 PM by Hibernate Tools 3.6.0 -->
+                                   "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated Oct 27, 2012 1:30:47 PM by Hibernate Tools 3.6.0 -->
 <hibernate-mapping>
-    <class name="org.helios.apmrouter.catalog.domain.Agent" table="AGENT" schema="PUBLIC" catalog="DB">
-        <id name="agentId" type="java.lang.Integer">
-            <column name="AGENT_ID" />
-            <generator class="identity" />
-        </id>
-        <many-to-one name="host" class="org.helios.apmrouter.catalog.domain.Host" fetch="select">
-            <column name="HOST_ID" not-null="true">
-                <comment>The id of the host this agent is running om.</comment>
-            </column>
-        </many-to-one>
-        <property name="name" type="string">
-            <column name="NAME" length="120" not-null="true" unique="true">
-                <comment>The name of the agent.</comment>
-            </column>
-        </property>
-        <property name="firstConnected" type="timestamp">
-            <column name="FIRST_CONNECTED" length="23" not-null="true">
-                <comment>The first time the agent was seen.</comment>
-            </column>
-        </property>
-        <property name="lastConnected" type="timestamp">
-            <column name="LAST_CONNECTED" length="23" not-null="true">
-                <comment>The last time the agent connected.</comment>
-            </column>
-        </property>
-        <property name="connected" type="timestamp">
-            <column name="CONNECTED" length="23">
-                <comment>The time the agent connected or null if not connected.</comment>
-            </column>
-        </property>
-        <property name="uri" type="string">
-            <column name="URI" length="120">
-                <comment>The listening URI of the connected agent.</comment>
-            </column>
-        </property>
-        <set name="metrics" table="METRIC" inverse="true" lazy="true" fetch="select">
-            <key>
-                <column name="AGENT_ID" not-null="true">
-                    <comment>The agent identifier for this metric</comment>
-                </column>
-            </key>
-            <one-to-many class="org.helios.apmrouter.catalog.domain.Metric" />
-        </set>
-    </class>
+ <class catalog="DB" name="org.helios.apmrouter.catalog.domain.Agent"
+  schema="PUBLIC" table="AGENT">
+  <id name="agentId" type="java.lang.Integer">
+   <column name="AGENT_ID"/>
+   <generator class="identity"/>
+  </id>
+  <many-to-one class="org.helios.apmrouter.catalog.domain.Host"
+   fetch="join" insert="false" name="host" not-null="true" update="false">
+   <column name="HOST_ID" not-null="true">
+    <comment>The id of the host this agent is running om.</comment>
+   </column>
+  </many-to-one>
+  <property generated="never" lazy="false" name="name" type="string">
+   <column length="120" name="NAME" not-null="true">
+    <comment>The name of the agent.</comment>
+   </column>
+  </property>
+  <property generated="never" lazy="false" name="firstConnected" type="timestamp">
+   <column length="23" name="FIRST_CONNECTED" not-null="true">
+    <comment>The first time the agent was seen.</comment>
+   </column>
+  </property>
+  <property generated="never" lazy="false" name="lastConnected" type="timestamp">
+   <column length="23" name="LAST_CONNECTED" not-null="true">
+    <comment>The last time the agent connected.</comment>
+   </column>
+  </property>
+  <property generated="never" lazy="false" name="connected" type="timestamp">
+   <column length="23" name="CONNECTED">
+    <comment>The time the agent connected or null if not connected.</comment>
+   </column>
+  </property>
+  <property generated="never" lazy="false" name="uri" type="string">
+   <column length="120" name="URI">
+    <comment>The listening URI of the connected agent.</comment>
+   </column>
+  </property>
+  <property generated="never" lazy="false" name="minLevel" type="short">
+   <column name="MIN_LEVEL" not-null="true">
+    <comment>The lowest level of metrics for this agent.</comment>
+   </column>
+  </property>
+ </class>
 </hibernate-mapping>

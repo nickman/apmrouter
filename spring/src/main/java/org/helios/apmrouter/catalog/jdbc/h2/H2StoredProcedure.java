@@ -52,8 +52,8 @@ public class H2StoredProcedure {
 	 */
 	public static void hostAgentState(Connection conn, boolean connected, String host, String ip, String agent, String agentURI) throws SQLException {
 		if(connected) {
-			int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", 1, host, ip).intValue();
-			int agentId = key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?, CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", 1, hostId, agent, agentURI).intValue();
+			int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", new int[]{1}, host, ip)[0].intValue();
+			int agentId = key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?, CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", new int[]{1}, hostId, agent, agentURI)[0].intValue();
 			PreparedStatement  ps = null;
 			try {
 				ps = conn.prepareStatement("UPDATE HOST SET CONNECTED = CURRENT_TIMESTAMP WHERE HOST_ID = ?");
@@ -70,8 +70,8 @@ public class H2StoredProcedure {
 				if(ps!=null) try { ps.close(); } catch (Exception ex) {}
 			}
 		} else {
-			int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL)", 1, host, ip).intValue();
-			key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, NULL)", 1, hostId, agent).intValue();			
+			int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL)", new int[]{1}, host, ip)[0].intValue();
+			key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, NULL)", new int[]{1}, hostId, agent);			
 		}
 	}
 	
@@ -119,11 +119,29 @@ public class H2StoredProcedure {
 	 */
 	public static long getID(Connection conn, long token, String host, String agent, int typeId, String namespace, String name) throws SQLException {
 		if(token!=-1) return 0;
-		int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", 1, host).intValue();
-		int agentId = key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", 1, hostId, agent).intValue();
+		int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", new int[]{1}, host)[0].intValue();
+		Number[] nums = key(conn, "SELECT AGENT_ID,MIN_LEVEL FROM AGENT WHERE NAME=? AND HOST_ID=?", new Object[]{agent, hostId}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", new int[]{1,2}, hostId, agent, nsLevel(namespace));
+		int agentId = nums[0].intValue();
+		int agentMinLevel = nums[1].intValue();
+		int nsLevel = nsLevel(namespace);
 		long metricId = key(conn, "SELECT METRIC_ID FROM METRIC WHERE AGENT_ID=? AND NAMESPACE=? AND NAME=?", new Object[]{agentId, namespace, name}, 
-				"INSERT INTO METRIC (AGENT_ID, TYPE_ID, NAMESPACE, LEVEL, NAME, FIRST_SEEN, LAST_SEEN) VALUES (?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", 1, agentId, typeId, namespace, nsLevel(namespace), name).longValue();
+				"INSERT INTO METRIC (AGENT_ID, TYPE_ID, NAMESPACE, LEVEL, NAME, FIRST_SEEN, LAST_SEEN) VALUES (?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", new int[]{1}, agentId, typeId, namespace, nsLevel, name)[0].longValue();
+		if(nsLevel<agentMinLevel) {
+			setAgentMinLevel(conn, agentId, nsLevel);
+		}
 		return metricId;
+	}
+	
+	private static void setAgentMinLevel(Connection conn, int agentId, int minLevel) throws SQLException {
+		PreparedStatement ps = null;
+		try {
+			ps = conn.prepareStatement("UPDATE AGENT SET MIN_LEVEL = ? WHERE AGENT_ID = ?");
+			ps.setInt(1, minLevel);
+			ps.setInt(2, agentId);
+			ps.executeUpdate();
+		} finally {
+			if(ps!=null) try { ps.close(); } catch (Exception ex) {}
+		}
 	}
 	
 	/** Split pattern for namespaces */
@@ -150,12 +168,12 @@ public class H2StoredProcedure {
 	 * @param selectSql The select to find the key
 	 * @param binds Bind variables for the select
 	 * @param insertSql The insert to create the record if the key was not found
-	 * @param keyIndex The index of the key within the select result set 
+	 * @param keyIndexes An array with the index of the key within the select result set plus any other columns that are required 
 	 * @param insertValues The values to insert if an insert is necessary
-	 * @return the requested key
+	 * @return an array containing the requested key plus other requested numbers
 	 * @throws SQLException thrown on any error
 	 */
-	public static Number key(Connection conn, String selectSql, Object[] binds, String insertSql, int keyIndex, Object...insertValues) throws SQLException {
+	public static Number[] key(Connection conn, String selectSql, Object[] binds, String insertSql, int[] keyIndexes, Object...insertValues) throws SQLException {
 		PreparedStatement ps = null;
 		ResultSet rset = null;
 		try {
@@ -165,7 +183,11 @@ public class H2StoredProcedure {
 			}
 			rset = ps.executeQuery();
 			if(rset.next()) {
-				return rset.getLong(keyIndex);
+				Number[] nums = new Number[keyIndexes.length];
+				for(int i = 0; i < keyIndexes.length; i++) {
+					nums[i] = rset.getLong(keyIndexes[i]);
+				}
+				return nums;
 			}
 			rset.close(); rset = null;
 			ps.close();
@@ -176,7 +198,12 @@ public class H2StoredProcedure {
 			ps.executeUpdate();
 			rset = ps.getGeneratedKeys();
 			rset.next();
-			return rset.getLong(1);
+			Number[] nums = new Number[keyIndexes.length];
+			nums[0] = rset.getLong(1);
+			for(int i = 1; i < keyIndexes.length; i++) {
+				nums[i] = (Integer)(insertValues[keyIndexes[i]]);
+			}
+			return nums;
 		} catch (Exception e) {
 			throw new SQLException("Failed to find key for [" + selectSql + "]", e);
 		} finally {

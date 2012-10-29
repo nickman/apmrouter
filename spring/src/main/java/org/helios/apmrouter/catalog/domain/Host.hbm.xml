@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
-<!-- Generated Oct 25, 2012 9:05:54 PM by Hibernate Tools 3.6.0 -->
+<!-- Generated Oct 27, 2012 1:30:47 PM by Hibernate Tools 3.6.0 -->
 <hibernate-mapping>
     <class name="org.helios.apmrouter.catalog.domain.Host" table="HOST" schema="PUBLIC" catalog="DB">
         <id name="hostId" type="java.lang.Integer">

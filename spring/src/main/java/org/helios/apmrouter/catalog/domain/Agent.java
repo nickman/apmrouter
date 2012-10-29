@@ -1,6 +1,6 @@
 package org.helios.apmrouter.catalog.domain;
 
-// Generated Oct 25, 2012 9:05:53 PM by Hibernate Tools 3.6.0
+// Generated Oct 27, 2012 1:30:47 PM by Hibernate Tools 3.6.0
 
 import java.util.Date;
 import java.util.HashSet;
@@ -18,26 +18,31 @@ public class Agent implements java.io.Serializable {
 	private Date lastConnected;
 	private Date connected;
 	private String uri;
+	private short minLevel;
 	private Set metrics = new HashSet(0);
 
 	public Agent() {
 	}
 
-	public Agent(Host host, String name, Date firstConnected, Date lastConnected) {
+	public Agent(Host host, String name, Date firstConnected,
+			Date lastConnected, short minLevel) {
 		this.host = host;
 		this.name = name;
 		this.firstConnected = firstConnected;
 		this.lastConnected = lastConnected;
+		this.minLevel = minLevel;
 	}
 
 	public Agent(Host host, String name, Date firstConnected,
-			Date lastConnected, Date connected, String uri, Set metrics) {
+			Date lastConnected, Date connected, String uri, short minLevel,
+			Set metrics) {
 		this.host = host;
 		this.name = name;
 		this.firstConnected = firstConnected;
 		this.lastConnected = lastConnected;
 		this.connected = connected;
 		this.uri = uri;
+		this.minLevel = minLevel;
 		this.metrics = metrics;
 	}
 
@@ -95,6 +100,14 @@ public class Agent implements java.io.Serializable {
 
 	public void setUri(String uri) {
 		this.uri = uri;
+	}
+
+	public short getMinLevel() {
+		return this.minLevel;
+	}
+
+	public void setMinLevel(short minLevel) {
+		this.minLevel = minLevel;
 	}
 
 	public Set getMetrics() {

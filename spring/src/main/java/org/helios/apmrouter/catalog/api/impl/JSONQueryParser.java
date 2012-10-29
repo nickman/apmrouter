@@ -111,6 +111,7 @@ public class JSONQueryParser implements ContentHandler {
 	public boolean endObject() throws ParseException, IOException {
 		ind.decrementAndGet();
 		log("End Object");				
+		parsed.get().pop();
 		return true;
 	}
 
@@ -133,7 +134,10 @@ public class JSONQueryParser implements ContentHandler {
 	@Override
 	public boolean primitive(Object value) throws ParseException, IOException {
 		log("Primitive:" + value);
-		parsed.get().peek().applyPrimitive(currentKey.get().peek(), value);
+		Parsed<?> p = parsed.get().peek().applyPrimitive(currentKey.get().peek(), value);
+		if(p!=null && p!=parsed.get().peek()) {
+			parsed.get().push(p);
+		}
 		return true;
 	}
 

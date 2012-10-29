@@ -131,7 +131,7 @@
 							false
 						</td>
 						<td>
-							true
+							false
 						</td>
 					</tr>
 					<tr>
@@ -229,6 +229,31 @@
 						</td>
 						<td>
 							true
+						</td>
+						<td>
+							false
+						</td>
+					</tr>
+					<tr>
+						<td>
+							<a href="#column_detail_MIN_LEVEL">
+								MIN_LEVEL
+							</a>
+						</td>
+						<td>
+							smallint
+						</td>
+						<td>
+							255
+						</td>
+						<td>
+							19
+						</td>
+						<td>
+							2
+						</td>
+						<td>
+							false
 						</td>
 						<td>
 							false
@@ -342,6 +367,9 @@
 								AGENT_AK
 							</td>
 							<td>
+									<a href="#column_detail_HOST_ID">
+										HOST_ID
+									</a>
 									<a href="#column_detail_NAME">
 										NAME
 									</a>
@@ -349,7 +377,7 @@
 						</tr>
 						<tr>
 							<td>
-								PRIMARY_KEY_3
+								PRIMARY_KEY_2E
 							</td>
 							<td>
 									<a href="#column_detail_AGENT_ID">
@@ -379,7 +407,7 @@
 				<tbody>
 						<tr>
 							<td>
-								AGENT_HOST_FK_INDEX_3
+								AGENT_HOST_FK_INDEX_2
 							</td>
 							<td>
 									<a href="#column_detail_HOST_ID">
@@ -469,7 +497,7 @@
 						<strong>Nullable:</strong> false
 					</li>
 					<li>
-						<strong>Unique:</strong> true
+						<strong>Unique:</strong> false
 					</li>
 					<li>
 						<strong>Comment:</strong> The name of the agent.
@@ -585,6 +613,34 @@
 					</li>
 					<li>
 						<strong>Comment:</strong> The listening URI of the connected agent.
+					</li>
+				</ul>
+
+
+				<hr/>
+				<h3 id="column_detail_MIN_LEVEL">MIN_LEVEL</h3>
+				
+				<ul>
+					<li>
+						<strong>Type:</strong> smallint
+					</li>
+					<li>
+						<strong>Length:</strong> 255
+					</li>
+					<li>
+						<strong>Precision:</strong> 19
+					</li>
+					<li>
+						<strong>Scale:</strong> 2
+					</li>
+					<li>
+						<strong>Nullable:</strong> false
+					</li>
+					<li>
+						<strong>Unique:</strong> false
+					</li>
+					<li>
+						<strong>Comment:</strong> The lowest level of metrics for this agent.
 					</li>
 				</ul>
 

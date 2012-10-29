@@ -32,12 +32,15 @@ package org.helios.apmrouter.catalog.api.impl;
  * <p><code>org.helios.apmrouter.catalog.api.impl.Query</code></p>
  */
 
-public class Query implements Parsed<ExtendedDetachedCriteria> {
-	/** The detached criteria for this query */
-	protected ExtendedDetachedCriteria edc = null;
+public class Query implements Parsed<ExecutableQuery> {
+	/** The query executor for this query */
+	protected ExecutableQuery edc = null;
 	
 	/** The JSON key for the entity name */
 	public static final String ENTITY_OP = "ent";
+	/** The JSON key for a named query */
+	public static final String NAMED_QUERY_OP = "named";
+	
 	/**
 	 * Creates a new Query
 	 * @return a new Query
@@ -53,14 +56,21 @@ public class Query implements Parsed<ExtendedDetachedCriteria> {
 		
 	}
 	
-	public Parsed<ExtendedDetachedCriteria> applyPrimitive(String key, Object value) {
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.api.impl.Parsed#applyPrimitive(java.lang.String, java.lang.Object)
+	 */
+	@Override
+	public Parsed<ExecutableQuery> applyPrimitive(String key, Object value) {
 		log("Applying [" + key + "]:" + value);
 		if(ENTITY_OP.equals(key)) {
 			edc = new ExtendedDetachedCriteria(value.toString());
+		} else if(NAMED_QUERY_OP.equals(key)) {
+			edc = new NamedQueryAccumulator((String)value);
 		} else {
-			edc.applyPrimitive(key, value);			
+			throw new RuntimeException(new Throwable());			
 		}
-		return edc;
+		return (Parsed<ExecutableQuery>)edc;
 	}
 	
 	
@@ -73,9 +83,11 @@ public class Query implements Parsed<ExtendedDetachedCriteria> {
 	 * @see org.helios.apmrouter.catalog.api.impl.Parsed#get()
 	 */
 	@Override
-	public ExtendedDetachedCriteria get() {
+	public ExecutableQuery get() {
 		return edc;
 	}
+
+
 	
 	
 }

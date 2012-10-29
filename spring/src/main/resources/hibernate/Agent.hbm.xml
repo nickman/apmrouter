@@ -18,6 +18,11 @@
                 <comment>The name of the agent.</comment>
             </column>
         </property>
+		  <property name="minLevel" type="short">
+		   <column name="MIN_LEVEL" not-null="true">
+		    <comment>The lowest level of metrics for this agent.</comment>
+		   </column>
+		  </property>        
         <property name="firstConnected" type="timestamp" >
             <column name="FIRST_CONNECTED" length="23" not-null="true">
                 <comment>The first time the agent was seen.</comment>
@@ -47,4 +52,5 @@
             <one-to-many entity-name="metric" />
         </set>
     </class>
+    <query read-only="true"   name="findAgentsByHost">from agent a where a.host.hostId = :hostId</query>
 </hibernate-mapping>

@@ -53,6 +53,12 @@
      <priority value="INFO"/>
      <appender-ref ref="CONSOLE"/>
    </category>
+   
+  <category name="org" additivity="false">
+     <priority value="WARN"/>
+     <appender-ref ref="CONSOLE"/>
+   </category>
+   
 
    <category name="LOGSTASH" additivity="false">
       <priority value="DEBUG"/>

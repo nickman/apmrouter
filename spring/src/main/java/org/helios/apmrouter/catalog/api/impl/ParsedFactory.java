@@ -42,7 +42,7 @@ public class ParsedFactory {
 	protected static final Map<String, MethodHandle> primary = new HashMap<String, MethodHandle>();
 	
 	static {
-		generateHandle("q", Query.class);
+		generateHandle("q", Query.class);		
 	}
 	
 	private static void generateHandle(String key, Class<? extends Parsed> clazz) {

@@ -44,4 +44,6 @@
             </column>
         </property>
     </class>
+     <query name="findFirstLevelMetricsForAgent">from metric m where m.agent.agentId = :agentId and m.level = m.agent.minLevel</query>
+     <query name="findMetricsForAgent">from metric m where m.agent.agentId = ? and m.level = ?</query>
 </hibernate-mapping>
