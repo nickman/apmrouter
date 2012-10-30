@@ -24,13 +24,24 @@
  */
 package org.helios.apmrouter.dataservice.json.catalog;
 
+import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import org.helios.apmrouter.catalog.MetricCatalogService;
+import org.helios.apmrouter.catalog.domain.DomainObject;
 import org.helios.apmrouter.dataservice.json.JSONRequestHandler;
 import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.dataservice.json.JsonResponse;
+import org.helios.apmrouter.dataservice.json.marshalling.JSONMarshaller;
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.hibernate.Query;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.engine.NamedQueryDefinition;
+import org.hibernate.impl.SessionFactoryImpl;
 import org.jboss.netty.channel.Channel;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -45,6 +56,33 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class CatalogJSONDataService extends ServerComponentBean {
 	/** The metric catalog service */
 	protected MetricCatalogService catalog = null;
+	/** The hibernate session factory */
+	protected SessionFactory sessionFactory = null;
+	/** The Json marshaller */
+	protected JSONMarshaller marshaller = null;
+	/** The named queries map */
+	protected Map<String, NamedQueryDefinition> namedQueries = null;
+	
+	/** The namedQueries map field */
+	private static final Field namedQueriesField;
+	/** The namedSqlQueries map field */
+	private static final Field namedSqlQueriesField;
+	
+	static {
+		try {
+			namedQueriesField = SessionFactoryImpl.class.getDeclaredField("namedQueries");
+			namedQueriesField.setAccessible(true);
+			namedSqlQueriesField = SessionFactoryImpl.class.getDeclaredField("namedSqlQueries");
+			namedSqlQueriesField.setAccessible(true);			
+		} catch (Exception ex) {
+			throw new RuntimeException(ex);
+		}
+	}
+	
+	protected void doStart() throws Exception {
+		super.doStart();
+		namedQueries = (Map<String, NamedQueryDefinition>) namedQueriesField.get(sessionFactory);
+	}
 
 	/**
 	 * Sets the metric catalog service
@@ -54,6 +92,16 @@ public class CatalogJSONDataService extends ServerComponentBean {
 	public void setCatalog(MetricCatalogService catalog) {
 		this.catalog = catalog;
 	}
+	
+	/**
+	 * Sets the hibernate session factory
+	 * @param sessionFactory the hibernate session factory
+	 */
+	@Autowired(required=true)
+	public void setSessionFactory(SessionFactory sessionFactory) {
+		this.sessionFactory = sessionFactory;
+	}
+	
 	
 	/**
 	 * Returns a JSON list of hosts
@@ -68,4 +116,62 @@ public class CatalogJSONDataService extends ServerComponentBean {
 		response.setContent(hosts);
 		channel.write(response);
 	}
+	
+	/**
+	 * Dumps a JSON stream describing all the named queries available to a JSON client
+	 * @param request The json request
+	 * @param channel The chennel to respond on
+	 */
+	@JSONRequestHandler(name="namedqueries")
+	public void listNamedQueries(JsonRequest request, Channel channel)   {
+		JsonResponse response = request.response();
+		Map<String, NamedQueryDefinitionContainer> nqs = new HashMap<String, NamedQueryDefinitionContainer>();
+		for(Map.Entry<String, NamedQueryDefinition> entry: namedQueries.entrySet()) {
+			nqs.put(entry.getKey(), new NamedQueryDefinitionContainer(entry.getKey(), entry.getValue()));
+		}
+		response.setContent(nqs);
+		channel.write(response);
+	}
+	
+	
+	/**
+	 * Processes a named query
+	 * @param request The JSON encoded named query request
+	 * @param channel The channel to write the response to
+	 */
+	@JSONRequestHandler(name="nq")
+	public void processNamedQuery(JsonRequest request, Channel channel) {
+		String name = request.getArgumentOrNull("name", String.class);
+		if(name==null) throw new RuntimeException("The named-query name was null", new Throwable());
+		Map<String, ?> params = request.getArgument("p", new HashMap<String, Object>());
+
+		Session session = null;
+		try {
+			session = sessionFactory.openSession();
+			Query query = session.getNamedQuery(name);
+			for(Map.Entry<String, ?> param: params.entrySet()) {
+				query.setParameter(param.getKey(), param.getValue());
+			}
+			Object obj = query.list().toArray(new DomainObject[0]);
+			
+			channel.write(request.response().setContent(obj));
+		} catch (Exception ex) {
+			error("Failed to execute named query [", name, "]", ex);
+		} finally {
+			if(session!=null && session.isOpen()) try { session.close(); } catch (Exception e) {}
+		}
+		
+		
+	}
+
+	/**
+	 * Sets the object Json marshaller
+	 * @param marshaller the object Json marshaller
+	 */
+	@Autowired(required=true)
+	public void setMarshaller(JSONMarshaller marshaller) {
+		this.marshaller = marshaller;
+	}
+	
+	
 }

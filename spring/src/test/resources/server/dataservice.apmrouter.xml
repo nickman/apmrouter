@@ -165,6 +165,7 @@
  	
 	<bean id="CompositeDataSupportSerializer" class="org.helios.apmrouter.dataservice.json.marshalling.encoders.CompositeDataSupportSerializer"/>
  	<bean id="ObjectNameSerializer" class="org.helios.apmrouter.dataservice.json.marshalling.encoders.ObjectNameSerializer"/>
+ 	<bean id="UtilDateSerializer" class="org.helios.apmrouter.dataservice.json.marshalling.encoders.UtilDateSerializer" />
 
 	
 </beans>

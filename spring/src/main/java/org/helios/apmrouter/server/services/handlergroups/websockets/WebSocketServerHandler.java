@@ -35,7 +35,9 @@ import java.net.SocketAddress;
 import java.util.Collections;
 
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.catalog.domain.DomainObject;
 import org.helios.apmrouter.dataservice.json.JSONRequestRouter;
+import org.helios.apmrouter.dataservice.json.marshalling.JSONMarshaller;
 import org.helios.apmrouter.server.services.session.ChannelType;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -80,6 +82,9 @@ public class WebSocketServerHandler implements ChannelUpstreamHandler, ChannelDo
 	protected final Logger log = Logger.getLogger(getClass());
 	/** The JSON Request Router */
 	protected JSONRequestRouter router = null;
+	/** The Json marshaller */
+	protected JSONMarshaller marshaller = null;
+	
 	/**
 	 * {@inheritDoc}
 	 * @see org.jboss.netty.channel.ChannelDownstreamHandler#handleDownstream(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.ChannelEvent)
@@ -93,6 +98,11 @@ public class WebSocketServerHandler implements ChannelUpstreamHandler, ChannelDo
             return;
         }
 		Object message = ((MessageEvent)e).getMessage();
+		if(message instanceof DomainObject || (message.getClass().isArray() && DomainObject.class.isAssignableFrom(message.getClass().getComponentType()))) {			
+			WebSocketFrame frame = new TextWebSocketFrame(marshaller.marshallToText(message));		
+			ctx.sendDownstream(new DownstreamMessageEvent(channel, Channels.future(channel), frame, channel.getRemoteAddress()));		
+			return;
+		}
 		if(!(message instanceof JSONObject) && !(message instanceof CharSequence)) {
             ctx.sendDownstream(e);
             return;			
@@ -241,6 +251,16 @@ public class WebSocketServerHandler implements ChannelUpstreamHandler, ChannelDo
 	public void setRouter(JSONRequestRouter router) {
 		this.router = router;
 	}
+	
+	/**
+	 * Sets the object Json marshaller
+	 * @param marshaller the object Json marshaller
+	 */
+	@Autowired(required=true)
+	public void setMarshaller(JSONMarshaller marshaller) {
+		this.marshaller = marshaller;
+	}
+	
 	
 	
 }

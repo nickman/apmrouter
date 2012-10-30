@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS  PUBLIC.METRIC(
     AGENT_ID INTEGER NOT NULL COMMENT 'The  agent identifier for this metric',
     TYPE_ID SMALLINT NOT NULL COMMENT 'The metric type of the metric',
     NAMESPACE VARCHAR2(200) COMMENT 'The namespace of the metric',
+    PARENT VARCHAR2(200) NOT NULL COMMENT 'The parent of the namespace of the metric',
+    ROOT VARCHAR2(200) NOT NULL COMMENT 'The root of the namespace of the metric',
     LEVEL SMALLINT NOT NULL COMMENT 'The number of namespaces in the namespace',
     NAME VARCHAR2(60) COMMENT 'The point of the metric name',
     FIRST_SEEN TIMESTAMP NOT NULL COMMENT 'The first time this metric was seen',
@@ -61,6 +63,8 @@ CREATE SEQUENCE IF NOT EXISTS SEQ_METRIC START WITH 0 INCREMENT BY 1 CACHE 128;
 CREATE ALIAS IF NOT EXISTS GET_ID FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.getID";
 CREATE ALIAS IF NOT EXISTS TOUCH FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.touch";
 CREATE ALIAS IF NOT EXISTS HOSTAGENTSTATE FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.hostAgentState";
+CREATE ALIAS IF NOT EXISTS PARENT FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.parent";
+CREATE ALIAS IF NOT EXISTS ROOT FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.root";
 
 UPDATE HOST SET CONNECTED = NULL;
 UPDATE AGENT SET CONNECTED = NULL, URI = NULL;

@@ -1,6 +1,6 @@
 <agent>
 	<props>
-		<prop name="org.helios.agent" value="jboss-default2"/>
+		<prop name="org.helios.agent" value="jboss-default3"/>
 		<!-- <prop name="org.helios.agent.monitor.script.url" value="eggs-cellent"/> -->
 		
 	</props>

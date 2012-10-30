@@ -53,7 +53,7 @@ public class H2StoredProcedure {
 	public static void hostAgentState(Connection conn, boolean connected, String host, String ip, String agent, String agentURI) throws SQLException {
 		if(connected) {
 			int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", new int[]{1}, host, ip)[0].intValue();
-			int agentId = key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?, CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", new int[]{1}, hostId, agent, agentURI)[0].intValue();
+			int agentId = key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", new int[]{1}, hostId, agent, 3200, agentURI)[0].intValue();
 			PreparedStatement  ps = null;
 			try {
 				ps = conn.prepareStatement("UPDATE HOST SET CONNECTED = CURRENT_TIMESTAMP WHERE HOST_ID = ?");
@@ -125,7 +125,7 @@ public class H2StoredProcedure {
 		int agentMinLevel = nums[1].intValue();
 		int nsLevel = nsLevel(namespace);
 		long metricId = key(conn, "SELECT METRIC_ID FROM METRIC WHERE AGENT_ID=? AND NAMESPACE=? AND NAME=?", new Object[]{agentId, namespace, name}, 
-				"INSERT INTO METRIC (AGENT_ID, TYPE_ID, NAMESPACE, LEVEL, NAME, FIRST_SEEN, LAST_SEEN) VALUES (?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", new int[]{1}, agentId, typeId, namespace, nsLevel, name)[0].longValue();
+				"INSERT INTO METRIC (AGENT_ID, TYPE_ID, NAMESPACE, PARENT, ROOT, LEVEL, NAME, FIRST_SEEN, LAST_SEEN) VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", new int[]{1}, agentId, typeId, namespace, parent(namespace), root(namespace), nsLevel, name)[0].longValue();
 		if(nsLevel<agentMinLevel) {
 			setAgentMinLevel(conn, agentId, nsLevel);
 		}
@@ -161,6 +161,30 @@ public class H2StoredProcedure {
 		}
 		return cnt;
 	}
+	
+	/**
+	 * Returns the parent of the passed namespace 
+	 * @param namespace the namespace to get the parent of 
+	 * @return the parent
+	 */
+	public static String parent(String namespace) {
+		if(namespace==null || namespace.trim().isEmpty()) return "";
+		StringBuilder sb = new StringBuilder(namespace).reverse();
+		sb.delete(0, sb.indexOf("/")+1);
+		return sb.reverse().toString();
+	}
+	
+	/**
+	 * Returns the root of the passed namespace 
+	 * @param namespace the namespace to get the root of 
+	 * @return the root
+	 */
+	public static String root(String namespace) {
+		if(namespace==null || namespace.trim().isEmpty()) return "";
+		String[] frags = NS_DELIM.split(namespace.indexOf('/')==0 ? namespace.substring(1) : namespace);
+		return "/" + frags[0];
+	}
+	
 	
 	/**
 	 * Acquires a key

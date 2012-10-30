@@ -5,8 +5,8 @@ import org.json.*;
 
 // "ent" : "agent", "fs" : 20, "t" : 5, "c" : false, "mr" : 100, "fr" : 0, "fmd" : ["foo", "JOIN"]
 jsonQuery = """
-{ "q" {
-    "named" : "findAgentsByHost", {
+{ "nq" : {
+    "name" : "findAgentsByHost", "p" : {
         "hostId" : 1
     }
 }}

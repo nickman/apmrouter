@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
-<!-- Generated Oct 25, 2012 12:35:07 PM by Hibernate Tools 3.4.0.CR1 -->
+<!-- Generated Oct 27, 2012 1:30:47 PM by Hibernate Tools 3.6.0 -->
 <hibernate-mapping>
-    <class entity-name="type" table="TRACE_TYPE" schema="PUBLIC" catalog="DB">
+    <class name="org.helios.apmrouter.catalog.domain.TraceType" entity-name="type" table="TRACE_TYPE" schema="PUBLIC" catalog="DB">
         <id name="typeId" type="short">
             <column name="TYPE_ID" />
             <generator class="assigned" />
@@ -13,13 +13,5 @@
                 <comment>The name of the trace type</comment>
             </column>
         </property>
-        <set name="metrics" table="METRIC" inverse="true" lazy="true" fetch="select" embed-xml="false">
-            <key>
-                <column name="TYPE_ID" not-null="true">
-                    <comment>The metric type of the metric</comment>
-                </column>
-            </key>
-            <one-to-many entity-name="metric" />
-        </set>
     </class>
 </hibernate-mapping>

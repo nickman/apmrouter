@@ -2,7 +2,7 @@
  * Helios, OpenSource Monitoring
  * Brought to you by the Helios Development Group
  *
- * Copyright 2012, Helios Development Group and individual contributors
+ * Copyright 2007, Helios Development Group and individual contributors
  * as indicated by the @author tags. See the copyright.txt file in the
  * distribution for a full listing of individual contributors.
  *
@@ -25,46 +25,30 @@
 package org.helios.apmrouter.dataservice.json.marshalling.encoders;
 
 import java.lang.reflect.Type;
-
-import javax.management.openmbean.CompositeDataSupport;
-import javax.management.openmbean.CompositeType;
-import javax.management.openmbean.OpenType;
-import javax.management.openmbean.SimpleType;
+import java.util.Date;
 
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 
 /**
- * <p>Title: CompositeDataSupportSerializer</p>
- * <p>Description: Json serializer for compacting json rendering of JMX composite types</p> 
+ * <p>Title: UtilDateSerializer</p>
+ * <p>Description: Json serializer to send dates as the UTC long</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.dataservice.json.marshalling.encoders.CompositeDataSupportSerializer</code></p>
+ * <p><code>org.helios.apmrouter.dataservice.json.marshalling.encoders.UtilDateSerializer</code></p>
  */
 
-public class CompositeDataSupportSerializer implements JsonSerializer<CompositeDataSupport> {
+public class UtilDateSerializer implements JsonSerializer<Date> {
 
 	/**
 	 * {@inheritDoc}
 	 * @see com.google.gson.JsonSerializer#serialize(java.lang.Object, java.lang.reflect.Type, com.google.gson.JsonSerializationContext)
 	 */
 	@Override
-	public JsonElement serialize(CompositeDataSupport src, Type typeOfSrc, JsonSerializationContext context) {
-		JsonObject json = new JsonObject();
-		CompositeType ctype = src.getCompositeType();		
-		for(String key: ctype.keySet()) {
-			if(src.containsKey(key)) {
-				OpenType<?> oType = ctype.getType(key);
-				if(oType instanceof SimpleType) {
-					json.addProperty(key, src.get(key).toString());
-				} else  {
-					json.add(key, context.serialize(src.get(key)));
-				}				
-			}
-		}
-		return json;
+	public JsonElement serialize(Date src, Type typeOfSrc, JsonSerializationContext context) {
+		return new JsonPrimitive(src.getTime());
 	}
 
 }

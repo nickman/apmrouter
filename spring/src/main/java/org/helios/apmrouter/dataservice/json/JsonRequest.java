@@ -24,9 +24,11 @@
  */
 package org.helios.apmrouter.dataservice.json;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
@@ -100,6 +102,20 @@ public class JsonRequest {
 	 */
 	public <T> T getArgument(String key,  T defaultValue) {
 		Object value = arguments.get(key);
+		if(Map.class.isAssignableFrom(defaultValue.getClass()) && value instanceof JSONObject) {
+			JSONObject jsonMap = (JSONObject)value;
+			Map<String, Object> map = new HashMap<String, Object>();
+			try {
+				for(String mapKey: JSONObject.getNames(jsonMap)) {
+					map.put(mapKey, jsonMap.get(mapKey));
+				}
+			} catch (JSONException ex) {
+				throw new RuntimeException(ex);
+			}
+			return (T)map;
+		}
+			
+		
 		if(value==null || !defaultValue.getClass().isInstance(value)) {
 			return defaultValue;
 		}
