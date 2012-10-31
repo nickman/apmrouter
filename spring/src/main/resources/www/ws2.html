@@ -3,6 +3,7 @@
 		<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 		<title>APMRouter Admin Root</title>		
 		<link type="text/css" href="js/ui/css/sunny/jquery-ui-1.8.10.custom.css" rel="stylesheet" />
+		<link type="text/css" href="css/apmr.css" rel="stylesheet" />
 		<script type="text/javascript" src="js/jquery-1.8.2.min.js"></script>
 		<script type="text/javascript" src="js/ui/jquery-ui-1.8.9.custom.min.js"></script>
 		<script type="text/javascript" src="js/jquery.apmr.js" ></script>
@@ -10,22 +11,37 @@
 		<script type="text/javascript" src="js/jstree/jquery.jstree.js"></script>
 		<script type="text/javascript">
 			jQuery(function($) {
-				$(document).bind("status.connected", function(e, status){
-					subscribers = $('.subscriber.connected');
-					subscribers.trigger("status.connected", [status])
-				});				
-				$('.connectlight').bind("status.connected", function(e, status) {
-					console.info("[connected]:%s", status);   
+				/*
+				$('.csubscriber>img').bind("status.connected", function(e, status) {
+					console.info("IMG [connected]:%s", status);
+					return false;
 				});
+				*/
+				
+				$(document).bind("status.connected", function(e, status){
+					console.info("status.connected Fired:%s", status);
+					if(status) {
+						$('.csubscriber>.csubscriber-off').addClass('csubscriber-on').removeClass('csubscriber-off')
+						$('.csubscriber>.csubscriber-retry').addClass('csubscriber-on').removeClass('csubscriber-retry')
+					} else {
+						$('.csubscriber>.csubscriber-on').addClass('csubscriber-off').removeClass('csubscriber-on')
+						$('.csubscriber>.csubscriber-retry').addClass('csubscriber-off').removeClass('csubscriber-retry')
+					}
+				});
+				$(document).bind("status.reconnecting", function(e){
+					console.info("status.reconnecting Fired");
+					$('.csubscriber>.csubscriber-off').addClass('csubscriber-retry').removeClass('csubscriber-off')
+				});
+				
+				
 				$.apmr.connect(); 
 			});
 		</script>		
 	</head>
 	<body>
 		<h4>APMRouter Admin Root</h4>
-		<div class="connectlight" style="display: inline-block;">Connected:&nbsp;
-			<img src="img/red-light-16X16.png"></img>
-		</div>
+		
+		<div class="csubscriber" style="display: inline-block;">Connected:&nbsp;<div class="csubscriber-off"></div></div>
 	</body>
 </html>
 
