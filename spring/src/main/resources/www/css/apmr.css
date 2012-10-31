@@ -1,0 +1,29 @@
+	.csubscriber-on {
+		background-image: url("../img/green-light-16X16.png");
+		background-repeat: no-repeat;
+		width: 16; 
+		height: 16;
+		margin: 0;
+		padding: 0;
+		display: inline-block;
+	}
+	
+	.csubscriber-off {
+		background-image: url("../img/red-light-16X16.png");
+		background-repeat: no-repeat;
+		width: 16; 
+		height: 16;
+		margin: 0;
+		padding: 0;
+		display: inline-block;
+	}
+
+	.csubscriber-retry {
+		background-image: url("../img/amber-light-16X16.png");
+		background-repeat: no-repeat;
+		width: 16; 
+		height: 16;
+		margin: 0;
+		padding: 0;
+		display: inline-block;
+	}
