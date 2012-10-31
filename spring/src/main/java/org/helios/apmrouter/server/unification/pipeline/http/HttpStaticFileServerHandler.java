@@ -131,6 +131,8 @@ public class HttpStaticFileServerHandler extends AbstractHttpRequestHandler {
     
     static {
     	mimeTypesMap.addMimeTypes("application/js");
+    	mimeTypesMap.addMimeTypes("text/html");
+    	
     }
     
 
