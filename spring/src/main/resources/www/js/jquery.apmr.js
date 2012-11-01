@@ -87,7 +87,7 @@
 		return this.send({'t': 'who', 'agent' : 'Anonymous'});
 	},
 	
-	$.apmr.svcOp = function(svc, op) {
+	$.apmr.svcOp = function(svc, op, ) {
 		var req = {'t': 'req', 'svc' : svc, 'op' : op};
 		return this.send(req);
 	},
@@ -102,6 +102,9 @@
 		return this.send(req);
 		
 		//  $.apmr.sub("start", "jmx", "service:jmx:local://DefaultDomain", "java.lang:type=GarbageCollector,name=*")
+	},
+	$.apmr.findAllHosts = function() {
+		
 	}
 	
 	

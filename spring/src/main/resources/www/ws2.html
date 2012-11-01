@@ -35,13 +35,37 @@
 				
 				
 				$.apmr.connect(); 
+				$('#metricTree')
+				.jstree({
+					core : {  },
+					plugins : [ "themes", "ui", "types", "html_data" ],
+					types : {
+						'types' : {
+				            'root' : {
+				                'icon' : {
+				                    'image' : 'img/Helios_Symbol_12_18.png'
+				                }
+				            },
+				            'server' : {
+				                'icon' : {
+				                    'image' : 'img/server.png'
+				                }
+				            }
+				        }						
+					}
+				});
 			});
 		</script>		
 	</head>
 	<body>
-		<h4>APMRouter Admin Root</h4>
-		
+		<h4>APMRouter Admin Root</h4>		
 		<div class="csubscriber" style="display: inline-block;">Connected:&nbsp;<div class="csubscriber-off"></div></div>
+		<h5>Metric Tree</h5>
+		<div id="metricTree">
+			<ul>
+				<li rel='root'><a>Metric Tree</a></li>
+			</ul>
+		</div>
 	</body>
 </html>
 
