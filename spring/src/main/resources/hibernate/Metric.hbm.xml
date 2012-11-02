@@ -64,37 +64,22 @@
         </property>
     </class>
     <query read-only="true"   name="rootMetricsForAgent">select distinct(m.root), 'root' from metric m where m.agent.agentId = :agentId
-    	<query-param name=":agentId" type="int"/>
+    	<query-param name="agentId" type="java.lang.Integer"/>
     </query>
     <query read-only="true"   name="rootPlusMetricsForAgent">select distinct(m.parent), 'root+' from metric m where m.agent.agentId = :agentId and m.root = :root
-    	<query-param name=":agentId" type="int"/>
-    	<query-param name=":root" type="string"/>
+    	<query-param name="agentId" type="java.lang.Integer"/>
+    	<query-param name="root" type="java.lang.String"/>
     </query>
     <query read-only="true"   name="metricParentsForAgent">select distinct(m.namespace), 'folders' from metric m where m.agent.agentId = :agentId and m.parent = :parent
-    	<query-param name=":agentId" type="int"/>
-    	<query-param name=":parent" type="string"/>
+    	<query-param name="agentId" type="java.lang.Integer"/>
+    	<query-param name="parent" type="java.lang.String"/>
     </query>
     <query read-only="true"   name="metricNodesForAgent">select m, 'node' from metric m where m.agent.agentId = :agentId and m.namespace = :namespace
-    	<query-param name=":agentId" type="int"/>
-    	<query-param name=":namespace" type="string"/>
+    	<query-param name="agentId" type="java.lang.Integer"/>
+    	<query-param name="namespace" type="java.lang.String"/>
     </query>
-    <!-- 
-    <sql-query name="persons">
-    <return alias="person" class="eg.Person"/>
-    SELECT person.NAME AS {person.name},
-           person.AGE AS {person.age},
-           person.SEX AS {person.sex}
-    FROM PERSON person
-    WHERE person.NAME LIKE :namePattern
-</sql-query>
- -->
-    
-    
-    
-    
-    
-    
-    
-    <query read-only="true"   name="findMinLevelMetricsForAgent">from metric m where m.level = m.agent.minLevel and m.agent.agentId = :agentId</query>
+    <query read-only="true"   name="findMinLevelMetricsForAgent">from metric m where m.level = m.agent.minLevel and m.agent.agentId = :agentId
+    	<query-param name="agentId" type="java.lang.Integer"/>
+    </query>
 </hibernate-mapping>
 	

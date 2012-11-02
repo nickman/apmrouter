@@ -5,10 +5,14 @@
 		<link type="text/css" href="js/ui/css/sunny/jquery-ui-1.8.10.custom.css" rel="stylesheet" />
 		<link type="text/css" href="css/apmr.css" rel="stylesheet" />
 		<script type="text/javascript" src="js/jquery-1.8.2.min.js"></script>
+		<script type="text/javascript" src="js/pubsub/pubsub.js"></script>		
 		<script type="text/javascript" src="js/ui/jquery-ui-1.8.9.custom.min.js"></script>
 		<script type="text/javascript" src="js/jquery.apmr.js" ></script>
 		<script type="text/javascript" src="js/sprintf.js" ></script>
-		<script type="text/javascript" src="js/jstree/jquery.jstree.js"></script>
+		<script type="text/javascript" src="js/jquery.jstree.js"></script>
+		<style type="text/css">
+			body{ font: 62.5% "Trebuchet MS", sans-serif; margin: 50px;}
+		</style>					
 		<script type="text/javascript">
 			jQuery(function($) {
 				/*
@@ -27,33 +31,130 @@
 						$('.csubscriber>.csubscriber-on').addClass('csubscriber-off').removeClass('csubscriber-on')
 						$('.csubscriber>.csubscriber-retry').addClass('csubscriber-off').removeClass('csubscriber-retry')
 					}
+					
+					
+					
+					$("#metricTree").jstree("create_node", '#root', "inside" , {
+						attr: {id: "defaultDomain", rel: "domain"},  
+						data : {title: "DefaultDomain"}
+					}, false, true);	
+					
+					
+					$.apmr.findAllHosts(function(data){
+						console.info("Populating Hosts:[%o]", data);
+						$.each(data.msg, function(index, host){
+							console.info("Populating Host:[%s]:[%s]", index, host.name);
+							if(host.name.indexOf(".")==-1) {
+								// .create_node ( node , position , js , callback , is_loaded )
+								$("#metricTree").jstree("create_node", '#defaultDomain', "inside" , {
+									attr: {id: "host-" + host.hostId, rel: "server", nodeid : host.hostId},  
+									data : {title: host.name, id : host.hostId}
+								}, false, true);	
+							}
+						});
+					});		
+					
 				});
 				$(document).bind("status.reconnecting", function(e){
 					console.info("status.reconnecting Fired");
 					$('.csubscriber>.csubscriber-off').addClass('csubscriber-retry').removeClass('csubscriber-off')
 				});
-				
-				
-				$.apmr.connect(); 
 				$('#metricTree')
 				.jstree({
-					core : {  },
-					plugins : [ "themes", "ui", "types", "html_data" ],
+					core : { 
+						animation : 0,						
+					},
+					plugins : [ "themes", "ui", "types", "html_data"],
 					types : {
 						'types' : {
 				            'root' : {
+				            	'use_data' : true,
 				                'icon' : {
 				                    'image' : 'img/Helios_Symbol_12_18.png'
-				                }
+				                },
+				                valid_children : [ 'domain' ],
+				                select_node : function(me) {
+				                	console.info("Selected Node:[%o]", me);
+				                	console.info("This:[%o]", this);
+				                	if($(me).jstree("is_loaded")) {
+				                		console.info("Loaded");
+				                	} else {
+				                		console.info("Not Loaded");
+				                	}
+				                },				                
 				            },
-				            'server' : {
+				            'domain' : {
+				            	'use_data' : true,
 				                'icon' : {
-				                    'image' : 'img/server.png'
+				                    'image' : 'img/domain_16_16.png'
+				                },
+				                valid_children : [ 'domain', 'server' ],
+				                select_node : function(me) {
+				                	console.info("Selected Node:[%o]", me);
+				                	console.info("This:[%o]", this);
+				                	//$.apmr.findAgentsByHost
 				                }
+				            },				            
+				            'server' : {
+				            	'use_data' : true,
+				                'icon' : {
+				                    'image' : 'img/server_16_16.png'
+				                }, valid_children : [ 'agent' ],
+				                select_node : function(me) {
+				                	console.info("Selected Node:[%o] - nodeid:%s", me, $(me).attr('nodeid'));
+				                	console.info("This:[%o]", this);
+				                	console.info("Getting Agents for Host:[%s]", $(me).attr('nodeid'));
+									$.apmr.findAgentsByHost($(me).attr('nodeid'), function(data){
+										console.info("Populating Agents:[%o]", data);
+										$.each(data.msg, function(index, agent){
+											console.info("Populating Agent:[%s]:[%s]", index, agent.name);
+											// .create_node ( node , position , js , callback , is_loaded )
+											$("#metricTree").jstree("create_node", '#' + $(me).attr('id'), "inside" , {
+												attr: {id: "agent-" + agent.hostId, rel: "agent"},  
+												data : {title: agent.name, id : agent.agentId}
+											}, false, true);	
+										});
+									});
+				                }
+				                
+				            },
+				            'agent' : {
+				            	'use_data' : true,
+				                'icon' : {
+				                    'image' : 'img/agent2_16_16.png'
+				                }, valid_children : [ 'folder', 'metric' ],
+				                select_node : function(me) {
+				                	console.info("Getting Agents for Host:[%s]", $(me).attr('nodeid'));
+									$.apmr.findAgentsByHost($(me).attr('nodeid'), function(data){
+										console.info("Populating Agents:[%o]", data);
+										$.each(data.msg, function(index, agent){
+											console.info("Populating Agent:[%s]:[%s]", index, agent.name);
+											// .create_node ( node , position , js , callback , is_loaded )
+											$("#metricTree").jstree("create_node", '#' + $(me).attr('id'), "inside" , {
+												attr: {id: "agent-" + agent.hostId, rel: "agent"},  
+												data : {title: agent.name, id : agent.agentId}
+											}, false, true);	
+										});
+									});
+				                }
+				                
+				            },
+				            'folder' : {
+				            	'use_data' : true,
+				                'icon' : {
+				                    'image' : 'img/folder_16_16.png'
+				                }, valid_children : [ 'folder', 'metric' ]
+				            },
+				            'metric' : {
+				            	'use_data' : true,
+				                'icon' : {
+				                    'image' : 'img/metric_16_16.png'
+				                }, valid_children : []
 				            }
 				        }						
 					}
 				});
+				$.apmr.connect(); 
 			});
 		</script>		
 	</head>
@@ -63,9 +164,20 @@
 		<h5>Metric Tree</h5>
 		<div id="metricTree">
 			<ul>
-				<li rel='root'><a>Metric Tree</a></li>
+				<li id='root' rel='root'><a>Metric Tree</a>
+				</li>
 			</ul>
 		</div>
+		<!-- 
+
+					<ul>
+						<li id='defaultDomain' rel='domain'><a>Default Domain</a>							
+						</li>
+					</ul>				
+
+		
+		 -->
+		
 	</body>
 </html>
 

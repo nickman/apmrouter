@@ -46,5 +46,7 @@
    </column>
   </property>
  </class>
- <query read-only="true"   name="findAgentsByHost">from agent a where a.host.hostId = :hostId</query>
+ <query read-only="true"   name="findAgentsByHost">from agent a where a.host.hostId = :hostId
+ 	<query-param name="hostId" type="java.lang.Integer"/>
+ </query>
 </hibernate-mapping>

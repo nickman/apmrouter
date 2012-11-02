@@ -22,7 +22,7 @@
 		requestId : 0
 	},
 	
-	$.apmr.connect = function() {
+	$.apmr.connect = function(callback) {
 		// send connecting event
 		this.connecting = true;		
 		var cli = this;
@@ -73,11 +73,18 @@
 				console.info("Set SessionID [%s]", this.c.sessionId);
 			}
 			console.dir(json);
+			var topic = '/' + 'req' + '/' + json.rerid;
+			$.publish(topic, [json]);
 		} finally {
 		}		
 	},
-	$.apmr.send = function(req) {
+	$.apmr.send = function(req, callback) {
 		this.config.requestId++;
+		if(callback!=null) {
+			var topic = '/' + req.t + '/' + this.config.requestId;
+			$.oneTime(topic, callback);
+			console.info("Registered Callback for oneTime [%s]", topic);
+		}
 		req['rid']=this.config.requestId;
 		this.config.ws.send(JSON.stringify(req));
 		return this.config.requestId;
@@ -87,9 +94,12 @@
 		return this.send({'t': 'who', 'agent' : 'Anonymous'});
 	},
 	
-	$.apmr.svcOp = function(svc, op, ) {
+	$.apmr.svcOp = function(svc, op, args, callback) {
 		var req = {'t': 'req', 'svc' : svc, 'op' : op};
-		return this.send(req);
+		if(args!=null) {
+			req['args'] = args;
+		}
+		return this.send(req, callback);
 	},
 	$.apmr.sub = function(op, type, esn, filter, ex) {
 		var req = {'t': 'req', 'svc' : 'sub', 'op' : op};
@@ -103,9 +113,50 @@
 		
 		//  $.apmr.sub("start", "jmx", "service:jmx:local://DefaultDomain", "java.lang:type=GarbageCollector,name=*")
 	},
-	$.apmr.findAllHosts = function() {
-		
+	$.apmr.findAllHosts = function(callback) {
+		$.apmr.svcOp("catalog", "nq", {name:"findAllHosts"}, callback || function(data){
+			console.info("FindAllHosts Response:%o", data);
+		});
+	},
+	$.apmr.findOnlineHosts = function() {
+		$.apmr.svcOp("catalog", "nq", {name:"findOnlineHosts"}, function(data){
+			console.info("findOnlineHosts Response:%o", data);
+		});
+	},
+	
+	$.apmr.findAgentsByHost = function(hostId, callback) {
+		$.apmr.svcOp("catalog", "nq", {name:"findAgentsByHost", p : {'hostId': hostId}}, callback || function(data){
+			console.info("findAgentsByHost Response:%o", data);
+		});		
+	},
+	$.apmr.findMinLevelMetricsForAgent = function(agentId) {
+		$.apmr.svcOp("catalog", "nq", {name:"findMinLevelMetricsForAgent", p : {'agentId': agentId}}, function(data){
+			console.info("findMinLevelMetricsForAgent Response:%o", data);
+		});						
+	},
+	$.apmr.metricNodesForAgent = function(agentId, namespace) {
+		$.apmr.svcOp("catalog", "nq", {name:"metricNodesForAgent", p : {'agentId': agentId, 'namespace' : namespace}}, function(data){
+			console.info("metricNodesForAgent Response:%o", data);
+		});						
+	},
+	$.apmr.metricParentsForAgent = function(agentId, parent) {
+		$.apmr.svcOp("catalog", "nq", {name:"metricParentsForAgent", p : {'agentId': agentId, 'parent' : parent}}, function(data){
+			console.info("metricParentsForAgent Response:%o", data);
+		});						
+	},
+	$.apmr.rootMetricsForAgent = function(agentId, callback) {
+		$.apmr.svcOp("catalog", "nq", {name:"rootMetricsForAgent", p : {'agentId': agentId}}, callback || function(data){
+			console.info("rootMetricsForAgent Response:%o", data);
+		});						
+	},
+	$.apmr.rootPlusMetricsForAgent = function(agentId, root) {
+		$.apmr.svcOp("catalog", "nq", {name:"rootPlusMetricsForAgent", p : {'agentId': agentId, 'root': root}}, function(data){
+			console.info("rootPlusMetricsForAgent Response:%o", data);
+		});						
 	}
+	
+	
+	
 	
 	
 	

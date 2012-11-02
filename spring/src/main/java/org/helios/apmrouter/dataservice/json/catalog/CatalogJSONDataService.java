@@ -24,11 +24,11 @@
  */
 package org.helios.apmrouter.dataservice.json.catalog;
 
+import java.beans.PropertyEditor;
+import java.beans.PropertyEditorManager;
 import java.lang.reflect.Field;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.catalog.domain.DomainObject;
@@ -149,8 +149,14 @@ public class CatalogJSONDataService extends ServerComponentBean {
 		try {
 			session = sessionFactory.openSession();
 			Query query = session.getNamedQuery(name);
+			NamedQueryDefinition nqd = namedQueries.get(name);
+			
+			
 			for(Map.Entry<String, ?> param: params.entrySet()) {
-				query.setParameter(param.getKey(), param.getValue());
+				String type = nqd.getParameterTypes().get(param.getKey()).toString();
+				PropertyEditor pe = PropertyEditorManager.findEditor(Class.forName(type));
+				pe.setAsText(param.getValue().toString());
+				query.setParameter(param.getKey(), pe.getValue());
 			}
 			Object obj = query.list().toArray(new DomainObject[0]);
 			

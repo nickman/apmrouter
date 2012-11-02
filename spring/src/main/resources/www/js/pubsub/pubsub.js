@@ -4,6 +4,8 @@
 	var cache = {};
 	// a map of one times where each item will be cleared on a successfull callback or timeout
 	var oneTimes = {};
+	// The default timeout for onetimes, in ms.
+	var defaultTimeout = 5000;
 
 	d.publish = function(/* String */topic, /* Array? */args){
 		// summary: 
@@ -19,11 +21,17 @@
 		//		with a function signature like: function(a,b,c){ ... }
 		//
 		//	|		$.publish("/some/topic", ["a","b","c"]);
-		cache[topic] && d.each(cache[topic], function(){
-			this.apply(d, args || []);
-			if(d.oneTime==true) {
-				
+		cache[topic] && d.each(cache[topic], function(){			
+			if(this.oneTime==true) {
+				clearTimeout(this.timeoutHandle);
+				console.info("Cleared Timeout Handle:%s", this.timeoutHandle);
+				var handle = oneTimes[topic];
+				if(handle!=null) {
+					d.unsubscribe(handle);
+					delete oneTimes[topic];
+				}
 			}
+			this.apply(d, args || []);
 		});
 	};
 
@@ -70,7 +78,11 @@
 		}
 		cache[topic].push(callback);
 		callback.oneTime = true;
-		oneTimes[callback] = [topic, callback];
+		callback.timeoutHandle = setTimeout(function(){
+			d.unsubscribe([topic, callback]);
+		}, timeout || defaultTimeout);
+		console.info("Set oneTime Timeout:%s  (%s)", callback.timeoutHandle, timeout || defaultTimeout);
+		oneTimes[topic] = [topic, callback];
 	};	
 
 	d.unsubscribe = function(/* Array */handle){
@@ -88,6 +100,12 @@
 				cache[t].splice(idx, 1);
 			}
 		});
+	};
+	
+	d.pendingOneTimes = function() {
+		var cnt = 0;
+		d.each(oneTimes, function(){cnt++;});
+		return cnt;
 	};
 
 })(jQuery);
