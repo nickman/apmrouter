@@ -37,6 +37,7 @@ CREATE MEMORY TEMPORARY TABLE PUBLIC.METRIC(
     AGENT_ID INTEGER NOT NULL COMMENT 'The  agent identifier for this metric',
     TYPE_ID SMALLINT NOT NULL COMMENT 'The metric type of the metric',
     NAMESPACE VARCHAR2(200) COMMENT 'The namespace of the metric',
+    NARR ARRAY NOT NULL COMMENT 'The namespace array items of the metric',
     PARENT VARCHAR2(200) NOT NULL COMMENT 'The parent of the namespace of the metric',
     ROOT VARCHAR2(200) NOT NULL COMMENT 'The root of the namespace of the metric',
     LEVEL SMALLINT NOT NULL COMMENT 'The number of namespaces in the namespace',
