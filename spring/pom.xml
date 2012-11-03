@@ -95,12 +95,6 @@
 			 <artifactId>core</artifactId>
 			</dependency>
 			
-			<!-- Functional Java -->
-			<dependency>
-			  <groupId>org.functionaljava</groupId>
-			  <artifactId>functionaljava-core</artifactId>
-			</dependency>
-			
 			
 			<!--  nash server -->			
 			<dependency>
