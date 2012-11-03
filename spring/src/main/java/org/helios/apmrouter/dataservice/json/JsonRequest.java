@@ -123,6 +123,17 @@ public class JsonRequest {
 	}
 	
 	/**
+	 * Returns an argument as a string
+	 * @param key The argument key
+	 * @return The string value of the argument or null if no value was found
+	 */
+	public String getArgument(String key) {
+		Object value = arguments.get(key);
+		if(value!=null) return value.toString().trim();
+		return null;
+	}
+	
+	/**
 	 * Returns the named argument from the argument map returning null if not found
 	 * @param key The argument key
 	 * @param type The expected type of the value

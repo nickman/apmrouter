@@ -158,6 +158,9 @@
  				<entry value-ref="CompositeDataSupportSerializer" >
  					<key><value type="java.lang.Class">javax.management.openmbean.CompositeDataSupport</value></key>
  				</entry>
+ 				<entry value-ref="UtilDateSerializer" >
+ 					<key><value type="java.lang.Class">java.util.Date</value></key>
+ 				</entry>
  				
  			</map>
  		</property>

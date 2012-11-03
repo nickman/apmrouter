@@ -28,9 +28,12 @@ import java.beans.PropertyEditor;
 import java.beans.PropertyEditorManager;
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.helios.apmrouter.catalog.MetricCatalogService;
+import org.helios.apmrouter.catalog.api.impl.DataServiceInterceptor;
+import org.helios.apmrouter.catalog.domain.AgentMetricSet;
 import org.helios.apmrouter.catalog.domain.DomainObject;
 import org.helios.apmrouter.dataservice.json.JSONRequestHandler;
 import org.helios.apmrouter.dataservice.json.JsonRequest;
@@ -147,7 +150,7 @@ public class CatalogJSONDataService extends ServerComponentBean {
 
 		Session session = null;
 		try {
-			session = sessionFactory.openSession();
+			session = sessionFactory.openSession(new DataServiceInterceptor());
 			Query query = session.getNamedQuery(name);
 			NamedQueryDefinition nqd = namedQueries.get(name);
 			
@@ -158,17 +161,41 @@ public class CatalogJSONDataService extends ServerComponentBean {
 				pe.setAsText(param.getValue().toString());
 				query.setParameter(param.getKey(), pe.getValue());
 			}
-			Object obj = query.list().toArray(new DomainObject[0]);
-			
-			channel.write(request.response().setContent(obj));
+			List<?> results = query.list();
+			if(!results.isEmpty() && results.iterator().next() instanceof DomainObject) {
+				Object obj = results.toArray(new DomainObject[0]);
+				channel.write(request.response().setContent(obj));
+			} else {
+				channel.write(request.response().setContent(results));
+			}
 		} catch (Exception ex) {
-			error("Failed to execute named query [", name, "]", ex);
+			error("Failed to execute named query [", name, "] with params [" + params + "]", ex);
 		} finally {
 			if(session!=null && session.isOpen()) try { session.close(); } catch (Exception e) {}
 		}
-		
-		
 	}
+	
+	/**
+	 * Returns an {@link AgentMetricSet} for the agent with the passed agent Id
+	 * @param request The JSON encoded named query request
+	 * @param channel The channel to write the response to
+	 */
+	@JSONRequestHandler(name="ams")
+	public void agentMetricSet(JsonRequest request, Channel channel) {
+		
+		Session session = null;
+		try {
+			int agentId = Integer.parseInt(request.getArgument("agentId"));
+			session = sessionFactory.openSession();
+			channel.write(request.response().setContent(AgentMetricSet.newInstance(session, agentId)));
+		} catch (Exception ex) {
+			error("Failed to execute agentMetricSet [" + request + "]", ex);
+		} finally {
+			if(session!=null && session.isOpen()) try { session.close(); } catch (Exception e) {}
+		}
+ 
+	}
+	
 
 	/**
 	 * Sets the object Json marshaller

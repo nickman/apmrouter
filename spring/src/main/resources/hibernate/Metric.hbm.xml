@@ -28,6 +28,13 @@
             </column>
         </property>
         
+        <property name="narr" type="org.helios.apmrouter.catalog.jdbc.h2.StringArrayDataType" not-null="true">
+            <column name="NARR" >
+                <comment>The namespace items array of the metric</comment>
+            </column>
+        </property>
+        
+        
         <property name="parent" type="string" not-null="true" update="false"  >
             <column name="PARENT" length="200">
                 <comment>The parent of the namespace of the metric</comment>
@@ -63,10 +70,14 @@
             </column>
         </property>
     </class>
+    <query read-only="true"   name="allMetricsForAgent">from metric m where m.agent.agentId = :agentId
+    	<query-param name="agentId" type="java.lang.Integer"/>
+    </query>
+    
     <query read-only="true"   name="rootMetricsForAgent">select distinct(m.root), 'root' from metric m where m.agent.agentId = :agentId
     	<query-param name="agentId" type="java.lang.Integer"/>
     </query>
-    <query read-only="true"   name="rootPlusMetricsForAgent">select distinct(m.parent), 'root+' from metric m where m.agent.agentId = :agentId and m.root = :root
+    <query read-only="true"   name="rootPlusMetricsForAgent">select distinct(substring(m.parent, length(m.root)+1)) ,'rootPlus' from metric m where m.agent.agentId = :agentId and m.root = :root and m.root != m.parent
     	<query-param name="agentId" type="java.lang.Integer"/>
     	<query-param name="root" type="java.lang.String"/>
     </query>
@@ -74,9 +85,9 @@
     	<query-param name="agentId" type="java.lang.Integer"/>
     	<query-param name="parent" type="java.lang.String"/>
     </query>
-    <query read-only="true"   name="metricNodesForAgent">select m, 'node' from metric m where m.agent.agentId = :agentId and m.namespace = :namespace
+    <query read-only="true"   name="metricNodesForAgent">select m, 'node' from metric m where m.agent.agentId = :agentId and m.parent = :parent
     	<query-param name="agentId" type="java.lang.Integer"/>
-    	<query-param name="namespace" type="java.lang.String"/>
+    	<query-param name="parent" type="java.lang.String"/>
     </query>
     <query read-only="true"   name="findMinLevelMetricsForAgent">from metric m where m.level = m.agent.minLevel and m.agent.agentId = :agentId
     	<query-param name="agentId" type="java.lang.Integer"/>

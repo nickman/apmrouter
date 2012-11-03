@@ -2,6 +2,7 @@ package org.helios.apmrouter.catalog.domain;
 
 // Generated Oct 27, 2012 1:30:47 PM by Hibernate Tools 3.6.0
 
+import java.util.Arrays;
 import java.util.Date;
 
 import com.google.gson.annotations.Expose;
@@ -20,6 +21,9 @@ public class Metric implements java.io.Serializable, DomainObject {
 	private Agent agent;
 	@SerializedName("ns")
 	private String namespace;
+	@SerializedName("narr")
+	private String[] narr;
+	
 	@SerializedName("par")
 	private String parent;
 	@SerializedName("root")
@@ -44,11 +48,12 @@ public class Metric implements java.io.Serializable, DomainObject {
 		this.firstSeen = firstSeen;
 	}
 
-	public Metric(TraceType traceType, Agent agent, String namespace, String parent, String root,
+	public Metric(TraceType traceType, Agent agent, String namespace, Object narr, String parent, String root,
 			short level, String name, Date firstSeen, Date lastSeen) {
 		this.traceType = traceType;
 		this.agent = agent;
 		this.namespace = namespace;
+		this.narr = (String[])narr;
 		this.parent = parent;
 		this.root = root;
 		this.level = level;
@@ -132,6 +137,9 @@ public class Metric implements java.io.Serializable, DomainObject {
 		builder.append(metricId);
 		builder.append(", namespace=");
 		builder.append(namespace);
+		builder.append(", narr=");
+		builder.append(Arrays.toString(narr));
+		
 		builder.append(", name=");
 		builder.append(name);
 		builder.append(", type=");
@@ -174,6 +182,22 @@ public class Metric implements java.io.Serializable, DomainObject {
 	 */
 	public void setRoot(String root) {
 		this.root = root;
+	}
+
+	/**
+	 * Returns 
+	 * @return the narr
+	 */
+	public String[] getNarr() {
+		return narr;
+	}
+
+	/**
+	 * Sets 
+	 * @param narr the narr to set
+	 */
+	public void setNarr(String[] narr) {
+		this.narr = narr;
 	}
 
 	

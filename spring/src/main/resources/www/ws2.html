@@ -14,6 +14,29 @@
 			body{ font: 62.5% "Trebuchet MS", sans-serif; margin: 50px;}
 		</style>					
 		<script type="text/javascript">
+			var metricTree = null;		
+			function rebuildNamespace(value) {
+				value.shift(); value.shift(); value.shift(); value.shift();
+				return value.join('');				
+			}
+			function splitRootPlus(value) {
+				var frags = value.split('/');
+				while(frags[0]=="") {
+					frags.shift();
+				}
+				$.each(frags, function(index){
+					frags[index] = "/" + frags[index]; 
+				});
+				return frags;				
+			}
+			function mapSize(value) {
+				var cnt = 0;
+				$.each(value, function(key, value){
+					cnt++;
+				});
+				return cnt;				
+			}
+			
 			jQuery(function($) {
 				/*
 				$('.csubscriber>img').bind("status.connected", function(e, status) {
@@ -41,15 +64,15 @@
 					
 					
 					$.apmr.findAllHosts(function(data){
-						console.info("Populating Hosts:[%o]", data);
+						//console.info("Populating Hosts:[%o]", data);
 						$.each(data.msg, function(index, host){
-							console.info("Populating Host:[%s]:[%s]", index, host.name);
+							//console.info("Populating Host:[%s]:[%s]", index, host.name);
 							if(host.name.indexOf(".")==-1) {
-								// .create_node ( node , position , js , callback , is_loaded )
 								$("#metricTree").jstree("create_node", '#defaultDomain', "inside" , {
 									attr: {id: "host-" + host.hostId, rel: "server", nodeid : host.hostId},  
 									data : {title: host.name, id : host.hostId}
-								}, false, true);	
+								}, false, false);
+								$("#host-" + host.hostId).removeClass('jstree-leaf').addClass('jstree-closed');
 							}
 						});
 					});		
@@ -62,9 +85,21 @@
 				$('#metricTree')
 				.jstree({
 					core : { 
-						animation : 0,						
+						animation : 0
 					},
-					plugins : [ "themes", "ui", "types", "html_data"],
+					plugins : [ "themes", "ui", "types", "html_data", "unique", "contextmenu"],
+					unique : {
+						error_callback : function (n, p, f) {
+							console.error("Duplicate node [%s] with function [%s]", n, f);
+						}
+					},
+
+					html_data : {
+						progressive_render : "true",
+						load_node_json : function( node , success_callback , error_callback ) {
+							pop(node, success_callback , error_callback);
+						}
+					},
 					types : {
 						'types' : {
 				            'root' : {
@@ -75,13 +110,7 @@
 				                valid_children : [ 'domain' ],
 				                select_node : function(me) {
 				                	console.info("Selected Node:[%o]", me);
-				                	console.info("This:[%o]", this);
-				                	if($(me).jstree("is_loaded")) {
-				                		console.info("Loaded");
-				                	} else {
-				                		console.info("Not Loaded");
-				                	}
-				                },				                
+				                }				                
 				            },
 				            'domain' : {
 				            	'use_data' : true,
@@ -91,8 +120,6 @@
 				                valid_children : [ 'domain', 'server' ],
 				                select_node : function(me) {
 				                	console.info("Selected Node:[%o]", me);
-				                	console.info("This:[%o]", this);
-				                	//$.apmr.findAgentsByHost
 				                }
 				            },				            
 				            'server' : {
@@ -100,50 +127,45 @@
 				                'icon' : {
 				                    'image' : 'img/server_16_16.png'
 				                }, valid_children : [ 'agent' ],
-				                select_node : function(me) {
-				                	console.info("Selected Node:[%o] - nodeid:%s", me, $(me).attr('nodeid'));
-				                	console.info("This:[%o]", this);
-				                	console.info("Getting Agents for Host:[%s]", $(me).attr('nodeid'));
+				                open_node : function(me) {
+				                	//console.info("Getting Agents for Host:[%s]", $(me).attr('nodeid'));
 									$.apmr.findAgentsByHost($(me).attr('nodeid'), function(data){
-										console.info("Populating Agents:[%o]", data);
+										//console.info("Populating Agents:[%o]", data);
 										$.each(data.msg, function(index, agent){
-											console.info("Populating Agent:[%s]:[%s]", index, agent.name);
-											// .create_node ( node , position , js , callback , is_loaded )
+											//console.info("Populating Agent:[%s]:[%s]:(%s)", index, agent.name, agent.agentId);
 											$("#metricTree").jstree("create_node", '#' + $(me).attr('id'), "inside" , {
-												attr: {id: "agent-" + agent.hostId, rel: "agent"},  
+												attr: {id: "agent-" + agent.agentId, rel: "agent", agentid : agent.agentId},  
 												data : {title: agent.name, id : agent.agentId}
 											}, false, true);	
+											$("#agent-" + agent.agentId).removeClass('jstree-leaf').addClass('jstree-closed');
 										});
 									});
 				                }
-				                
 				            },
 				            'agent' : {
 				            	'use_data' : true,
 				                'icon' : {
 				                    'image' : 'img/agent2_16_16.png'
 				                }, valid_children : [ 'folder', 'metric' ],
-				                select_node : function(me) {
-				                	console.info("Getting Agents for Host:[%s]", $(me).attr('nodeid'));
-									$.apmr.findAgentsByHost($(me).attr('nodeid'), function(data){
-										console.info("Populating Agents:[%o]", data);
-										$.each(data.msg, function(index, agent){
-											console.info("Populating Agent:[%s]:[%s]", index, agent.name);
-											// .create_node ( node , position , js , callback , is_loaded )
-											$("#metricTree").jstree("create_node", '#' + $(me).attr('id'), "inside" , {
-												attr: {id: "agent-" + agent.hostId, rel: "agent"},  
-												data : {title: agent.name, id : agent.agentId}
-											}, false, true);	
-										});
+				                open_node : function(me) {
+				                	//console.info("Getting AMS for Agent:[%s]", $(me).attr('agentid'));
+				                	$.apmr.ams($(me).attr('agentid'), function(data){
+				                		//console.info("AGENT POP DATA:%o", data.msg);
+				                		populateAgent(me, data.msg);
 									});
-				                }
-				                
+				                }				                
+				            },
+				            'metric-folder' : {
+				            	'use_data' : true,
+				                'icon' : {
+				                    'image' : 'img/chart-folder_16_16.png'
+				                }, valid_children : [ 'metric-folder', 'folder', 'metric' ]
 				            },
 				            'folder' : {
 				            	'use_data' : true,
 				                'icon' : {
 				                    'image' : 'img/folder_16_16.png'
-				                }, valid_children : [ 'folder', 'metric' ]
+				                }, valid_children : [ 'metric-folder', 'folder', 'metric' ],
 				            },
 				            'metric' : {
 				            	'use_data' : true,
@@ -154,8 +176,51 @@
 				        }						
 					}
 				});
+				metricTree = $.jstree._reference('#metricTree');
+				$('#metricTree').css('background', '000000');
+				console.info("needle:%o", metricTree);
 				$.apmr.connect(); 
 			});
+			/**
+			 *
+			 */
+			function populateAgent(parentNode, data) {
+           		if(data==null || parentNode==null) return;
+           		//console.info("Populating Agent Metrics:[%s]", $(parentNode).attr('id'));
+				
+				if(data.metrics!=null) {
+					$.each(data.metrics, function(index, metric){
+						$("#metricTree").jstree("create_node", '#' + $(parentNode).attr('id'), "inside" , {
+							attr : metric.attr,  
+							data : metric.data
+						}, false, true);						
+					});
+				}
+				if(data.folders==null) return;
+				$.each(data.folders, function(index, folder){
+					$("#metricTree").jstree("create_node", '#' + $(parentNode).attr('id'), "inside" , {
+						attr : folder.attr,  
+						data : folder.data
+					}, false, true);
+					$("#" + folder.attr.id).removeClass('jstree-leaf').addClass('jstree-closed');
+					if(folder.hasMetrics) {
+						$.each(folder.metrics, function(index, metric){
+							$("#metricTree").jstree("create_node", '#' + folder.attr.id, "inside" , {
+								attr : metric.attr,  
+								data : metric.data
+							}, false, true);						
+						});						
+					}
+					var nestedFolderCount = folder.folders==null ? 0 : mapSize(folder.folders);
+					//console.info("Added Folder [%s]. Nested Folders:[%s]", ("#" + folder.attr.id), nestedFolderCount);
+					if(nestedFolderCount>0) {
+						var thisNode = $("#" + folder.attr.id)[0];
+						populateAgent(thisNode, folder);
+					}
+					
+				});
+			}
+			
 		</script>		
 	</head>
 	<body>
@@ -231,6 +296,91 @@
 	</script>
 
 	{t:'req', svc:'catalog', op:'nq', args:{name:'findAgentsByHost', p:{hostId:1}}}
+
+
+				                open_node : function(me) {
+				                	if("rootPlus"==$(me).attr('type')) {
+				                		console.info("Getting Metric Instances for Folder:[%s]", $(me).attr('folder_name'));
+				                		var namespace = rebuildNamespace(metricTree.get_path('#' + $(me).attr('id')));
+				                		var agentId = $(me).attr('agentid');
+				                		$.apmr.metricNodesForAgent(agentId, namespace, function(data) {
+				                			console.info("Metric Nodes Data:[%o]", data);
+				                			$.each(data.msg, function(index, metricPair) {
+				                				var metric = metricPair[0];
+				                				var _type = metricPair[1];
+				                				
+				                			});
+				                			
+				                			/*
+												msg: Array[12]
+												0: Array[2]
+												0: Object
+												ag: Object
+												firstSeen: "Oct 29, 2012 3:29:29 PM"
+												id: 1374
+												lastSeen: "Oct 29, 2012 3:29:29 PM"
+												lev: 3
+												name: "Committed"
+												ns: "/platform=JVM/category=Memory/type=Heap"
+												par: "/platform=JVM/category=Memory"
+												root: "/platform=JVM"
+				                			*/
+				                			
+				                			
+				                			
+				                		});
+				                		return;
+				                	} 
+				                	
+// OLD FOLDER ON OPEN
+=====================				                	
+				                	console.info("Getting Next Level Metrics for Folder:[%s]  Type:[%s]", $(me).attr('folder_name'), $(me).attr('type'));
+									$.apmr.rootPlusMetricsForAgent($(me).attr('agentid'), $(me).attr('folder_name'), function(data) {
+										console.info("Populating Root Plus Metrics:[%o]", data);
+										$.each(data.msg, function(index, ns){
+											var _type = ns[1];
+											$.each(splitRootPlus(ns[0]), function(index, metric) {												
+												$("#metricTree").jstree("create_node", '#' + $(me).attr('id'), "inside" , {
+													attr : {
+														id: "folder-" + (metric.replace('/', '').replace('=', '-')),
+														folder_name : metric,
+														type : _type,
+														rel: "folder",
+														agentid : $(me).attr('agentid')
+													},  
+													data : {title: metric, id : $(me).attr('id') + metric[0]}
+												}, false, true);
+												console.info("Resetting [%s]", metric);
+												$("#folder-" + metric.replace('/', '').replace('=', '-')).removeClass('jstree-leaf').addClass('jstree-closed');
+											});
+										});
+									});
+				                }
+
+
+// OLD AGENT ON OPEN
+=====================
+				                open_node : function(me) {
+				                	console.info("Getting Root Metrics for Agent:[%s]", $(me).attr('id'));
+									$.apmr.rootMetricsForAgent($(me).attr('agentid'), function(data){
+										console.info("Populating Root Metrics:[%o]", data);
+										$.each(data.msg, function(index, metric){											
+											$("#metricTree").jstree("create_node", '#' + $(me).attr('id'), "inside" , {
+												attr : {
+													id: "folder-" + (metric[0].replace('/', '').replace('=', '-')),
+													folder_name : metric[0],
+													type : metric[1],
+													rel: "folder",
+													agentid : $(me).attr('agentid')
+												},  
+												data : {title: metric[0], id : $(me).attr('id') + metric[0]}
+											}, false, true);
+											console.info("Resetting [%s]", metric[0]);
+											$("#folder-" + metric[0].replace('/', '').replace('=', '-')).removeClass('jstree-leaf').addClass('jstree-closed');
+										});
+									});
+				                }
+
 
 
  -->

@@ -28,6 +28,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.regex.Pattern;
 
 /**
@@ -125,7 +128,7 @@ public class H2StoredProcedure {
 		int agentMinLevel = nums[1].intValue();
 		int nsLevel = nsLevel(namespace);
 		long metricId = key(conn, "SELECT METRIC_ID FROM METRIC WHERE AGENT_ID=? AND NAMESPACE=? AND NAME=?", new Object[]{agentId, namespace, name}, 
-				"INSERT INTO METRIC (AGENT_ID, TYPE_ID, NAMESPACE, PARENT, ROOT, LEVEL, NAME, FIRST_SEEN, LAST_SEEN) VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", new int[]{1}, agentId, typeId, namespace, parent(namespace), root(namespace), nsLevel, name)[0].longValue();
+				"INSERT INTO METRIC (AGENT_ID, TYPE_ID, NAMESPACE, NARR, PARENT, ROOT, LEVEL, NAME, FIRST_SEEN, LAST_SEEN) VALUES (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", new int[]{1}, agentId, typeId, namespace, nsItems(namespace), parent(namespace), root(namespace), nsLevel, name)[0].longValue();
 		if(nsLevel<agentMinLevel) {
 			setAgentMinLevel(conn, agentId, nsLevel);
 		}
@@ -161,6 +164,24 @@ public class H2StoredProcedure {
 		}
 		return cnt;
 	}
+	
+	/**
+	 * Returns individual entries in the passed namespace
+	 * @param namespace The namespace to get the entries for
+	 * @return the array of namespace entries
+	 */
+	private static String[] nsItems(String namespace) {
+		if(namespace==null || namespace.trim().isEmpty()) return new String[0];
+		List<String> items = new ArrayList<String>();
+		String[] frags = NS_DELIM.split(namespace);
+		for(int i = 0; i < frags.length; i++) {
+			if(!frags[i].trim().isEmpty()) {
+				items.add(frags[i].trim());
+			}
+		}
+		return items.toArray(new String[items.size()]);
+	}
+	
 	
 	/**
 	 * Returns the parent of the passed namespace 

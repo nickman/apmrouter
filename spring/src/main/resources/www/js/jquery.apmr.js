@@ -72,7 +72,6 @@
 				this.c.sessionId = json.sessionid;
 				console.info("Set SessionID [%s]", this.c.sessionId);
 			}
-			console.dir(json);
 			var topic = '/' + 'req' + '/' + json.rerid;
 			$.publish(topic, [json]);
 		} finally {
@@ -113,6 +112,12 @@
 		
 		//  $.apmr.sub("start", "jmx", "service:jmx:local://DefaultDomain", "java.lang:type=GarbageCollector,name=*")
 	},
+	$.apmr.ams = function(agentId, callback) {
+		$.apmr.svcOp("catalog", "ams", {'agentId': agentId}, callback || function(data){
+			console.info("ams Response:%o", data);
+		});
+	},
+	
 	$.apmr.findAllHosts = function(callback) {
 		$.apmr.svcOp("catalog", "nq", {name:"findAllHosts"}, callback || function(data){
 			console.info("FindAllHosts Response:%o", data);
@@ -134,8 +139,8 @@
 			console.info("findMinLevelMetricsForAgent Response:%o", data);
 		});						
 	},
-	$.apmr.metricNodesForAgent = function(agentId, namespace) {
-		$.apmr.svcOp("catalog", "nq", {name:"metricNodesForAgent", p : {'agentId': agentId, 'namespace' : namespace}}, function(data){
+	$.apmr.metricNodesForAgent = function(agentId, namespace, callback) {
+		$.apmr.svcOp("catalog", "nq", {name:"metricNodesForAgent", p : {'agentId': agentId, 'parent' : namespace}}, callback || function(data){
 			console.info("metricNodesForAgent Response:%o", data);
 		});						
 	},
@@ -149,11 +154,17 @@
 			console.info("rootMetricsForAgent Response:%o", data);
 		});						
 	},
-	$.apmr.rootPlusMetricsForAgent = function(agentId, root) {
-		$.apmr.svcOp("catalog", "nq", {name:"rootPlusMetricsForAgent", p : {'agentId': agentId, 'root': root}}, function(data){
+	$.apmr.rootPlusMetricsForAgent = function(agentId, root, callback) {
+		$.apmr.svcOp("catalog", "nq", {name:"rootPlusMetricsForAgent", p : {'agentId': agentId, 'root': root}}, callback || function(data){
 			console.info("rootPlusMetricsForAgent Response:%o", data);
 		});						
+	},
+	$.apmr.allMetricsForAgent = function(agentId, callback) {
+		$.apmr.svcOp("catalog", "nq", {name:"allMetricsForAgent", p : {'agentId': agentId}}, callback || function(data){
+			console.info("allMetricsForAgent Response:%o", data);
+		});						
 	}
+	
 	
 	
 	

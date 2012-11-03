@@ -44,6 +44,7 @@
 		<xom.version>1.2.5</xom.version>
 		<groovy.version>2.0.1</groovy.version>
 		<json-simple.version>1.1.1</json-simple.version>
+		<fj.version>3.1-SNAPSHOT</fj.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -152,6 +153,14 @@
 			 <artifactId>netty-tools</artifactId>
 			 <version>${netty-tools.version}</version>
 			</dependency>
+			
+			<!-- Functional Java -->
+			<dependency>
+			  <groupId>org.functionaljava</groupId>
+			  <artifactId>functionaljava-core</artifactId>
+			  <version>${fj.version}</version>
+			</dependency>
+
 			
 			<!--  OpenTSDB -->
 
