@@ -218,6 +218,7 @@ public class AgentMetricSet {
 			}
 			LOG.info(new StringBuilder().append(indent(cnt)).append("METRIC ").append(metric.getName()));
 			currentFolder.metrics.add(mapMetric(metric));
+			currentFolder.attr.put(FOLDER_TAG_REL, "metric-folder");
 			currentFolder.hasMetrics = true;
 		}
 		
