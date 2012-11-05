@@ -62,7 +62,8 @@
     	<query-param name="level" type="java.lang.Integer"/>
     	<query-param name="agentId" type="java.lang.Integer"/>
     </query>
-    <sql-query name="findLevelFoldersForAgent">select distinct m.narr[:level] from metric m where m.agent_id = :agentId and m.level > 0 and ((:level >= 1 and m.narr[:level-1] = :parent) or :level = 0)
+    <!-- and m.narr[:level] is not null -->
+    <sql-query name="findLevelFoldersForAgent">select distinct m.narr[:level] from metric m where m.agent_id = :agentId and m.level > 0 and ((:level >= 1 and m.narr[:level-1] = :parent) or :level = 0) and m.narr[:level] is not null 
     	<query-param name="level" type="java.lang.Integer"/>
     	<query-param name="agentId" type="java.lang.Integer"/>   
     	<query-param name="parent" type="java.lang.String"/>

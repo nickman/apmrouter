@@ -1,4 +1,4 @@
-<html>
+<html manifest="cache.manifest">
 	<head>
 		<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 		<title>APMRouter Admin Root</title>		
@@ -58,9 +58,10 @@
 					}
 				});
 
-				$(document).bind("status.reconnecting", function(e){
-					console.info("status.reconnecting Fired");
+				$(document).bind("status.reconnect.attempt", function(e){
+					console.info("status.reconnect.attempt Fired");
 					$('.csubscriber>.csubscriber-off').addClass('csubscriber-retry').removeClass('csubscriber-off')
+					$('.csubscriber>.csubscriber-on').addClass('csubscriber-retry').removeClass('csubscriber-on')
 				});
 
 				$('#metricTree')
@@ -184,7 +185,7 @@
 						break;
 					case 'domain':
 						var domain = $(node).attr('domain');
-						console.info("Populating Hosts in Domain [%s]", domain);
+						//console.info("Populating Hosts in Domain [%s]", domain);
 						$.apmr.hostsByDomain(domain, function(data) {
 							$.each(data.msg, function(index, host) {
 								nodeArray.push({
@@ -197,7 +198,7 @@
 						break;
 					case 'server':
 						var host = $(node).attr('host');
-						console.info("Populating Agents in Server [%s]", host);
+						//console.info("Populating Agents in Server [%s]", host);
 						$.apmr.agentsByHost(host, function(data) {
 							$.each(data.msg, function(index, agent) {
 								nodeArray.push({
@@ -238,7 +239,7 @@
 						var agentId = $(node).attr('agent');
 						var level = parseInt($(node).attr('level')) +1;
 						var parent = $(node).attr('folder');
-						console.info("Populating Level Metrics and Folder [%s]", parent);
+						//console.info("Populating Level Metrics and Folder [%s]", parent);
 						$.apmr.findLevelMetricsForAgentWithParent(level, agentId, parent, function(data) {							
 							$.each(data.msg, function(index, metric) {
 								nodeArray.push({
@@ -250,12 +251,14 @@
 							nodeArray = [];
 							$.apmr.findLevelFoldersForAgent(level, agentId, parent, function(data) {
 								$.each(data.msg, function(index, folder) {
-									nodeArray.push({
-										attr: {id: "folder-" + agentId + "-" + folder.replace('=', '_'), rel: "folder", 'folder' : folder, 'agent' : agentId, 'level' : level},  
-										data : {title: folder}									
-									});	
+									if(folder!=null) {
+										nodeArray.push({
+											attr: {id: "folder-" + agentId + "-" + folder.replace('=', '_'), rel: "folder", 'folder' : folder, 'agent' : agentId, 'level' : level},  
+											data : {title: folder}									
+										});
+									}
 								});							
-								callback(nodeArray); fixOpen(nodeArray);
+								if(nodeArray.length>0) { callback(nodeArray); fixOpen(nodeArray); }
 							});						
 						});
 						break;
