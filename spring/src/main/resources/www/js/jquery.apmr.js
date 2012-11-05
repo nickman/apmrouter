@@ -82,7 +82,7 @@
 		if(callback!=null) {
 			var topic = '/' + req.t + '/' + this.config.requestId;
 			$.oneTime(topic, callback);
-			console.info("Registered Callback for oneTime [%s]", topic);
+			//console.info("Registered Callback for oneTime [%s]", topic);
 		}
 		req['rid']=this.config.requestId;
 		this.config.ws.send(JSON.stringify(req));
@@ -117,10 +117,15 @@
 			console.info("ams Response:%o", data);
 		});
 	},
+	$.apmr.allDomains = function(callback) {
+		$.apmr.svcOp("catalog", "nq", {name:"allDomains"}, callback || function(data){
+			console.info("allDomains Response:%o", data);
+		});
+	},
 	
-	$.apmr.findAllHosts = function(callback) {
-		$.apmr.svcOp("catalog", "nq", {name:"findAllHosts"}, callback || function(data){
-			console.info("FindAllHosts Response:%o", data);
+	$.apmr.hostsByDomain = function(domain, callback) {
+		$.apmr.svcOp("catalog", "nq", {name:"hostsByDomain", p : {'domain': domain}}, callback || function(data){
+			console.info("hostsByDomain Response:%o", data);
 		});
 	},
 	$.apmr.findOnlineHosts = function() {
@@ -129,19 +134,24 @@
 		});
 	},
 	
-	$.apmr.findAgentsByHost = function(hostId, callback) {
-		$.apmr.svcOp("catalog", "nq", {name:"findAgentsByHost", p : {'hostId': hostId}}, callback || function(data){
-			console.info("findAgentsByHost Response:%o", data);
+	$.apmr.agentsByHost = function(hostId, callback) {
+		$.apmr.svcOp("catalog", "nq", {name:"agentsByHost", p : {'hostId': hostId}}, callback || function(data){
+			console.info("agentsByHost Response:%o", data);
 		});		
 	},
-	$.apmr.findMinLevelMetricsForAgent = function(agentId) {
-		$.apmr.svcOp("catalog", "nq", {name:"findMinLevelMetricsForAgent", p : {'agentId': agentId}}, function(data){
+	$.apmr.findMinLevelMetricsForAgent = function(agentId, callback) {
+		$.apmr.svcOp("catalog", "nq", {name:"findMinLevelMetricsForAgent", p : {'agentId': agentId}}, callback || function(data){
 			console.info("findMinLevelMetricsForAgent Response:%o", data);
 		});						
 	},
-	$.apmr.metricNodesForAgent = function(agentId, namespace, callback) {
-		$.apmr.svcOp("catalog", "nq", {name:"metricNodesForAgent", p : {'agentId': agentId, 'parent' : namespace}}, callback || function(data){
-			console.info("metricNodesForAgent Response:%o", data);
+	$.apmr.findLevelMetricsForAgent = function(level, agentId, callback) {
+		$.apmr.svcOp("catalog", "nq", {name:"findLevelMetricsForAgent", p : {'level' : level, 'agentId': agentId}}, callback || function(data){
+			console.info("findLevelMetricsForAgent Response:%o", data);
+		});								
+	},
+	$.apmr.findLevelFoldersForAgent = function(level, agentId, parent, callback) {
+		$.apmr.svcOp("catalog", "nq", {name:"findLevelFoldersForAgent", p : {'level' : level, 'agentId': agentId, 'parent' : parent || ''}}, callback || function(data){
+			console.info("findLevelFoldersForAgent Response:%o", data);
 		});						
 	},
 	$.apmr.metricParentsForAgent = function(agentId, parent) {

@@ -24,6 +24,7 @@ CREATE MEMORY TEMPORARY TABLE PUBLIC.AGENT(
 CREATE MEMORY TEMPORARY TABLE PUBLIC.HOST(
     HOST_ID INTEGER NOT NULL IDENTITY COMMENT 'The primary key for the host',
     NAME VARCHAR2(255) NOT NULL COMMENT 'The short or preferred host name',
+    DOMAIN VARCHAR2(255) NOT NULL COMMENT 'The domain that the host is in',
     IP VARCHAR2(15) COMMENT 'The ip address of the host',
     FQN VARCHAR2(255)  COMMENT 'The fully qualified name of the host',
     FIRST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The first time the host was seen.',
@@ -38,8 +39,6 @@ CREATE MEMORY TEMPORARY TABLE PUBLIC.METRIC(
     TYPE_ID SMALLINT NOT NULL COMMENT 'The metric type of the metric',
     NAMESPACE VARCHAR2(200) COMMENT 'The namespace of the metric',
     NARR ARRAY NOT NULL COMMENT 'The namespace array items of the metric',
-    PARENT VARCHAR2(200) NOT NULL COMMENT 'The parent of the namespace of the metric',
-    ROOT VARCHAR2(200) NOT NULL COMMENT 'The root of the namespace of the metric',
     LEVEL SMALLINT NOT NULL COMMENT 'The number of namespaces in the namespace',
     NAME VARCHAR2(60) COMMENT 'The point of the metric name',
     FIRST_SEEN TIMESTAMP NOT NULL COMMENT 'The first time this metric was seen',

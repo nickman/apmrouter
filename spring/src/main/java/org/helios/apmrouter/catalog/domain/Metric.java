@@ -14,7 +14,7 @@ import com.google.gson.annotations.SerializedName;
 public class Metric implements java.io.Serializable, DomainObject {
 
 	@SerializedName("id")
-	private Long metricId;
+	private long metricId;
 	@SerializedName("type")
 	private TraceType traceType;
 	@SerializedName("ag")
@@ -23,14 +23,8 @@ public class Metric implements java.io.Serializable, DomainObject {
 	private String namespace;
 	@SerializedName("narr")
 	private String[] narr;
-	
-	@SerializedName("par")
-	private String parent;
-	@SerializedName("root")
-	private String root;	
-	
 	@SerializedName("lev")
-	private short level;
+	private int level;
 	@SerializedName("name")
 	private String name;
 	@Expose(serialize=false)
@@ -41,32 +35,30 @@ public class Metric implements java.io.Serializable, DomainObject {
 	public Metric() {
 	}
 
-	public Metric(TraceType traceType, Agent agent, short level, Date firstSeen) {
+	public Metric(TraceType traceType, Agent agent, int level, Date firstSeen) {
 		this.traceType = traceType;
 		this.agent = agent;
 		this.level = level;
 		this.firstSeen = firstSeen;
 	}
 
-	public Metric(TraceType traceType, Agent agent, String namespace, Object narr, String parent, String root,
-			short level, String name, Date firstSeen, Date lastSeen) {
+	public Metric(TraceType traceType, Agent agent, String namespace, String[] narr, 
+			int level, String name, Date firstSeen, Date lastSeen) {
 		this.traceType = traceType;
 		this.agent = agent;
 		this.namespace = namespace;
-		this.narr = (String[])narr;
-		this.parent = parent;
-		this.root = root;
+		this.narr = narr;
 		this.level = level;
 		this.name = name;
 		this.firstSeen = firstSeen;
 		this.lastSeen = lastSeen;
 	}
 
-	public Long getMetricId() {
+	public long getMetricId() {
 		return this.metricId;
 	}
 
-	public void setMetricId(Long metricId) {
+	public void setMetricId(long metricId) {
 		this.metricId = metricId;
 	}
 
@@ -94,11 +86,11 @@ public class Metric implements java.io.Serializable, DomainObject {
 		this.namespace = namespace;
 	}
 
-	public short getLevel() {
+	public int getLevel() {
 		return this.level;
 	}
 
-	public void setLevel(short level) {
+	public void setLevel(int level) {
 		this.level = level;
 	}
 
@@ -139,7 +131,6 @@ public class Metric implements java.io.Serializable, DomainObject {
 		builder.append(namespace);
 		builder.append(", narr=");
 		builder.append(Arrays.toString(narr));
-		
 		builder.append(", name=");
 		builder.append(name);
 		builder.append(", type=");
@@ -150,38 +141,6 @@ public class Metric implements java.io.Serializable, DomainObject {
 		builder.append(agent.getHost().getName());
 		builder.append("]");
 		return builder.toString();
-	}
-
-	/**
-	 * Returns the parent of the namespace 
-	 * @return the parent of the namespace
-	 */
-	public String getParent() {
-		return parent;
-	}
-
-	/**
-	 * Sets the parent for the namespace of this metric
-	 * @param parent the parent for the namespace of this metric
-	 */
-	public void setParent(String parent) {
-		this.parent = parent;
-	}
-
-	/**
-	 * Returns the root of the namespace of this metric
-	 * @return the root of the namespace of this metric
-	 */
-	public String getRoot() {
-		return root;
-	}
-
-	/**
-	 * Sets the root of the namespace of this metric
-	 * @param root the root to set
-	 */
-	public void setRoot(String root) {
-		this.root = root;
 	}
 
 	/**

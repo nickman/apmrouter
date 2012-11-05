@@ -140,6 +140,7 @@ public class JVMMonitor extends AbstractMonitor {
 			resetLoop = false;
 		}
 		lastCollectTime = SystemClock.time();
+		tracer.traceCounter(Integer.parseInt(runtimeMXBean.getName().split("@")[0]), "PID");
 		try { collectGc(); } catch (Exception e) {}
 		try { collectThreads();  } catch (Exception e) {}
 		try { collectCompilation(); } catch (Exception e) {}

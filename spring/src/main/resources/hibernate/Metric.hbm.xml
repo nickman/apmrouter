@@ -34,22 +34,7 @@
             </column>
         </property>
         
-        
-        <property name="parent" type="string" not-null="true" update="false"  >
-            <column name="PARENT" length="200">
-                <comment>The parent of the namespace of the metric</comment>
-            </column>
-        </property>
-        
-        <property name="root" type="string" not-null="true" update="false"  >
-            <column name="ROOT" length="200">
-                <comment>The root of the namespace of the metric</comment>
-            </column>
-        </property>
-        
-        
-        
-        <property name="level" type="short" update="false">
+        <property name="level" type="int" update="false">
             <column name="LEVEL" not-null="true">
                 <comment>The number of namespaces in the namespace</comment>
             </column>
@@ -70,27 +55,24 @@
             </column>
         </property>
     </class>
-    <query read-only="true"   name="allMetricsForAgent">from metric m where m.agent.agentId = :agentId
+    <query name="allMetricsForAgent">from metric m where m.agent.agentId = :agentId
+    	<query-param name="agentId" type="java.lang.Integer"/>
+    </query>    
+    <query name="findLevelMetricsForAgent">from metric m where m.level = :level and m.agent.agentId = :agentId
+    	<query-param name="level" type="java.lang.Integer"/>
     	<query-param name="agentId" type="java.lang.Integer"/>
     </query>
+    <sql-query name="findLevelFoldersForAgent">select distinct m.narr[:level] from metric m where m.agent_id = :agentId and m.level > 0 and ((:level >= 1 and m.narr[:level-1] = :parent) or :level = 0)
+    	<query-param name="level" type="java.lang.Integer"/>
+    	<query-param name="agentId" type="java.lang.Integer"/>   
+    	<query-param name="parent" type="java.lang.String"/>
+    </sql-query>
+    <sql-query name="findLevelMetricsForAgentWithParent">select {m.*} from metric m where m.agent_id = :agentId and m.level = :level+1 and m.narr[:level] = :parent
+    	<query-param name="level" type="java.lang.Integer"/>
+    	<query-param name="agentId" type="java.lang.Integer"/>   
+    	<query-param name="parent" type="java.lang.String"/>
+    	<return alias="m" entity-name="metric" ></return>
+    </sql-query>
     
-    <query read-only="true"   name="rootMetricsForAgent">select distinct(m.root), 'root' from metric m where m.agent.agentId = :agentId
-    	<query-param name="agentId" type="java.lang.Integer"/>
-    </query>
-    <query read-only="true"   name="rootPlusMetricsForAgent">select distinct(substring(m.parent, length(m.root)+1)) ,'rootPlus' from metric m where m.agent.agentId = :agentId and m.root = :root and m.root != m.parent
-    	<query-param name="agentId" type="java.lang.Integer"/>
-    	<query-param name="root" type="java.lang.String"/>
-    </query>
-    <query read-only="true"   name="metricParentsForAgent">select distinct(m.namespace), 'folders' from metric m where m.agent.agentId = :agentId and m.parent = :parent
-    	<query-param name="agentId" type="java.lang.Integer"/>
-    	<query-param name="parent" type="java.lang.String"/>
-    </query>
-    <query read-only="true"   name="metricNodesForAgent">select m, 'node' from metric m where m.agent.agentId = :agentId and m.parent = :parent
-    	<query-param name="agentId" type="java.lang.Integer"/>
-    	<query-param name="parent" type="java.lang.String"/>
-    </query>
-    <query read-only="true"   name="findMinLevelMetricsForAgent">from metric m where m.level = m.agent.minLevel and m.agent.agentId = :agentId
-    	<query-param name="agentId" type="java.lang.Integer"/>
-    </query>
 </hibernate-mapping>
 	

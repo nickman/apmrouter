@@ -13,6 +13,12 @@
                 <comment>The short or preferred host name</comment>
             </column>
         </property>
+        <property name="domain" type="string">
+            <column name="DOMAIN" not-null="true" unique="true">
+                <comment>The domain that the host is in</comment>
+            </column>
+        </property>
+        
         <property name="ip" type="string">
             <column name="IP" length="15">
                 <comment>The ip address of the host</comment>
@@ -39,7 +45,13 @@
             </column>
         </property>
     </class>
-    <query read-only="true"   name="findAllHosts">from host</query>
+    <sql-query name="allDomains">
+    	<return-scalar column="domain" type="string"/>
+    	SELECT DISTINCT DOMAIN FROM HOST
+    </sql-query>
+    <query name="hostsByDomain">from host where domain = :domain
+    	<query-param name="domain" type="java.lang.String"/>
+    </query>
     <query read-only="true"   name="findOnlineHosts">from host where connected is not null</query>
     
     

@@ -13,7 +13,7 @@ import com.google.gson.annotations.SerializedName;
 public class Agent implements java.io.Serializable, DomainObject {
 
 	@SerializedName("agentId")
-	private Integer agentId;
+	private int agentId;
 	@SerializedName("host")
 	private Host host;
 	@SerializedName("name")
@@ -27,7 +27,7 @@ public class Agent implements java.io.Serializable, DomainObject {
 	@SerializedName("uri")
 	private String uri;
 	@SerializedName("minl")
-	private short minLevel;	
+	private int minLevel;	
 
 	public Agent() {
 	}
@@ -53,11 +53,11 @@ public class Agent implements java.io.Serializable, DomainObject {
 		this.minLevel = minLevel;		
 	}
 
-	public Integer getAgentId() {
+	public int getAgentId() {
 		return this.agentId;
 	}
 
-	public void setAgentId(Integer agentId) {
+	public void setAgentId(int agentId) {
 		this.agentId = agentId;
 	}
 
@@ -109,7 +109,7 @@ public class Agent implements java.io.Serializable, DomainObject {
 		this.uri = uri;
 	}
 
-	public short getMinLevel() {
+	public int getMinLevel() {
 		return this.minLevel;
 	}
 

@@ -15,6 +15,8 @@ public class Host implements java.io.Serializable, DomainObject {
 	private Integer hostId;
 	@SerializedName("name")
 	private String name;
+	@SerializedName("domain")
+	private String domain;	
 	@SerializedName("ip")
 	private String ip;
 	@Expose(serialize=false)
@@ -30,15 +32,17 @@ public class Host implements java.io.Serializable, DomainObject {
 	public Host() {
 	}
 
-	public Host(String name, Date firstConnected, Date lastConnected) {
+	public Host(String name, String domain, Date firstConnected, Date lastConnected) {
 		this.name = name;
+		this.domain = domain;
 		this.firstConnected = firstConnected;
 		this.lastConnected = lastConnected;
 	}
 
-	public Host(String name, String ip, String fqn, Date firstConnected,
+	public Host(String name, String domain, String ip, String fqn, Date firstConnected,
 			Date lastConnected, Date connected) {
 		this.name = name;
+		this.domain = domain;
 		this.ip = ip;
 		this.fqn = fqn;
 		this.firstConnected = firstConnected;
@@ -113,6 +117,8 @@ public class Host implements java.io.Serializable, DomainObject {
 		builder.append(hostId);
 		builder.append(", name=");
 		builder.append(name);
+		builder.append(", domain=");
+		builder.append(domain);		
 		builder.append(", ip=");
 		builder.append(ip);
 		builder.append(", fqn=");
@@ -121,6 +127,22 @@ public class Host implements java.io.Serializable, DomainObject {
 		builder.append(connected);
 		builder.append("]");
 		return builder.toString();
+	}
+
+	/**
+	 * Returns the domain
+	 * @return the domain
+	 */
+	public String getDomain() {
+		return domain;
+	}
+
+	/**
+	 * Sets the domain
+	 * @param domain the domain to set
+	 */
+	public void setDomain(String domain) {
+		this.domain = domain;
 	}
 
 

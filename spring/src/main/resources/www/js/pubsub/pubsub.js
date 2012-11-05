@@ -24,7 +24,7 @@
 		cache[topic] && d.each(cache[topic], function(){			
 			if(this.oneTime==true) {
 				clearTimeout(this.timeoutHandle);
-				console.info("Cleared Timeout Handle:%s", this.timeoutHandle);
+				//console.info("Cleared Timeout Handle:%s", this.timeoutHandle);
 				var handle = oneTimes[topic];
 				if(handle!=null) {
 					d.unsubscribe(handle);
@@ -81,7 +81,7 @@
 		callback.timeoutHandle = setTimeout(function(){
 			d.unsubscribe([topic, callback]);
 		}, timeout || defaultTimeout);
-		console.info("Set oneTime Timeout:%s  (%s)", callback.timeoutHandle, timeout || defaultTimeout);
+		//console.info("Set oneTime Timeout:%s  (%s)", callback.timeoutHandle, timeout || defaultTimeout);
 		oneTimes[topic] = [topic, callback];
 	};	
 

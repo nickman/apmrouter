@@ -64,7 +64,7 @@ public class CatalogJSONDataService extends ServerComponentBean {
 	/** The Json marshaller */
 	protected JSONMarshaller marshaller = null;
 	/** The named queries map */
-	protected Map<String, NamedQueryDefinition> namedQueries = null;
+	protected final Map<String, NamedQueryDefinition> namedQueries = new HashMap<String, NamedQueryDefinition>();
 	
 	/** The namedQueries map field */
 	private static final Field namedQueriesField;
@@ -84,7 +84,8 @@ public class CatalogJSONDataService extends ServerComponentBean {
 	
 	protected void doStart() throws Exception {
 		super.doStart();
-		namedQueries = (Map<String, NamedQueryDefinition>) namedQueriesField.get(sessionFactory);
+		namedQueries.putAll((Map<String, NamedQueryDefinition>) namedQueriesField.get(sessionFactory));
+		namedQueries.putAll((Map<String, NamedQueryDefinition>) namedSqlQueriesField.get(sessionFactory));
 	}
 
 	/**
@@ -158,6 +159,9 @@ public class CatalogJSONDataService extends ServerComponentBean {
 			for(Map.Entry<String, ?> param: params.entrySet()) {
 				String type = nqd.getParameterTypes().get(param.getKey()).toString();
 				PropertyEditor pe = PropertyEditorManager.findEditor(Class.forName(type));
+				if(param.getValue().toString().equals("null")) {
+					warn("Param with null value [", param.getKey(), "]");
+				}
 				pe.setAsText(param.getValue().toString());
 				query.setParameter(param.getKey(), pe.getValue());
 			}

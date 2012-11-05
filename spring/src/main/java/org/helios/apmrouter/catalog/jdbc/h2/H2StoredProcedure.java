@@ -29,7 +29,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -43,6 +42,13 @@ import java.util.regex.Pattern;
 
 public class H2StoredProcedure {
 	
+	/** The default domain name assigned to hosts with no designated domain */
+	public static final String DEFAULT_DOMAIN = "DefaultDomain";
+	/** Constant int array of 1 */
+	private static final int[] ARR_ONE = {1};
+	/** Constant int array of 1 */
+	private static final int[] ARR_ONE_TWO = {1,2};
+	
 	/**
 	 * Called when an agent connects or disconnects (or times out)
 	 * @param conn The H2 supplied connection
@@ -55,8 +61,8 @@ public class H2StoredProcedure {
 	 */
 	public static void hostAgentState(Connection conn, boolean connected, String host, String ip, String agent, String agentURI) throws SQLException {
 		if(connected) {
-			int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", new int[]{1}, host, ip)[0].intValue();
-			int agentId = key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", new int[]{1}, hostId, agent, 3200, agentURI)[0].intValue();
+			int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, DOMAIN, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE, host, domain(host), ip)[0].intValue();
+			int agentId = key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", ARR_ONE, hostId, agent, 3200, agentURI)[0].intValue();
 			PreparedStatement  ps = null;
 			try {
 				ps = conn.prepareStatement("UPDATE HOST SET CONNECTED = CURRENT_TIMESTAMP WHERE HOST_ID = ?");
@@ -73,8 +79,8 @@ public class H2StoredProcedure {
 				if(ps!=null) try { ps.close(); } catch (Exception ex) {}
 			}
 		} else {
-			int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL)", new int[]{1}, host, ip)[0].intValue();
-			key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, NULL)", new int[]{1}, hostId, agent);			
+			int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, DOMAIN, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL)", ARR_ONE, host, domain(host), ip)[0].intValue();
+			key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, NULL)", ARR_ONE, hostId, agent);			
 		}
 	}
 	
@@ -122,13 +128,13 @@ public class H2StoredProcedure {
 	 */
 	public static long getID(Connection conn, long token, String host, String agent, int typeId, String namespace, String name) throws SQLException {
 		if(token!=-1) return 0;
-		int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", new int[]{1}, host)[0].intValue();
-		Number[] nums = key(conn, "SELECT AGENT_ID,MIN_LEVEL FROM AGENT WHERE NAME=? AND HOST_ID=?", new Object[]{agent, hostId}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", new int[]{1,2}, hostId, agent, nsLevel(namespace));
+		int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, DOMAIN, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE, host, domain(host))[0].intValue();
+		Number[] nums = key(conn, "SELECT AGENT_ID,MIN_LEVEL FROM AGENT WHERE NAME=? AND HOST_ID=?", new Object[]{agent, hostId}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE_TWO, hostId, agent, nsLevel(namespace));
 		int agentId = nums[0].intValue();
 		int agentMinLevel = nums[1].intValue();
 		int nsLevel = nsLevel(namespace);
 		long metricId = key(conn, "SELECT METRIC_ID FROM METRIC WHERE AGENT_ID=? AND NAMESPACE=? AND NAME=?", new Object[]{agentId, namespace, name}, 
-				"INSERT INTO METRIC (AGENT_ID, TYPE_ID, NAMESPACE, NARR, PARENT, ROOT, LEVEL, NAME, FIRST_SEEN, LAST_SEEN) VALUES (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", new int[]{1}, agentId, typeId, namespace, nsItems(namespace), parent(namespace), root(namespace), nsLevel, name)[0].longValue();
+				"INSERT INTO METRIC (AGENT_ID, TYPE_ID, NAMESPACE, NARR, LEVEL, NAME, FIRST_SEEN, LAST_SEEN) VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE, agentId, typeId, namespace, nsItems(namespace), nsLevel, name)[0].longValue();
 		if(nsLevel<agentMinLevel) {
 			setAgentMinLevel(conn, agentId, nsLevel);
 		}
@@ -204,6 +210,17 @@ public class H2StoredProcedure {
 		if(namespace==null || namespace.trim().isEmpty()) return "";
 		String[] frags = NS_DELIM.split(namespace.indexOf('/')==0 ? namespace.substring(1) : namespace);
 		return "/" + frags[0];
+	}
+	
+	/**
+	 * Extracts and returns the domain name of the passed host name
+	 * @param fqHostName The fully qualified host name 
+	 * @return The domain name or {@link #DEFAULT_DOMAIN} if the passed host name has no domain
+	 */
+	public static String domain(String fqHostName) {
+		if(fqHostName.indexOf('.')==-1) return DEFAULT_DOMAIN;
+		StringBuilder b = new StringBuilder(fqHostName).reverse();
+		return b.delete(0, b.indexOf(".")+1).reverse().toString();		
 	}
 	
 	
