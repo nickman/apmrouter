@@ -154,24 +154,9 @@
 			console.info("findLevelFoldersForAgent Response:%o", data);
 		});						
 	},
-	$.apmr.metricParentsForAgent = function(agentId, parent) {
-		$.apmr.svcOp("catalog", "nq", {name:"metricParentsForAgent", p : {'agentId': agentId, 'parent' : parent}}, function(data){
-			console.info("metricParentsForAgent Response:%o", data);
-		});						
-	},
-	$.apmr.rootMetricsForAgent = function(agentId, callback) {
-		$.apmr.svcOp("catalog", "nq", {name:"rootMetricsForAgent", p : {'agentId': agentId}}, callback || function(data){
-			console.info("rootMetricsForAgent Response:%o", data);
-		});						
-	},
-	$.apmr.rootPlusMetricsForAgent = function(agentId, root, callback) {
-		$.apmr.svcOp("catalog", "nq", {name:"rootPlusMetricsForAgent", p : {'agentId': agentId, 'root': root}}, callback || function(data){
-			console.info("rootPlusMetricsForAgent Response:%o", data);
-		});						
-	},
-	$.apmr.allMetricsForAgent = function(agentId, callback) {
-		$.apmr.svcOp("catalog", "nq", {name:"allMetricsForAgent", p : {'agentId': agentId}}, callback || function(data){
-			console.info("allMetricsForAgent Response:%o", data);
+	$.apmr.findLevelMetricsForAgentWithParent = function(level, agentId, parent, callback) {
+		$.apmr.svcOp("catalog", "nq", {name:"findLevelMetricsForAgentWithParent", p : {'level' : level, 'agentId': agentId, 'parent' : parent}}, callback || function(data){
+			console.info("findLevelMetricsForAgentWithParent Response:%o", data);
 		});						
 	}
 	

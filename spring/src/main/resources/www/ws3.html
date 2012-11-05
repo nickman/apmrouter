@@ -239,7 +239,7 @@
 						var level = parseInt($(node).attr('level')) +1;
 						var parent = $(node).attr('folder');
 						console.info("Populating Level Metrics and Folder [%s]", parent);
-						$.apmr.findLevelMetricsForAgent(level, agentId, function(data) {							
+						$.apmr.findLevelMetricsForAgentWithParent(level, agentId, parent, function(data) {							
 							$.each(data.msg, function(index, metric) {
 								nodeArray.push({
 									attr: {id: "metric-" + metric.metricId, rel: "metric", 'metric' : metric.metricId, metricBody : metric},  
