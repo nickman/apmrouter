@@ -22,23 +22,6 @@
 	}
 	
 	jQuery(function($) {
-		$(document).bind("status.connected", function(e, status){
-			console.info("status.connected Fired:%s", status);
-			if(status) {
-				$('.csubscriber>.csubscriber-off').addClass('csubscriber-on').removeClass('csubscriber-off')
-				$('.csubscriber>.csubscriber-retry').addClass('csubscriber-on').removeClass('csubscriber-retry')
-			} else {
-				$('.csubscriber>.csubscriber-on').addClass('csubscriber-off').removeClass('csubscriber-on')
-				$('.csubscriber>.csubscriber-retry').addClass('csubscriber-off').removeClass('csubscriber-retry')
-			}
-		});
-
-		$(document).bind("status.reconnect.attempt", function(e){
-			console.info("status.reconnect.attempt Fired");
-			$('.csubscriber>.csubscriber-off').addClass('csubscriber-retry').removeClass('csubscriber-off')
-			$('.csubscriber>.csubscriber-on').addClass('csubscriber-retry').removeClass('csubscriber-on')
-		});
-
 		$('#metricTree')
 		.jstree({
 			core : { 

@@ -18,38 +18,47 @@
 		<script type="text/javascript" src="js/ui/jLayout/jlayout_004.js"></script>
 		<script type="text/javascript" src="js/ui/jLayout/jquery.js"></script>
 		
-    	<script type="text/javascript" src='js/dynatree/jquery.dynatree.min.js'></script>
-    	<script type="text/javascript" src='js/dynatree/helios.dynatree.js'></script>
 		<script type="text/javascript" src="js/class.js"></script>
 		<script type="text/javascript" src="js/jmx/jmx.js"></script>
-		<script type="text/javascript" src="js/heliosClient.js"></script>
-		<script type="text/javascript" src="tabs/metrics/metrics.js"></script>
 		
 		
-		<link href="js/ui/extruder/mbExtruder.css" media="all" rel="stylesheet" type="text/css">
-		
-		<script type="text/javascript" src="js/ui/extruder/jquery.hoverIntent.min.js"></script>
-		<script type="text/javascript" src="js/ui/extruder/jquery.mb.flipText.js"></script>
-		<script type="text/javascript" src="js/ui/extruder/mbExtruder.js"></script>
 		
 		
 		
 		<link type="text/css" href="js/ui/css/smoothness/jquery-ui-1.8.9.custom.css" rel="stylesheet" />
-		<link type='text/css' href='js/dynatree/skin/ui.dynatree.css' rel='stylesheet'>	
+			
 		<link type="text/css" href="css/helios.css" rel="stylesheet" />
-		<link type="text/css" media="screen" href="js/ui/jqGrid/ui.jqgrid.css" rel="stylesheet" />
-		
-		<script type="text/javascript" src="js/ui/jqGrid/grid.locale-en.js" ></script>
-		<script type="text/javascript" src="js/ui/jqGrid/jquery.jqGrid.min.js" ></script>
-		<script type="text/javascript" src="js/ui/jqGrid/jquery.fmatter.js" ></script>
-		
-		
-		
+		<link type="text/css" href="css/apmr.css" rel="stylesheet" />			
 		<script type="text/javascript" src="js/main.js"></script>
+		<script type="text/javascript" src="js/jquery.apmr.js" ></script>
+		<script type="text/javascript" src="js/pubsub/pubsub.js"></script>
 		<script type="text/javascript">
-			jQuery(function($) {
-				jQuery.jgrid.no_legacy_api = true;				
+			jQuery(function($) {					
 				init_ui();
+				$(document).bind("status.connected", function(e, status){
+					console.info("status.connected Fired:%s", status);
+					if(status) {
+						$('.csubscriber>.csubscriber-off').addClass('csubscriber-on').removeClass('csubscriber-off')
+						$('.csubscriber>.csubscriber-retry').addClass('csubscriber-on').removeClass('csubscriber-retry')
+					} else {
+						$('.csubscriber>.csubscriber-on').addClass('csubscriber-off').removeClass('csubscriber-on')
+						$('.csubscriber>.csubscriber-retry').addClass('csubscriber-off').removeClass('csubscriber-retry')
+						$('#displaySession').html("");
+					}
+				});
+				$(document).bind("connection.session", function(e, status){
+					$('#displaySession').html(status[0]);
+				});
+				
+
+				$(document).bind("status.reconnect.attempt", function(e){
+					console.info("status.reconnect.attempt Fired");
+					$('.csubscriber>.csubscriber-off').addClass('csubscriber-retry').removeClass('csubscriber-off')
+					$('.csubscriber>.csubscriber-on').addClass('csubscriber-retry').removeClass('csubscriber-on')
+				});
+				
+				$.apmr.connect();
+				
 			});
 		</script>		
 	</head><body style="position: relative;" class="{layout: {type: 'border', resize: false, hgap: 6}} ui-widget">
@@ -58,10 +67,7 @@
 				<h1 style="display: inline-block;"><span class="helioslight">Helios</span> Web Console</h1>
 				<div style="display: inline-block; width: 10px;"></div>
 				<div class="tool-widget" style="display: inline-block;">Session:&nbsp;<div id="displaySession" style="display: inline-block; width:130px;height:20px;border:1px solid blue;">&nbsp;</div></div>
-				<!-- <div id="ajaxDataLink" class="tool-widget" style="display: inline-block;"><img id="dataLink" src="img/red-light-16X16.png" style="display: inline-block;"></img></div> -->
-				<div class="tool-widget" style="display: inline-block;">Connected:&nbsp;<img id="ajaxActivity" src="img/red-light-16X16.png" style="display: inline-block;"></img></div>
-				<div class="tool-widget" style="display: inline-block;">Feed Active:&nbsp;<img id="feedActivity" class="feedActivityAware" src="img/red-light-16X16.png" style="display: inline-block;"></img></div>
-				<div class="tool-widget" style="display: inline-block;">&nbsp;<button id="termSessionBtn" style="display: inline-block;">Term Session</button></div>
+				<div class="tool-widget csubscriber" style="display: inline-block;">Connected:&nbsp;<div class="csubscriber-off"></div></div>
 				<div style="display: inline-block; float: right;"><font size="-1" ><i><a id="diagnosticsToggle">&nbsp;Diagnostics&nbsp;</a></i></font></div>
 				<div style="display: inline-block; float: right;"><font size="-1" ><i><a id="controlsToggle">&nbsp;Controls&nbsp;</a></i></font></div>
 		</div>
@@ -69,9 +75,9 @@
 		
 		<div style="top: 40px; width: 1213px; height: 710px; position: absolute;" class="center ui-tabs ui-widget ui-widget-content ui-corner-all">
 			<ul class="ui-tabs-nav ui-helper-reset ui-helper-clearfix ui-widget-header">
-				<li class="ui-state-default ui-corner-top ui-tabs-selected ui-state-active"><a href="tabs/metrics/metrics.jsp">Metric Browser</a></li>
-				<li class="ui-state-default ui-corner-top"><a href="tabs/jmx/index.html">JMX Server</a></li>
-				<li class="ui-state-default ui-corner-top"><a href="#tabs-3">Camel Routes</a></li>
+				<li class="ui-state-default ui-corner-top ui-tabs-selected ui-state-active"><a href="tabs/metrics/metrics.html">Metric Browser</a></li>
+				<li class="ui-state-default ui-corner-top"><a href="tabs/jmx/jmx.html">JMX</a></li>
+				<li class="ui-state-default ui-corner-top"><a href="#tabs-3">Server Status</a></li>
 			</ul>
 			<div class="ui-tabs-panel ui-widget-content ui-corner-bottom ui-tabs-hide" id="tabs-2">
 			</div>

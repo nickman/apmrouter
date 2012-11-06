@@ -118,9 +118,11 @@
 			if(json.sessionid !=null) {
 				this.c.sessionId = json.sessionid;
 				console.info("Set SessionID [%s]", this.c.sessionId);
+				$(document).trigger('connection.session',[this.c.sessionId]);
+			} else {
+				var topic = '/' + 'req' + '/' + json.rerid;
+				$.publish(topic, [json]);
 			}
-			var topic = '/' + 'req' + '/' + json.rerid;
-			$.publish(topic, [json]);
 		} finally {
 		}		
 	},
