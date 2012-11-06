@@ -135,7 +135,7 @@
 				$.apmr.allDomains(function(data) {
 					$.each(data.msg, function(index, domain) {
 						nodeArray.push({
-							attr: {id: "domain-" + domain, rel: "domain", 'domain' : domain},  
+							attr: {id: "domain-" + domain.replace('.', '_'), rel: "domain", 'domain' : domain},  
 							data : {title: domain}									
 						});	
 					});
