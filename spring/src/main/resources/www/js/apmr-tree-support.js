@@ -21,7 +21,8 @@
 		return cnt;				
 	}
 	
-	jQuery(function($) {
+	function initMetricTree() {
+		
 		$('#metricTree')
 		.jstree({
 			core : { 
@@ -114,8 +115,8 @@
 			}
 		});
 		metricTree = $.jstree._reference('#metricTree');
-		$.apmr.connect(); 
-	});
+		//$.apmr.connect(); 
+	}
 	
 	function populateNode(node, callback) {
 		//console.info("Populating Node [%o]", node);
@@ -228,6 +229,40 @@
 	function fixOpen(nodeArray) {
 		$.each(nodeArray, function(index, node){
 			$("#" + node.attr.id).removeClass('jstree-leaf').addClass('jstree-closed');
+			
 		});
 	}
 			
+/*
+		$('li.jstree-closed>a').livequery(function(){
+			var node = this;
+			var id = $(node).parent().attr('id');
+			if(!$('#' + id).hasClass('tooltip-set')) {
+				$('#' + id).addClass('tooltip-set');
+				$('#' + id).qtip({
+					   style: { name: 'cream', tip: true },
+					   content: id,
+					   show: 'mouseover',
+					   hide: 'mouseout'
+					})
+				metricTree.get_path($('#' + id))
+				console.info("CREATED NODE:[%o]", $('#metricTree').jstree("_get_node", $(node).parent()));	
+			}			
+		});
+		$('li.jstree-open>a').livequery(function(){
+			var node = this;
+			var id = $(node).parent().attr('id');
+			if(!$('#' + id).hasClass('tooltip-set')) {
+				$('#' + id).addClass('tooltip-set');
+				$('#' + id).qtip({
+					   style: { name: 'cream', tip: true },
+					   content: id,
+					   show: 'mouseover',
+					   hide: 'mouseout'
+					})
+				metricTree.get_path($('#' + id))				
+				console.info("CREATED NODE:[%o]", $('#metricTree').jstree("_get_node", $(node).parent()));	
+			}			
+		});
+
+*/	

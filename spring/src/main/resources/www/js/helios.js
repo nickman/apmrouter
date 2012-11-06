@@ -79,7 +79,7 @@ function helios_init() {
 	} catch (e) { webSocketCapable=false; }
 	console.info("WebSocket Support:%s", webSocketCapable);
 	$('#wsEnabled').prop("checked", webSocketCapable);
-	$('#tabs').tabs({'cache':false, ajaxOptions: { async: false }});	
+		
 	$('.init-hide').hide();
 	
 	$('#signInButton').bind('click', function() {

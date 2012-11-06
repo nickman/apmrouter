@@ -1,32 +1,37 @@
-<html manifest="cache.manifest">
-	<head>
-		<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
-		<link type="text/css" href="css/apmr.css" rel="stylesheet" />
-		<script type="text/javascript" src="js/jquery-1.8.2.min.js"></script>
-		<script type="text/javascript" src="js/pubsub/pubsub.js"></script>		
-		<script type="text/javascript" src="js/ui/jquery-ui-1.8.9.custom.min.js"></script>
-		
-		<script type="text/javascript" src="js/sprintf.js" ></script>
-		<script type="text/javascript" src="js/jquery.jstree.js"></script>
-		<script type="text/javascript" src="js/jquery.apmr.js" ></script>
-		<script type="text/javascript" src="js/apmr-tree-support.js"></script>
-		
 		<style type="text/css">
 			.bd {
 				border-bottom: 4px solid #e5eff8;
 				border-top: 4px solid #e5eff8;
 				border-left: 4px solid #e5eff8;
 				border-right: 4px solid #e5eff8;
-				width: 20%;
-				scroll: auto;
-				background : #000000;
-				font: 80% "Trebuchet MS", sans-serif; 
-				margin: 10px;				
+				overflow: auto;
+				font: 90% "Trebuchet MS", sans-serif; 
 			}
-		</style>					
-	</head>
-	<body>
-		<div id="metricTree" class="bd">
-		</div>
-	</body>
-</html>
+			.west {
+				width: 20%;
+				display: inline-block;
+				text-align: left;
+			}			
+			.center {
+				display: inline-block;
+				text-align: center;
+			}
+		</style>	
+		<script type="text/javascript">
+			var container = $('.layout');
+			function relayout() {
+				container.layout({resize: true});
+			}
+			$('.west').resizable({
+				handles: 'e',
+				overflow: scroll
+			});			
+			relayout();
+			
+		</script>				
+		
+		<div id="metrics-container" class="layout" data-layout='{type: "border"}'>
+		    <div id="metricTreeParent" class="west"><div id="metricTree" class='bd' ></div></div>
+		    <div class="center"></div>
+		</div>		
+				

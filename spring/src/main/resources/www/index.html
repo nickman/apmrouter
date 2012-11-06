@@ -1,4 +1,5 @@
 <!DOCTYPE HTML>
+<!-- manifest="cache.manifest" -->
 <html><head>
 
 	
@@ -21,6 +22,15 @@
 		<script type="text/javascript" src="js/class.js"></script>
 		<script type="text/javascript" src="js/jmx/jmx.js"></script>
 		
+		<link type="text/css" href="css/apmr.css" rel="stylesheet" />
+		<script type="text/javascript" src="js/pubsub/pubsub.js"></script>		
+		
+		<script type="text/javascript" src="js/jquery.jstree.js"></script>
+		<script type="text/javascript" src="js/jquery.apmr.js" ></script>
+		<script type="text/javascript" src="js/apmr-tree-support.js"></script>
+		<script type="text/javascript" src="js/main.js"></script>
+		<script type="text/javascript" src="js/jquery.qtip-1.0.0-rc3.min.js"></script>
+		<script type="text/javascript" src="js/jquery.livequery.js"></script>
 		
 		
 		
@@ -28,18 +38,26 @@
 		<link type="text/css" href="js/ui/css/smoothness/jquery-ui-1.8.9.custom.css" rel="stylesheet" />
 			
 		<link type="text/css" href="css/helios.css" rel="stylesheet" />
-		<link type="text/css" href="css/apmr.css" rel="stylesheet" />			
-		<script type="text/javascript" src="js/main.js"></script>
-		<script type="text/javascript" src="js/jquery.apmr.js" ></script>
-		<script type="text/javascript" src="js/pubsub/pubsub.js"></script>
+		<link type="text/css" href="css/apmr.css" rel="stylesheet" />	
+		
+		
 		<script type="text/javascript">
 			jQuery(function($) {					
 				init_ui();
 				$(document).bind("status.connected", function(e, status){
 					console.info("status.connected Fired:%s", status);
 					if(status) {
-						$('.csubscriber>.csubscriber-off').addClass('csubscriber-on').removeClass('csubscriber-off')
-						$('.csubscriber>.csubscriber-retry').addClass('csubscriber-on').removeClass('csubscriber-retry')
+						$('.csubscriber>.csubscriber-off').addClass('csubscriber-on').removeClass('csubscriber-off');
+						$('.csubscriber>.csubscriber-retry').addClass('csubscriber-on').removeClass('csubscriber-retry');
+						/*
+						$('#tabs').tabs({
+							cache : false, 
+							ajaxOptions: { async: false }
+						}); 
+						initMetricTree();
+						*/
+						$('#metrics-container').layout();
+						initMetricTree();
 					} else {
 						$('.csubscriber>.csubscriber-on').addClass('csubscriber-off').removeClass('csubscriber-on')
 						$('.csubscriber>.csubscriber-retry').addClass('csubscriber-off').removeClass('csubscriber-retry')
@@ -47,7 +65,7 @@
 					}
 				});
 				$(document).bind("connection.session", function(e, status){
-					$('#displaySession').html(status[0]);
+					$('#displaySession').html(status);
 				});
 				
 
@@ -63,10 +81,12 @@
 		</script>		
 	</head><body style="position: relative;" class="{layout: {type: 'border', resize: false, hgap: 6}} ui-widget">
 		<div id="topBar"  class="north" style="padding-bottom: 1px">
-				<div style="display: inline-block;"><img src="img/Helios_Symbol_45_30.png"></img></div>
+				<!-- <div style="display: inline-block;"><img src="img/Helios_Symbol_45_30.png"></img></div> -->
+				<div style="display: inline-block;"><img src="img/ICE_30_30.png"></img></div>
+				
 				<h1 style="display: inline-block;"><span class="helioslight">Helios</span> Web Console</h1>
 				<div style="display: inline-block; width: 10px;"></div>
-				<div class="tool-widget" style="display: inline-block;">Session:&nbsp;<div id="displaySession" style="display: inline-block; width:130px;height:20px;border:1px solid blue;">&nbsp;</div></div>
+				<div class="tool-widget" style="display: inline-block;">Session:&nbsp;<span id="displaySession" style="display: inline-block; width:130px;height:20px;border:1px solid blue;vertical-align:middle;line-height:2em">&nbsp;</span></div>
 				<div class="tool-widget csubscriber" style="display: inline-block;">Connected:&nbsp;<div class="csubscriber-off"></div></div>
 				<div style="display: inline-block; float: right;"><font size="-1" ><i><a id="diagnosticsToggle">&nbsp;Diagnostics&nbsp;</a></i></font></div>
 				<div style="display: inline-block; float: right;"><font size="-1" ><i><a id="controlsToggle">&nbsp;Controls&nbsp;</a></i></font></div>

@@ -42,19 +42,13 @@
 	
 	$.apmr.startReconnectLoop = function() {
 		if($.apmr.isConnectingOrConnected() || $.apmr.isReconnectScheduled()) return;
-		console.info(" -- Scheduling Reconnect [%s]", $.apmr.config.reconnectPauseTime);		
 		$.apmr.config.reconnectTimeoutHandle = setTimeout(function(){
 			$.apmr.config.reconnectTimeoutHandle = -1;
-			console.info(" -- Executing Reconnect");
 			$(document).trigger('status.reconnect.attempt',[]);
 			$.apmr.connect(function(){ // callback called when reconnect times out
 				if($.apmr.isConnectingOrConnected()) return;
-				console.info(" -- Reconnect Timed Out");
-				console.info("================");
-				console.info("================");
 				if($.apmr.config.ws) {
 					$.apmr.config.ws.close();
-					console.info(" -- WS Closed");
 				}
 				//$.apmr.config.reconnectTimeoutHandle = $.apmr.startReconnectLoop();
 			});

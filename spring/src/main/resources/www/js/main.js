@@ -104,23 +104,6 @@ function init_ui() {
 	});
 	$('#ajaxDataLink').prepend((window.WebSocket==null ? "Poller Active:&nbsp;" : "WebSocket Active:&nbsp;"));
 
-	if(window.WebSocket==null) {
-		$('#dataLink').heliosState({
-			node: '/poller/*', 		/*  Node */
-			snapshot: function(data) {
-				$.each(data, function(fullPath, value) {
-					if(fullPath=="/poller/active") {
-						$('#dataLink').attr('src', 'img/' + (value ? 'green' : 'red') + '-light-16X16.png');
-					}
-				});
-			},
-			values: function(path, value) {		/* Values */
-				if($.helios.buildPath(path)=="/poller/active") {
-					$('#dataLink').attr('src', 'img/' + (value[0] ? 'green' : 'red') + '-light-16X16.png');
-				}
-			}			
-		});
-	}
 
 	
 };
