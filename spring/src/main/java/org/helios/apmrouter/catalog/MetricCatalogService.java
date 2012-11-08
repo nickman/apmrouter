@@ -27,7 +27,6 @@ package org.helios.apmrouter.catalog;
 import java.util.Map;
 
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
-import org.helios.apmrouter.server.services.session.ChannelSessionListener;
 import org.helios.apmrouter.server.services.session.DecoratedChannel;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 
@@ -59,9 +58,9 @@ public interface MetricCatalogService {
 	 * @param ip The host IP address
 	 * @param agent The agent name
 	 * @param agentURI The agent's listening URI
-	 * @return the number of agents connected from the passed host after this operation completes
+	 * @return The dchannel state change event
 	 */
-	public int hostAgentState(boolean connected, String host, String ip, String agent, String agentURI);
+	public DChannelEvent hostAgentState(boolean connected, String host, String ip, String agent, String agentURI);
 	
 	/**
 	 * Returns the delegate metric for the passed token
@@ -98,15 +97,15 @@ public interface MetricCatalogService {
 	/**
 	 * Fired when a connected channel is closed and removed from the {@link SharedChannelGroup}
 	 * @param channel The closed channel
-	 * @return The number of agents still connected from the host this channel was closed from
+	 * @return The dchannel state change event
 	 */
-	public int onClosedChannel(DecoratedChannel channel);
+	public DChannelEvent onClosedChannel(DecoratedChannel channel);
 	
 	/**
 	 * Fired when a connected channel is identified
 	 * @param channel The identified channel
-	 * @return The number of agents now connected from the host this channel was closed from
+	 * @return The dchannel state change event
 	 */
-	public int onIdentifiedChannel(DecoratedChannel channel);
+	public DChannelEvent onIdentifiedChannel(DecoratedChannel channel);
 	
 }

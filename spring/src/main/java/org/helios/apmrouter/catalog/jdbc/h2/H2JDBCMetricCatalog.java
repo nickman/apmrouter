@@ -31,6 +31,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -38,6 +39,8 @@ import java.util.Set;
 
 import javax.sql.DataSource;
 
+import org.helios.apmrouter.catalog.DChannelEvent;
+import org.helios.apmrouter.catalog.DChannelEventType;
 import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.collections.LongSlidingWindow;
@@ -45,9 +48,7 @@ import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.server.ServerComponentBean;
-import org.helios.apmrouter.server.services.session.ChannelSessionListener;
 import org.helios.apmrouter.server.services.session.DecoratedChannel;
-import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -198,34 +199,41 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	 * @see org.helios.apmrouter.catalog.MetricCatalogService#hostAgentState(boolean, java.lang.String, java.lang.String, java.lang.String, java.lang.String)
 	 */
 	@Override
-	public int hostAgentState(boolean connected, String host, String ip, String agent, String agentURI) {
+	public DChannelEvent hostAgentState(boolean connected, String host, String ip, String agent, String agentURI) {
 		SystemClock.startTimer();
 		incr("CallCount");		
 		Connection conn = null;
-		CallableStatement cs = null;
+		PreparedStatement ps = null;
+		ResultSet rset = null;
 		try {
 			conn = ds.getConnection();
-			cs = conn.prepareCall("{?=CALL HOSTAGENTSTATE(?,?,?,?,?)}");		
-			cs.setNull(1, Types.INTEGER);
-			cs.setBoolean(2, connected);
-			cs.setString(3, host);
-			cs.setString(4, ip);
-			cs.setString(5, agent);
-			cs.setString(6, agentURI);
-			cs.registerOutParameter(1, Types.INTEGER);
-			cs.executeUpdate();
-			int agentsConnected = cs.getInt(1);
+			ps = conn.prepareStatement("CALL HOSTAGENTSTATE(?,?,?,?,?)");		
+			ps.setBoolean(1, connected);
+			ps.setString(2, host);
+			ps.setString(3, ip);
+			ps.setString(4, agent);
+			ps.setString(5, agentURI);
+			rset = ps.executeQuery();
+			rset.next();
+			int agentCount = rset.getInt(1);
+			int hostId = rset.getInt(2);
+			int agentId = rset.getInt(3);
+			String[] domain = rset.getString(4).split("\\.");
 			ElapsedTime et = SystemClock.endTimer();
 			elapsedTimesNs.insert(et.elapsedNs);
 			elapsedTimesMs.insert(et.elapsedMs);	
-			return agentsConnected;
+			return DChannelEvent.newEvent(connected ? DChannelEventType.IDENT : DChannelEventType.CLOSED, 
+					domain, host, hostId, agent, agentId, 
+					connected ? agentCount==1 : agentCount<1 
+					);
 		} catch (Exception e) {
 			error("Failed to update host/agent state for [" , String.format("%s/%s:%s", connected, host, agent) , "]", e);
 			Throwable cause = e.getCause();
 			if(cause!=null) cause.printStackTrace(System.err);
-			return -1;
+			return null;
 		} finally {
-			if(cs!=null) try { cs.close(); } catch (Exception e) {}
+			if(rset!=null) try { rset.close(); } catch (Exception e) {}
+			if(ps!=null) try { ps.close(); } catch (Exception e) {}
 			if(conn!=null) try { conn.close(); } catch (Exception e) {}			
 		}
 	}
@@ -391,13 +399,13 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onClosedChannel(org.helios.apmrouter.server.services.session.DecoratedChannel)
 	 */
 	@Override
-	public int onClosedChannel(DecoratedChannel channel) {
+	public DChannelEvent onClosedChannel(DecoratedChannel channel) {
 		if(channel.getAgent()!=null && !channel.getAgent().trim().isEmpty()) {
-			int agentsConnected = hostAgentState(false, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getType() + "/" + channel.getRemoteAddress().toString());
-			info("Marked [", channel.getHost(), "/", channel.getAgent(), "] DOWN. Agents Still Connected:" + agentsConnected);
-			return agentsConnected;
+			DChannelEvent result = hostAgentState(false, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getType() + "/" + channel.getRemoteAddress().toString());
+			info("Marked [", channel.getHost(), "/", channel.getAgent(), "] DOWN. Context:" + result);
+			return result;
 		}
-		return -1;
+		return null;
 	}
 
 	/**
@@ -406,12 +414,12 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onIdentifiedChannel(org.helios.apmrouter.server.services.session.DecoratedChannel)
 	 */
 	@Override
-	public int onIdentifiedChannel(DecoratedChannel channel) {
+	public DChannelEvent onIdentifiedChannel(DecoratedChannel channel) {
 		if(channel.getAgent()!=null && !channel.getAgent().trim().isEmpty()) {
-			int agentsConnected = hostAgentState(true, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getURI());
-			info("Marked [", channel.getHost(), "/", channel.getAgent(), "] UP. Agents Still Connected:" + agentsConnected);
-			return agentsConnected;
+			DChannelEvent result = hostAgentState(true, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getURI());
+			info("Marked [", channel.getHost(), "/", channel.getAgent(), "] UP. Context:" + result);
+			return result;
 		}
-		return -1;
+		return null;
 	}
 }

@@ -1,0 +1,330 @@
+59   [main] INFO  org.helios.apmrouter.APMRouter  - Located [5] Configuration Files
+60   [main] INFO  org.helios.apmrouter.APMRouter  - Starting...
+6509 [main] INFO  org.helios.apmrouter.catalog.jdbc.h2.ScriptExecution  - Executed Startup Script
+6632 [main] INFO  org.helios.apmrouter.util.thread.ManagedThreadPool.SpringEventPool  - 
+	================================
+	Starting [SpringEventPool]
+	================================
+6634 [main] INFO  org.helios.apmrouter.util.thread.ManagedThreadPool.SpringEventPool  - 
+	================================
+	Started [SpringEventPool]
+	================================
+6678 [main] INFO  org.helios.apmrouter.catalog.jdbc.h2.H2JDBCMetricCatalog.CatalogService  - 
+	================================
+	Starting [CatalogService]
+	================================
+6742 [main] INFO  org.helios.apmrouter.catalog.jdbc.h2.H2JDBCMetricCatalog.CatalogService  - 
+	================================
+	Started [CatalogService]
+	================================
+7171 [main] INFO  org.helios.apmrouter.deployer.SpringHotDeployer.HotDeployer  - 
+	================================
+	Starting [HotDeployer]
+	================================
+7195 [main] INFO  org.helios.apmrouter.deployer.SpringHotDeployer.HotDeployer  - 
+	====================
+	Hot Deploy Directories
+	====================
+	/home/nwhitehead/.apmrouter/hotdir
+	/home/nwhitehead/.apmrouter/hotdir/helios.app
+
+7196 [main] INFO  org.helios.apmrouter.deployer.SpringHotDeployer.HotDeployer  - 
+	================================
+	Started [HotDeployer]
+	================================
+7207 [main] INFO  org.helios.apmrouter.util.thread.ManagedThreadPool.UDPAgentListenerWorkers  - 
+	================================
+	Starting [UDPAgentListenerWorkers]
+	================================
+7214 [main] INFO  org.helios.apmrouter.util.thread.ManagedThreadPool.UDPAgentListenerWorkers  - 
+	================================
+	Started [UDPAgentListenerWorkers]
+	================================
+7246 [main] INFO  org.helios.apmrouter.catalog.MetricCatalogInitializer.MetricCatalog  - 
+	================================
+	Starting [MetricCatalog]
+	================================
+7250 [main] INFO  org.helios.apmrouter.catalog.MetricCatalogInitializer.MetricCatalog  - 
+	================================
+	Started [MetricCatalog]
+	================================
+7451 [main] INFO  org.helios.apmrouter.router.MetricConflationService.Conflator  - 
+	================================
+	Starting [Conflator]
+	================================
+7452 [main] INFO  org.helios.apmrouter.router.MetricConflationService.Conflator  - 
+	================================
+	Started [Conflator]
+	================================
+7469 [main] INFO  org.helios.apmrouter.util.thread.ManagedThreadPool.PatternRouterWorkers  - 
+	================================
+	Starting [PatternRouterWorkers]
+	================================
+7498 [main] INFO  org.helios.apmrouter.util.thread.ManagedThreadPool.PatternRouterWorkers  - 
+	================================
+	Started [PatternRouterWorkers]
+	================================
+7499 [main] INFO  org.helios.apmrouter.router.PatternRouter.PatternRouter  - 
+	================================
+	Starting [PatternRouter]
+	================================
+7499 [main] INFO  org.helios.apmrouter.router.PatternRouter.PatternRouter  - 
+	================================
+	Started [PatternRouter]
+	================================
+7519 [main] INFO  org.helios.apmrouter.server.net.listener.netty.handlers.AgentMetricHandler.AgentMetricHandler  - 
+	================================
+	Starting [AgentMetricHandler]
+	================================
+7519 [main] INFO  org.helios.apmrouter.server.net.listener.netty.handlers.AgentMetricHandler.AgentMetricHandler  - 
+	================================
+	Started [AgentMetricHandler]
+	================================
+7606 [main] INFO  org.helios.apmrouter.server.net.listener.netty.handlers.PingRequestHandler.PingRequestHandler  - 
+	================================
+	Starting [PingRequestHandler]
+	================================
+7606 [main] INFO  org.helios.apmrouter.server.net.listener.netty.handlers.PingRequestHandler.PingRequestHandler  - 
+	================================
+	Started [PingRequestHandler]
+	================================
+7700 [main] INFO  org.helios.apmrouter.server.net.listener.netty.handlers.udp.UDPAgentOperationRouter  - Added AgentRequestHandler [AgentMetricHandler] for Op [SEND_METRIC]
+7701 [main] INFO  org.helios.apmrouter.server.net.listener.netty.handlers.udp.UDPAgentOperationRouter  - Added AgentRequestHandler [AgentMetricHandler] for Op [SEND_METRIC_DIRECT]
+7701 [main] INFO  org.helios.apmrouter.server.net.listener.netty.handlers.udp.UDPAgentOperationRouter  - Added AgentRequestHandler [PingRequestHandler] for Op [PING]
+7701 [main] INFO  org.helios.apmrouter.server.net.listener.netty.handlers.udp.UDPAgentOperationRouter  - Added AgentRequestHandler [PingRequestHandler] for Op [PING_RESPONSE]
+7701 [main] INFO  org.helios.apmrouter.server.net.listener.netty.handlers.udp.UDPAgentOperationRouter.UDPAgentOperationRouter  - 
+	================================
+	Starting [UDPAgentOperationRouter]
+	================================
+7702 [main] INFO  org.helios.apmrouter.server.net.listener.netty.handlers.udp.UDPAgentOperationRouter.UDPAgentOperationRouter  - 
+	================================
+	Started [UDPAgentOperationRouter]
+	================================
+7808 [main] INFO  org.helios.apmrouter.server.net.listener.netty.UDPAgentListener.UDPAgentListener  - 
+	================================
+	Starting [UDPAgentListener]
+	================================
+7809 [main] INFO  org.helios.apmrouter.server.net.listener.netty.UDPAgentListener.UDPAgentListener  - Resolving Channel Handlers
+7862 [main] INFO  org.helios.apmrouter.server.net.listener.netty.UDPAgentListener.UDPAgentListener  - Resolved [1] Channel Handlers
+7863 [main] INFO  org.helios.apmrouter.server.net.listener.netty.UDPAgentListener.UDPAgentListener  - Socket Address:/0.0.0.0:2094
+7931 [main] INFO  org.helios.apmrouter.server.net.listener.netty.UDPAgentListener.UDPAgentListener  - 
+	================================
+	Started [UDPAgentListener]
+	================================
+7971 [main] INFO  org.helios.apmrouter.subscription.impls.jmx.JMXSubscriptionCriteriaBuilder.JMXSubscriptionCriteriaBuilder  - 
+	================================
+	Starting [JMXSubscriptionCriteriaBuilder]
+	================================
+9891 [main] INFO  org.helios.apmrouter.dataservice.json.marshalling.GSONJSONMarshaller.JSONMarshaller  - 
+	================================
+	Starting [JSONMarshaller]
+	================================
+9947 [main] INFO  org.helios.apmrouter.dataservice.json.marshalling.GSONJSONMarshaller.JSONMarshaller  - 
+	================================
+	Started [JSONMarshaller]
+	================================
+9960 [main] INFO  org.helios.apmrouter.dataservice.json.catalog.CatalogJSONDataService.catalogJSONDataService  - 
+	================================
+	Starting [catalogJSONDataService]
+	================================
+9961 [main] INFO  org.helios.apmrouter.dataservice.json.catalog.CatalogJSONDataService.catalogJSONDataService  - 
+	================================
+	Started [catalogJSONDataService]
+	================================
+9966 [main] INFO  org.helios.apmrouter.dataservice.json.catalog.CatalogJSONDataService.catalog  - 
+	================================
+	Starting [catalog]
+	================================
+9966 [main] INFO  org.helios.apmrouter.dataservice.json.catalog.CatalogJSONDataService.catalog  - 
+	================================
+	Started [catalog]
+	================================
+9967 [main] INFO  org.helios.apmrouter.subscription.impls.jmx.JMXSubscriptionCriteriaBuilder.jmx  - 
+	================================
+	Starting [jmx]
+	================================
+9969 [main] INFO  org.helios.apmrouter.util.thread.ManagedThreadPool.DataServiceWorkers  - 
+	================================
+	Starting [DataServiceWorkers]
+	================================
+9969 [main] INFO  org.helios.apmrouter.util.thread.ManagedThreadPool.DataServiceWorkers  - 
+	================================
+	Started [DataServiceWorkers]
+	================================
+9971 [main] INFO  org.helios.apmrouter.util.thread.ManagedThreadPool.DataServiceBoss  - 
+	================================
+	Starting [DataServiceBoss]
+	================================
+9972 [main] INFO  org.helios.apmrouter.util.thread.ManagedThreadPool.DataServiceBoss  - 
+	================================
+	Started [DataServiceBoss]
+	================================
+10039 [main] INFO  org.helios.apmrouter.server.unification.protocol.ProtocolSwitch.ProtocolSwitch  - 
+	================================
+	Starting [ProtocolSwitch]
+	================================
+10040 [main] INFO  org.helios.apmrouter.server.unification.protocol.ProtocolSwitch.ProtocolSwitch  - 
+	================================
+	Started [ProtocolSwitch]
+	================================
+10043 [main] INFO  org.helios.apmrouter.server.unification.ServerPipelineFactory.ServerPipelineFactory  - 
+	================================
+	Starting [ServerPipelineFactory]
+	================================
+10043 [main] INFO  org.helios.apmrouter.server.unification.ServerPipelineFactory.ServerPipelineFactory  - 
+	================================
+	Started [ServerPipelineFactory]
+	================================
+10048 [main] INFO  org.helios.apmrouter.server.services.DataServer.DataServiceListener  - 
+	================================
+	Starting [DataServiceListener]
+	================================
+10048 [main] INFO  org.helios.apmrouter.server.services.DataServer.DataServiceListener  - Resolving Channel Handlers
+10048 [main] INFO  org.helios.apmrouter.server.services.DataServer.DataServiceListener  - Resolved [0] Channel Handlers
+10048 [main] INFO  org.helios.apmrouter.server.services.DataServer.DataServiceListener  - Socket Address:/0.0.0.0:8087
+10056 [main] INFO  org.helios.apmrouter.server.services.DataServer.DataServiceListener  - 
+	================================
+	Started [DataServiceListener]
+	================================
+10183 [main] INFO  org.helios.apmrouter.dataservice.json.JSONRequestRouter.JSONRequestRouter  - 
+	================================
+	Starting [JSONRequestRouter]
+	================================
+10184 [main] INFO  org.helios.apmrouter.dataservice.json.JSONRequestRouter.JSONRequestRouter  - 
+	================================
+	Started [JSONRequestRouter]
+	================================
+10188 [main] INFO  org.helios.apmrouter.server.unification.pipeline.http.WebSocketServiceHandler.ws  - 
+	================================
+	Starting [ws]
+	================================
+10189 [main] INFO  org.helios.apmrouter.server.unification.pipeline.http.WebSocketServiceHandler.ws  - 
+	================================
+	Started [ws]
+	================================
+10192 [main] INFO  org.helios.apmrouter.server.unification.pipeline.http.HttpRequestRouter.HttpRequestRouter  - 
+	================================
+	Starting [HttpRequestRouter]
+	================================
+10192 [main] INFO  org.helios.apmrouter.server.unification.pipeline.http.HttpRequestRouter.HttpRequestRouter  - 
+	================================
+	Started [HttpRequestRouter]
+	================================
+10195 [main] INFO  org.helios.apmrouter.server.unification.pipeline.http.HttpPipelineModifier.HttpPipelineModifier  - 
+	================================
+	Starting [HttpPipelineModifier]
+	================================
+10214 [main] INFO  org.helios.apmrouter.server.unification.pipeline.http.HttpStaticFileServerHandler  - HTTP File Server Resource Mode:false
+10239 [main] INFO  org.helios.apmrouter.server.unification.pipeline.http.HttpStaticFileServerHandler.fs  - 
+	================================
+	Starting [fs]
+	================================
+10247 [main] INFO  org.helios.apmrouter.server.unification.pipeline.http.HttpStaticFileServerHandler.fs  - 
+	================================
+	Started [fs]
+	================================
+10281 [main] INFO  org.helios.apmrouter.subscription.SubscriptionService.SubscriptionService  - 
+	================================
+	Starting [SubscriptionService]
+	================================
+10282 [main] INFO  org.helios.apmrouter.subscription.SubscriptionService.SubscriptionService  - 
+	================================
+	Started [SubscriptionService]
+	================================
+10287 [main] INFO  org.helios.apmrouter.util.thread.ManagedThreadPool.ProxyWorkers  - 
+	================================
+	Starting [ProxyWorkers]
+	================================
+10288 [main] INFO  org.helios.apmrouter.util.thread.ManagedThreadPool.ProxyWorkers  - 
+	================================
+	Started [ProxyWorkers]
+	================================
+10290 [main] INFO  org.helios.apmrouter.util.thread.ManagedThreadPool.ProxyBoss  - 
+	================================
+	Starting [ProxyBoss]
+	================================
+10291 [main] INFO  org.helios.apmrouter.util.thread.ManagedThreadPool.ProxyBoss  - 
+	================================
+	Started [ProxyBoss]
+	================================
+10356 [main] INFO  org.helios.apmrouter.server.unification.pipeline.http.proxy.ProxyChannelFactory.ProxyChannelFactory  - 
+	================================
+	Starting [ProxyChannelFactory]
+	================================
+10400 [main] INFO  org.helios.apmrouter.server.unification.pipeline.http.proxy.ProxyChannelFactory.ProxyChannelFactory  - 
+	================================
+	Started [ProxyChannelFactory]
+	================================
+10471 [main] INFO  org.helios.apmrouter.server.unification.pipeline.http.proxy.HttpRequestProxy.jmxProxy  - 
+	================================
+	Starting [jmxProxy]
+	================================
+10472 [main] INFO  org.helios.apmrouter.server.unification.pipeline.http.proxy.HttpRequestProxy.jmxProxy  - 
+	================================
+	Started [jmxProxy]
+	================================
+10535 [main] INFO  org.helios.apmrouter.GroovyService.gconsole  - 
+	================================
+	Starting [gconsole]
+	================================
+10536 [main] INFO  org.helios.apmrouter.GroovyService.gconsole  - 
+	================================
+	Started [gconsole]
+	================================
+10539 [main] INFO  org.helios.apmrouter.server.unification.pipeline.http.HttpPipelineModifier.HttpPipelineModifier  - 
+	================================
+	Started [HttpPipelineModifier]
+	================================
+10540 [main] INFO  org.helios.apmrouter.server.unification.protocol.http.HttpProtocolInitiator.HttpProtocol  - 
+	================================
+	Starting [HttpProtocol]
+	================================
+10540 [main] INFO  org.helios.apmrouter.server.unification.protocol.http.HttpProtocolInitiator.HttpProtocol  - 
+	================================
+	Started [HttpProtocol]
+	================================
+10541 [main] INFO  org.helios.apmrouter.subscription.impls.jmx.JMXSubscriptionCriteriaBuilder.jmx  - 
+	================================
+	Started [jmx]
+	================================
+10542 [main] INFO  org.helios.apmrouter.subscription.impls.jmx.JMXSubscriptionCriteriaBuilder.JMXSubscriptionCriteriaBuilder  - 
+	================================
+	Started [JMXSubscriptionCriteriaBuilder]
+	================================
+12636 [main] INFO  org.helios.apmrouter.APMRouter  - Started
+12625 [SpringEventPoolThread#1] INFO  org.helios.apmrouter.deployer.SpringHotDeployer.HotDeployer  - Root AppCtx Started [Thu Nov 08 10:50:33 EST 2012]:[APMRouterRootAppCtx]
+12687 [SpringHotDeployerProcessingThread] INFO  org.helios.apmrouter.deployer.SpringHotDeployer.HotDeployer  - Started HotDeployer Queue Processor Thread
+12697 [SpringEventPoolThread#1] INFO  org.helios.apmrouter.deployer.SpringHotDeployer.HotDeployer  - Added watched deployer directory [/home/nwhitehead/.apmrouter/hotdir]
+12697 [SpringEventPoolThread#1] INFO  org.helios.apmrouter.deployer.SpringHotDeployer.HotDeployer  - Added watched deployer directory [/home/nwhitehead/.apmrouter/hotdir/helios.app]
+12699 [SpringEventPoolThread#1] INFO  org.helios.apmrouter.deployer.SpringHotDeployer.HotDeployer  - HotDeploy watcher started on [[/home/nwhitehead/.apmrouter/hotdir, /home/nwhitehead/.apmrouter/hotdir/helios.app]]
+12709 [SpringHotDeployerWatchThread] INFO  org.helios.apmrouter.deployer.SpringHotDeployer.HotDeployer  - Started HotDeployer File Watcher Thread
+12760 [SpringEventPoolThread#1] INFO  org.helios.apmrouter.server.net.listener.netty.UDPAgentListener.UDPAgentListener  - Started UDP listener on [/0.0.0.0:2094]
+12771 [SpringEventPoolThread#1] INFO  org.helios.apmrouter.server.unification.protocol.ProtocolSwitch.ProtocolSwitch  - Adding Discovered ProtocolInitiator [HttpProtocol]
+12803 [SpringEventPoolThread#1] INFO  org.helios.apmrouter.server.services.DataServer.DataServiceListener  - Started TCP listener on [/0.0.0.0:8087]
+12822 [SpringEventPoolThread#1] INFO  org.helios.apmrouter.dataservice.json.JSONRequestRouter.JSONRequestRouter  - Processing [6] JSON Handler Services
+12853 [SpringEventPoolThread#1] WARN  org.helios.apmrouter.dataservice.json.JSONRequestRouter.JSONRequestRouter  - JSON Service [proxyJSONRequestService] had zero ops
+12857 [SpringEventPoolThread#1] INFO  org.helios.apmrouter.server.unification.pipeline.http.HttpRequestRouter.HttpRequestRouter  - Adding Discovered HttpRequestHandler [fs] with [1] URI keys
+12862 [SpringEventPoolThread#1] INFO  org.helios.apmrouter.server.unification.pipeline.http.HttpRequestRouter.HttpRequestRouter  - Adding Discovered HttpRequestHandler [jmxProxy] with [3] URI keys
+12863 [SpringEventPoolThread#1] INFO  org.helios.apmrouter.subscription.SubscriptionService.SubscriptionService  - Adding Discovered SubscriptionCriteriaBuilder [JMXSubscriptionCriteriaBuilder]
+12864 [SpringEventPoolThread#1] INFO  org.helios.apmrouter.subscription.SubscriptionService.SubscriptionService  - Adding Discovered SubscriptionCriteriaBuilder [jmx]
+12865 [SpringEventPoolThread#1] INFO  org.helios.apmrouter.server.unification.protocol.http.HttpProtocolInitiator.HttpProtocol  - Adding Discovered PipelineModifier [HttpPipelineModifier]
+13194 [SpringHotDeployer#1] INFO  org.helios.apmrouter.deployer.ApplicationContextDeployer  - Deploying AppCtx [/home/nwhitehead/.apmrouter/hotdir/helios.app/helios.apmrouter.xml]
+13195 [SpringHotDeployer#1] INFO  org.helios.apmrouter.deployer.ApplicationContextDeployer  - Auto adding libs in application directory [/home/nwhitehead/.apmrouter/hotdir/helios.app/helios.lib]
+13315 [SpringHotDeployer#1] INFO  org.helios.apmrouter.deployer.ApplicationContextDeployer  - 
+HotDeployerClassLoader URLs [
+	file:/home/nwhitehead/.apmrouter/hotdir/helios.app/helios.lib/jetty-jsp-2.1-7.4.4.v20110707.jar
+	file:/home/nwhitehead/.apmrouter/hotdir/helios.app/helios.lib/jetty-all-server-8.1.7.v20120910.jar
+	file:/home/nwhitehead/.apmrouter/hotdir/helios.app/helios.lib/javax.servlet-api-3.0.1.jar
+	file:/home/nwhitehead/.apmrouter/hotdir/helios.app/helios.lib/helios.jar
+]
+16833 [SpringHotDeployer#1] INFO  org.helios.apmrouter.deployer.SpringHotDeployer.HotDeployer  - 
+	***********************************************
+	Hot Deployed Context [/home/nwhitehead/.apmrouter/hotdir/helios.app/helios.apmrouter.xml]
+	***********************************************
+
+24503 [New I/O  worker #1] INFO  org.helios.apmrouter.catalog.jdbc.h2.H2JDBCMetricCatalog.CatalogService  - Marked [njw810/jboss-default3] UP. Context:DChannelEvent [eventType=IDENT, domain=[DefaultDomain], host=njw810, hostId=1, agent=jboss-default3, agentId=1, hostChange=true]
+24504 [New I/O  worker #1] INFO  org.helios.apmrouter.server.net.listener.netty.handlers.udp.UDPAgentOperationRouter.UDPAgentOperationRouter  - Agent at [/127.0.0.1:55192] identified itself as [njw810/jboss-default3]
+36948 [pool-4-thread-15] INFO  org.helios.apmrouter.subscription.SubscriptionService.SubscriptionService  - Inquiring about SubscriptionSession for channel [[id: 0xa05a3ba6, /0:0:0:0:0:0:0:1:47093 => /0:0:0:0:0:0:0:1:8087]]
+36969 [pool-4-thread-15] INFO  org.helios.apmrouter.subscription.impls.jmx.JMXSubscriptionCriteriaInstance  - Resolved JMX Criteria MBeanServer [service:jmx:local://DefaultDomain]
+44580 [New I/O  worker #1] INFO  org.helios.apmrouter.server.net.listener.netty.handlers.udp.UDPAgentOperationRouter.UDPAgentOperationRouter  - Processing BYE for client at [/127.0.0.1:55192]
+44588 [New I/O  worker #1] INFO  org.helios.apmrouter.catalog.jdbc.h2.H2JDBCMetricCatalog.CatalogService  - Marked [njw810/jboss-default3] DOWN. Context:DChannelEvent [eventType=CLOSED, domain=[DefaultDomain], host=njw810, hostId=1, agent=jboss-default3, agentId=1, hostChange=true]

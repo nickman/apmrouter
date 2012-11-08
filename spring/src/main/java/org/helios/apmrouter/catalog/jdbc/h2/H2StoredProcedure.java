@@ -28,9 +28,12 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+
+import org.h2.tools.SimpleResultSet;
 
 /**
  * <p>Title: H2StoredProcedure</p>
@@ -46,8 +49,10 @@ public class H2StoredProcedure {
 	public static final String DEFAULT_DOMAIN = "DefaultDomain";
 	/** Constant int array of 1 */
 	private static final int[] ARR_ONE = {1};
-	/** Constant int array of 1 */
+	/** Constant int array of 1 and 2 */
 	private static final int[] ARR_ONE_TWO = {1,2};
+	/** Constant int array of 1, 2 and three */
+	private static final int[] ARR_ONE_TWO_THREE = {1,2,3};
 	
 	/**
 	 * Called when an agent connects or disconnects (or times out)
@@ -57,14 +62,20 @@ public class H2StoredProcedure {
 	 * @param ip The host IP address
 	 * @param agent The agent name
 	 * @param agentURI The agent's listening URI
-	 * @return The number of connected agents for the passed host after this op completes
+	 * @return A result set containing:<ol>
+	 * 	<li>The number of connected agents for the passed host after this op completes</li>
+	 * 	<li>The host ID</li>
+	 * 	<li>The agent ID</li>
+	 *  <li>The host's domain</li>
+	 * </ol>
 	 * @throws SQLException thrown on any SQL error
 	 */
-	public synchronized static int hostAgentState(Connection conn, boolean connected, String host, String ip, String agent, String agentURI) throws SQLException {
-		Number[] results = key(conn, "SELECT HOST_ID, AGENTS FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, DOMAIN, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE_TWO, host, domain(host), ip);
-		int hostId = results[0].intValue();
-		int agentCount = results[1].intValue();
-		int agentId = key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", ARR_ONE, hostId, agent, 3200, agentURI)[0].intValue();
+	public synchronized static ResultSet hostAgentState(Connection conn, boolean connected, String host, String ip, String agent, String agentURI) throws SQLException {
+		Object[] results = key(conn, "SELECT HOST_ID, AGENTS, DOMAIN FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, DOMAIN, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE_TWO_THREE, host, domain(host), ip);
+		int hostId = ((Number)results[0]).intValue();
+		int agentCount = ((Number)results[1]).intValue();
+		String domain = results[2].toString();
+		int agentId = ((Number)key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", ARR_ONE, hostId, agent, 3200, agentURI)[0]).intValue();
 		PreparedStatement  ps = null;
 		String hostUpdateSQL = null;
 		String agentUpdateSQL = null;
@@ -94,7 +105,14 @@ public class H2StoredProcedure {
 				ps.setInt(1, agentId);
 			}
 			ps.executeUpdate();
-			return agentCount;
+			SimpleResultSet rs = new SimpleResultSet();
+			
+		    rs.addColumn("AGENTS", Types.INTEGER, 10, 0);
+		    rs.addColumn("HOST_ID", Types.INTEGER, 10, 0);
+		    rs.addColumn("AGENT_ID", Types.INTEGER, 10, 0);
+		    rs.addColumn("DOMAIN", Types.VARCHAR, 255, 0);
+		    rs.addRow(agentCount, hostId, agentId, domain);
+		    return rs;			
 		} catch (Exception ex) {
 			throw new SQLException("Failed to touch agentHost State [" + String.format("%s/%s", host, agent) + "]", ex);
 		} finally {
@@ -146,13 +164,13 @@ public class H2StoredProcedure {
 	 */
 	public static long getID(Connection conn, long token, String host, String agent, int typeId, String namespace, String name) throws SQLException {
 		if(token!=-1) return 0;
-		int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, DOMAIN, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE, host, domain(host))[0].intValue();
-		Number[] nums = key(conn, "SELECT AGENT_ID,MIN_LEVEL FROM AGENT WHERE NAME=? AND HOST_ID=?", new Object[]{agent, hostId}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE_TWO, hostId, agent, nsLevel(namespace));
-		int agentId = nums[0].intValue();
-		int agentMinLevel = nums[1].intValue();
+		int hostId = ((Number)key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, DOMAIN, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE, host, domain(host))[0]).intValue();
+		Object[] nums = key(conn, "SELECT AGENT_ID,MIN_LEVEL FROM AGENT WHERE NAME=? AND HOST_ID=?", new Object[]{agent, hostId}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE_TWO, hostId, agent, nsLevel(namespace));
+		int agentId = ((Number)nums[0]).intValue();
+		int agentMinLevel = ((Number)nums[1]).intValue();
 		int nsLevel = nsLevel(namespace);
-		long metricId = key(conn, "SELECT METRIC_ID FROM METRIC WHERE AGENT_ID=? AND NAMESPACE=? AND NAME=?", new Object[]{agentId, namespace, name}, 
-				"INSERT INTO METRIC (AGENT_ID, TYPE_ID, NAMESPACE, NARR, LEVEL, NAME, FIRST_SEEN, LAST_SEEN) VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE, agentId, typeId, namespace, nsItems(namespace), nsLevel, name)[0].longValue();
+		long metricId = ((Number)key(conn, "SELECT METRIC_ID FROM METRIC WHERE AGENT_ID=? AND NAMESPACE=? AND NAME=?", new Object[]{agentId, namespace, name}, 
+				"INSERT INTO METRIC (AGENT_ID, TYPE_ID, NAMESPACE, NARR, LEVEL, NAME, FIRST_SEEN, LAST_SEEN) VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE, agentId, typeId, namespace, nsItems(namespace), nsLevel, name)[0]).longValue();
 		if(nsLevel<agentMinLevel) {
 			setAgentMinLevel(conn, agentId, nsLevel);
 		}
@@ -253,7 +271,7 @@ public class H2StoredProcedure {
 	 * @return an array containing the requested key plus other requested numbers
 	 * @throws SQLException thrown on any error
 	 */
-	public static Number[] key(Connection conn, String selectSql, Object[] binds, String insertSql, int[] keyIndexes, Object...insertValues) throws SQLException {
+	public static Object[] key(Connection conn, String selectSql, Object[] binds, String insertSql, int[] keyIndexes, Object...insertValues) throws SQLException {
 		PreparedStatement ps = null;
 		ResultSet rset = null;
 		try {
@@ -263,9 +281,9 @@ public class H2StoredProcedure {
 			}
 			rset = ps.executeQuery();
 			if(rset.next()) {
-				Number[] nums = new Number[keyIndexes.length];
+				Object[] nums = new Object[keyIndexes.length];
 				for(int i = 0; i < keyIndexes.length; i++) {
-					nums[i] = rset.getLong(keyIndexes[i]);
+					nums[i] = rset.getObject(keyIndexes[i]);
 				}
 				return nums;
 			}
@@ -278,10 +296,10 @@ public class H2StoredProcedure {
 			ps.executeUpdate();
 			rset = ps.getGeneratedKeys();
 			rset.next();
-			Number[] nums = new Number[keyIndexes.length];
+			Object[] nums = new Object[keyIndexes.length];
 			nums[0] = rset.getLong(1);
 			for(int i = 1; i < keyIndexes.length; i++) {
-				nums[i] = (Integer)(insertValues[keyIndexes[i]]);
+				nums[i] = (insertValues[keyIndexes[i]]);
 			}
 			return nums;
 		} catch (Exception e) {

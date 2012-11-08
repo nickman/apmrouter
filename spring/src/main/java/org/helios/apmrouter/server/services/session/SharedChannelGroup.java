@@ -51,6 +51,7 @@ import javax.management.NotificationFilter;
 import javax.management.NotificationListener;
 
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.catalog.DChannelEvent;
 import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
@@ -67,7 +68,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
-import com.google.gson.annotations.SerializedName;
 
 /**
  * <p>Title: SharedChannelGroup</p>
@@ -288,8 +288,8 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 		ChannelFutureListener relay = new ChannelFutureListener() {			
 			@Override
 			public void operationComplete(ChannelFuture future) throws Exception {
-				final boolean lastAgent = mcs.onClosedChannel(dchannel) < 1;
-				sendChannelClosedEvent(dchannel, lastAgent);
+				final DChannelEvent dce = mcs.onClosedChannel(dchannel);
+				sendChannelClosedEvent(dchannel, dce);
 				for(final ChannelSessionListener listener: forwardTo) {
 					threadPool.submit(new Runnable() {
 						@Override
@@ -355,11 +355,11 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 	/**
 	 * Sends a channel closed event to jmx and spring
 	 * @param dchannel The closed channel
-	 * @param hostChange Indicates if a connect is the first for the host, or if a disconnect is the last for a host
+	 * @param dce The channel state change event context
 	 */
-	protected void sendChannelClosedEvent(final DecoratedChannelMBean dchannel, boolean hostChange) {
+	protected void sendChannelClosedEvent(final DecoratedChannelMBean dchannel, DChannelEvent dce) {
 		Notification notif = new Notification(CLOSED_SESSION_EVENT, OBJECT_NAME, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Channel Session Closed [" + dchannel.toString() + "]");
-		notif.setUserData(DChannelEvent.newEvent(CLOSED_SESSION_EVENT, dchannel, hostChange));
+		notif.setUserData(dce);
 		sendNotification(notif);
 		if(applicationContext != null) {
 			threadPool.submit(new Runnable() {
@@ -371,68 +371,6 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 		}		
 	}
 	
-	
-	/**
-	 * <p>Title: DChannelEvent</p>
-	 * <p>Description: Serializable event indicating a host and agent state change</p> 
-	 * <p>Company: Helios Development Group LLC</p>
-	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
-	 * <p><code>org.helios.apmrouter.server.services.session.SharedChannelGroup.DChannelEvent</code></p>
-	 */
-	public static class DChannelEvent {
-		/** The event type */
-		@SerializedName("event")
-		public final String eventType;
-		/** The host */
-		@SerializedName("h")
-		public final String host;
-		/** The agent */
-		@SerializedName("a")
-		public final String agent;
-		/** Indicates if a connect is the first for the host, or if a disconnect is the last for a host */
-		@SerializedName("hc")
-		public final boolean hostChange;
-		
-		/**
-		 * Creates a new DChannelEvent
-		 * @param eventType The channel event type
-		 * @param host The host
-		 * @param agent The agent
-		 * @param hostChange Indicates if a connect is the first for the host, or if a disconnect is the last for a host
-		 * @return The new DChannelEvent
-		 */
-		public static DChannelEvent newEvent(String eventType, String host, String agent, boolean hostChange) {
-			return new DChannelEvent(eventType, host, agent, hostChange);
-		}
-		
-		/**
-		 * Creates a new DChannelEvent
-		 * @param eventType The channel event type
-		 * @param dchannel The dchannel that triggered the event
-		 * @param hostChange Indicates if a connect is the first for the host, or if a disconnect is the last for a host
-		 * @return The new DChannelEvent
-		 */
-		public static DChannelEvent newEvent(String eventType, DecoratedChannelMBean dchannel, boolean hostChange) {
-			return new DChannelEvent(eventType, dchannel.getHost(), dchannel.getAgent(), hostChange);
-		}
-		
-
-		/**
-		 * Creates a new DChannelEvent
-		 * @param eventType The channel event type
-		 * @param host The host
-		 * @param agent The agent
-		 * @param hostChange Indicates if a connect is the first for the host, or if a disconnect is the last for a host
-		 */
-		private DChannelEvent(String eventType, String host, String agent, boolean hostChange) {
-			this.eventType = eventType;
-			this.host = host;
-			this.agent = agent;
-			this.hostChange = hostChange;
-		}
-		
-		
-	}
 	
 	/**
 	 * Sends a channel connected event to listeners, jmx and spring
@@ -460,7 +398,6 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 			}
 		}
 		Notification notif = new Notification(NEW_SESSION_EVENT, OBJECT_NAME, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Channel Session Started [" + dchannel.toString() + "]");
-		notif.setUserData(DChannelEvent.newEvent(NEW_SESSION_EVENT, dchannel, false));
 		sendNotification(notif);
 		if(applicationContext != null) {
 			threadPool.submit(new Runnable() {
@@ -477,7 +414,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 	 * @param dchannel The channel that has been identified.
 	 */
 	public void sendIdentifiedChannelEvent(final DecoratedChannel dchannel) {
-		final boolean firstAgent = mcs.onIdentifiedChannel(dchannel)==1;
+		final DChannelEvent dce = mcs.onIdentifiedChannel(dchannel);
 		for(final ChannelSessionListener listener: listeners) {
 			if(listener instanceof FilteredChannelSessionListener) {
 				if(((FilteredChannelSessionListener)listener).include(dchannel)) {
@@ -499,7 +436,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 		}
 		
 		Notification notif = new Notification(IDENTIFIED_SESSION_EVENT, OBJECT_NAME, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Channel Session Identified [" + dchannel.host + "/" + dchannel.agent + "]");
-		notif.setUserData(DChannelEvent.newEvent(IDENTIFIED_SESSION_EVENT, dchannel, firstAgent));
+		notif.setUserData(dce);
 		sendNotification(notif);
 	}
 
