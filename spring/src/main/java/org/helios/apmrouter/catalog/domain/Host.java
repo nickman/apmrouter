@@ -25,6 +25,9 @@ public class Host implements java.io.Serializable, DomainObject {
 	private Date firstConnected;
 	@Expose(serialize=false)
 	private Date lastConnected;
+	@Expose(serialize=false)
+	private int agentsConnected;
+	
 	@SerializedName("conn")
 	private Date connected;
 	
@@ -32,21 +35,23 @@ public class Host implements java.io.Serializable, DomainObject {
 	public Host() {
 	}
 
-	public Host(String name, String domain, Date firstConnected, Date lastConnected) {
+	public Host(String name, String domain, Date firstConnected, Date lastConnected, int agentsConnected) {
 		this.name = name;
 		this.domain = domain;
 		this.firstConnected = firstConnected;
 		this.lastConnected = lastConnected;
+		this.agentsConnected = agentsConnected;
 	}
 
 	public Host(String name, String domain, String ip, String fqn, Date firstConnected,
-			Date lastConnected, Date connected) {
+			Date lastConnected, int agentsConnected, Date connected) {
 		this.name = name;
 		this.domain = domain;
 		this.ip = ip;
 		this.fqn = fqn;
 		this.firstConnected = firstConnected;
 		this.lastConnected = lastConnected;
+		this.agentsConnected = agentsConnected;
 		this.connected = connected;		
 	}
 
@@ -143,6 +148,22 @@ public class Host implements java.io.Serializable, DomainObject {
 	 */
 	public void setDomain(String domain) {
 		this.domain = domain;
+	}
+
+	/**
+	 * Returns 
+	 * @return the agentsConnected
+	 */
+	public int getAgentsConnected() {
+		return agentsConnected;
+	}
+
+	/**
+	 * Sets 
+	 * @param agentsConnected the agentsConnected to set
+	 */
+	public void setAgentsConnected(int agentsConnected) {
+		this.agentsConnected = agentsConnected;
 	}
 
 

@@ -39,6 +39,13 @@
                 <comment>The last time connected.</comment>
             </column>
         </property>
+
+        <property name="agentsConnected" type="int">
+            <column name="AGENTS" not-null="true">
+                <comment>The number of agents connected from this host</comment>
+            </column>
+        </property>
+        
         <property name="connected" type="timestamp">
             <column name="CONNECTED" length="23">
                 <comment>The time an agent from this host connected or null if not connected.</comment>

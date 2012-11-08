@@ -57,30 +57,48 @@ public class H2StoredProcedure {
 	 * @param ip The host IP address
 	 * @param agent The agent name
 	 * @param agentURI The agent's listening URI
+	 * @return The number of connected agents for the passed host after this op completes
 	 * @throws SQLException thrown on any SQL error
 	 */
-	public static void hostAgentState(Connection conn, boolean connected, String host, String ip, String agent, String agentURI) throws SQLException {
+	public synchronized static int hostAgentState(Connection conn, boolean connected, String host, String ip, String agent, String agentURI) throws SQLException {
+		Number[] results = key(conn, "SELECT HOST_ID, AGENTS FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, DOMAIN, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE_TWO, host, domain(host), ip);
+		int hostId = results[0].intValue();
+		int agentCount = results[1].intValue();
+		int agentId = key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", ARR_ONE, hostId, agent, 3200, agentURI)[0].intValue();
+		PreparedStatement  ps = null;
+		String hostUpdateSQL = null;
+		String agentUpdateSQL = null;
 		if(connected) {
-			int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, DOMAIN, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE, host, domain(host), ip)[0].intValue();
-			int agentId = key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", ARR_ONE, hostId, agent, 3200, agentURI)[0].intValue();
-			PreparedStatement  ps = null;
-			try {
-				ps = conn.prepareStatement("UPDATE HOST SET CONNECTED = CURRENT_TIMESTAMP WHERE HOST_ID = ?");
-				ps.setInt(1, hostId);
-				ps.executeUpdate();
-				ps.close();
-				ps = conn.prepareStatement("UPDATE AGENT SET CONNECTED = CURRENT_TIMESTAMP, URI = ? WHERE AGENT_ID = ?");
+			agentCount++;
+			hostUpdateSQL = "UPDATE HOST SET CONNECTED = CURRENT_TIMESTAMP, AGENTS = ? WHERE HOST_ID = ?";
+			agentUpdateSQL = "UPDATE AGENT SET CONNECTED = CURRENT_TIMESTAMP, URI = ? WHERE AGENT_ID = ?";
+		} else {
+			agentCount--;
+			if(agentCount<0) {
+				agentCount = 0;
+			}
+			hostUpdateSQL = "UPDATE HOST SET CONNECTED = NULL, AGENTS = ? WHERE HOST_ID = ?";
+			agentUpdateSQL = "UPDATE AGENT SET CONNECTED = NULL, URI = NULL WHERE AGENT_ID = ?";			
+		}
+		try {
+			ps = conn.prepareStatement(hostUpdateSQL);
+			ps.setInt(1, agentCount);
+			ps.setInt(2, hostId);
+			ps.executeUpdate();
+			ps.close();
+			ps = conn.prepareStatement(agentUpdateSQL);			
+			if(connected) {
 				ps.setString(1, agentURI);
 				ps.setInt(2, agentId);
-				ps.executeUpdate();				
-			} catch (Exception ex) {
-				throw new SQLException("Failed to touch agentHost State [" + String.format("%s/%s", host, agent) + "]", ex);
-			} finally {
-				if(ps!=null) try { ps.close(); } catch (Exception ex) {}
+			} else {
+				ps.setInt(1, agentId);
 			}
-		} else {
-			int hostId = key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, DOMAIN, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL)", ARR_ONE, host, domain(host), ip)[0].intValue();
-			key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, NULL)", ARR_ONE, hostId, agent);			
+			ps.executeUpdate();
+			return agentCount;
+		} catch (Exception ex) {
+			throw new SQLException("Failed to touch agentHost State [" + String.format("%s/%s", host, agent) + "]", ex);
+		} finally {
+			if(ps!=null) try { ps.close(); } catch (Exception ex) {}
 		}
 	}
 	

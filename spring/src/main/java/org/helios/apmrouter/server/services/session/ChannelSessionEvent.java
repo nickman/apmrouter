@@ -90,5 +90,51 @@ public abstract class ChannelSessionEvent extends ApplicationEvent {
 		
 	}
 	
+	/**
+	 * <p>Title: HostDownEvent</p>
+	 * <p>Description: Spring application event published when the last channel session from a host closes</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.server.services.session.ChannelSessionEvent.HostDownEvent</code></p>
+	 */
+	public static class HostDownEvent extends ChannelSessionEvent {
+
+		/**  */
+		private static final long serialVersionUID = 3765982604225822815L;
+
+		/**
+		 * Creates a new HostDownEvent
+		 * @param source the dis-connected channel
+		 */
+		public HostDownEvent(DecoratedChannelMBean source) {
+			super(source);
+		}
+		
+	}
+	
+	/**
+	 * <p>Title: HostUpEvent</p>
+	 * <p>Description: Spring application event published when the first channel session from a host opens</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.server.services.session.ChannelSessionEvent.HostUpEvent</code></p>
+	 */
+	public static class HostUpEvent extends ChannelSessionEvent {
+
+		/**  */
+		private static final long serialVersionUID = 1302529298658435100L;
+
+		/**
+		 * Creates a new HostUpEvent
+		 * @param source the connected channel
+		 */
+		public HostUpEvent(DecoratedChannelMBean source) {
+			super(source);
+		}
+		
+	}
+	
+	
+	
 
 }

@@ -25,7 +25,6 @@
 package org.helios.apmrouter.server.services.session;
 
 import java.net.SocketAddress;
-import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -56,6 +55,8 @@ import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.server.services.session.ChannelSessionEvent.ChannelSessionStartedEvent;
 import org.helios.apmrouter.server.services.session.ChannelSessionEvent.ChannelSessionStoppedEvent;
+import org.helios.apmrouter.server.services.session.ChannelSessionEvent.HostDownEvent;
+import org.helios.apmrouter.server.services.session.ChannelSessionEvent.HostUpEvent;
 import org.helios.apmrouter.util.SystemClock;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
@@ -136,7 +137,9 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 		notificationBroadcaster = new NotificationBroadcasterSupport(threadPool, new MBeanNotificationInfo[]{
 				new MBeanNotificationInfo(new String[]{NEW_SESSION_EVENT}, Notification.class.getName(), "Notification broadcast when a channel session is initiated"),
 				new MBeanNotificationInfo(new String[]{CLOSED_SESSION_EVENT}, Notification.class.getName(), "Notification broadcast when a channel session is closed"),
-				new MBeanNotificationInfo(new String[]{IDENTIFIED_SESSION_EVENT}, Notification.class.getName(), "Notification broadcast when a channel is identified")
+				new MBeanNotificationInfo(new String[]{IDENTIFIED_SESSION_EVENT}, Notification.class.getName(), "Notification broadcast when a channel is identified"),
+				new MBeanNotificationInfo(new String[]{HOST_UP_EVENT}, Notification.class.getName(), "Notification broadcast when a host comes up"),
+				new MBeanNotificationInfo(new String[]{HOST_DOWN_EVENT}, Notification.class.getName(), "Notification broadcast when a host goes down")
 		});
 		JMXHelper.registerMBean(OBJECT_NAME, this);
 		scheduler.scheduleAtFixedRate(new Runnable(){
@@ -286,7 +289,10 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 					threadPool.submit(new Runnable() {
 						@Override
 						public void run() {
-							listener.onClosedChannel(dchannel);
+							int agentsConnected = listener.onClosedChannel(dchannel);
+							if(agentsConnected<1) {
+								sendHostDownEvent(dchannel);
+							}
 						}
 					});					
 				}				
@@ -304,6 +310,45 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 		dchannel.getCloseFuture().addListener(relay);		
 	}
 	
+
+	/**
+	 * Sends a host down event to jmx and spring
+	 * @param dchannel The closed channel that detected the last agent connection that closed
+	 */
+	protected void sendHostDownEvent(final DecoratedChannelMBean dchannel) {
+		Notification notif = new Notification(HOST_DOWN_EVENT, OBJECT_NAME, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Host Down Detected By [" + dchannel.toString() + "]");		
+		notif.setUserData(dchannelToJson("HD", dchannel));
+		sendNotification(notif);
+		if(applicationContext != null) {
+			threadPool.submit(new Runnable() {
+				@Override
+				public void run() {
+					applicationContext.publishEvent(new HostDownEvent(dchannel));
+				}
+			});								
+		}		
+	}
+	
+	/**
+	 * Sends a host up event to jmx and spring
+	 * @param dchannel The opened channel that detected the first agent connection that opened
+	 */
+	protected void sendHostUpEvent(final DecoratedChannelMBean dchannel) {
+		Notification notif = new Notification(HOST_UP_EVENT, OBJECT_NAME, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Host Up Detected By [" + dchannel.toString() + "]");
+		notif.setUserData(dchannelToJson("HU", dchannel));
+		sendNotification(notif);
+		if(applicationContext != null) {
+			threadPool.submit(new Runnable() {
+				@Override
+				public void run() {
+					applicationContext.publishEvent(new HostUpEvent(dchannel));
+				}
+			});								
+		}		
+	}
+	
+	
+	
 	
 	/**
 	 * Sends a channel closed event to jmx and spring
@@ -311,7 +356,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 	 */
 	protected void sendChannelClosedEvent(final DecoratedChannelMBean dchannel) {
 		Notification notif = new Notification(CLOSED_SESSION_EVENT, OBJECT_NAME, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Channel Session Closed [" + dchannel.toString() + "]");
-		notif.setUserData(dchannel);
+		notif.setUserData(dchannelToJson("CLOSED", dchannel));
 		sendNotification(notif);
 		if(applicationContext != null) {
 			threadPool.submit(new Runnable() {
@@ -321,6 +366,20 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 				}
 			});								
 		}		
+	}
+	
+	private static String dchannelToJson(String eventType, DecoratedChannelMBean channel) {
+		StringBuilder b= new StringBuilder("{");
+		b.append("event :").append("'").append(eventType).append("',");
+		b.append("host :").append("'").append(channel.getHost()).append("',");
+		b.append("agent :").append("'").append(channel.getAgent()).append("'");
+		return b.append("}").toString();
+	}
+	
+	public static class DChannelEvent {
+		public final String eventType;
+		public final String host;
+		public final String agent;
 	}
 	
 	/**
@@ -349,7 +408,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 			}
 		}
 		Notification notif = new Notification(NEW_SESSION_EVENT, OBJECT_NAME, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Channel Session Started [" + dchannel.toString() + "]");
-		notif.setUserData(dchannel);
+		notif.setUserData(dchannelToJson("CONN", dchannel));
 		sendNotification(notif);
 		if(applicationContext != null) {
 			threadPool.submit(new Runnable() {
@@ -372,7 +431,10 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 					threadPool.submit(new Runnable() {
 						@Override
 						public void run() {
-							listener.onIdentifiedChannel(dchannel);
+							int agentsConnected = listener.onIdentifiedChannel(dchannel);
+							if(agentsConnected==1) {
+								sendHostUpEvent(dchannel);
+							}
 						}
 					});					
 					
@@ -381,14 +443,17 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 				threadPool.submit(new Runnable() {
 					@Override
 					public void run() {
-						listener.onIdentifiedChannel(dchannel);
+						int agentsConnected = listener.onIdentifiedChannel(dchannel);
+						if(agentsConnected==1) {
+							sendHostUpEvent(dchannel);
+						}
 					}
 				});									
 			}
 		}
 		
 		Notification notif = new Notification(IDENTIFIED_SESSION_EVENT, OBJECT_NAME, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Channel Session Identified [" + dchannel.host + "/" + dchannel.agent + "]");
-		notif.setUserData(dchannel);
+		notif.setUserData(dchannelToJson("IDENT", dchannel));
 		sendNotification(notif);
 	}
 

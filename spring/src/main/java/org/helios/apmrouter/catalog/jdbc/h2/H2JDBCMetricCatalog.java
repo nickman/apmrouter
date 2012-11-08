@@ -198,30 +198,35 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	 * @see org.helios.apmrouter.catalog.MetricCatalogService#hostAgentState(boolean, java.lang.String, java.lang.String, java.lang.String, java.lang.String)
 	 */
 	@Override
-	public void hostAgentState(boolean connected, String host, String ip, String agent, String agentURI) {
+	public int hostAgentState(boolean connected, String host, String ip, String agent, String agentURI) {
 		SystemClock.startTimer();
 		incr("CallCount");		
 		Connection conn = null;
 		CallableStatement cs = null;
 		try {
 			conn = ds.getConnection();
-			cs = conn.prepareCall("CALL HOSTAGENTSTATE(?,?,?,?,?)");
-			cs.setBoolean(1, connected);
-			cs.setString(2, host);
-			cs.setString(3, ip);
-			cs.setString(4, agent);
-			cs.setString(5, agentURI);
-			cs.execute();
+			cs = conn.prepareCall("{?=CALL HOSTAGENTSTATE(?,?,?,?,?)}");		
+			cs.setNull(1, Types.INTEGER);
+			cs.setBoolean(2, connected);
+			cs.setString(3, host);
+			cs.setString(4, ip);
+			cs.setString(5, agent);
+			cs.setString(6, agentURI);
+			cs.registerOutParameter(1, Types.INTEGER);
+			cs.executeUpdate();
+			int agentsConnected = cs.getInt(1);
 			ElapsedTime et = SystemClock.endTimer();
 			elapsedTimesNs.insert(et.elapsedNs);
-			elapsedTimesMs.insert(et.elapsedMs);			
+			elapsedTimesMs.insert(et.elapsedMs);	
+			return agentsConnected;
 		} catch (Exception e) {
 			error("Failed to update host/agent state for [" , String.format("%s/%s:%s", connected, host, agent) , "]", e);
 			Throwable cause = e.getCause();
 			if(cause!=null) cause.printStackTrace(System.err);
+			return -1;
 		} finally {
 			if(cs!=null) try { cs.close(); } catch (Exception e) {}
-			if(conn!=null) try { conn.close(); } catch (Exception e) {}
+			if(conn!=null) try { conn.close(); } catch (Exception e) {}			
 		}
 	}
 	
@@ -386,12 +391,13 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onClosedChannel(org.helios.apmrouter.server.services.session.DecoratedChannel)
 	 */
 	@Override
-	public void onClosedChannel(DecoratedChannel channel) {
+	public int onClosedChannel(DecoratedChannel channel) {
 		if(channel.getAgent()!=null && !channel.getAgent().trim().isEmpty()) {
-			hostAgentState(false, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getType() + "/" + channel.getRemoteAddress().toString());
-			info("Marked [", channel.getHost(), "/", channel.getAgent(), "] DOWN");
+			int agentsConnected = hostAgentState(false, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getType() + "/" + channel.getRemoteAddress().toString());
+			info("Marked [", channel.getHost(), "/", channel.getAgent(), "] DOWN. Agents Still Connected:" + agentsConnected);
+			return agentsConnected;
 		}
-		
+		return -1;
 	}
 
 	/**
@@ -400,10 +406,12 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onIdentifiedChannel(org.helios.apmrouter.server.services.session.DecoratedChannel)
 	 */
 	@Override
-	public void onIdentifiedChannel(DecoratedChannel channel) {
+	public int onIdentifiedChannel(DecoratedChannel channel) {
 		if(channel.getAgent()!=null && !channel.getAgent().trim().isEmpty()) {
-			hostAgentState(true, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getURI());
-			info("Marked [", channel.getHost(), "/", channel.getAgent(), "] UP");
+			int agentsConnected = hostAgentState(true, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getURI());
+			info("Marked [", channel.getHost(), "/", channel.getAgent(), "] UP. Agents Still Connected:" + agentsConnected);
+			return agentsConnected;
 		}
+		return -1;
 	}
 }

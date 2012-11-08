@@ -56,8 +56,9 @@ public interface MetricCatalogService {
 	 * @param ip The host IP address
 	 * @param agent The agent name
 	 * @param agentURI The agent's listening URI
+	 * @return the number of agents connected from the passed host after this operation completes
 	 */
-	public void hostAgentState(boolean connected, String host, String ip, String agent, String agentURI);
+	public int hostAgentState(boolean connected, String host, String ip, String agent, String agentURI);
 	
 	/**
 	 * Returns the delegate metric for the passed token

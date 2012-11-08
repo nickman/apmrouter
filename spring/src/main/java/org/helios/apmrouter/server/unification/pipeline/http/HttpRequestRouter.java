@@ -173,7 +173,7 @@ public class HttpRequestRouter extends ServerComponentBean  implements ChannelUp
 		HttpRequest request = null;
 		if(!(e instanceof MessageEvent)) {
 			if(e instanceof ExceptionEvent) {
-				error("Http Routing Exception", ((ExceptionEvent)e).getCause());
+				error("Http Routing Exception ", ((ExceptionEvent)e).getCause());
 				sendError(ctx, INTERNAL_SERVER_ERROR);
 				return;
 			}

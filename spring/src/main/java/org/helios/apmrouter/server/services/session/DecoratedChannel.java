@@ -547,4 +547,26 @@ public class DecoratedChannel implements Channel, DecoratedChannelMBean, Seriali
 		return delegate;
 	}
 
+
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		StringBuilder builder = new StringBuilder();
+		builder.append("DecoratedChannel [name=");
+		builder.append(name);
+		builder.append(", connectTime=");
+		builder.append(connectTime);
+		builder.append(", type=");
+		builder.append(type);
+		builder.append(", host=");
+		builder.append(host);
+		builder.append(", agent=");
+		builder.append(agent);
+		builder.append("]");
+		return builder.toString();
+	}
+
 }

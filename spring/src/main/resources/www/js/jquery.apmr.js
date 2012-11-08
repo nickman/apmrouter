@@ -92,7 +92,7 @@
 	    clearTimeout(this.c.config.connectTimeoutHandle);
 	    clearTimeout($.apmr.config.reconnectTimeoutHandle);
 	    this.c.config.connectTimeoutHandle = -1;
-	    this.c.sendWho();
+	    //this.c.sendWho();
 	    $(document).trigger('status.connected',[true]);
 
 	},
@@ -152,8 +152,14 @@
 		req['args'] = args;
 		console.info("Sending Sub Request:%o", req);
 		return this.send(req);
+	},
+	$.apmr.subtreeOn = function(callback) {		
+		var topic = '/' + 'req' + '/' + $.apmr.sub("start", "jmx", "service:jmx:local://DefaultDomain", "org.helios.apmrouter.session:service=SharedChannelGroup");
+		console.info("Started Sub [#%s] for [%s]-[%s]", topic, "service:jmx:local://DefaultDomain", "org.helios.apmrouter.session:service=SharedChannelGroup");
+		var subHandle = $.subscribe(topic, function(args){
+			console.info("Sub Response for [%s] - [%o]", topic, args);
+		});
 		
-		//  $.apmr.sub("start", "jmx", "service:jmx:local://DefaultDomain", "java.lang:type=GarbageCollector,name=*")
 	},
 	$.apmr.ams = function(agentId, callback) {
 		$.apmr.svcOp("catalog", "ams", {'agentId': agentId}, callback || function(data){

@@ -30,8 +30,9 @@
 					d.unsubscribe(handle);
 					delete oneTimes[topic];
 				}
+			} else {
+				this.apply(d, args || []);
 			}
-			this.apply(d, args || []);
 		});
 	};
 

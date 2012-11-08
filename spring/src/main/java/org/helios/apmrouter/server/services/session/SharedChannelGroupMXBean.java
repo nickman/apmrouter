@@ -44,6 +44,11 @@ public interface SharedChannelGroupMXBean  {
 	public static final String IDENTIFIED_SESSION_EVENT = "apmrouter.session.identified";	
 	/** The closed channel session jmx event type */
 	public static final String CLOSED_SESSION_EVENT = "apmrouter.session.end";
+	/** The host up jmx event type */
+	public static final String HOST_UP_EVENT = "apmrouter.host.up";
+	/** The host down jmx event type */
+	public static final String HOST_DOWN_EVENT = "apmrouter.host.down";
+	
 	/** The JMX ObjectName for this service */
 	public static final ObjectName OBJECT_NAME = JMXHelper.objectName("org.helios.apmrouter.session:service=SharedChannelGroup");
 

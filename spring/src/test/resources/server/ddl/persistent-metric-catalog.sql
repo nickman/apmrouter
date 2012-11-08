@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS  PUBLIC.HOST(
     FQN VARCHAR2(255)  COMMENT 'The fully qualified name of the host',
     FIRST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The first time the host was seen.',
     LAST_CONNECTED TIMESTAMP NOT NULL COMMENT 'The last time connected.',
+    AGENTS INTEGER NOT NULL DEFAULT 0 COMMENT 'The number of agents connected from this host.',
     CONNECTED TIMESTAMP NULL COMMENT 'The time an agent from this host connected or null if not connected.'
 ) ;      
     
@@ -66,5 +67,5 @@ CREATE ALIAS IF NOT EXISTS HOSTAGENTSTATE FOR "org.helios.apmrouter.catalog.jdbc
 CREATE ALIAS IF NOT EXISTS PARENT FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.parent";
 CREATE ALIAS IF NOT EXISTS ROOT FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.root";
 
-UPDATE HOST SET CONNECTED = NULL;
+UPDATE HOST SET CONNECTED = NULL, AGENTS = 0;
 UPDATE AGENT SET CONNECTED = NULL, URI = NULL;

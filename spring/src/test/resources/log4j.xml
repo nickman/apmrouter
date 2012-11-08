@@ -11,6 +11,16 @@
       </layout>
    </appender>
    
+	<appender name="FILE" class="org.apache.log4j.RollingFileAppender">
+		<param name="append" value="false"/>
+		<param name="maxFileSize" value="1024000"/>
+		<param name="File" value="sample.log"/>
+		<param name="Threshold" value="DEBUG"/>
+		<layout class="org.apache.log4j.PatternLayout">
+			<param name="ConversionPattern" value="%-4r [%t] %-5p %c %x - %m%n" />
+		</layout>
+	</appender>   
+   
    <!-- 
 	 <appender name="SOCKET" class="org.apache.log4j.net.SocketAppender">
 	        <param name="Port" value="9409" />
@@ -41,6 +51,7 @@
    <category name="org.helios" additivity="false">
       <priority value="INFO"/>
       <appender-ref ref="CONSOLE"  />
+      <appender-ref ref="FILE"  />
    </category>
    
    
@@ -68,7 +79,8 @@
 
    <root>
    	  <priority value="WARN"/>
-   	  <appender-ref ref="CONSOLE"/>      
+   	  <appender-ref ref="CONSOLE"/>
+   	  <appender-ref ref="FILE"  />      
    </root>
 
 
