@@ -43,15 +43,13 @@ public interface ChannelSessionListener {
 	/**
 	 * Fired when a connected channel is closed and removed from the {@link SharedChannelGroup}
 	 * @param channel The closed channel
-	 * @return The number of agents still connected from the host this channel was closed from
 	 */
-	public int onClosedChannel(DecoratedChannel channel);
+	public void onClosedChannel(DecoratedChannel channel);
 	
 	/**
 	 * Fired when a connected channel is identified
 	 * @param channel The identified channel
-	 * @return The number of agents now connected from the host this channel was closed from
 	 */
-	public int onIdentifiedChannel(DecoratedChannel channel);
+	public void onIdentifiedChannel(DecoratedChannel channel);
 	
 }

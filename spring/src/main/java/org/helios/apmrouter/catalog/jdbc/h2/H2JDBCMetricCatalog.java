@@ -67,7 +67,7 @@ import org.springframework.jmx.export.annotation.ManagedMetric;
  * <p><code>org.helios.apmrouter.catalog.jdbc.H2JDBCMetricCatalog</code></p>
  */
 
-public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCatalogService, ChannelSessionListener {
+public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCatalogService {
 	/** The h2 datasource */
 	protected DataSource ds = null;
 	/** Indicates if the metric catalog should be kept real time */
@@ -105,7 +105,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			try { ps.close(); } catch (Exception e) {}
 			try { conn.close(); } catch (Exception e) {}
 		}
-		SharedChannelGroup.getInstance().addSessionListener(this);
+		//SharedChannelGroup.getInstance().addSessionListener(this);
 	}
 	
 

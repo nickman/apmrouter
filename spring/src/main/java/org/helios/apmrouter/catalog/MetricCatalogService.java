@@ -27,6 +27,9 @@ package org.helios.apmrouter.catalog;
 import java.util.Map;
 
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
+import org.helios.apmrouter.server.services.session.ChannelSessionListener;
+import org.helios.apmrouter.server.services.session.DecoratedChannel;
+import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 
 /**
  * <p>Title: MetricCatalogService</p>
@@ -85,4 +88,25 @@ public interface MetricCatalogService {
 	 * @return A map of host names keyed by host ID
 	 */
 	public Map<Integer, String> listHosts(boolean onlineOnly);
+	
+	/**
+	 * Fired when a new channel is added to the {@link SharedChannelGroup}
+	 * @param channel the new channel that was added
+	 */
+	public void onConnectedChannel(DecoratedChannel channel);
+	
+	/**
+	 * Fired when a connected channel is closed and removed from the {@link SharedChannelGroup}
+	 * @param channel The closed channel
+	 * @return The number of agents still connected from the host this channel was closed from
+	 */
+	public int onClosedChannel(DecoratedChannel channel);
+	
+	/**
+	 * Fired when a connected channel is identified
+	 * @param channel The identified channel
+	 * @return The number of agents now connected from the host this channel was closed from
+	 */
+	public int onIdentifiedChannel(DecoratedChannel channel);
+	
 }
