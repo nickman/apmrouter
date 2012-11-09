@@ -9,6 +9,7 @@ function init_ui() {
 	    }
 	function layout() {
 		container.layout();
+		$('#accordion').accordion();
 		$('#accordion').accordion('resize');
 		$('#topBar').next().attr('id', 'topBarNext');
 		$('#topBarNext>ul>li').css('font-size', '60%');

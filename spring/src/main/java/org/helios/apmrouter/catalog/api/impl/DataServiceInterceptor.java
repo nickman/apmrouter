@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.catalog.api.impl;
 
+import org.apache.log4j.Logger;
 import org.hibernate.EmptyInterceptor;
 
 /**
@@ -39,13 +40,16 @@ public class DataServiceInterceptor extends EmptyInterceptor {
 	/**  */
 	private static final long serialVersionUID = -9097713522037790873L;
 
+	/** Instance logger */
+	protected final Logger log = Logger.getLogger(getClass());
+	
 	/**
 	 * {@inheritDoc}
 	 * @see org.hibernate.EmptyInterceptor#onPrepareStatement(java.lang.String)
 	 */
 	@Override
 	public String onPrepareStatement(String sql) { 
-		System.out.println("\n\t=============================================\n\t" + sql + "\n\t=============================================\n");
+		log.info(sql);
 		return super.onPrepareStatement(sql);
 	}
 

@@ -203,6 +203,7 @@
 	$.apmr.stateChange = function(event) {
 		console.info("Sub Response [%o]", event);
 		var e = event.msg;
+		if(e.userData==null) return;
 		try {
 			switch(e.type) {
 				case "apmrouter.session.start":

@@ -11,6 +11,14 @@
       </layout>
    </appender>
    
+   <appender name="CONSOLET" class="org.apache.log4j.ConsoleAppender">
+      <param name="Target" value="System.err"/>
+      <layout class="org.apache.log4j.EnhancedPatternLayout">
+         <param name="ConversionPattern" value="[%c{3}] %m%n" />
+      </layout>
+   </appender>
+   
+   
 	<appender name="FILE" class="org.apache.log4j.RollingFileAppender">
 		<param name="append" value="false"/>
 		<param name="maxFileSize" value="1024000"/>
@@ -47,6 +55,14 @@
      <priority value="TRACE" class="org.jboss.logging.XLevel"/>
    </category>
 -->
+
+	
+	
+   <category name="org.helios.apmrouter.catalog.api.impl.DataServiceInterceptor" additivity="false">
+      <priority value="INFO"/>
+      <appender-ref ref="CONSOLET"  />
+   </category>
+	
 
    <category name="org.helios" additivity="false">
       <priority value="INFO"/>

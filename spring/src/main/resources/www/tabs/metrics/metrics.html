@@ -1,19 +1,113 @@
 		<style type="text/css">
+/*
+      Created by Keith Donegan of Code-Sucks.com
+	  
+	  E-Mail: Keithdonegan@gmail.com
+	  
+	  You can do whatever you want with these layouts,
+	  but it would be greatly appreciated if you gave a link
+	  back to http://www.code-sucks.com
+	  
+*/
+
+* { padding: 0; margin: 0; }
+
+body {
+ font-family: Arial, Helvetica, sans-serif;
+ font-size: 13px;
+}
+.wrapper { 
+ margin: 0 auto;
+ 
+
+}
+#header {
+ color: #333;
+ width: 900px;
+ float: left;
+ padding: 10px;
+ border: 1px solid #ccc;
+ height: 100px;
+ margin: 10px 0px 5px 0px;
+ background: #BD9C8C;
+}
+.leftcolumn { 
+ color: #333;
+ border: 1px solid #ccc;
+ background: #E7DBD5;
+ margin: 0px 5px 5px 0px;
+ padding: 10px;
+ 
+ width: 20%;
+ float: left;
+ overflow: auto;
+}
+.rightcolumn { 
+ float: left;
+ color: #333;
+ border: 1px solid #ccc;
+ background: #F2F2E6;
+ margin: 0px 0px 5px 0px;
+ padding: 10px;
+ height: 350px;
+ width: 678px;
+ display: inline;
+ position: relative;
+}
+#footer { 
+ width: 900px;
+ clear: both;
+ color: #333;
+ border: 1px solid #ccc;
+ background: #BD9C8C;
+ margin: 0px 0px 10px 0px;
+ padding: 10px;
+}		
+			.treeContainer {
+			
+				float: left;
+				width: 30%;
+				min-height: 200px;
+				overflow: auto;
+				display: inline;
+				font-size: .7em;
+				font: "Trebuchet MS", sans-serif;
+				background: #EFFFF;
+				position: inherit;
+				
+			}
+			.tree {
+				display: block;
+				border-bottom: 4px solid #e5eff8;
+				border-top: 4px solid #e5eff8;
+				border-left: 4px solid #e5eff8;
+				border-right: 4px solid #e5eff8;
+				overflow:  scroll;
+				float: left;
+				font: 70% "Trebuchet MS", sans-serif;
+				min-width: 200px;
+				min-height: 400px;
+				
+				
+			}
 			.bd {
 				border-bottom: 4px solid #e5eff8;
 				border-top: 4px solid #e5eff8;
 				border-left: 4px solid #e5eff8;
 				border-right: 4px solid #e5eff8;
 				overflow: auto;
-				font: 90% "Trebuchet MS", sans-serif; 
+				 
 			}
-			.west {
-				width: 20%;
-				display: inline-block;
+			.westm {
 				text-align: left;
 			}			
-			.center {
-				display: inline-block;				
+			.centerm {
+				float: right;
+				display: inline;
+				background: #EFFFF;
+				
+			}
+			.layoutm {
 			}
 		</style>	
 		<script type="text/javascript">
@@ -28,13 +122,19 @@
 			relayout();
 			
 		</script>				
-		
-		<div id="metrics-container" class="layout" data-layout='{type: "border"}'>
-		    <div id="metricTreeParent" class="west"><div id="metricTree" class='bd' ></div></div>
-		    <div id="metricDisplay" class="center">
-		    	<div id="metricDisplayControls"></div>
-		    	<div id="metricDisplayGrid"></div>
-		    	<div id="metricDisplayChart"></div>
-		    </div>
-		</div>		
+
+		<div class="wrapper">
+			<div class="leftcolumn" id="metricTree" ></div>
+			<div id="metrics-container" class="rightcolumn" >		    
+			    <div id="metricDisplay" >
+			    	<div id="metricDisplayControls">
+			    		<div>
+			    			<button>Search</button>
+			    		</div>
+			    	</div>
+			    	<div id="metricDisplayGrid"></div>
+			    	<div id="metricDisplayChart"></div>
+			    </div>
+			</div>		
+		</div>
 				

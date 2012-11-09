@@ -1,0 +1,63 @@
+    <style type="text/css">
+      div.column1 {
+        position: absolute; /* Pulls it out of the normal flow */
+        left: 0px;          /* Places it on the top-left       */
+        top: 45px;
+        width: 298px;       /* Width is exactly 300px          */
+        height: 100%;
+        overflow: auto;
+				border-bottom: 2px solid #e5eff8;
+				border-top: 2px solid #e5eff8;
+				border-left: 2px solid #e5eff8;
+				border-right: 2px solid #e5eff8;
+        
+      }
+      div.column-divider {
+        position: absolute;
+        background-color: #AAA;
+        height: 100%;
+        top: 0px;
+        left: 300px;
+        width: 3px;
+        cursor: col-resize;
+      }
+      div.column2 {
+        position: relative; /* Leave in normal flow so the     */
+                            /* width can be full width         */
+        right: 0px;         /* Places it on the top-right      */
+                            /* (leaving left also works)       */
+        top: 0px;
+        height: 100%;
+        margin-left: 303px; /* Left margin pushes over for the */
+                            /* other columns to have space     */
+        overflow-y: auto;
+      }
+    </style>
+    <div id="metricTree" class="column1">
+      
+    </div>
+    <div class="column-divider">
+    
+      <script>
+        $(document).ready(function() {
+          $("div.column-divider").draggable({
+            axis: 'x', // only allow horizontal movement
+            drag: function(event, ui) {
+              // adjust column1 as they drag
+              $('div.column1').width($(this).offset().left);
+              $('div.column2').css('margin-left',
+                  $(this).offset().left + $(this).width());
+            },
+            stop: function(event, ui) {
+              // one more time to ensure it's right when they stop
+              $('div.column1').width($(this).offset().left);
+              $('div.column2').css('margin-left',
+                  $(this).offset().left + $(this).width());
+            }
+          });
+        });
+      </script>
+    </div>
+    <div class="column2">
+      <div style="height: 4500px; background-color: #F2F2E6;"></div>
+    </div>
