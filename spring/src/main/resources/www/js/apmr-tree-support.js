@@ -21,8 +21,36 @@
 		return cnt;				
 	}
 	
+	function reapDownedNodes() {
+		var callback = reapDownedNodes;
+		if($.apmr.config.unloadDownNodes) {
+			try {
+				var timeNow = new Date().getTime();
+				var cnt = 0;
+				//console.info("Downed Node Reaper Running....");
+				
+				$('[apmr_dnode_downTime]').each(function(index, node){
+					var dt = parseInt($(node).attr('apmr_dnode_downTime'));
+					if(timeNow-dt>=$.apmr.config.downedNodeLingerTime) {
+						console.info("Reaping Node [%o]", node);
+						$('#metricTree').jstree("remove", $(node).attr('id'));
+						$(node).remove();
+						cnt++;
+					}
+				});
+				if(cnt>0) {
+					console.info("Reaper Removed [%s] Downed Nodes", cnt);
+				}
+			} catch (e) {
+				console.error("ReapDownedNodes Failed:[%o],%o", e, e.stack);
+				
+			}
+			$.apmr.config.downedNodeReaper = setTimeout(reapDownedNodes, 2000);
+		}
+	}
+	
 	function initMetricTree() {
-		
+		$.apmr.config.downedNodeReaper = setTimeout(reapDownedNodes, 2000);
 		$('#metricTree')
 		.jstree({
 			core : { 
@@ -34,7 +62,7 @@
 					populateNode(node, callback);
 				}
 			},					
-			plugins : [ "themes", "ui", "types", "json_data"],
+			plugins : [ "themes", "ui", "types", "json_data", "crrm", "unique"],
 			types : {
 				'types' : {
 		            'root' : {
@@ -52,7 +80,7 @@
 		                'icon' : {
 		                    'image' : 'img/domain_16_16.png'
 		                },
-		                valid_children : [ 'domain', 'server' ],
+		                valid_children : [ 'domain', 'server', 'down-server' ],
 		                select_node : function(me) {
 		                	console.info("Selected Node:[%o]", me);
 		                }
@@ -66,6 +94,16 @@
 		                	console.info("Selected Node:[%o]", me);
 		                }
 		            },
+		            'down-server' : {
+		            	'use_data' : true,
+		                'icon' : {
+		                    'image' : 'img/down_server.png'
+		                }, valid_children : [ 'agent', 'online-agent' ],
+		                select_node : function(me) {
+		                	console.info("Selected Node:[%o]", me);
+		                }
+		            },
+		            
 		            'online-agent' : {
 		            	'use_data' : true,
 		                'icon' : {
@@ -118,8 +156,17 @@
 		//$.apmr.connect(); 
 	}
 	
+	function parentContainsChild(parentId, childId) {
+		if(parentId.split('')[0]!='#') parentId = '#' + parentId;
+		metricTree._get_children(parentId).each(function(index, node) {
+			if($(node).attr('id')==childId) return true;
+		});
+		return false;
+	}
+	
 	function populateNode(node, callback) {
 		//console.info("Populating Node [%o]", node);
+		var parentId = $(node).attr('id');
 		if(node==-1) {
 			callback([{
 				attr: {id: "root", rel: "root"},  
@@ -130,14 +177,18 @@
 		} 				
 		var rel = $(node).attr('rel');
 		var nodeArray = [];
+		var timeNow = new Date().getTime();
 		switch(rel) {
 			case 'root':
 				$.apmr.allDomains(function(data) {
 					$.each(data.msg, function(index, domain) {
-						nodeArray.push({
-							attr: {id: "domain-" + domain.replace('.', '_'), rel: "domain", 'domain' : domain},  
-							data : {title: domain}									
-						});	
+						var uid = "domain-" + domain.replace('.', '_');
+						if($('#' + uid).length==0) {
+							nodeArray.push({
+								attr: {id: uid, rel: "domain", 'domain' : domain},  
+								data : {title: domain}									
+							});
+						}
 					});
 					callback(nodeArray); fixOpen(nodeArray);
 				});
@@ -147,25 +198,43 @@
 				//console.info("Populating Hosts in Domain [%s]", domain);
 				$.apmr.hostsByDomain(domain, function(data) {
 					$.each(data.msg, function(index, host) {
-						nodeArray.push({
-							attr: {id: "host-" + host.hostId, rel: "server", 'host' : host.hostId},  
-							data : {title: host.name}									
-						});	
+						var hostName = host.name.split('.').pop();
+						var uid = "host-" + host.hostId;
+						if($('#' + uid).length==0 && !parentContainsChild(parentId, uid)) {  
+							var newNode = {
+									attr: {id: uid, rel: host.conn==null ? "down-server" : "server", 'host' : host.hostId},  
+									data : {title: hostName}									
+								};
+							nodeArray.push(newNode);
+							if(host.conn==null) {
+								newNode.attr.apmr_dnode_downTime = timeNow;
+							}
+							callback([newNode]);
+						}
 					});
-					callback(nodeArray); fixOpen(nodeArray);
+					fixOpen(nodeArray);
 				});
 				break;
 			case 'server':
+			case 'down-server':
 				var host = $(node).attr('host');
 				//console.info("Populating Agents in Server [%s]", host);
 				$.apmr.agentsByHost(host, function(data) {
 					$.each(data.msg, function(index, agent) {
-						nodeArray.push({
-							attr: {id: "agent-" + agent.agentId, rel: agent.conn!=null ? "online-agent" : "agent", 'agent' : agent.agentId, minl : agent.minl},  
-							data : {title: agent.name}									
-						});	
+						var uid = "agent-" + agent.agentId;
+						if($('#' + uid).length==0 && !parentContainsChild(parentId, uid)) {
+							var newNode = {
+									attr: {id: uid, rel: agent.conn!=null ? "online-agent" : "agent", 'agent' : agent.agentId, minl : agent.minl},  
+									data : {title: agent.name}									
+								};
+							nodeArray.push(newNode);
+							if(agent.conn==null) {
+								newNode.attr.apmr_dnode_downTime = timeNow;
+							}
+							callback([newNode]);
+						}
 					});
-					callback(nodeArray); fixOpen(nodeArray);
+					fixOpen(nodeArray);
 				});
 				break;
 			case 'agent':
@@ -175,21 +244,30 @@
 				var parent = "";
 				$.apmr.findLevelMetricsForAgent(0, agentId, function(data) {							
 					$.each(data.msg, function(index, metric) {
-						nodeArray.push({
-							attr: {id: "metric-" + metric.metricId, rel: "metric", 'metric' : metric.metricId, metricBody : metric},  
-							data : {title: metric.name}									
-						});	
+						var uid = "metric-" + metric.id;
+						if($('#' + uid).length==0) {
+							var newNode = {
+									attr: {id: uid, rel: "metric", 'metric' : metric.id, metricBody : metric},  
+									data : {title: metric.name}									
+								};
+							callback([newNode]);
+						}
 					});							
-					callback(nodeArray); //fixOpen(nodeArray);
-					nodeArray = [];
+					
+					
 					$.apmr.findLevelFoldersForAgent(level, agentId, parent, function(data) {
 						$.each(data.msg, function(index, folder) {
-							nodeArray.push({
-								attr: {id: "folder-" + agentId + "-" + folder.replace('=', '_'), rel: "folder", 'folder' : folder, 'agent' : agentId, 'level' : level},  
-								data : {title: folder}									
-							});	
+							var uid = "folder-" + agentId + "-" + folder.replace('=', '_');
+							if($('#' + uid).length==0) {
+								var newNode = {
+										attr: {id: uid, rel: "folder", 'folder' : folder, 'agent' : agentId, 'level' : level},  
+										data : {title: folder}									
+									};
+								nodeArray.push(newNode);
+								callback([newNode]);
+							}
 						});							
-						callback(nodeArray); fixOpen(nodeArray);
+						fixOpen(nodeArray);
 					});						
 				});
 				break;
@@ -201,28 +279,35 @@
 				//console.info("Populating Level Metrics and Folder [%s]", parent);
 				$.apmr.findLevelMetricsForAgentWithParent(level, agentId, parent, function(data) {							
 					$.each(data.msg, function(index, metric) {
-						nodeArray.push({
-							attr: {id: "metric-" + metric.metricId, rel: "metric", 'metric' : metric.metricId, metricBody : metric},  
-							data : {title: metric.name}									
-						});	
+						var uid = "metric-" + metric.id;
+						if($('#' + uid).length==0) {
+							var newNode = {
+									attr: {id: uid, rel: "metric", 'metric' : metric.id, metricBody : metric},  
+									data : {title: metric.name}									
+								}; 
+							callback([newNode]);
+						}
 					});							
-					callback(nodeArray); //fixOpen(nodeArray);
-					nodeArray = [];
+					//fixOpen(nodeArray);
+					
 					$.apmr.findLevelFoldersForAgent(level, agentId, parent, function(data) {
 						$.each(data.msg, function(index, folder) {
 							if(folder!=null) {
-								nodeArray.push({
-									attr: {id: "folder-" + agentId + "-" + folder.replace('=', '_'), rel: "folder", 'folder' : folder, 'agent' : agentId, 'level' : level},  
-									data : {title: folder}									
-								});
+								var uid = "folder-" + agentId + "-" + folder.replace('=', '_');
+								if($('#' + uid).length==0) {
+									var newNode = {
+											attr: {id: uid, rel: "folder", 'folder' : folder, 'agent' : agentId, 'level' : level},  
+											data : {title: folder}									
+										};
+									callback([newNode]);
+									nodeArray.push(newNode);
+								}
 							}
 						});							
-						if(nodeArray.length>0) { callback(nodeArray); fixOpen(nodeArray); }
+						fixOpen(nodeArray);
 					});						
 				});
 				break;
-				
-				
 		}
 		
 	}

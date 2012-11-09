@@ -59,6 +59,10 @@
     <query name="hostsByDomain">from host where domain = :domain
     	<query-param name="domain" type="java.lang.String"/>
     </query>
+    <query name="upHostsByDomain">from host where domain = :domain and connected is not null
+    	<query-param name="domain" type="java.lang.String"/>
+    </query>
+    
     <query read-only="true"   name="findOnlineHosts">from host where connected is not null</query>
     
     

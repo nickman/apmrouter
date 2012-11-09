@@ -75,21 +75,21 @@ public class H2StoredProcedure {
 		int hostId = ((Number)results[0]).intValue();
 		int agentCount = ((Number)results[1]).intValue();
 		String domain = results[2].toString();
-		int agentId = ((Number)key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=?", new Object[]{agent}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", ARR_ONE, hostId, agent, 3200, agentURI)[0]).intValue();
+		int agentId = ((Number)key(conn, "SELECT AGENT_ID FROM AGENT WHERE NAME=? AND HOST_ID = ?", new Object[]{agent, hostId}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, URI, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", ARR_ONE, hostId, agent, 3200, agentURI)[0]).intValue();
 		PreparedStatement  ps = null;
 		String hostUpdateSQL = null;
 		String agentUpdateSQL = null;
 		if(connected) {
 			agentCount++;
-			hostUpdateSQL = "UPDATE HOST SET CONNECTED = CURRENT_TIMESTAMP, AGENTS = ? WHERE HOST_ID = ?";
-			agentUpdateSQL = "UPDATE AGENT SET CONNECTED = CURRENT_TIMESTAMP, URI = ? WHERE AGENT_ID = ?";
+			hostUpdateSQL = "UPDATE HOST SET CONNECTED = CURRENT_TIMESTAMP, LAST_CONNECTED = CURRENT_TIMESTAMP, AGENTS = ? WHERE HOST_ID = ?";
+			agentUpdateSQL = "UPDATE AGENT SET CONNECTED = CURRENT_TIMESTAMP, LAST_CONNECTED = CURRENT_TIMESTAMP, URI = ? WHERE AGENT_ID = ? AND HOST_ID = ?";
 		} else {
 			agentCount--;
 			if(agentCount<0) {
 				agentCount = 0;
 			}
 			hostUpdateSQL = "UPDATE HOST SET CONNECTED = NULL, AGENTS = ? WHERE HOST_ID = ?";
-			agentUpdateSQL = "UPDATE AGENT SET CONNECTED = NULL, URI = NULL WHERE AGENT_ID = ?";			
+			agentUpdateSQL = "UPDATE AGENT SET CONNECTED = NULL, URI = NULL WHERE AGENT_ID = ? AND HOST_ID = ?";			
 		}
 		try {
 			ps = conn.prepareStatement(hostUpdateSQL);
@@ -101,8 +101,10 @@ public class H2StoredProcedure {
 			if(connected) {
 				ps.setString(1, agentURI);
 				ps.setInt(2, agentId);
+				ps.setInt(3, hostId);
 			} else {
 				ps.setInt(1, agentId);
+				ps.setInt(2, hostId);
 			}
 			ps.executeUpdate();
 			SimpleResultSet rs = new SimpleResultSet();

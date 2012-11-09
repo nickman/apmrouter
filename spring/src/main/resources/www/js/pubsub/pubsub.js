@@ -21,7 +21,9 @@
 		//		with a function signature like: function(a,b,c){ ... }
 		//
 		//	|		$.publish("/some/topic", ["a","b","c"]);
-		cache[topic] && d.each(cache[topic], function(){			
+
+		cache[topic] && d.each(cache[topic], function(){
+			var callback = this;
 			if(this.oneTime==true) {
 				clearTimeout(this.timeoutHandle);
 				//console.info("Cleared Timeout Handle:%s", this.timeoutHandle);
@@ -30,8 +32,13 @@
 					d.unsubscribe(handle);
 					delete oneTimes[topic];
 				}
-			} else {
-				this.apply(d, args || []);
+			}
+			try {
+				if(callback.apply!=null) {
+					callback.apply(d, args || []);
+				}
+			} catch (e) {
+				console.error("Failed to invoke callback Error was [%o], %o", e, e.stack);
 			}
 		});
 	};

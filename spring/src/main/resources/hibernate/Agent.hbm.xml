@@ -49,4 +49,8 @@
  <query read-only="true"   name="agentsByHost">from agent a where a.host.hostId = :hostId
  	<query-param name="hostId" type="java.lang.Integer"/>
  </query>
+ <query read-only="true"   name="upAgentsByHost">from agent a where a.host.hostId = :hostId and connected is not null
+ 	<query-param name="hostId" type="java.lang.Integer"/>
+ </query>
+ 
 </hibernate-mapping>

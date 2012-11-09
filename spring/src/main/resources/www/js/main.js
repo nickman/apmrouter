@@ -10,7 +10,8 @@ function init_ui() {
 	function layout() {
 		container.layout();
 		$('#accordion').accordion('resize');
-	
+		$('#topBar').next().attr('id', 'topBarNext');
+		$('#topBarNext>ul>li').css('font-size', '60%');
 		// This ensures that the center is never smaller than 400 pixels.
 		east.resizable('option', 'maxWidth', (center.width() + east.width()) - 400);
 		west.resizable('option', 'maxWidth', (center.width() + west.width()) - 400);

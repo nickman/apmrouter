@@ -25,7 +25,18 @@
 		/** The session Id, set when connected, cleared when disconnected  */
 		sessionId : "",
 		/** The request ID counter */
-		requestId : 0
+		requestId : 0,
+		/** A repository of subscriptions keyed by sub key */
+		subsBySubKey: {},
+		/** Indicates if down nodes (hosts and agents) should be loaded in the tree when expanding */
+		loadDownNodes: true,
+		/** Indicates if downed nodes (hosts and agents) should be removed from the tree when timed out */
+		unloadDownNodes: false,
+		/** The amount of time in ms. that downed nodes (hosts and agents) will linger in the tree before being unloaded */
+		downedNodeLingerTime: 15000,
+		/** The handle of the downed node reaper */
+		downedNodeReaper: -1
+		
 	},
 	
 	$.apmr.isReconnectScheduled = function() {
@@ -94,6 +105,7 @@
 	    this.c.config.connectTimeoutHandle = -1;
 	    //this.c.sendWho();
 	    $(document).trigger('status.connected',[true]);
+	    $.apmr.subtreeOn();
 
 	},
 	$.apmr.onError = function(e) {
@@ -121,15 +133,15 @@
 		}		
 	},
 	$.apmr.send = function(req, callback) {
-		this.config.requestId++;
+		var rid = this.config.requestId++;
 		if(callback!=null) {
-			var topic = '/' + req.t + '/' + this.config.requestId;
+			var topic = '/' + req.t + '/' + rid;
 			$.oneTime(topic, callback);
 			//console.info("Registered Callback for oneTime [%s]", topic);
 		}
-		req['rid']=this.config.requestId;
+		req['rid']=rid;
 		this.config.ws.send(JSON.stringify(req));
-		return this.config.requestId;
+		return rid;
 	},
 	
 	$.apmr.sendWho = function() {
@@ -143,24 +155,130 @@
 		}
 		return this.send(req, callback);
 	},
-	$.apmr.sub = function(op, type, esn, filter, ex) {
+	
+	// subsBySubKey: {},
+	$.apmr._subStore = function(type, esn, filter, ex, callback) {
+		var subKey = type + '/' + esn + '/' + filter + '/' + (ex || '');
+		if($.apmr.config.subsBySubKey[subKey]==null) {						
+			var sub = {
+				'type' : type,
+				'esn' : esn,
+				'filter' : filter,
+				'ex' : ex,
+				'callback' : callback
+				// unsubkey
+				// topic
+				// timestamp
+			};
+			$.apmr.config.subsBySubKey[subKey] = sub;
+			return sub;
+		}
+		return null;
+	}
+	
+	$.apmr.sub = function(callback, op, type, esn, filter, ex) {
+		var sub = $.apmr._subStore(type, esn, filter, ex, callback);
+		if(sub==null) return;
 		var req = {'t': 'req', 'svc' : 'sub', 'op' : op};
 		var args = {'es' : type, 'esn': esn, 'f' : filter};
 		if(ex!=null) {
 			args['exf'] = ex;
 		}
 		req['args'] = args;
-		console.info("Sending Sub Request:%o", req);
-		return this.send(req);
-	},
-	$.apmr.subtreeOn = function(callback) {		
-		var topic = '/' + 'req' + '/' + $.apmr.sub("start", "jmx", "service:jmx:local://DefaultDomain", "org.helios.apmrouter.session:service=SharedChannelGroup");
-		console.info("Started Sub [#%s] for [%s]-[%s]", topic, "service:jmx:local://DefaultDomain", "org.helios.apmrouter.session:service=SharedChannelGroup");
-		var subHandle = $.subscribe(topic, function(args){
-			console.info("Sub Response for [%s] - [%o]", topic, args);
+		var rid = this.send(req, new function(){
+			sub['ts'] = new Date().getTime();			
 		});
-		
+		var topic = '/' + 'req' + '/' + rid;
+		sub['topic'] = topic;
+		return sub;
 	},
+	
+	
+	$.apmr.subtreeOn = function(callback) {
+		var sub = $.apmr.sub(callback || $.apmr.stateChange, "start", "jmx", "service:jmx:local://DefaultDomain", "org.helios.apmrouter.session:service=SharedChannelGroup");
+		console.info("Started Sub [#%s] for [%s]-[%s]", sub.topic, "service:jmx:local://DefaultDomain", "org.helios.apmrouter.session:service=SharedChannelGroup");
+		var subHandle = $.subscribe(sub.topic, callback || $.apmr.stateChange);
+		sub.subHandle = subHandle;		
+	},
+	$.apmr.stateChange = function(event) {
+		console.info("Sub Response [%o]", event);
+		var e = event.msg;
+		try {
+			switch(e.type) {
+				case "apmrouter.session.start":
+					break;  // nuthin'
+				case "apmrouter.session.identified":
+					if($('#host-' + e.userData.hi).length==0) {
+						// ==================================================================================
+						//  Adding a new host into the tree
+						// ==================================================================================
+						var domainId = '#domain-' + (e.userData.d.join('_'));
+						var hostName = e.userData.h.split('.').pop();
+						$("#metricTree").jstree("create", $(domainId), "inside" , {
+							attr: {id: "host-" + e.userData.hi, rel: "server", 'host' : e.userData.hi},  
+							data : {title: hostName}
+						}, false, true);
+						$("#host-" + e.userData.hi).removeClass('jstree-leaf').addClass('jstree-closed');						
+					} else {
+						// ==================================================================================
+						//  Marking a host in the tree as UP
+						// ==================================================================================						
+						console.info("Marking host [%s] UP", e.userData.h);
+						$('#host-' + e.userData.hi).attr('rel', 'server').removeAttr('apmr_dnode_downTime');
+					}
+					if($('#agent-' + e.userData.ai).length==0) {
+						// ==================================================================================
+						//  Adding a new agent into the tree
+						// ==================================================================================
+						var hostId = '#host-' + e.userData.hi;
+						$("#metricTree").jstree("create", $(hostId), "inside" , {
+							attr: {id: "agent-" + e.userData.ai, rel: "online-agent", agent : e.userData.ai},  
+							data : {title: e.userData.a}
+						}, function(){
+							$("#agent-" + e.userData.ai).removeClass('jstree-leaf').addClass('jstree-closed');
+						}, true);
+																		
+					} else {
+						// ==================================================================================
+						//  Marking an agent in the tree as UP
+						// ==================================================================================						
+						console.info("Marking agent [%s] UP", e.userData.a)
+						$('#agent-' + e.userData.ai).attr('rel', 'online-agent').removeAttr('apmr_dnode_downTime');						
+					}
+					break;
+				case "apmrouter.session.end":
+					var ts = new Date().getTime();
+					if($('#host-' + e.userData.hi).length==1 && e.userData.hc) {
+						// ==================================================================================
+						//  Marking a host in the tree as DOWN
+						// ==================================================================================												
+						console.info("Marking host [%s] DOWN", e.userData.h);
+						var hostId = '#host-' + e.userData.hi;
+						$(hostId).attr('rel', 'down-server').attr('apmr_dnode_downTime', ts);
+						// ==================================================================================
+						//  Mark all the agents down too.
+						// ==================================================================================												
+						metricTree._get_children(hostId).attr('rel', 'agent');
+						metricTree._get_children(hostId).not('[apmr_dnode_downTime]').attr('apmr_dnode_downTime', ts);
+					}				
+					if($('#agent-' + e.userData.ai).length==1) {
+						// ==================================================================================
+						//  Marking an agent in the tree as DOWN
+						// ==================================================================================						
+						console.info("Marking agent [%s] DOWN", e.userData.a)
+						$('#agent-' + e.userData.ai).attr('rel', 'agent').not('[apmr_dnode_downTime]').attr('apmr_dnode_downTime', ts);																		
+					}
+					break;
+				default :
+					// nothin'
+					
+			}
+		} catch (e) {
+			console.error("State Change Handler Event Error [%o], %o", e, e.stack);
+		}
+			
+	},
+	
 	$.apmr.ams = function(agentId, callback) {
 		$.apmr.svcOp("catalog", "ams", {'agentId': agentId}, callback || function(data){
 			console.info("ams Response:%o", data);
@@ -173,18 +291,25 @@
 	},
 	
 	$.apmr.hostsByDomain = function(domain, callback) {
-		$.apmr.svcOp("catalog", "nq", {name:"hostsByDomain", p : {'domain': domain}}, callback || function(data){
+		var queryName = null;
+		if($.apmr.config.loadDownNodes) {
+			queryName = 'hostsByDomain';
+		} else {
+			queryName = 'upHostsByDomain';
+		}
+		$.apmr.svcOp("catalog", "nq", {name:queryName, p : {'domain': domain}}, callback || function(data){
 			console.info("hostsByDomain Response:%o", data);
-		});
-	},
-	$.apmr.findOnlineHosts = function() {
-		$.apmr.svcOp("catalog", "nq", {name:"findOnlineHosts"}, function(data){
-			console.info("findOnlineHosts Response:%o", data);
 		});
 	},
 	
 	$.apmr.agentsByHost = function(hostId, callback) {
-		$.apmr.svcOp("catalog", "nq", {name:"agentsByHost", p : {'hostId': hostId}}, callback || function(data){
+		var queryName = null;
+		if($.apmr.config.loadDownNodes) {
+			queryName = 'agentsByHost';
+		} else {
+			queryName = 'upAgentsByHost';
+		}		
+		$.apmr.svcOp("catalog", "nq", {name:queryName, p : {'hostId': hostId}}, callback || function(data){
 			console.info("agentsByHost Response:%o", data);
 		});		
 	},
