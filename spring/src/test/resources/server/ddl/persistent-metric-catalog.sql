@@ -67,5 +67,24 @@ CREATE ALIAS IF NOT EXISTS HOSTAGENTSTATE FOR "org.helios.apmrouter.catalog.jdbc
 CREATE ALIAS IF NOT EXISTS PARENT FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.parent";
 CREATE ALIAS IF NOT EXISTS ROOT FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.root";
 
+
 UPDATE HOST SET CONNECTED = NULL, AGENTS = 0;
 UPDATE AGENT SET CONNECTED = NULL, URI = NULL;
+
+-- =============================================================================
+--    Time Series
+-- =============================================================================
+
+
+CREATE ALIAS IF NOT EXISTS MAKE_MV FOR "org.helios.apmrouter.timeseries.H2MetricValueDomain.make";
+CREATE ALIAS IF NOT EXISTS IS_MV FOR "org.helios.apmrouter.timeseries.H2MetricValueDomain.isType";
+CREATE ALIAS IF NOT EXISTS UPDATE_MV FOR "org.helios.apmrouter.timeseries.H2MetricValueDomain.add";
+CREATE DOMAIN IF NOT EXISTS METRIC_VALUE AS OTHER CHECK IS_MV(VALUE);
+
+CREATE TABLE IF NOT EXISTS PUBLIC.METRIC_VALUES  (
+	ID LONG NOT NULL  COMMENT 'The ID of the metric that these values are for',
+	V METRIC_VALUE NOT NULL COMMENT 'The live time-series values for the referenced metric'  
+);
+
+ALTER TABLE PUBLIC.METRIC_VALUES ADD CONSTRAINT IF NOT EXISTS PUBLIC.METRIC_VALUES_PK PRIMARY KEY(ID)
+ALTER TABLE PUBLIC.METRIC_VALUES ADD CONSTRAINT IF NOT EXISTS PUBLIC.METRIC_VALUES_FK FOREIGN KEY(ID) REFERENCES PUBLIC.METRIC(METRIC_ID) NOCHECK;
