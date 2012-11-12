@@ -36,21 +36,33 @@ import java.io.ObjectOutputStream;
 import java.io.ObjectStreamClass;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.sql.Types;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
 
+import org.h2.tools.SimpleResultSet;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 
 /**
- * <p>Title: H2MetricValueDomain</p>
+ * <p>Title: H2TimeSeries</p>
  * <p>Description: A custom user data type for H2 that stores a fixed window of time-series values</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.timeseries.H2MetricValueDomain</code></p>
+ * <p><code>org.helios.apmrouter.timeseries.H2TimeSeries</code></p>
  */
 
-public class H2MetricValueDomain implements Externalizable {
+
+public class H2TimeSeries implements Externalizable { 
+	/**  */
+	private static final long serialVersionUID = -963955749386799856L;
 	/** The step size in ms. */
 	protected long step;
 	/** The width, or number of entries in the window */
@@ -75,30 +87,111 @@ public class H2MetricValueDomain implements Externalizable {
 	/** The size of each entry, that is 4 longs and an int */
 	public static final int ENTRY_SIZE = (4*8) + 4;
 	
+	/** A counter of serialization reads */
+	private static final AtomicLong SerializationReads = new AtomicLong(0L);
+	/** A counter of serialization writes */
+	private static final AtomicLong SerializationWrites = new AtomicLong(0L);
+	/** The timestamp of the last serialization metric reset */
+	private static final AtomicLong LastReset = new AtomicLong(System.currentTimeMillis());
 	
 	/**
-	 * Creates a new H2MetricValueDomain.
+	 * Returns the number of Serialization Reads since the last metric reset
+	 * @return The number of Serialization Reads since the last metric reset
+	 */
+	public static long getSerializationReads() {
+		return SerializationReads.get();
+	}
+	
+	/**
+	 * Returns the number of Serialization Writes since the last metric reset
+	 * @return The number of Serialization Writes since the last metric reset
+	 */
+	public static long getSerializationWrites() {
+		return SerializationWrites.get();
+	}
+	
+	/**
+	 * Returns the UTC long timestamp of the last serialization metric reset
+	 * @return the UTC long timestamp of the last serialization metric reset
+	 */
+	public static long getLastResetTimestamp() {
+		return LastReset.get();
+	}
+	
+	/**
+	 * Returns the date of the last serialization metric reset
+	 * @return the date of the last serialization metric reset
+	 */
+	public static Date getLastResetDate() {
+		return new Date(LastReset.get());
+	}
+	
+	/**
+	 * Resets the serialization metrics and sets the last reset timestamp to current.
+	 */
+	public static void resetSerializationMetrics() {
+		SerializationReads.set(0L);
+		SerializationWrites.set(0L);
+		LastReset.set(System.currentTimeMillis());
+	}
+	
+	
+	/**
+	 * Creates a new H2TimeSeries.
 	 * For externalizable only.
 	 */
-	public H2MetricValueDomain() {
+	public H2TimeSeries() {
 		
 	}
 	
 	/**
-	 * Creates a new H2MetricValueDomain
+	 * Creates a new H2TimeSeries
 	 * @param step The step size in ms.
 	 * @param width The width, or number of entries in the window
 	 * @param sticky Indicates if the metric is sticky
-	 * @return a new H2MetricValueDomain
+	 * @return a new H2TimeSeries
 	 */
-	public static H2MetricValueDomain make(long step, int width, boolean sticky) {
-		return new H2MetricValueDomain(step, width);
+	public static H2TimeSeries make(long step, int width, boolean sticky) {
+		return new H2TimeSeries(step, width);
 	}
 	
 	/**
-	 * Tests a byte array to see if it is a valid H2MetricValueDomain
+	 * Creates a new H2TimeSeries and adds a new value
+	 * @param conn The connection to lookup the existing time-series
+	 * @param step The step size in ms.
+	 * @param width The width, or number of entries in the window
+	 * @param sticky Indicates if the metric is sticky
+	 * @param id The metric ID of the metric to upsert a time-series entry for
+	 * @param ts The timestamp of the value to add
+	 * @param value  The value to add
+	 * @return an updated H2TimeSeries
+	 * @throws Exception Thrown on any error
+	 */
+	public static H2TimeSeries make_and_add(Connection conn, long step, int width, boolean sticky, long id, Timestamp ts, long value) throws Exception {
+		PreparedStatement ps = null;
+		ResultSet rset = null;		
+		H2TimeSeries mvd = null;
+		try {
+			ps = conn.prepareStatement("SELECT V FROM METRIC_VALUES WHERE ID = ?");
+			ps.setLong(1, id);
+			rset = ps.executeQuery();
+			if(rset.next()) {
+				mvd = (H2TimeSeries)rset.getObject(1);
+			} else {
+				mvd = new H2TimeSeries(step, width);
+			}
+			mvd.addValue(ts.getTime(), value);
+			return mvd;
+		} finally {
+			if(rset!=null) try { rset.close(); } catch (Exception ex) {}
+			if(ps!=null) try { ps.close(); } catch (Exception ex) {}
+		}
+	}	
+	
+	/**
+	 * Tests a byte array to see if it is a valid H2TimeSeries
 	 * @param data The byte array to test
-	 * @return true if the array is a valid H2MetricValueDomain
+	 * @return true if the array is a valid H2TimeSeries
 	 * @throws Exception thrown if the byte array is invalid
 	 */
 	public static boolean isType(byte[] data) throws Exception {
@@ -112,22 +205,100 @@ public class H2MetricValueDomain implements Externalizable {
 		}		
 	}
 	
-	public static H2MetricValueDomain add(byte[] data, long timestamp, long value) throws Exception {
-		H2MetricValueDomain mvd = deserialize(data);
-		mvd.addValue(timestamp, value);
+	/**
+	 * Adds a value to the H2TimeSeries deserialized from the passed byte array
+	 * @param data The byte array to be desrialized into a H2TimeSeries
+	 * @param timestamp The effective timestamp of the data to be added
+	 * @param value The data to be added
+	 * @return the updated H2TimeSeries
+	 * @throws Exception thrown on any error
+	 */
+	public static H2TimeSeries add(byte[] data, Timestamp timestamp, long value) throws Exception {
+		H2TimeSeries mvd = deserialize(data);
+		mvd.addValue(timestamp.getTime(), value);
 		return mvd;
 	}
 	
+	//public static ResultSet allvalues(byte[] data, Timestamp start, Timestamp end) throws Exception {
+	
+	public static ResultSet allvalues(byte[] data) throws Exception {
+		H2TimeSeries mvd = deserialize(data);
+		SimpleResultSet rs = new SimpleResultSet();
+	    rs.addColumn("TS", Types.TIMESTAMP, 1, 22);
+	    rs.addColumn("MIN", Types.NUMERIC, 255, 22);
+	    rs.addColumn("MAX", Types.NUMERIC, 255, 22);
+	    rs.addColumn("AVG", Types.NUMERIC, 255, 22);
+	    rs.addColumn("CNT", Types.NUMERIC, 255, 22);
+	    for(int i = 0; i <= mvd.size; i++) {
+	    	long[] row = mvd.getArray(i);
+	    	if(row==null) continue;
+	    	rs.addRow( 
+	    			new java.sql.Timestamp(row[PERIOD]), 
+	    			row[MIN], 
+	    			row[MAX], 
+	    			row[AVG], 
+	    			row[CNT]);
+	    }
+	    return rs;
+	}
+	
+	public static ResultSet getValues(Connection conn, Long...ids) throws SQLException {
+	    SimpleResultSet rs = new SimpleResultSet();
+	    rs.addColumn("ID", Types.NUMERIC, 255, 22);
+	    rs.addColumn("TS", Types.TIMESTAMP, 1, 22);
+	    rs.addColumn("MIN", Types.NUMERIC, 255, 22);
+	    rs.addColumn("MAX", Types.NUMERIC, 255, 22);
+	    rs.addColumn("AVG", Types.NUMERIC, 255, 22);
+	    rs.addColumn("CNT", Types.NUMERIC, 255, 22);
+	    String url = conn.getMetaData().getURL();
+	    if (url.equals("jdbc:columnlist:connection")) {
+	        return rs;
+	    }
+	    PreparedStatement ps = null;
+	    ResultSet rset = null;
+	    try {
+	    	StringBuilder q = new StringBuilder("SELECT V, ID FROM METRIC_VALUES");
+	    	if(ids!=null && ids.length>0 && ids[0] != -1L) {
+	    		q.append("WHERE ID IN (");
+		    	q.append(Arrays.toString(ids).replace("[", "").replace("]", ""));
+		    	q.append(")");	    		
+	    	}
+	    	ps = conn.prepareStatement(q.toString());
+	    	//ps.setArray(1, conn.createArrayOf("java.lang.Long", ids));
+	    	rset = ps.executeQuery();
+	    	while(rset.next()) {
+	    		H2TimeSeries mvd = (H2TimeSeries)rset.getObject(1);
+	    		long mid = rset.getLong(2);
+	    	    for(int i = 0; i <= mvd.size; i++) {
+	    	    	long[] row = mvd.getArray(i);
+	    	    	if(row==null) continue;
+	    	    	rs.addRow( 
+	    	    			mid,
+	    	    			new java.sql.Timestamp(row[PERIOD]), 
+	    	    			row[MIN], 
+	    	    			row[MAX], 
+	    	    			row[AVG], 
+	    	    			row[CNT]);
+	    	    }
+	    		
+	    	}
+	    } finally {
+	    	if(rset!=null) try { rset.close(); } catch (Exception ex) {}
+	    	if(ps!=null) try { ps.close(); } catch (Exception ex) {}
+	    }
+	    return rs;
+	}	
+	
 	/**
-	 * Creates a new H2MetricValueDomain
+	 * Creates a new H2TimeSeries
 	 * @param step The step size in ms.
 	 * @param width The width, or number of entries in the window
 	 */
-	public H2MetricValueDomain(long step, int width) {
+	public H2TimeSeries(long step, int width) {
 		super();
 		this.step = step;
 		this.width = width-1;
-		store = ByteBuffer.allocateDirect(storeByteSize());
+		store = ByteBuffer.allocateDirect(ENTRY_SIZE);
 	}
 	
 	/**
@@ -140,7 +311,7 @@ public class H2MetricValueDomain implements Externalizable {
 	
 	public static void main(String[] args) {
 		log("Domain MetricValue Test");
-		H2MetricValueDomain d = new H2MetricValueDomain(1000, 10);
+		H2TimeSeries d = new H2TimeSeries(1000, 10);
 		Random random = new Random(System.currentTimeMillis());
 		try {
 			for(int x = 0; x < 20; x++) {
@@ -220,11 +391,37 @@ public class H2MetricValueDomain implements Externalizable {
 	}
 	
 	/**
+	 * Returns the time range of values held in this time-series
+	 * @return a long array with the start time and end time, or null if there are no entries
+	 */
+	public long[] getTimeRange() {
+		if(size<0) return null;
+		return new long[]{
+				getArray(0)[PERIOD],
+				getArray(size)[PERIOD]
+		};
+	}
+	
+	/**
+	 * Returns the date range of values held in this time-series
+	 * @return a {@link java.sql.Date} array with the start time and end time, or null if there are no entries
+	 */
+	public java.sql.Date[] getDateRange() {
+		if(size<0) return null;
+		return new java.sql.Date[]{
+				new java.sql.Date(getArray(0)[PERIOD]),
+				new java.sql.Date(getArray(size)[PERIOD])
+		};
+	}
+	
+	
+	/**
 	 * Returns the values at the specified position
 	 * @param position The time-series slot position
-	 * @return The values in the positioned slot
+	 * @return The values in the positioned slot or null if there are no slots
 	 */
 	protected long[] getArray(int position) {
+		if(size<0) return null;
 		ByteBuffer buff = store.duplicate();
 		buff.position((position) * ENTRY_SIZE);
 		long[] arr = new long[5];
@@ -289,12 +486,12 @@ public class H2MetricValueDomain implements Externalizable {
 	}
 
 	/**
-	 * Serializes a H2MetricValueDomain to a byte array
-	 * @param mvd The H2MetricValueDomain to serialize
+	 * Serializes a H2TimeSeries to a byte array
+	 * @param mvd The H2TimeSeries to serialize
 	 * @return A byte array
 	 * @throws IOException Thrown on any io exception
 	 */
-	public static byte[] serialize(H2MetricValueDomain mvd) throws IOException {
+	public static byte[] serialize(H2TimeSeries mvd) throws IOException {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream(mvd.byteSize());
 		ObjectOutputStream oos = new ObjectOutputStream(baos); 
 		oos.writeObject(mvd);
@@ -304,16 +501,16 @@ public class H2MetricValueDomain implements Externalizable {
 	}
 	
 	/**
-	 * Deserializes a H2MetricValueDomain from a byte array
+	 * Deserializes a H2TimeSeries from a byte array
 	 * @param arr The byte array to deserialize from
-	 * @return The deserialized H2MetricValueDomain 
+	 * @return The deserialized H2TimeSeries 
 	 * @throws IOException thrown on any io exception
 	 * @throws ClassNotFoundException Will not be thrown.
 	 */
-	public static H2MetricValueDomain deserialize(byte[] arr) throws IOException, ClassNotFoundException {
+	public static H2TimeSeries deserialize(byte[] arr) throws IOException, ClassNotFoundException {
 		ByteArrayInputStream bais = new ByteArrayInputStream(arr);
 		ObjectInputStream ois = new ObjectInputStream(bais);
-		return (H2MetricValueDomain) ois.readObject();
+		return (H2TimeSeries) ois.readObject();
 	}
 	
 
@@ -340,6 +537,7 @@ public class H2MetricValueDomain implements Externalizable {
 			// count
 			out.writeInt(buff.getInt());
 		}
+		SerializationWrites.incrementAndGet();
 	}
 
 	/**
@@ -365,7 +563,8 @@ public class H2MetricValueDomain implements Externalizable {
 			// count
 			store.putInt(in.readInt());
 		}
-		log("Read In. Buff:" + store + " Step:" + step + " Width:" + width + " Size:" + size);		
+		SerializationReads.incrementAndGet();
+		//log("Read In. Buff:" + store + " Step:" + step + " Width:" + width + " Size:" + size);		
 		 
 	}
 
@@ -409,7 +608,7 @@ public class H2MetricValueDomain implements Externalizable {
 	 * <p>Description: Custom {@link ObjectOutputStream} that writes no class descriptor</p> 
 	 * <p>Company: Helios Development Group LLC</p>
 	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
-	 * <p><code>org.helios.apmrouter.timeseries.H2MetricValueDomain.CompactObjectOutputStream</code></p>
+	 * <p><code>org.helios.apmrouter.timeseries.H2TimeSeries.CompactObjectOutputStream</code></p>
 	 */
 	protected static class CompactObjectOutputStream extends ObjectOutputStream {
 
@@ -448,14 +647,14 @@ public class H2MetricValueDomain implements Externalizable {
 	 * <p>Description: Custom {@link ObjectInputStream} that knows the class descriptor</p> 
 	 * <p>Company: Helios Development Group LLC</p>
 	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
-	 * <p><code>org.helios.apmrouter.timeseries.H2MetricValueDomain.CompactObjectInputStream</code></p>
+	 * <p><code>org.helios.apmrouter.timeseries.H2TimeSeries.CompactObjectInputStream</code></p>
 	 */
 	protected static class CompactObjectInputStream extends ObjectInputStream {
 		public static final ObjectStreamClass OSC;
 		
 		static {
 			try {
-				OSC = ObjectStreamClass.lookup(H2MetricValueDomain.class);
+				OSC = ObjectStreamClass.lookup(H2TimeSeries.class);
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}
