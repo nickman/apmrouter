@@ -1,5 +1,8 @@
 
-
+function notificationFilter() {
+	var fx = "function isNotificationEnabled(notification) {";
+			
+}
 
 var ObjectName = Class.extend({
 	spaceRegex : new RegExp(' ', 'g'),

@@ -22,32 +22,41 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.timeseries;
+package org.helios.apmrouter.destination.h2timeseries;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
+import javax.management.ListenerNotFoundException;
+import javax.management.MBeanNotificationInfo;
+import javax.management.Notification;
+import javax.management.NotificationBroadcasterSupport;
+import javax.management.NotificationEmitter;
+import javax.management.NotificationFilter;
+import javax.management.NotificationListener;
 import javax.sql.DataSource;
 
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.destination.BaseDestination;
 import org.helios.apmrouter.destination.accumulator.FlushQueueReceiver;
 import org.helios.apmrouter.destination.accumulator.TimeSizeFlushQueue;
+import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
+import org.springframework.jmx.export.annotation.ManagedNotification;
+import org.springframework.jmx.export.annotation.ManagedNotifications;
 import org.springframework.jmx.support.MetricType;
 
 /**
@@ -55,10 +64,12 @@ import org.springframework.jmx.support.MetricType;
  * <p>Description: Basic time-series metric value store, piggy-backing on the H2 metric catalog.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.timeseries.H2TimeSeriesDestination</code></p>
+ * <p><code>org.helios.apmrouter.destination.h2timeseries.H2TimeSeriesDestination</code></p>
  */
-
-public class H2TimeSeriesDestination extends BaseDestination implements FlushQueueReceiver<IMetric> {
+@ManagedNotifications({
+	@ManagedNotification(notificationTypes={H2TimeSeriesDestination.NOTIF_TYPE}, name="javax.management.Notification", description="Notification issued when a subscribed metric has an interval roll")
+})
+public class H2TimeSeriesDestination extends BaseDestination implements FlushQueueReceiver<IMetric>, NotificationEmitter {
 	/** The H2 data source */
 	protected DataSource dataSource = null;
 	/** The live time-series step size in ms. */
@@ -73,6 +84,19 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	protected TimeSizeFlushQueue<IMetric> flushQueue = null;
 	/** The base sql update statement for fetching time-series values to update */
 	protected StringBuilder selectSql = null;
+	/** The notification type emitted from this MBean */
+	protected static final String NOTIF_TYPE = "apmrouter.h2timeseries.intervalroll";
+	/** The notification template for types emitted from this MBean */
+	protected static final String NOTIF_TEMPLATE = NOTIF_TYPE + ".%s";
+	
+	/** The notification info for the notification broadcaster for rolled periods */
+	protected final MBeanNotificationInfo MBEAN_INFO = new MBeanNotificationInfo(
+			new String[]{NOTIF_TYPE}, Notification.class.getName(), "Notification issued when a subscribed metric has an interval roll"
+	); 
+	/** The notification broadcaster for rolled periods */
+	protected final NotificationBroadcasterSupport broadcaster = new NotificationBroadcasterSupport(ThreadPoolFactory.newCachedThreadPool(getClass().getPackage().getName(), getClass().getSimpleName()), MBEAN_INFO); 
+	/** Serial number generator for jmx notifications */
+	protected final AtomicLong jmxNotifSerial = new AtomicLong(0L);
 	
 	/** The last elapsed write time in ms */
 	protected final ConcurrentLongSlidingWindow lastElapsedNs = new ConcurrentLongSlidingWindow(60);
@@ -146,7 +170,8 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 			    	H2TimeSeries hts = (H2TimeSeries)rset.getObject(2);
 			    	IMetric im = metricMap.get(metricId);
 			    	if(im==null) continue;
-			    	hts.addValue(im.getTime(), im.getLongValue());
+			    	long[] rolledPeriod = hts.addValue(im.getTime(), im.getLongValue());
+			    	if(rolledPeriod!=null) sendIntervalRollEvent(rolledPeriod, im);
 			    	updatePs.setLong(1, metricId);
 			    	updatePs.setObject(2, hts);
 			    	updatePs.addBatch();
@@ -168,6 +193,18 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 			}
 		}
 	}		
+	
+	/**
+	 * Sends an interval roll event
+	 * @param data The prior period's data
+	 * @param metric The metric that the data is for
+	 */
+	protected void sendIntervalRollEvent(long[] data, IMetric metric) {		
+		Notification notif = new Notification(String.format(NOTIF_TEMPLATE, metric.getToken()), objectName, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "TimeSeries Interval Roll for [" + metric + "]");		
+		notif.setUserData(new Object[]{data, metric});
+		sendNotification(notif);
+		incr("BroadcastIntervalRolls");
+	}
 	
 	/**
 	 * Accept Route additive for BaseDestination extensions
@@ -195,8 +232,19 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 		Set<String> _metrics = new HashSet<String>(super.getSupportedMetricNames());
 		_metrics.add("MetricsForwarded");
 		_metrics.add("InvalidMetricDrops");		
+		_metrics.add("BroadcastIntervalRolls");
 		return _metrics;
 	}
+	
+	/**
+	 * Returns the number of time-series interval roll notifications sent
+	 * @return the number of time-series interval roll notifications sent
+	 */
+	@ManagedMetric(category="H2TimeSeries", metricType=MetricType.COUNTER, description="The number of time-series interval roll notifications sent")
+	public long getBroadcastIntervalRolls() {
+		return getMetricValue("BroadcastIntervalRolls");
+	}
+	
 	
 	/**
 	 * Returns the number of metrics that were dropped because of invalid metrics received
@@ -376,6 +424,49 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	@ManagedAttribute(description="The number of accumulated time-series writes that triggers a flush")
 	public void setSizeTrigger(int sizeTrigger) {
 		this.sizeTrigger = sizeTrigger;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see javax.management.NotificationBroadcaster#addNotificationListener(javax.management.NotificationListener, javax.management.NotificationFilter, java.lang.Object)
+	 */
+	public void addNotificationListener(NotificationListener listener, NotificationFilter filter, Object handback) {
+		if(filter==null) {
+			throw new IllegalArgumentException("This notification broadcaster requires a filter", new Throwable());
+		}
+		broadcaster.addNotificationListener(listener, filter, handback);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see javax.management.NotificationBroadcaster#removeNotificationListener(javax.management.NotificationListener)
+	 */
+	public void removeNotificationListener(NotificationListener listener) throws ListenerNotFoundException {
+		broadcaster.removeNotificationListener(listener);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see javax.management.NotificationEmitter#removeNotificationListener(javax.management.NotificationListener, javax.management.NotificationFilter, java.lang.Object)
+	 */
+	public void removeNotificationListener(NotificationListener listener, NotificationFilter filter, Object handback) throws ListenerNotFoundException {
+		broadcaster.removeNotificationListener(listener, filter, handback);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see javax.management.NotificationBroadcaster#getNotificationInfo()
+	 */
+	public MBeanNotificationInfo[] getNotificationInfo() {
+		return broadcaster.getNotificationInfo();
+	}
+
+	/**
+	 * Sends a JMX notification
+	 * @param notification The notifi
+	 */
+	public void sendNotification(Notification notification) {
+		broadcaster.sendNotification(notification);
 	}
 
 

@@ -26,13 +26,14 @@ package org.helios.apmrouter.dataservice.json.sub;
 
 import static org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilder.JSON_EVENT_SOURCE;
 
+import org.apache.log4j.Logger;
 import org.helios.apmrouter.dataservice.json.JSONRequestHandler;
 import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.subscription.SubscriptionService;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilder;
+import org.helios.apmrouter.subscription.session.SubscriptionSession;
 import org.jboss.netty.channel.Channel;
-import org.json.JSONException;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -47,7 +48,8 @@ public class SubscriptionDataService {
 	/** The subscription management service */
 	@Autowired(required=true)
 	protected SubscriptionService subService = null;
-	
+	/** Instance logger */
+	protected final Logger log = Logger.getLogger(getClass());
 	
 	
 	/**
@@ -59,7 +61,8 @@ public class SubscriptionDataService {
 	public void start(JsonRequest request, Channel channel)  {
 		SubscriptionCriteriaBuilder<?,?,?> builder = subService.getBuilder(request.arguments.get(JSON_EVENT_SOURCE).toString());
 		SubscriptionCriteria<?,?,?> criteria =  builder.build(request);
-		subService.addCriteria(channel, criteria, request);
+		long subId = subService.addCriteria(channel, criteria, request);
+		log.info("Started subId [" + subId + "] for channel [" + channel + "] with criteria [" + criteria + "]");
 	}
 	
 	/**
@@ -69,7 +72,17 @@ public class SubscriptionDataService {
 	 */
 	@JSONRequestHandler(name="stop")
 	public void stop(JsonRequest request, Channel channel) {
-		
+		Number subId = request.getArgumentOrNull("subId", Number.class);
+		if(subId!=null) {
+			long criteriaId = subId.longValue();
+			SubscriptionSession subSession = subService.getSubscriptionSession(channel);
+			if(subSession!=null) {
+				SubscriptionCriteria<?,?,?> sc = subSession.cancelCriteria(criteriaId);
+				if(sc!=null) {
+					log.info("Cancelled Subscription ID [" + criteriaId + "] for channel [" + channel + "]. Criteria was:\n" + sc);
+				}
+			}
+		}
 	}
 	
 	/**

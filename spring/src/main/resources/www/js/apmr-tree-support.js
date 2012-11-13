@@ -148,7 +148,11 @@
 		                }, valid_children : [],
 		                select_node : function(me) {		                	
 		                	console.info("Selected Metric:[%s]", $(me).attr('metric'));
+		                	//$('#metric-191').parentsUntil('[rel*=agent]')
+		                	
 		                	var metricId = parseInt($(me).attr('metric'));
+		                	var hostName = $('#metric-' + metricId).parentsUntil('[hostn]').last().parent().attr('hostn');
+		                	var agentName = $('#metric-' + metricId).parentsUntil('[agentn]').last().parent().attr('agentn');
 		                	$.apmr.liveData([metricId], function(tsdata){
 		                		treeClickChart = new Highcharts.Chart({
 		                	        chart: {
@@ -160,7 +164,10 @@
 		                	        },
 		                	        yAxis: {
 		                	            title: ''
-		                	        },				                	        
+		                	        },			
+		                	        subtitle : {
+		                	        	text : hostName + ':' + agentName
+		                	        },
 		                	        loading: {
 		                	        	showDuration: 0
 		                	        },
@@ -169,7 +176,8 @@
 		                	        },
 		                	        series: [{
 		                	        	name: tsdata.msg[0].name,
-		                	            data: tsdata.msg[0].avgdata
+		                	            data: tsdata.msg[0].avgdata,
+		                	            animation: false
 		                	        }]
 		                	    });		                		
 		                	});
@@ -228,7 +236,7 @@
 						var uid = "host-" + host.hostId;
 						if($('#' + uid).length==0 && !parentContainsChild(parentId, uid)) {  
 							var newNode = {
-									attr: {id: uid, rel: host.conn==null ? "down-server" : "server", 'host' : host.hostId},  
+									attr: {id: uid, rel: host.conn==null ? "down-server" : "server", 'host' : host.hostId, 'hostn' : host.name},  
 									data : {title: hostName}									
 								};
 							nodeArray.push(newNode);
@@ -250,7 +258,7 @@
 						var uid = "agent-" + agent.agentId;
 						if($('#' + uid).length==0 && !parentContainsChild(parentId, uid)) {
 							var newNode = {
-									attr: {id: uid, rel: agent.conn!=null ? "online-agent" : "agent", 'agent' : agent.agentId, minl : agent.minl},  
+									attr: {id: uid, rel: agent.conn!=null ? "online-agent" : "agent", 'agent' : agent.agentId, 'agentn' : agent.name, minl : agent.minl},  
 									data : {title: agent.name}									
 								};
 							nodeArray.push(newNode);
@@ -285,11 +293,12 @@
 						$.each(data.msg, function(index, arr) {
 							var folder = arr[0];
 							var mlevel = arr[1];
-							console.info("FOLDER MLEVEL [%s]-[%s]-[%s]", folder, mlevel, level);
+							var isMetricFolder = (mlevel-level==1);
+							console.info("FOLDER MLEVEL [%s]-[%s]", folder, isMetricFolder);							
 							var uid = "folder-" + agentId + "-" + folder.replace('=', '_');
 							if($('#' + uid).length==0) {
 								var newNode = {
-										attr: {id: uid, rel: "folder", 'folder' : folder, 'agent' : agentId, 'level' : level},  
+										attr: {id: uid, rel: isMetricFolder ? "metric-folder" : "folder", 'folder' : folder, 'agent' : agentId, 'level' : level},  
 										data : {title: folder}									
 									};
 								nodeArray.push(newNode);
@@ -324,12 +333,13 @@
 						$.each(data.msg, function(index, arr) {
 							var folder = arr[0];
 							var mlevel = arr[1];
-							console.info("FOLDER MLEVEL [%s]-[%s]-[%s]", folder, mlevel, level);							
+							var isMetricFolder = (mlevel-level==1);
+							console.info("FOLDER MLEVEL [%s]-[%s]", folder, isMetricFolder);							
 							if(folder!=null) {
 								var uid = "folder-" + agentId + "-" + folder.replace('=', '_');
 								if($('#' + uid).length==0) {
 									var newNode = {
-											attr: {id: uid, rel: "folder", 'folder' : folder, 'agent' : agentId, 'level' : level},  
+											attr: {id: uid, rel: isMetricFolder ? "metric-folder" : "folder", 'folder' : folder, 'agent' : agentId, 'level' : level},  
 											data : {title: folder}									
 										};
 									callback([newNode]);

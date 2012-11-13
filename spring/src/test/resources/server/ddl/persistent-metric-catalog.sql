@@ -76,11 +76,11 @@ UPDATE AGENT SET CONNECTED = NULL, URI = NULL;
 --    Time Series
 -- =============================================================================
 
-CREATE ALIAS IF NOT EXISTS MAKE_MV FOR "org.helios.apmrouter.timeseries.H2TimeSeries.make";
-CREATE ALIAS IF NOT EXISTS UPSERT_MV FOR "org.helios.apmrouter.timeseries.H2TimeSeries.make_and_add";
+CREATE ALIAS IF NOT EXISTS MAKE_MV FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.make";
+CREATE ALIAS IF NOT EXISTS UPSERT_MV FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.make_and_add";
 
-CREATE ALIAS IF NOT EXISTS IS_MV FOR "org.helios.apmrouter.timeseries.H2TimeSeries.isType";
-CREATE ALIAS IF NOT EXISTS UPDATE_MV FOR "org.helios.apmrouter.timeseries.H2TimeSeries.add";
+CREATE ALIAS IF NOT EXISTS IS_MV FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.isType";
+CREATE ALIAS IF NOT EXISTS UPDATE_MV FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.add";
 CREATE DOMAIN IF NOT EXISTS METRIC_VALUE AS OTHER CHECK IS_MV(VALUE);
 
 CREATE TABLE IF NOT EXISTS PUBLIC.METRIC_VALUES  (
@@ -91,8 +91,8 @@ CREATE TABLE IF NOT EXISTS PUBLIC.METRIC_VALUES  (
 ALTER TABLE PUBLIC.METRIC_VALUES ADD CONSTRAINT IF NOT EXISTS PUBLIC.METRIC_VALUES_PK PRIMARY KEY(ID);
 ALTER TABLE PUBLIC.METRIC_VALUES ADD CONSTRAINT IF NOT EXISTS PUBLIC.METRIC_VALUES_FK FOREIGN KEY(ID) REFERENCES PUBLIC.METRIC(METRIC_ID);
 
-CREATE ALIAS IF NOT EXISTS ALL_VALUES FOR "org.helios.apmrouter.timeseries.H2TimeSeries.allvalues";
-CREATE ALIAS IF NOT EXISTS MV FOR "org.helios.apmrouter.timeseries.H2TimeSeries.getValues";
+CREATE ALIAS IF NOT EXISTS ALL_VALUES FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.allvalues";
+CREATE ALIAS IF NOT EXISTS MV FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.getValues";
 
 CREATE VIEW IF NOT EXISTS METRIC_DATA AS SELECT * FROM MV(-1);
 CREATE VIEW IF NOT EXISTS RICH_METRIC_DATA AS SELECT AGENT_ID, TYPE_ID, NAMESPACE, NARR, NAME, D.* FROM METRIC_DATA D, METRIC M WHERE M.METRIC_ID = D.ID;

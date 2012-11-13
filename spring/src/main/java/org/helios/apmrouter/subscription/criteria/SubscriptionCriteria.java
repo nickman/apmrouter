@@ -25,6 +25,7 @@
 package org.helios.apmrouter.subscription.criteria;
 
 import org.helios.apmrouter.dataservice.json.JsonRequest;
+import org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilder;
 
 /**
  * <p>Title: SubscriptionCriteria</p>
@@ -94,6 +95,12 @@ public interface SubscriptionCriteria<S, F, E> {
 	 * @return a SubscriptionCriteriaInstance for this criteria
 	 */
 	public SubscriptionCriteriaInstance<?> instantiate(JsonRequest request);
+	
+	/**
+	 * Returns the builder that built this criteria
+	 * @return the builder that built this criteria
+	 */
+	public SubscriptionCriteriaBuilder getBuilder();
 	
 	
 }

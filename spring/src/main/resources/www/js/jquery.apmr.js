@@ -28,6 +28,9 @@
 		requestId : 0,
 		/** A repository of subscriptions keyed by sub key */
 		subsBySubKey: {},
+		/** A repository of subscriptions keyed by req Id */
+		subsByReqId: {},
+		
 		/** Indicates if down nodes (hosts and agents) should be loaded in the tree when expanding */
 		loadDownNodes: true,
 		/** Indicates if downed nodes (hosts and agents) should be removed from the tree when timed out */
@@ -165,7 +168,8 @@
 				'esn' : esn,
 				'filter' : filter,
 				'ex' : ex,
-				'callback' : callback
+				'callback' : callback,
+				'key' : subKey
 				// unsubkey
 				// topic
 				// timestamp
@@ -182,14 +186,23 @@
 		var req = {'t': 'req', 'svc' : 'sub', 'op' : op};
 		var args = {'es' : type, 'esn': esn, 'f' : filter};
 		if(ex!=null) {
-			args['exf'] = ex;
+			if($.isArray(ex)) {
+				args['stf'] = ex;
+			} else {
+				args['exf'] = ex;
+			}
+			
 		}
 		req['args'] = args;
-		var rid = this.send(req, new function(){
-			sub['ts'] = new Date().getTime();			
+		var rid = $.apmr.send(req, function(data){
+			callback(data);			
+			sub['ts'] = new Date().getTime();		
+			sub['subId'] = data.msg;
 		});
 		var topic = '/' + 'req' + '/' + rid;
+		sub['rid'] = rid;
 		sub['topic'] = topic;
+		$.apmr.config.subsByReqId[rid] = sub;
 		return sub;
 	},
 	
@@ -200,6 +213,23 @@
 		var subHandle = $.subscribe(sub.topic, callback || $.apmr.stateChange);
 		sub.subHandle = subHandle;		
 	},
+	$.apmr.subMetricOn = function(metricId, callback) {
+		var sub = $.apmr.sub(callback || $.apmr.liveMetric, 
+				"start", 
+				"jmx", 
+				"service:jmx:local://DefaultDomain", 
+				"org.helios.apmrouter.destination:service=H2TimeSeriesDestination,name=H2TimeSeriesDestination",
+				['apmrouter.h2timeseries.intervalroll.' + metricId]
+		);
+		console.info("Started Sub [#%s] for [%s]-[%s]", sub.topic, "service:jmx:local://DefaultDomain", "org.helios.apmrouter.destination:service=H2TimeSeriesDestination,name=H2TimeSeriesDestination");
+		var subHandle = $.subscribe(sub.topic, callback || $.apmr.stateChange);
+		sub.subHandle = subHandle;		
+	},
+	
+	$.apmr.liveMetric = function(event) {
+		console.info("LIVE METRIC:%o", event);
+	},
+	// apmrouter.h2timeseries.intervalroll
 	$.apmr.stateChange = function(event) {
 		console.info("Sub Response [%o]", event);
 		var e = event.msg;

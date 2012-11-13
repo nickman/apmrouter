@@ -262,4 +262,13 @@ public class MetricCatalogInitializer extends ServerComponentBean implements IMe
 		return catalog.setToken(token, host, agent, name, type, namespace);
 				
 	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#resetTokens()
+	 */
+	@Override
+	public void resetTokens() {
+		/* No Op */		
+	}
 }

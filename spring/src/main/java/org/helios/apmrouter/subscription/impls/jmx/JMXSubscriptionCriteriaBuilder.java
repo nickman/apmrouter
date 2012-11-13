@@ -25,12 +25,18 @@
 package org.helios.apmrouter.subscription.impls.jmx;
 
 import javax.management.NotificationFilter;
+import javax.management.NotificationFilterSupport;
 import javax.management.ObjectName;
+import javax.script.Invocable;
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
 
 import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.helios.apmrouter.subscription.criteria.builder.AbstractSubscriptionCriteriaBuilder;
+import org.json.JSONArray;
+import org.json.JSONException;
 
 /**
  * <p>Title: JMXSubscriptionCriteriaBuilder</p>
@@ -40,11 +46,14 @@ import org.helios.apmrouter.subscription.criteria.builder.AbstractSubscriptionCr
  * <p><code>org.helios.apmrouter.subscription.impls.jmx.JMXSubscriptionCriteriaBuilder</code></p>
  */
 public class JMXSubscriptionCriteriaBuilder extends AbstractSubscriptionCriteriaBuilder<String, ObjectName, NotificationFilter> {
-
+	/** The script engine manager for compiling notification filters */
+	protected static final ScriptEngineManager scriptEngineManager = new ScriptEngineManager();
+	/** The script engine for compiling notification filters */
+	protected static final ScriptEngine scriptEngine = scriptEngineManager.getEngineByName("JavaScript");  
+	
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilder#build(org.helios.apmrouter.dataservice.json.JsonRequest)
-	 * FIXME: Implement the notification filter editor
 	 */
 	@Override
 	public SubscriptionCriteria<String, ObjectName, NotificationFilter> build(JsonRequest subRequest)  {
@@ -55,7 +64,39 @@ public class JMXSubscriptionCriteriaBuilder extends AbstractSubscriptionCriteria
 		
 		ObjectName objectName = JMXHelper.objectName(subRequest.getArgument(JSON_EVENT_FILTER, ""));
 		String filterExpression = subRequest.getArgumentOrNull(JSON_EXTENDED_EVENT_FILTER, String.class);
-		return new JMXSubscriptionCriteria(eventSourceName, objectName, null);
+		JSONArray simpleFilterExpression = subRequest.getArgumentOrNull(JSON_SIMPLE_TYPE_FILTER, JSONArray.class);
+		
+		NotificationFilter filter = null;
+		if(simpleFilterExpression!=null) {
+			filter = new NotificationFilterSupport();
+			for(int i = 0; i < simpleFilterExpression.length(); i++) {
+				try {
+					((NotificationFilterSupport)filter).enableType(simpleFilterExpression.getString(i).trim());
+				} catch (IllegalArgumentException | JSONException e) {
+					throw new RuntimeException("Failed to parse simple filter expression", e);
+				}
+			}
+
+		} else if(filterExpression!=null && !filterExpression.trim().isEmpty()) {
+			filter = compileFilter(filterExpression);
+		}
+		return new JMXSubscriptionCriteria(this, eventSourceName, objectName, filter);
+	}
+	
+	/**
+	 * Compiles the filter expression into a NotificationFilter
+	 * @param filterExpression the supplied expression
+	 * @return a NotificationFilter
+	 */
+	protected NotificationFilter compileFilter(String filterExpression) {
+		try {
+			scriptEngine.eval(filterExpression);
+			Invocable inv = (Invocable)scriptEngine;
+			return inv.getInterface(NotificationFilter.class);
+		} catch (Exception ex) {
+			throw new RuntimeException("Failed to compile filter [" + filterExpression + "]", ex);
+			
+		}
 	}
 
 }

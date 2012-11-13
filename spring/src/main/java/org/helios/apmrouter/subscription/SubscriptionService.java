@@ -143,6 +143,15 @@ public class SubscriptionService extends ServerComponentBean {
 	}
 	
 	/**
+	 * Returns the subscription session for the passed channel
+	 * @param channel The channel to get the subscription session for 
+	 * @return The channel's subscription session or null if it does not have one
+	 */
+	public SubscriptionSession getSubscriptionSession(Channel channel) {
+		return subSessions.get(channel);
+	}
+	
+	/**
 	 * Returns the session Id of the passed channel's subscription session, creating a session if one does not exist.
 	 * @param channel The channel to get the session Id for.
 	 * @return the session Id for the passed channel

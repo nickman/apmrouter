@@ -108,7 +108,7 @@
 		</bean>
 	
 	
-	<bean id="H2TimeSeriesDestination" class="org.helios.apmrouter.timeseries.H2TimeSeriesDestination">
+	<bean id="H2TimeSeriesDestination" class="org.helios.apmrouter.destination.h2timeseries.H2TimeSeriesDestination">
  		<property name="matchPatterns">
 	 		<util:set>
 				<value>LONG.*|DELTA.*</value>	 			

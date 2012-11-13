@@ -39,10 +39,12 @@ import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.router.PatternRouter;
+import org.helios.apmrouter.server.services.session.DecoratedChannelMBean;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
+import org.helios.apmrouter.util.TimeoutQueueMap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
@@ -67,8 +69,11 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	/** The metric catalog service */
 	protected MetricCatalogService metricCatalogService = null;
 	
+	/** A timeout map of agent addresses for which there is a pending reset confirm */
+	protected final TimeoutQueueMap<SocketAddress, SocketAddress> pendingResets = new TimeoutQueueMap<SocketAddress, SocketAddress>(15000);
+	
 	/** The OpCodes this handler accepts */
-	protected final OpCode[] OP_CODES = new OpCode[]{ OpCode.SEND_METRIC, OpCode.SEND_METRIC_DIRECT };
+	protected final OpCode[] OP_CODES = new OpCode[]{ OpCode.SEND_METRIC, OpCode.SEND_METRIC_DIRECT, OpCode.RESET_CONFIRM };
 	
 	/**
 	 * {@inheritDoc}
@@ -89,9 +94,13 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	 * @param remoteAddress The remote address of the agent that sent the metrics
 	 * @param channel The channel the metrics were received on
 	 */
-	@SuppressWarnings("null")
 	@Override
 	public void processAgentRequest(OpCode opCode, ChannelBuffer buff, SocketAddress remoteAddress, Channel channel) {
+		if(opCode==OpCode.RESET_CONFIRM) {
+			pendingResets.remove(remoteAddress);
+			incr("ResetConfirmsReceived");
+			return;
+		}
 		incr("BytesReceived", buff.getInt(2));
 		DirectMetricCollection dmc = DirectMetricCollection.fromChannelBuffer(buff);		
 //		int byteOrder = buff.getByte(1);
@@ -108,7 +117,9 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 					ElapsedTime et = SystemClock.endTimer();
 					if(metricId==null) {
 						iter.remove();
-						warn("Token Lookup Miss [", metric.getToken(), "]");
+						debug("Token Lookup Miss [", metric.getToken(), "]");
+						incr("TokenLookupDrop");
+						sendReset(remoteAddress);
 					} else {
 						debug("Looked up token [" , metric.getToken() , "] in [", et, "]");
 						((ICEMetric)metric).setMetricId(metricId);
@@ -139,6 +150,23 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	}
 	
 	
+	/**
+	 * Sends a metric catalog reset request to a remote agent that has a catalog out of synch with the server
+	 * @param remoteAddress The address of the remote agent
+	 */
+	protected void sendReset(SocketAddress remoteAddress) {
+		if(!pendingResets.containsKey(remoteAddress)) {
+			synchronized(pendingResets) {
+				if(!pendingResets.containsKey(remoteAddress)) {
+					ChannelBuffer rsetRequest = ChannelBuffers.buffer(1);
+					rsetRequest.writeByte(OpCode.RESET.op());
+					SharedChannelGroup.getInstance().getByRemote(remoteAddress).write(rsetRequest, remoteAddress);
+					pendingResets.put(remoteAddress, remoteAddress);
+					incr("ResetRequestsSent");
+				}
+			}
+		}
+	}
 	
 
 	/**
@@ -270,7 +298,51 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	@ManagedAttribute(description="The number of non-tokenized metrics received")
 	public long getNonTokenizedMetrics() {
 		return getMetricValue("NonTokenizedMetrics");
-	}		
+	}
+	
+	/**
+	 * Returns the number reset confirms received
+	 * @return the number reset confirms received
+	 */
+	@ManagedAttribute(description="The number reset confirms received")
+	public long getResetConfirmsReceived() {
+		return getMetricValue("ResetConfirmsReceived");
+	}
+	
+	/**
+	 * Returns the number reset requests sent
+	 * @return the number reset requests sent
+	 */
+	@ManagedAttribute(description="The number reset requests sent")
+	public long getResetRequestsSent() {
+		return getMetricValue("ResetRequestsSent");
+	}
+	
+	/**
+	 * Returns the number of metrics dropped due to agent resets
+	 * @return the number of metrics dropped due to agent resets
+	 */
+	@ManagedAttribute(description="The number of metrics dropped due to agent resets")
+	public long getTokenLookupDrops() {
+		return getMetricValue("TokenLookupDrop");
+	}
+	
+	
+	/**
+	 * Returns an array of the channels for agents with pending reset requests
+	 * @return an array of the channels for agents with pending reset requests
+	 */
+	@ManagedAttribute(description="Agent channels with pending reset requests")
+	public DecoratedChannelMBean[] getPendingResetAgents() {
+		Set<SocketAddress> sas = new HashSet<SocketAddress>(pendingResets.keySet());
+		Set<DecoratedChannelMBean> dcms = new HashSet<DecoratedChannelMBean>(sas.size());		
+		for(SocketAddress sa: sas) {
+			try {
+				dcms.add((DecoratedChannelMBean)SharedChannelGroup.getInstance().getByRemote(sa));
+			} catch (Exception ex) { /* No Op */ }
+		}
+		return dcms.toArray(new DecoratedChannelMBean[dcms.size()]);
+	}	
 	
 	
 
@@ -286,6 +358,9 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 		metrics.add("ConfirmsSent");
 		metrics.add("TokensSent");
 		metrics.add("NonTokenizedMetrics");
+		metrics.add("ResetConfirmsReceived");
+		metrics.add("ResetRequestsSent");
+		metrics.add("TokenLookupDrop");
 		return metrics;
 	}	
 

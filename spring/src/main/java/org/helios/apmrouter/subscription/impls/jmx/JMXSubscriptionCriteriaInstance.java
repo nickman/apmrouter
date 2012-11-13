@@ -45,6 +45,7 @@ import org.helios.apmrouter.dataservice.json.JsonResponse;
 import org.helios.apmrouter.subscription.criteria.FailedCriteriaResolutionException;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance;
+import org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilder;
 import org.helios.apmrouter.subscription.session.SubscriptionSession;
 
 /**
@@ -262,6 +263,15 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 	@Override
 	public SubscriptionCriteriaInstance<Notification> instantiate(JsonRequest request) {
 		return this;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.subscription.criteria.SubscriptionCriteria#getBuilder()
+	 */
+	@Override
+	public SubscriptionCriteriaBuilder getBuilder() {
+		return criteria.getBuilder();
 	}
 
 

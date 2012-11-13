@@ -36,7 +36,7 @@ import org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance;
 
 /**
  * <p>Title: JMXSubscriptionCriteria</p>
- * <p>Description: </p> 
+ * <p>Description: Subscription criteria definition for JMX notification subscriptions</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.subscription.criteria.jmx.JMXSubscriptionCriteria</code></p>
@@ -55,22 +55,32 @@ public class JMXSubscriptionCriteria implements SubscriptionCriteria<String, Obj
 	protected final Set<ObjectName> objectNames = new CopyOnWriteArraySet<ObjectName>();
 	/** A set of ObjectNames this criteria failed to activated for */
 	protected final Set<ObjectName> failedObjectNames = new CopyOnWriteArraySet<ObjectName>();
-	
+	/** The builder that built this criteria */
+	protected final JMXSubscriptionCriteriaBuilder builder;
 	
 	
 	/**
 	 * Creates a new JMXSubscriptionCriteria
+	 * @param builder The builder that built this criteria
 	 * @param jmxServiceURL The target MBeanServer's JMXServiceURL string for this subscription
 	 * @param objectName The JMX ObjectName or pattern of the MBeans to subscribe to notifications from
 	 * @param filter The optional notification filter
 	 */
-	public JMXSubscriptionCriteria(String jmxServiceURL, ObjectName objectName, NotificationFilter filter) {
+	public JMXSubscriptionCriteria(JMXSubscriptionCriteriaBuilder builder, String jmxServiceURL, ObjectName objectName, NotificationFilter filter) {
 		super();
+		this.builder = builder;
 		this.jmxServiceURL = jmxServiceURL;
 		this.objectName = objectName;
 		this.filter = filter;
-		pattern = this.objectName.isPattern();
-		
+		pattern = this.objectName.isPattern();		
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.subscription.criteria.SubscriptionCriteria#getBuilder()
+	 */
+	public JMXSubscriptionCriteriaBuilder getBuilder() {
+		return builder;
 	}
 	
 
@@ -118,6 +128,13 @@ public class JMXSubscriptionCriteria implements SubscriptionCriteria<String, Obj
 	 */
 	public boolean isPattern() {
 		return pattern;
+	}
+
+	@Override
+	public String toString() {
+		return "JMXSubscriptionCriteria [jmxServiceURL=" + jmxServiceURL
+				+ ", objectName=" + objectName + ", filter=" + filter
+				+ ", pattern=" + pattern + ", objectNames=" + objectNames + "]";
 	}
 
 

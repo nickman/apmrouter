@@ -60,8 +60,9 @@ public interface SubscriptionSession {
 	/**
 	 * Cancels the subscription criteria with the passed id.
 	 * @param criteriaId The id of the c=subscription criteria to cancel
+	 * @return The canceled criteria or null if it was not found
 	 */
-	public void cancelCriteria(long criteriaId);
+	public SubscriptionCriteria<?,?,?> cancelCriteria(long criteriaId);
 	
 	/**
 	 * Adds a new subscription to the subscription session

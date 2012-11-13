@@ -104,7 +104,7 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 			SubscriptionCriteriaInstance<?> sci = criteria.instantiate(request);
 			sci.resolve(session);
 			resolvedCriteria.put(sci.getCriteriaId(), sci);
-			session.send(request.response());
+			session.send(request.response().setContent(sci.getCriteriaId()));
 			return sci.getCriteriaId();
 		} catch (FailedCriteriaResolutionException fce) {
 			if(!(fce instanceof RecoverableFailedCriteriaResolutionException)) {
@@ -118,12 +118,14 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 	 * Cancels the subscription criteria with the passed id.
 	 * @param criteriaId The id of the c=subscription criteria to cancel
 	 */
-	public void cancelCriteria(long criteriaId) {
+	public SubscriptionCriteria<?,?,?> cancelCriteria(long criteriaId) {
 		SubscriptionCriteriaInstance<?> sci = resolvedCriteria.remove(criteriaId);
 		if(sci!=null) {
 			sci.terminate();
 			criteria.remove(sci.getSubscriptionCriteria());
+			return sci.getSubscriptionCriteria();
 		}
+		return null;
 	}
 
 	/**

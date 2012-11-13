@@ -22,7 +22,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.timeseries;
+package org.helios.apmrouter.destination.h2timeseries;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -56,7 +56,7 @@ import org.helios.apmrouter.util.SystemClock.ElapsedTime;
  * <p>Description: A custom user data type for H2 that stores a fixed window of time-series values</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.timeseries.H2TimeSeries</code></p>
+ * <p><code>org.helios.apmrouter.destination.h2timeseries.H2TimeSeries</code></p>
  */
 
 
@@ -344,38 +344,39 @@ public class H2TimeSeries implements Externalizable {
 	 * Adds a value to the time-series window
 	 * @param timestamp The timestamp in long UTC
 	 * @param value The long value to add
+	 * @return The prior period's slot if a roll occurred, null if it did not
 	 */
-	public synchronized void addValue(long timestamp, long value) {
+	public synchronized long[] addValue(long timestamp, long value) {
 		final long period = getPeriod(timestamp);
 		store.position(0);
 		if(size<0) {			
 			size++;
 			put(new long[]{period, value, value, value, 1});
-		} else {			
-			final long[] values = getArray(size);			
-			final boolean update = values[PERIOD]==period;
-			final long[] newValues;
-			if(update) {
-				store.position(size * ENTRY_SIZE);
-				newValues = calcValue(values, period, value);
-				put(newValues);
-			} else {
-				if(size<width) {
-					size++;
-					store.position(size * ENTRY_SIZE);
-					//log("Rolled to slot [" + size + "] Pos:[" + store.position() + "]");					
-				} else {
-					store.position(ENTRY_SIZE);
-					store.compact();
-					store.position(size * ENTRY_SIZE);
-					//log("Compacted. Size: [" + size + "] Pos:[" + store.position() + "]");
-				}
-				
-				newValues = calcValue(null, period, value);
-				put(newValues);
-			}
-			
+			return null;
+		}			
+		final long[] values = getArray(size);			
+		final boolean update = values[PERIOD]==period;
+		final long[] newValues;
+		if(update) {
+			store.position(size * ENTRY_SIZE);
+			newValues = calcValue(values, period, value);
+			put(newValues);
+			return null;
+		} 
+		if(size<width) {
+			size++;
+			store.position(size * ENTRY_SIZE);
+			//log("Rolled to slot [" + size + "] Pos:[" + store.position() + "]");					
+		} else {
+			store.position(ENTRY_SIZE);
+			store.compact();
+			store.position(size * ENTRY_SIZE);
+			//log("Compacted. Size: [" + size + "] Pos:[" + store.position() + "]");
 		}
+		
+		newValues = calcValue(null, period, value);
+		put(newValues);
+		return values;		
 	}
 	
 	/**
@@ -608,7 +609,7 @@ public class H2TimeSeries implements Externalizable {
 	 * <p>Description: Custom {@link ObjectOutputStream} that writes no class descriptor</p> 
 	 * <p>Company: Helios Development Group LLC</p>
 	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
-	 * <p><code>org.helios.apmrouter.timeseries.H2TimeSeries.CompactObjectOutputStream</code></p>
+	 * <p><code>org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.CompactObjectOutputStream</code></p>
 	 */
 	protected static class CompactObjectOutputStream extends ObjectOutputStream {
 
@@ -647,7 +648,7 @@ public class H2TimeSeries implements Externalizable {
 	 * <p>Description: Custom {@link ObjectInputStream} that knows the class descriptor</p> 
 	 * <p>Company: Helios Development Group LLC</p>
 	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
-	 * <p><code>org.helios.apmrouter.timeseries.H2TimeSeries.CompactObjectInputStream</code></p>
+	 * <p><code>org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.CompactObjectInputStream</code></p>
 	 */
 	protected static class CompactObjectInputStream extends ObjectInputStream {
 		public static final ObjectStreamClass OSC;
