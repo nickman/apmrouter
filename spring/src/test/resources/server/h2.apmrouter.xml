@@ -96,6 +96,33 @@
 	</bean>
 	
 	
+	 		
+		<bean id="H2DestinationWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+			<constructor-arg>
+				<bean id="H2DestinationWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+					<property name="corePoolSize" value="1" />
+					<property name="maximumPoolSize" value="5" />
+					<property name="coreThreadsStarted" value="1" />
+				</bean>
+			</constructor-arg>
+		</bean>
+	
+	
+	<bean id="H2TimeSeriesDestination" class="org.helios.apmrouter.timeseries.H2TimeSeriesDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>LONG.*|DELTA.*</value>	 			
+	 		</util:set>
+ 		</property>	
+		<property name="dataSource" ref="DataSource"></property>
+		<property name="timeSeriesStep" value="15000"></property>
+		<property name="timeSeriesWidth" value="60"></property>
+		<property name="sizeTrigger" value="100"></property>
+		<property name="timeTrigger" value="15000"></property>
+	</bean>
+	
+	
+	
 	
 <!-- 
 	

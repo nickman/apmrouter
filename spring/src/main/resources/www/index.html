@@ -46,7 +46,9 @@
 		
 		<script type="text/javascript">
 			jQuery(function($) {					
+				$('#maintabs').tabs().css('top','40px');
 				init_ui();
+				
 				$(document).bind("status.connected", function(e, status){
 					console.info("status.connected Fired:%s", status);
 					if(status) {
@@ -88,7 +90,15 @@
 				<div style="display: inline-block; float: right;"><font size="-1" ><i><a id="controlsToggle">&nbsp;Controls&nbsp;</a></i></font></div>
 		</div>
 		
+		<div id="maintabs">
+			<ul>
+				<li><a href="tabs/metrics/adjcols.html">Metric Browser</a></li>
+				<li><a href="tabs/jmx/jmx.html">JMX</a></li>
+				<li><a href="#tabs-3">Server Status</a></li>
+			</ul>
+		</div>
 		
+		<!-- 
 		<div style="top: 40px; width: 1213px; height: 710px; position: absolute;" class="center ui-tabs ui-widget ui-widget-content ui-corner-all">
 			<ul class="ui-tabs-nav ui-helper-reset ui-helper-clearfix ui-widget-header">
 				<li class="ui-state-default ui-corner-top ui-tabs-selected ui-state-active"><a href="tabs/metrics/adjcols.html">Metric Browser</a></li>
@@ -100,6 +110,7 @@
 			<div class="ui-tabs-panel ui-widget-content ui-corner-bottom ui-tabs-hide" id="tabs-3">
 			</div>
 		</div>
+		 -->
 		<div style="position: absolute; left: 0px; top: 40px; width: 202px; height: 725px;" class="west {layout: {type: 'grid', columns: 1, resize: false}} ui-resizable ui-widget">
 			<div style="left: 0px; top: 0px; width: 202px; height: 241.667px; position: absolute;" class="panel">
 				<div class="ui-state-default" style="padding: 4px;">Panel 1</div>

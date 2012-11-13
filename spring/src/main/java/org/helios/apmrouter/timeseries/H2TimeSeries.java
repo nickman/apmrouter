@@ -363,12 +363,12 @@ public class H2TimeSeries implements Externalizable {
 				if(size<width) {
 					size++;
 					store.position(size * ENTRY_SIZE);
-					log("Rolled to slot [" + size + "] Pos:[" + store.position() + "]");					
+					//log("Rolled to slot [" + size + "] Pos:[" + store.position() + "]");					
 				} else {
 					store.position(ENTRY_SIZE);
 					store.compact();
 					store.position(size * ENTRY_SIZE);
-					log("Compacted. Size: [" + size + "] Pos:[" + store.position() + "]");
+					//log("Compacted. Size: [" + size + "] Pos:[" + store.position() + "]");
 				}
 				
 				newValues = calcValue(null, period, value);

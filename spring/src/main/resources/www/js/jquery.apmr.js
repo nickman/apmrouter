@@ -333,7 +333,13 @@
 		$.apmr.svcOp("catalog", "nq", {name:"findLevelMetricsForAgentWithParent", p : {'level' : level, 'agentId': agentId, 'parent' : parent}}, callback || function(data){
 			console.info("findLevelMetricsForAgentWithParent Response:%o", data);
 		});						
+	},
+	$.apmr.liveData = function(ids, callback) {
+		$.apmr.svcOp("h2ts", "liveData", {'IDS':ids}, callback || function(data){
+			console.info("Live Data Response:%o", data);
+		});						
 	}
+	
 	
 	
 	

@@ -33,6 +33,10 @@
 <bean id="catalog" class="org.helios.apmrouter.dataservice.json.catalog.CatalogJSONDataService" />
 <bean id="sub" class="org.helios.apmrouter.dataservice.json.sub.SubscriptionDataService" />
 <bean id="jmx" class="org.helios.apmrouter.subscription.impls.jmx.JMXSubscriptionCriteriaBuilder" /> 	
+<bean id="h2ts" class="org.helios.apmrouter.dataservice.json.h2timeseries.H2TimeSeriesJSONDataService">
+	<property name="dataSource" ref="DataSource"></property>
+</bean>
+
 
 
 	

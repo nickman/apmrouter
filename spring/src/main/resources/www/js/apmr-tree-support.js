@@ -145,8 +145,29 @@
 		                'icon' : {
 		                    'image' : 'img/metric_16_16.png'
 		                }, valid_children : [],
-		                select_node : function(me) {
-		                	console.info("Selected Node:[%o]", me);
+		                select_node : function(me) {		                	
+		                	console.info("Selected Metric:[%s]", $(me).attr('metric'));
+		                	var metricId = parseInt($(me).attr('metric'));
+		                	$.apmr.liveData([metricId], function(tsdata){
+		                		var chart = new Highcharts.Chart({
+		                	        chart: {
+		                	            renderTo: 'chartContainer',
+		                	            animation: false
+		                	        },
+		                	        xAxis: {
+		                	            type: 'datetime'
+		                	        },		
+		                	        loading: {
+		                	        	showDuration: 0
+		                	        },
+		                	        title: {
+		                	            text: tsdata.msg[0].namespace + ":" + tsdata.msg[0].name  
+		                	        },
+		                	        series: [{
+		                	            data: tsdata.msg[0].avgdata
+		                	        }]
+		                	    });		                		
+		                	});
 		                }				                
 		            }
 		        }						
