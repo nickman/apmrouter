@@ -56,7 +56,11 @@ public enum OpCode {
 	/** Response as to the identity of a connecting agent */
 	WHO_RESPONSE,
 	/** Indicates a client is about to disconnect */
-	BYE;
+	BYE,
+	/** Directive from the server to flush metric catalog because a reset has occured */
+	RESET,
+	/** Confirm from the agent that the reset is complete */
+	RESET_CONFIRM;
 	
 	/** Map of OpCodes keyed by the ordinal */
 	private static final Map<Byte, OpCode> ORD2ENUM;

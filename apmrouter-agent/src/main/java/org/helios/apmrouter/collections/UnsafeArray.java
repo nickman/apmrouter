@@ -154,7 +154,7 @@ public abstract class UnsafeArray {
 		slotSize = getSlotSize();
 		capacity = initialCapacity;
 		address = allocateMemory(capacity << slotSize);
-		unsafe.setMemory(null, address, capacity << slotSize, (byte)0);
+		unsafe.setMemory(null, address, capacity << slotSize, (byte)0);		
 		size = 0;
 		
 	}
@@ -183,6 +183,7 @@ public abstract class UnsafeArray {
 		this.capacity = capacity;
 		this.address = allocateMemory(capacity << slotSize);
 		unsafe.copyMemory(address, this.address, size << slotSize);
+		
 	}
 
 	/**

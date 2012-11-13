@@ -88,13 +88,19 @@ public class UDPSender extends AbstractSender  {
 		}
 		@Override
 		public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
-			if(e.getChannel().getLocalAddress().equals(e.getRemoteAddress())) {
+			if(e.getChannel().getLocalAddress().equals(e.getRemoteAddress())) { /* No Op */
 			} else {
 				Object msg = e.getMessage();
 				if(msg instanceof ChannelBuffer) {
 					ChannelBuffer buff = (ChannelBuffer)msg;
 					OpCode opCode = OpCode.valueOf(buff.readByte());	
 					switch (opCode) {
+						case RESET:
+							metricCatalog.resetTokens();
+							ChannelBuffer rsetConfirm = ChannelBuffers.buffer(1);
+							rsetConfirm.writeByte(OpCode.RESET_CONFIRM.op());
+							senderChannel.write(rsetConfirm,e.getRemoteAddress());														
+							break;
 						case CONFIRM_METRIC:							
 							int keyLength = buff.readInt();
 							byte[] keyBytes = new byte[keyLength];

@@ -181,5 +181,11 @@ public interface IMetricCatalog {
 	 */
 	public void dispose();
 	
+	/**
+	 * Resets (clears) all the tokens.
+	 * Usually executed as a directive from the server because the server's catalog has been reset.
+	 */
+	public void resetTokens();
+	
 
 }

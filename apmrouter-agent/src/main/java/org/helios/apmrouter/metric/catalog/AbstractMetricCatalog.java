@@ -73,6 +73,17 @@ public abstract class AbstractMetricCatalog<K, V> implements IMetricCatalog {
 	public IDelegateMetric get(long metricIdToken) {
 		return tokencache.get(metricIdToken);
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#resetTokens()
+	 */
+	public void resetTokens() {
+		for(IDelegateMetric idm: tokencache.values()) {
+			idm.setToken(-1);
+		}
+		tokencache.clear();
+	}
 
 	/**
 	 * Sets the serialization token for the passed metric identifier using a contrived token.

@@ -318,6 +318,13 @@ public class ICEMetricCatalog implements IMetricCatalog {
 		return actualCatalog.setToken(metricId, token);
 	}	
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#resetTokens()
+	 */
+	public void resetTokens() {
+		actualCatalog.resetTokens();
+	}
 	
 	
 }
