@@ -55,6 +55,9 @@
               $('div.column1').width($(this).offset().left);
               $('div.column2').css('margin-left',
                   $(this).offset().left + $(this).width());
+              $('#chartContainer').css('width',$(this).parent().width());
+              treeClickChart.setSize($('#chartContainer').parent().width(), 400, false);
+              
             }
           });
         });

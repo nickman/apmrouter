@@ -1,4 +1,5 @@
-	var metricTree = null;		
+	var metricTree = null;	
+	var treeClickChart = null;
 	function rebuildNamespace(value) {
 		value.shift(); value.shift(); value.shift(); value.shift();
 		return value.join('');				
@@ -149,21 +150,25 @@
 		                	console.info("Selected Metric:[%s]", $(me).attr('metric'));
 		                	var metricId = parseInt($(me).attr('metric'));
 		                	$.apmr.liveData([metricId], function(tsdata){
-		                		var chart = new Highcharts.Chart({
+		                		treeClickChart = new Highcharts.Chart({
 		                	        chart: {
 		                	            renderTo: 'chartContainer',
 		                	            animation: false
 		                	        },
 		                	        xAxis: {
 		                	            type: 'datetime'
-		                	        },		
+		                	        },
+		                	        yAxis: {
+		                	            title: ''
+		                	        },				                	        
 		                	        loading: {
 		                	        	showDuration: 0
 		                	        },
 		                	        title: {
-		                	            text: tsdata.msg[0].namespace + ":" + tsdata.msg[0].name  
+		                	            text: tsdata.msg[0].namespace  
 		                	        },
 		                	        series: [{
+		                	        	name: tsdata.msg[0].name,
 		                	            data: tsdata.msg[0].avgdata
 		                	        }]
 		                	    });		                		
@@ -277,7 +282,10 @@
 					
 					
 					$.apmr.findLevelFoldersForAgent(level, agentId, parent, function(data) {
-						$.each(data.msg, function(index, folder) {
+						$.each(data.msg, function(index, arr) {
+							var folder = arr[0];
+							var mlevel = arr[1];
+							console.info("FOLDER MLEVEL [%s]-[%s]-[%s]", folder, mlevel, level);
 							var uid = "folder-" + agentId + "-" + folder.replace('=', '_');
 							if($('#' + uid).length==0) {
 								var newNode = {
@@ -307,12 +315,16 @@
 									data : {title: metric.name}									
 								}; 
 							callback([newNode]);
+							$('#' + $(node).attr('id')).attr('rel', 'metric-folder');
 						}
 					});							
 					//fixOpen(nodeArray);
 					
 					$.apmr.findLevelFoldersForAgent(level, agentId, parent, function(data) {
-						$.each(data.msg, function(index, folder) {
+						$.each(data.msg, function(index, arr) {
+							var folder = arr[0];
+							var mlevel = arr[1];
+							console.info("FOLDER MLEVEL [%s]-[%s]-[%s]", folder, mlevel, level);							
 							if(folder!=null) {
 								var uid = "folder-" + agentId + "-" + folder.replace('=', '_');
 								if($('#' + uid).length==0) {
