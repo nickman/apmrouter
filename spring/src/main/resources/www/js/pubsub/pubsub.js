@@ -87,12 +87,20 @@
 		cache[topic].push(callback);
 		callback.oneTime = true;
 		callback.timeoutHandle = setTimeout(function(){
-			d.unsubscribe([topic, callback]);
+			d.unsubscribeTopic(topic);
 		}, timeout || defaultTimeout);
 		//console.info("Set oneTime Timeout:%s  (%s)", callback.timeoutHandle, timeout || defaultTimeout);
 		oneTimes[topic] = [topic, callback];
 	};	
-
+	d.unsubscribeTopic = function(topic){
+		delete cache[topic];
+	};
+	d.unsubscribeAll = function(){
+		$.each(cache, function(i,v) {
+			delete cache[v];
+		});
+	};
+	
 	d.unsubscribe = function(/* Array */handle){
 		// summary:
 		//		Disconnect a subscribed function for a topic.

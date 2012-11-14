@@ -90,8 +90,8 @@ public class SubscriptionService extends ServerComponentBean  {
 	 * @param criteria The criteria for which the subscription was started
 	 */
 	public void sendSubStarted(SubscriptionCriteriaInstance<?> criteria) {
-		Notification notif = new Notification(NOTIF_SUB_STARTED, objectName, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Subscription Started [" + criteria + "]");
-		notif.setUserData(criteria.getSubcriptionKey());
+		Notification notif = new Notification(NOTIF_SUB_STARTED, criteria.getSubscriptionCriteria().getEventFilter(), jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Subscription Started [" + criteria + "]");
+		notif.setUserData(criteria);
 		sendNotification(notif);
 	}
 	
@@ -100,8 +100,8 @@ public class SubscriptionService extends ServerComponentBean  {
 	 * @param criteria The criteria for which the subscription was stopped
 	 */
 	public void sendSubStopped(SubscriptionCriteriaInstance<?> criteria) {
-		Notification notif = new Notification(NOTIF_SUB_STOPPED, objectName, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Subscription Stopped [" + criteria + "]");
-		notif.setUserData(criteria.getSubcriptionKey());
+		Notification notif = new Notification(NOTIF_SUB_STOPPED, criteria.getSubscriptionCriteria().getEventFilter(), jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Subscription Stopped [" + criteria + "]");
+		notif.setUserData(criteria);
 		sendNotification(notif);		
 	}
 	
@@ -176,7 +176,8 @@ public class SubscriptionService extends ServerComponentBean  {
 				session = subSessions.get(channel);
 				if(session==null) {
 					session = new DefaultSubscriptionSessionImpl(this, new NettySubscriberChannel(channel));					
-					subSessions.set(channel, session);					
+					subSessions.set(channel, session);		
+					applicationContext.getAutowireCapableBeanFactory().applyBeanPostProcessorsAfterInitialization(session, "SubSession-" + session.getSubscriptionSessionId());
 				}
 			}
 		}
@@ -234,7 +235,7 @@ public class SubscriptionService extends ServerComponentBean  {
 		if(channel==null) throw new IllegalArgumentException("The passed channel was null", new Throwable());
 		startSubscriptionSession(channel);
 		SubscriptionSession session = subSessions.get(channel);
-		info("Added Criteria for channel [", channel.getId(), "]\n", criteria);
+		info("Adding Criteria for channel [", channel.getId(), "]\n", criteria);
 		return session.addCriteria(criteria, session, request);
 	}
 	

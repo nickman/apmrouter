@@ -63,9 +63,9 @@ import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 public class H2TimeSeries implements Externalizable { 
 	/**  */
 	private static final long serialVersionUID = -963955749386799856L;
-	/** The step size in ms. */
+	/** The STEP size in ms. */
 	protected long step;
-	/** The width, or number of entries in the window */
+	/** The WIDTH, or number of entries in the window */
 	protected int width;
 	/** The current number of entries in the window */
 	protected int size = -1;
@@ -146,8 +146,8 @@ public class H2TimeSeries implements Externalizable {
 	
 	/**
 	 * Creates a new H2TimeSeries
-	 * @param step The step size in ms.
-	 * @param width The width, or number of entries in the window
+	 * @param STEP The STEP size in ms.
+	 * @param WIDTH The WIDTH, or number of entries in the window
 	 * @param sticky Indicates if the metric is sticky
 	 * @return a new H2TimeSeries
 	 */
@@ -158,8 +158,8 @@ public class H2TimeSeries implements Externalizable {
 	/**
 	 * Creates a new H2TimeSeries and adds a new value
 	 * @param conn The connection to lookup the existing time-series
-	 * @param step The step size in ms.
-	 * @param width The width, or number of entries in the window
+	 * @param STEP The STEP size in ms.
+	 * @param WIDTH The WIDTH, or number of entries in the window
 	 * @param sticky Indicates if the metric is sticky
 	 * @param id The metric ID of the metric to upsert a time-series entry for
 	 * @param ts The timestamp of the value to add
@@ -254,15 +254,17 @@ public class H2TimeSeries implements Externalizable {
 	    if (url.equals("jdbc:columnlist:connection")) {
 	        return rs;
 	    }
+	    Arrays.sort(ids);
 	    PreparedStatement ps = null;
 	    ResultSet rset = null;
 	    try {
 	    	StringBuilder q = new StringBuilder("SELECT V, ID FROM METRIC_VALUES");
 	    	if(ids!=null && ids.length>0 && ids[0] != -1L) {
-	    		q.append("WHERE ID IN (");
+	    		q.append(" WHERE ID IN (");
 		    	q.append(Arrays.toString(ids).replace("[", "").replace("]", ""));
 		    	q.append(")");	    		
 	    	}
+	    	
 	    	ps = conn.prepareStatement(q.toString());
 	    	//ps.setArray(1, conn.createArrayOf("java.lang.Long", ids));
 	    	rset = ps.executeQuery();
@@ -291,8 +293,8 @@ public class H2TimeSeries implements Externalizable {
 	
 	/**
 	 * Creates a new H2TimeSeries
-	 * @param step The step size in ms.
-	 * @param width The width, or number of entries in the window
+	 * @param STEP The STEP size in ms.
+	 * @param WIDTH The WIDTH, or number of entries in the window
 	 */
 	public H2TimeSeries(long step, int width) {
 		super();
@@ -302,7 +304,7 @@ public class H2TimeSeries implements Externalizable {
 	}
 	
 	/**
-	 * Returns the size of the store in bytes based on the width of the time-series window
+	 * Returns the size of the store in bytes based on the WIDTH of the time-series window
 	 * @return the number of bytes in the store.
 	 */
 	public int storeByteSize() {
@@ -463,16 +465,16 @@ public class H2TimeSeries implements Externalizable {
 	}
 	
 	/**
-	 * Returns the step in ms. 
-	 * @return the step
+	 * Returns the STEP in ms. 
+	 * @return the STEP
 	 */
 	public long getStep() {
 		return step;
 	}
 
 	/**
-	 * Returns the width of the time-series window
-	 * @return the width
+	 * Returns the WIDTH of the time-series window
+	 * @return the WIDTH
 	 */
 	public int getWidth() {
 		return width;
@@ -565,7 +567,7 @@ public class H2TimeSeries implements Externalizable {
 			store.putInt(in.readInt());
 		}
 		SerializationReads.incrementAndGet();
-		//log("Read In. Buff:" + store + " Step:" + step + " Width:" + width + " Size:" + size);		
+		//log("Read In. Buff:" + store + " Step:" + STEP + " Width:" + WIDTH + " Size:" + size);		
 		 
 	}
 
@@ -591,7 +593,7 @@ public class H2TimeSeries implements Externalizable {
 	@Override
 	public String toString() {
 		StringBuilder b = new StringBuilder();
-		b.append("MetricValue[step:").append(step).append(" width:").append(width).append("]");
+		b.append("MetricValue[STEP:").append(step).append(" WIDTH:").append(width).append("]");
 		for(int i = 0; i <= size; i++) {
 			b.append("\n\t").append(entryToString(getArray(i)));
 		}

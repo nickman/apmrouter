@@ -33,6 +33,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.Channel;
 import org.json.JSONObject;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 
@@ -76,12 +77,22 @@ public class GSONJSONMarshaller extends ServerComponentBean implements JSONMarsh
 			bytes = obj.toString().getBytes();
 		} else {
 			bytes = gson.toJson(obj).getBytes();
-		}		
+		}				
 		ChannelBuffer cb = ChannelBuffers.directBuffer(bytes.length);
 		cb.writeBytes(bytes);
 		bytes = null;
 		return cb;
 	}
+	
+	/**
+	 * Marshalls the passed object into JSON and then writes the JSON to a channel buffer and then writes the channel buffer to the passed channel
+	 * @param obj The object to marshall
+	 * @param channel The channel to write to
+	 */
+	public void marshallToChannel(Object obj, Channel channel) {
+		channel.write(marshallToChannel(obj));
+	}
+	
 	
 	/**
 	 * {@inheritDoc}

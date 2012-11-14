@@ -69,6 +69,18 @@ public class MetricData {
 	/** The time-series data for sample counts */
 	@SerializedName("cntdata")
 	protected final List<long[]> cntdata = new ArrayList<long[]>(); 
+	/** The time-series STEP in ms. */
+	protected static long STEP = -1;
+	/** The time-series WIDTH */
+	protected static long WIDTH= -1;
+
+	/** The time-series STEP in ms. */
+	@SerializedName("step")
+	protected final long step;
+	/** The time-series WIDTH */
+	@SerializedName("width")
+	protected final long width;
+	
 
 
 	/**
@@ -77,6 +89,8 @@ public class MetricData {
 	 * @throws SQLException thrown on any result set read errors
 	 */
 	public MetricData(ResultSet rset) throws SQLException {
+		step = STEP;
+		width = WIDTH;
 		agentId = rset.getInt(H2TimeSeriesJSONDataService.AGENT_ID);
 		typeId = rset.getInt(H2TimeSeriesJSONDataService.TYPE_ID);
 		namespace = rset.getString(H2TimeSeriesJSONDataService.NAMESPACE);

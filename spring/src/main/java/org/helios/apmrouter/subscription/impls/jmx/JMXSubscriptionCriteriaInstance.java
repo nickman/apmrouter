@@ -138,8 +138,6 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 				throw new FailedCriteriaResolutionException(criteria, "Failed to add notification listener for non-pattern MBean [" + criteria.getEventFilter() + "]", ex);
 			}
 		}
-		Notification notif = new Notification("subscriber.registration", this, serial.incrementAndGet(), SystemClock.time());
-		//JMXHelper.getHeliosMBeanServer().
 	}
 	
 	
@@ -149,7 +147,7 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 	 * @see org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance#getSubscriptionCriteria()
 	 */
 	@Override
-	public SubscriptionCriteria getSubscriptionCriteria() {
+	public SubscriptionCriteria<String, ObjectName, NotificationFilter> getSubscriptionCriteria() {
 		return criteria;
 	}
 	

@@ -73,4 +73,17 @@ public interface SubscriptionSession {
 	 * @throws FailedCriteriaResolutionException thrown if the criteria cannot be resolved
 	 */
 	public long addCriteria(SubscriptionCriteria<?,?,?> criteria, SubscriptionSession session, JsonRequest request) throws FailedCriteriaResolutionException;
+	
+	/**
+	 * Sends a subscription started notification
+	 * @param criteria The criteria for which the subscription was started
+	 */
+	public void sendSubStarted(SubscriptionCriteriaInstance<?> criteria);
+	
+	/**
+	 * Sends a subscription stopped notification
+	 * @param criteria The criteria for which the subscription was stopped
+	 */
+	public void sendSubStopped(SubscriptionCriteriaInstance<?> criteria);
+	
 }

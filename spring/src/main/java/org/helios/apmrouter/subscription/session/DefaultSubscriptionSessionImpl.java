@@ -28,22 +28,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.atomic.AtomicLong;
-
-import javax.management.NotificationBroadcasterSupport;
 
 import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.dataservice.json.JsonResponse;
 import org.helios.apmrouter.jmx.JMXHelper;
-import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.subscription.SubscriptionService;
 import org.helios.apmrouter.subscription.criteria.FailedCriteriaResolutionException;
 import org.helios.apmrouter.subscription.criteria.RecoverableFailedCriteriaResolutionException;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance;
-import org.springframework.jmx.export.annotation.ManagedNotification;
-import org.springframework.jmx.export.annotation.ManagedNotifications;
 
 /**
  * <p>Title: DefaultSubscriptionSessionImpl</p>
@@ -72,11 +66,11 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 		super();
 		this.subscriptionService = subscriptionService;
 		objectName = JMXHelper.objectName(new StringBuilder(getClass().getPackage().getName())
-			.append("service=SubscriptionSession,")
+			.append(":service=SubscriptionSession,")
 			.append("subscriber=").append(subscriberChannel.getSubscriberId())
 		);
 		this.subscriberChannel = subscriberChannel;
-		this.subscriberChannel.setSubscriptionSession(this);		
+		this.subscriberChannel.setSubscriptionSession(this);					
 	}
 
 
@@ -114,8 +108,9 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 		try {
 			SubscriptionCriteriaInstance<?> sci = criteria.instantiate(request);
 			sci.resolve(session);
-			resolvedCriteria.put(sci.getCriteriaId(), sci);
+			resolvedCriteria.put(sci.getCriteriaId(), sci);			
 			session.send(request.response().setContent(sci.getCriteriaId()));
+			sendSubStarted(sci);
 			return sci.getCriteriaId();
 		} catch (FailedCriteriaResolutionException fce) {
 			if(!(fce instanceof RecoverableFailedCriteriaResolutionException)) {
@@ -134,6 +129,7 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 		if(sci!=null) {
 			sci.terminate();
 			criteria.remove(sci.getSubscriptionCriteria());
+			sendSubStopped(sci);
 			return sci.getSubscriptionCriteria();
 		}
 		return null;
@@ -146,6 +142,23 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 	@Override
 	public long getSubscriptionSessionId() {
 		return subscriberChannel.getSubscriberId();
+	}
+	
+	/**
+	 * Sends a subscription started notification
+	 * @param criteria The criteria for which the subscription was started
+	 */
+	public void sendSubStarted(SubscriptionCriteriaInstance<?> criteria) {
+		subscriptionService.sendSubStarted(criteria);
+	
+	}
+	
+	/**
+	 * Sends a subscription stopped notification
+	 * @param criteria The criteria for which the subscription was stopped
+	 */
+	public void sendSubStopped(SubscriptionCriteriaInstance<?> criteria) {
+		subscriptionService.sendSubStopped(criteria);
 	}
 	
 	

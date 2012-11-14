@@ -156,7 +156,7 @@
 		if(args!=null) {
 			req['args'] = args;
 		}
-		return this.send(req, callback);
+		return $.apmr.send(req, callback);
 	},
 	
 	// subsBySubKey: {},
@@ -195,25 +195,45 @@
 		}
 		req['args'] = args;
 		var cb = callback;		
-		$.apmr.config.subsByReqId[rid] = sub;		
+				
 		var rid = $.apmr.send(req, function(data){
-			var unsubKey = $.subscribe(topic, cb);
-			sub['unsubkey'] = unsubKey;
+			var unsubKey = $.subscribe(topic, cb);			
 			sub['ts'] = new Date().getTime();		
 			sub['subId'] = data.msg;
-		});		
+		});
+		$.apmr.config.subsByReqId[rid] = sub;
 		sub['rid'] = rid;
 		var topic = '/' + 'req' + '/' + rid;
 		sub['topic'] = topic;
 		return sub;
 	},
 	
+	$.apmr.unsub = function(reqId) {
+		var sub = $.apmr.config.subsByReqId[reqId];
+		if(sub==null) return;
+		delete $.apmr.config.subsByReqId[reqId];
+		delete $.apmr.config.subsBySubKey[sub.key];
+		$.unsubscribeTopic(sub.topic);
+		var req = {'t': 'req', 'svc' : 'sub', 'op' : 'stop', 'args' : {'subId' : sub.subId}};
+		$.apmr.send(req, function(data){
+			console.info("Unsubscribed from [%s]", sub.key);
+		});
+		
+		
+		
+		
+	},
+	
 	
 	$.apmr.subtreeOn = function(callback) {
 		var sub = $.apmr.sub(callback || $.apmr.stateChange, "start", "jmx", "service:jmx:local://DefaultDomain", "org.helios.apmrouter.session:service=SharedChannelGroup");
-		console.info("Started Sub [#%s] for [%s]-[%s]", sub.topic, "service:jmx:local://DefaultDomain", "org.helios.apmrouter.session:service=SharedChannelGroup");
-		var subHandle = $.subscribe(sub.topic, callback || $.apmr.stateChange);
-		sub.subHandle = subHandle;		
+		if(sub==null) {  // restart the sub.
+			console.warn("Need to restart sub");
+		} else {
+			console.info("Started Sub [#%s] for [%s]-[%s]", sub.topic, "service:jmx:local://DefaultDomain", "org.helios.apmrouter.session:service=SharedChannelGroup");
+			var subHandle = $.subscribe(sub.topic, callback || $.apmr.stateChange);
+			sub.subHandle = subHandle;
+		}
 	},
 	$.apmr.subMetricOn = function(metricId, callback) {
 		var sub = $.apmr.sub(callback || $.apmr.liveMetric, 
@@ -223,10 +243,17 @@
 				"org.helios.apmrouter.destination:service=H2TimeSeriesDestination,name=H2TimeSeriesDestination",
 				['apmrouter.h2timeseries.intervalroll.' + metricId]
 		);
-		console.info("Started Sub [#%s] for [%s]-[%s]", sub.topic, "service:jmx:local://DefaultDomain", "org.helios.apmrouter.destination:service=H2TimeSeriesDestination,name=H2TimeSeriesDestination");
-		var subHandle = $.subscribe(sub.topic, callback || $.apmr.stateChange);
-		sub.subHandle = subHandle;		
+		if(sub!=null) {
+			console.info("Started Sub [#%s] for [%s]-[%s]", sub.topic, "service:jmx:local://DefaultDomain", "org.helios.apmrouter.destination:service=H2TimeSeriesDestination,name=H2TimeSeriesDestination");
+			var subHandle = $.subscribe(sub.topic, callback || $.apmr.stateChange);
+			sub.subHandle = subHandle;
+			return sub['rid'];
+		}
 	},
+	$.apmr.subMetricOff = function(reqId, callback) {
+		$.apmr.unsub(reqId);
+	},
+	
 	
 	$.apmr.liveMetric = function(event) {
 		console.info("LIVE METRIC:%o", event);
@@ -367,7 +394,7 @@
 		});						
 	},
 	$.apmr.liveData = function(ids, callback) {
-		$.apmr.svcOp("h2ts", "liveData", {'IDS':ids}, callback || function(data){
+		return $.apmr.svcOp("h2ts", "liveData", {'IDS':$.isArray(ids) ? ids : [ids]}, callback || function(data){
 			console.info("Live Data Response:%o", data);
 		});						
 	}
