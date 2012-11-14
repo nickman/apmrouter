@@ -59,6 +59,8 @@ import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedOperation;
 import org.springframework.jmx.export.annotation.ManagedResource;
 import org.springframework.jmx.export.naming.SelfNaming;
+import org.springframework.jmx.export.notification.NotificationPublisher;
+import org.springframework.jmx.export.notification.NotificationPublisherAware;
 
 /**
  * <p>Title: ServerComponentBean</p>
@@ -76,7 +78,9 @@ public abstract class ServerComponentBean extends ServerComponent implements
 		ApplicationEventMulticaster,
 		SelfNaming,
 		InitializingBean,
+		NotificationPublisherAware,
 		DisposableBean {
+
 
 	/** The application context for this bean */
 	protected GenericApplicationContext applicationContext = null;
@@ -96,7 +100,8 @@ public abstract class ServerComponentBean extends ServerComponent implements
 	protected final Set<Class<? extends ApplicationEvent>> supportedEventTypes = new HashSet<Class<? extends ApplicationEvent>>();
 	/** Source types that this component accepts application events from */
 	protected final Set<Class<?>> supportedEventSourceTypes = new HashSet<Class<?>>();
-	
+	/** The notification publisher */
+	protected NotificationPublisher notificationPublisher = null;
 	
 	/**
 	 * Creates a new ServerComponentBean.
@@ -464,5 +469,15 @@ public abstract class ServerComponentBean extends ServerComponent implements
 	public void onApplicationContextClose(ContextClosedEvent event) {
 		trace("AppCtx [", event.getApplicationContext().getDisplayName(), "] Closed");		
 	}
+	
+	/**
+	 * Sets the notification publisher
+	 * @param notificationPublisher the notificationPublisher to set
+	 */
+	@Override
+	public void setNotificationPublisher(NotificationPublisher notificationPublisher) {
+		this.notificationPublisher = notificationPublisher;
+	}
+	
 
 }

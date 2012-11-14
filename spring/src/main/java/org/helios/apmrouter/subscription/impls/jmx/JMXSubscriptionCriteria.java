@@ -57,6 +57,8 @@ public class JMXSubscriptionCriteria implements SubscriptionCriteria<String, Obj
 	protected final Set<ObjectName> failedObjectNames = new CopyOnWriteArraySet<ObjectName>();
 	/** The builder that built this criteria */
 	protected final JMXSubscriptionCriteriaBuilder builder;
+	/** The arbitrary criteria key */
+	protected Object subscriptionKey = null;
 	
 	
 	/**
@@ -77,6 +79,22 @@ public class JMXSubscriptionCriteria implements SubscriptionCriteria<String, Obj
 	
 	/**
 	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.subscription.criteria.SubscriptionCriteria#getSubcriptionKey()
+	 */
+	public Object getSubcriptionKey() {
+		return subscriptionKey;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.subscription.criteria.SubscriptionCriteria#setSubcriptionKey(java.lang.Object)
+	 */
+	public void setSubcriptionKey(Object subscriptionKey) {
+		this.subscriptionKey = subscriptionKey;
+	}
+	
+	/**
+	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.subscription.criteria.SubscriptionCriteria#getBuilder()
 	 */
 	public JMXSubscriptionCriteriaBuilder getBuilder() {
@@ -89,7 +107,7 @@ public class JMXSubscriptionCriteria implements SubscriptionCriteria<String, Obj
 	 * @see org.helios.apmrouter.subscription.criteria.SubscriptionCriteria#instantiate(org.helios.apmrouter.dataservice.json.JsonRequest)
 	 */
 	public SubscriptionCriteriaInstance<?> instantiate(JsonRequest request) {
-		return new JMXSubscriptionCriteriaInstance(this, request);
+		return new JMXSubscriptionCriteriaInstance(this, request, subscriptionKey);
 	}
 
 

@@ -27,21 +27,28 @@ package org.helios.apmrouter.subscription;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+
+import javax.management.Notification;
 
 import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
+import org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance;
 import org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilder;
 import org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilderStartedEvent;
 import org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilderStoppedEvent;
 import org.helios.apmrouter.subscription.session.DefaultSubscriptionSessionImpl;
 import org.helios.apmrouter.subscription.session.NettySubscriberChannel;
 import org.helios.apmrouter.subscription.session.SubscriptionSession;
+import org.helios.apmrouter.util.SystemClock;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelLocal;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedNotification;
+import org.springframework.jmx.export.annotation.ManagedNotifications;
 
 /**
  * <p>Title: SubscriptionService</p>
@@ -58,12 +65,46 @@ import org.springframework.jmx.export.annotation.ManagedAttribute;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.subscription.SubscriptionService</code></p>
  */
+@ManagedNotifications({
+	@ManagedNotification(notificationTypes={SubscriptionService.NOTIF_SUB_STARTED}, name="javax.management.Notification", description="Notification issued when a subscription session starts a new subscription"),
+	@ManagedNotification(notificationTypes={SubscriptionService.NOTIF_SUB_STOPPED}, name="javax.management.Notification", description="Notification issued when a subscription session stops a subscription")
+})
+public class SubscriptionService extends ServerComponentBean  {
 
-public class SubscriptionService extends ServerComponentBean {
 	/** A channel local of subscription sessions */
 	protected final ChannelLocal<SubscriptionSession> subSessions = new ChannelLocal<SubscriptionSession>(true);
 	/** A map of available {@link SubscriptionCriteriaBuilder} instances keyed by their bean name */
 	protected final Map<String, SubscriptionCriteriaBuilder<?,?,?>> builders = new ConcurrentHashMap<String, SubscriptionCriteriaBuilder<?,?,?>>();
+	/** Serial number generator for jmx notifications */
+	protected final AtomicLong jmxNotifSerial = new AtomicLong(0L);
+	
+	
+	/** Notification type for a subscription started event */
+	public static final String NOTIF_SUB_STARTED = "subscription.started";
+	/** Notification type for a subscription stopped event */
+	public static final String NOTIF_SUB_STOPPED = "subscription.stopped";
+	
+	
+	/**
+	 * Sends a subscription started notification
+	 * @param criteria The criteria for which the subscription was started
+	 */
+	public void sendSubStarted(SubscriptionCriteriaInstance<?> criteria) {
+		Notification notif = new Notification(NOTIF_SUB_STARTED, objectName, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Subscription Started [" + criteria + "]");
+		notif.setUserData(criteria.getSubcriptionKey());
+		sendNotification(notif);
+	}
+	
+	/**
+	 * Sends a subscription stopped notification
+	 * @param criteria The criteria for which the subscription was stopped
+	 */
+	public void sendSubStopped(SubscriptionCriteriaInstance<?> criteria) {
+		Notification notif = new Notification(NOTIF_SUB_STOPPED, objectName, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Subscription Stopped [" + criteria + "]");
+		notif.setUserData(criteria.getSubcriptionKey());
+		sendNotification(notif);		
+	}
+	
 	
 	/**
 	 * <p>Responds <code>true</code> for {@link SubscriptionCriteriaBuilderStartedEvent}s or {@link SubscriptionCriteriaBuilderStoppedEvent}s.
@@ -134,7 +175,7 @@ public class SubscriptionService extends ServerComponentBean {
 			synchronized(this) {
 				session = subSessions.get(channel);
 				if(session==null) {
-					session = new DefaultSubscriptionSessionImpl(new NettySubscriberChannel(channel));					
+					session = new DefaultSubscriptionSessionImpl(this, new NettySubscriberChannel(channel));					
 					subSessions.set(channel, session);					
 				}
 			}
@@ -193,6 +234,7 @@ public class SubscriptionService extends ServerComponentBean {
 		if(channel==null) throw new IllegalArgumentException("The passed channel was null", new Throwable());
 		startSubscriptionSession(channel);
 		SubscriptionSession session = subSessions.get(channel);
+		info("Added Criteria for channel [", channel.getId(), "]\n", criteria);
 		return session.addCriteria(criteria, session, request);
 	}
 	
@@ -213,4 +255,16 @@ public class SubscriptionService extends ServerComponentBean {
 	public SubscriptionCriteriaBuilder<?,?,?> getBuilder(String builderName) {
 		return builders.get(builderName);
 	}
+	
+
+	/**
+	 * Sends a notification
+	 * @param notification The notification to send
+	 * @see javax.management.NotificationBroadcasterSupport#sendNotification(javax.management.Notification)
+	 */
+	public void sendNotification(Notification notification) {
+		notificationPublisher.sendNotification(notification);
+	}
+	
+
 }

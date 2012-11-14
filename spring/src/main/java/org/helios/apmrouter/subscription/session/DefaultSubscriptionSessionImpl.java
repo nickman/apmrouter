@@ -28,14 +28,22 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.atomic.AtomicLong;
+
+import javax.management.NotificationBroadcasterSupport;
 
 import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.dataservice.json.JsonResponse;
+import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.subscription.SubscriptionService;
 import org.helios.apmrouter.subscription.criteria.FailedCriteriaResolutionException;
 import org.helios.apmrouter.subscription.criteria.RecoverableFailedCriteriaResolutionException;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance;
+import org.springframework.jmx.export.annotation.ManagedNotification;
+import org.springframework.jmx.export.annotation.ManagedNotifications;
 
 /**
  * <p>Title: DefaultSubscriptionSessionImpl</p>
@@ -44,27 +52,29 @@ import org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.subscription.session.DefaultSubscriptionSessionImpl</code></p>
  */
-
 public class DefaultSubscriptionSessionImpl extends ServerComponentBean implements SubscriptionSession {
+	/** A reference to the subscription service */
+	protected final SubscriptionService subscriptionService;
 	/** The session's subscriber channel */
 	protected final SubscriberChannel subscriberChannel;
 	/** The registered criteria */
 	protected final Set<SubscriptionCriteria<?,?,?>> criteria = new CopyOnWriteArraySet<SubscriptionCriteria<?,?,?>>();
 	/** The resolved criteria keyed by the criteria Id.*/
 	protected final Map<Long, SubscriptionCriteriaInstance<?>> resolvedCriteria = new ConcurrentHashMap<Long, SubscriptionCriteriaInstance<?>>();
-//	/** The unique ID for this session */
-//	public final long sessionId; 
-//	/** Serial number generator for subscriptions  */
-//	protected static final AtomicLong serial = new AtomicLong(0L);
-	
 	
 	
 	/**
 	 * Creates a new DefaultSubscriptionSessionImpl
+	 * @param subscriptionService A reference to the subscription service
 	 * @param subscriberChannel The session's subscriber channel
 	 */
-	public DefaultSubscriptionSessionImpl(SubscriberChannel subscriberChannel) {
+	public DefaultSubscriptionSessionImpl(SubscriptionService subscriptionService, SubscriberChannel subscriberChannel) {
 		super();
+		this.subscriptionService = subscriptionService;
+		objectName = JMXHelper.objectName(new StringBuilder(getClass().getPackage().getName())
+			.append("service=SubscriptionSession,")
+			.append("subscriber=").append(subscriberChannel.getSubscriberId())
+		);
 		this.subscriberChannel = subscriberChannel;
 		this.subscriberChannel.setSubscriptionSession(this);		
 	}
@@ -83,6 +93,7 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 		resolvedCriteria.clear();
 		criteria.clear();
 	}
+	
 	
 	/**
 	 * Sends a {@link JsonResponse} to the subscriber
@@ -136,5 +147,7 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 	public long getSubscriptionSessionId() {
 		return subscriberChannel.getSubscriberId();
 	}
+	
+	
 
 }

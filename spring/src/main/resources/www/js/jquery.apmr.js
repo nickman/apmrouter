@@ -194,15 +194,17 @@
 			
 		}
 		req['args'] = args;
+		var cb = callback;		
+		$.apmr.config.subsByReqId[rid] = sub;		
 		var rid = $.apmr.send(req, function(data){
-			callback(data);			
+			var unsubKey = $.subscribe(topic, cb);
+			sub['unsubkey'] = unsubKey;
 			sub['ts'] = new Date().getTime();		
 			sub['subId'] = data.msg;
-		});
-		var topic = '/' + 'req' + '/' + rid;
+		});		
 		sub['rid'] = rid;
+		var topic = '/' + 'req' + '/' + rid;
 		sub['topic'] = topic;
-		$.apmr.config.subsByReqId[rid] = sub;
 		return sub;
 	},
 	

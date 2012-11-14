@@ -58,5 +58,11 @@ public interface SubscriptionCriteriaInstance<T> {
 	 * Returns the subscription criteria that this instance was resolved from
 	 * @return the subscription criteria that this instance was resolved from
 	 */
-	public SubscriptionCriteria getSubscriptionCriteria();
+	public SubscriptionCriteria<?,?,?> getSubscriptionCriteria();
+	
+	/**
+	 * An optional key of arbitrary type so subscription start/stop listeners can determine what the subscriber is looking for
+	 * @return The subscription key, or null if the criteria does not support this
+	 */
+	public Object getSubcriptionKey();
 }

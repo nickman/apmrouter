@@ -100,7 +100,19 @@ public interface SubscriptionCriteria<S, F, E> {
 	 * Returns the builder that built this criteria
 	 * @return the builder that built this criteria
 	 */
-	public SubscriptionCriteriaBuilder getBuilder();
+	public SubscriptionCriteriaBuilder<S,F,E> getBuilder();
+	
+	/**
+	 * An optional key of arbitrary type so subscription start/stop listeners can determine what the subscriber is looking for
+	 * @return The subscription key, or null if the criteria does not support this
+	 */
+	public Object getSubcriptionKey();
+	
+	/**
+	 * Sets the subscription key
+	 * @param subscriptionKey the subscription key
+	 */
+	public void setSubcriptionKey(Object subscriptionKey);
 	
 	
 }

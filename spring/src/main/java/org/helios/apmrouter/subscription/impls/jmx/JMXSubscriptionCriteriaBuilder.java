@@ -24,6 +24,9 @@
  */
 package org.helios.apmrouter.subscription.impls.jmx;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import javax.management.NotificationFilter;
 import javax.management.NotificationFilterSupport;
 import javax.management.ObjectName;
@@ -67,11 +70,13 @@ public class JMXSubscriptionCriteriaBuilder extends AbstractSubscriptionCriteria
 		JSONArray simpleFilterExpression = subRequest.getArgumentOrNull(JSON_SIMPLE_TYPE_FILTER, JSONArray.class);
 		
 		NotificationFilter filter = null;
+		Set<String> enabledTypes = new HashSet<String>();
 		if(simpleFilterExpression!=null) {
 			filter = new NotificationFilterSupport();
 			for(int i = 0; i < simpleFilterExpression.length(); i++) {
 				try {
 					((NotificationFilterSupport)filter).enableType(simpleFilterExpression.getString(i).trim());
+					enabledTypes.add(simpleFilterExpression.getString(i).trim());
 				} catch (IllegalArgumentException | JSONException e) {
 					throw new RuntimeException("Failed to parse simple filter expression", e);
 				}
@@ -80,7 +85,11 @@ public class JMXSubscriptionCriteriaBuilder extends AbstractSubscriptionCriteria
 		} else if(filterExpression!=null && !filterExpression.trim().isEmpty()) {
 			filter = compileFilter(filterExpression);
 		}
-		return new JMXSubscriptionCriteria(this, eventSourceName, objectName, filter);
+		JMXSubscriptionCriteria criteria = new JMXSubscriptionCriteria(this, eventSourceName, objectName, filter);
+		if(!enabledTypes.isEmpty()) {
+			criteria.setSubcriptionKey(enabledTypes.toArray(new String[enabledTypes.size()]));
+		}
+		return criteria;
 	}
 	
 	/**

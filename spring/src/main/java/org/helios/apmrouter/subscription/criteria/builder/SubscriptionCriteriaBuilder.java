@@ -50,7 +50,7 @@ public interface SubscriptionCriteriaBuilder<S, F, E> {
 	/** The json key for the extended filter */
 	public static final String JSON_EXTENDED_EVENT_FILTER = "exf";
 	/** The json key for the simple type filter */
-	public static final String JSON_SIMPLE_TYPE_FILTER = "stff";
+	public static final String JSON_SIMPLE_TYPE_FILTER = "stf";
 	
 	
 	/**

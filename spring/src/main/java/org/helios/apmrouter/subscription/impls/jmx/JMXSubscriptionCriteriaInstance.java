@@ -32,6 +32,7 @@ import javax.management.MBeanServerConnection;
 import javax.management.MBeanServerDelegate;
 import javax.management.MBeanServerNotification;
 import javax.management.Notification;
+import javax.management.NotificationBroadcasterSupport;
 import javax.management.NotificationFilter;
 import javax.management.NotificationListener;
 import javax.management.ObjectName;
@@ -41,12 +42,12 @@ import javax.management.remote.JMXServiceURL;
 
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.dataservice.json.JsonRequest;
-import org.helios.apmrouter.dataservice.json.JsonResponse;
 import org.helios.apmrouter.subscription.criteria.FailedCriteriaResolutionException;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance;
 import org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilder;
 import org.helios.apmrouter.subscription.session.SubscriptionSession;
+import org.helios.apmrouter.util.SystemClock;
 
 /**
  * <p>Title: JMXSubscriptionCriteriaInstance</p>
@@ -63,7 +64,6 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 	protected final JMXSubscriptionCriteria criteria;
 	/** The original json request issued for this subscription */
 	protected final JsonRequest request;
-	
 	/** The JMXConnector used to connect to the MBeanServer */
 	protected JMXConnector jmxConnector = null;
 	/** The managing subscription session */
@@ -74,6 +74,8 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 	protected final Set<ObjectName> objectNames = new CopyOnWriteArraySet<ObjectName>();
 	/** A set of ObjectNames this criteria failed to activated for */
 	protected final Set<ObjectName> failedObjectNames = new CopyOnWriteArraySet<ObjectName>();
+	/** The arbitrary criteria key */
+	protected Object subscriptionKey = null;
 	
 	/** The assigned internal serial number for this subscription */
 	protected final Long jmxSubId;
@@ -87,12 +89,14 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 	 * Creates a new JMXSubscriptionCriteriaInstance
 	 * @param criteria The criteria this instance will be resolved from
 	 * @param request The original json request issued for this subscription
+	 * @param subscriptionKey The arbitrary subscription key
 	 */
-	JMXSubscriptionCriteriaInstance(JMXSubscriptionCriteria criteria, JsonRequest request) {
+	JMXSubscriptionCriteriaInstance(JMXSubscriptionCriteria criteria, JsonRequest request, Object subscriptionKey) {
 		super();
 		this.criteria = criteria;
 		this.request = request;
 		jmxSubId = serial.incrementAndGet();
+		this.subscriptionKey = subscriptionKey;
 	}
 	
 	/**
@@ -134,7 +138,11 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 				throw new FailedCriteriaResolutionException(criteria, "Failed to add notification listener for non-pattern MBean [" + criteria.getEventFilter() + "]", ex);
 			}
 		}
+		Notification notif = new Notification("subscriber.registration", this, serial.incrementAndGet(), SystemClock.time());
+		//JMXHelper.getHeliosMBeanServer().
 	}
+	
+	
 	
 	/**
 	 * {@inheritDoc}
@@ -274,6 +282,21 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 		return criteria.getBuilder();
 	}
 
-
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.subscription.criteria.SubscriptionCriteria#getSubcriptionKey()
+	 */
+	@Override
+	public Object getSubcriptionKey() {
+		return subscriptionKey;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.subscription.criteria.SubscriptionCriteria#setSubcriptionKey(java.lang.Object)
+	 */
+	public void setSubcriptionKey(Object subscriptionKey) {
+		this.subscriptionKey = subscriptionKey;
+	}
 
 }

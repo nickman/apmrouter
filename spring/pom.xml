@@ -16,6 +16,22 @@
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 	</properties>
 	<dependencies>
+		<!-- MongoDb -->
+   <dependency>
+      <groupId>org.springframework.data</groupId>
+      <artifactId>spring-data-mongodb</artifactId>
+      <version>1.0.3.RELEASE</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>de.flapdoodle.embed</groupId>
+      <artifactId>de.flapdoodle.embed.mongo</artifactId>
+      <version>1.26</version>
+      <scope>test</scope>
+    </dependency>	
+	
+	
+	
 		<!--  SNMP Events -->
 		<dependency>
 		  <groupId>org.snmp4j</groupId>
