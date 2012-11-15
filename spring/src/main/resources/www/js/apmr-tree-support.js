@@ -1,5 +1,6 @@
 	var metricTree = null;	
 	var treeClickChart = null;
+	var metricModelCache = {};
 	function rebuildNamespace(value) {
 		value.shift(); value.shift(); value.shift(); value.shift();
 		return value.join('');				
@@ -58,7 +59,8 @@
 				animation : 0
 			},
 			json_data : {
-				progressive_render : false,
+				progressive_render : true,
+				progressive_unload: true,
 				data : function(node, callback) {
 					populateNode(node, callback);
 				}
@@ -151,9 +153,14 @@
 		                	//$('#metric-191').parentsUntil('[rel*=agent]')
 		                	
 		                	var metricId = parseInt($(me).attr('metric'));
+		                	var metric = $(me).attr('metricBody');
 		                	var hostName = $('#metric-' + metricId).parentsUntil('[hostn]').last().parent().attr('hostn');
 		                	var agentName = $('#metric-' + metricId).parentsUntil('[agentn]').last().parent().attr('agentn');
-		                	$.apmr.liveData([metricId], function(tsdata){
+		                	$.apmr.liveData([metricId], function(tsdata){		                		
+		                		var model = createChartModels(tsdata)[metricId];
+		                		console.info("Live Data Backlog Model Data for [%s]:%o", metricId, model.extractSeries(2)[0]);
+		                		$('#chartContainer').empty();
+		                		//metricModelCache
 		                		treeClickChart = new Highcharts.Chart({
 		                	        chart: {
 		                	            renderTo: 'chartContainer',
@@ -172,11 +179,11 @@
 		                	        	showDuration: 0
 		                	        },
 		                	        title: {
-		                	            text: tsdata.msg[0].namespace  
+		                	            text: model.metricDef.ns  
 		                	        },
 		                	        series: [{
-		                	        	name: tsdata.msg[0].name,
-		                	            data: tsdata.msg[0].avgdata,
+		                	        	name: model.metricDef.name,
+		                	            data: model.extractedSeries[ChartModel.AVG],
 		                	            animation: false
 		                	        }]
 		                	    });		                		
@@ -281,10 +288,15 @@
 						var uid = "metric-" + metric.id;
 						if($('#' + uid).length==0) {
 							var newNode = {
-									attr: {id: uid, rel: "metric", 'metric' : metric.id, metricBody : metric},  
+									attr: {id: uid, rel: "metric", 'metric' : metric.id},  
 									data : {title: metric.name}									
 								};
 							callback([newNode]);
+							metricModelCache[metric.id] = metric;
+							$('#' + uid).livequery(function(){}, function(){
+								delete metricModelCache[metric.id];
+								console.info("Deleted metricModelCache Entry [%s]", metric.id);
+							});							
 						}
 					});							
 					
@@ -293,8 +305,7 @@
 						$.each(data.msg, function(index, arr) {
 							var folder = arr[0];
 							var mlevel = arr[1];
-							var isMetricFolder = (mlevel-level==1);
-							console.info("FOLDER MLEVEL [%s]-[%s]", folder, isMetricFolder);							
+							var isMetricFolder = (mlevel-level==1);														
 							var uid = "folder-" + agentId + "-" + folder.replace('=', '_');
 							if($('#' + uid).length==0) {
 								var newNode = {
@@ -320,11 +331,16 @@
 						var uid = "metric-" + metric.id;
 						if($('#' + uid).length==0) {
 							var newNode = {
-									attr: {id: uid, rel: "metric", 'metric' : metric.id, metricBody : metric},  
+									attr: {id: uid, rel: "metric", 'metric' : metric.id},  
 									data : {title: metric.name}									
 								}; 
-							callback([newNode]);
+							callback([newNode]);							
 							$('#' + $(node).attr('id')).attr('rel', 'metric-folder');
+							metricModelCache[metric.id] = metric;
+							$('#' + uid).livequery(function(){}, function(){
+								delete metricModelCache[metric.id];
+								console.info("Deleted metricModelCache Entry [%s]", metric.id);
+							});
 						}
 					});							
 					//fixOpen(nodeArray);
@@ -333,8 +349,7 @@
 						$.each(data.msg, function(index, arr) {
 							var folder = arr[0];
 							var mlevel = arr[1];
-							var isMetricFolder = (mlevel-level==1);
-							console.info("FOLDER MLEVEL [%s]-[%s]", folder, isMetricFolder);							
+							var isMetricFolder = (mlevel-level==1);														
 							if(folder!=null) {
 								var uid = "folder-" + agentId + "-" + folder.replace('=', '_');
 								if($('#' + uid).length==0) {
@@ -360,6 +375,59 @@
 			
 		});
 	}
+	
+	var ChartModel = Class.extend({
+		extractedSeries : new Object(),
+		metricDef : null,
+		metricId : -1,
+		rawData : null,
+		
+		init: function(m, d){
+			this.metricDef = m;
+			this.rawData = d;
+			this.metricId = m.id;
+			var st = new Date().getTime();
+			for(var i = 0, l = 4; i < l; i++) {
+				this.extractSeries(i);
+			}			
+			var endt = new Date().getTime();
+			console.info("EXS:%s ms.", (endt-st));
+		},
+		extractSeries : function(series) {
+			if(series < ChartModel.MIN || series > ChartModel.CNT) throw "Invalid Series Type:" + series;
+			if(this.extractedSeries[series]!=null) return this.extractedSeries[series];
+			var arr = [];
+			$.each(this.rawData, function(ts, values) {
+				arr.push([ts, values[0][series]]);
+			});
+			this.extractedSeries[series] = arr;
+			return arr;
+		}
+	});
+	
+	ChartModel.MIN = 0;
+	ChartModel.MAX = 1;
+	ChartModel.AVG = 2;
+	ChartModel.CNT = 3;
+	
+
+	function createChartModels(json) {
+		var chartModels = {};
+		$.each(json.msg, function(index, entry){
+			if('rerid'!=entry && 't'!=entry ) {
+				var id = -1;
+				try { id = parseFloat(index) } catch (e) {}
+				if(id!=-1) {
+					var metric = metricModelCache[id];
+					if(metric!=null) {
+						chartModels[id] = new ChartModel(metric, json.msg[id]);
+						metricModelCache[id] = chartModels[id]; 
+					}
+				}
+			}
+		});
+		return chartModels;
+	}	
 			
 /*
 		$('li.jstree-closed>a').livequery(function(){
