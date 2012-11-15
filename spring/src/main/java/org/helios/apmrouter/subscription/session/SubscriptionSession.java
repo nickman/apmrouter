@@ -86,4 +86,9 @@ public interface SubscriptionSession {
 	 */
 	public void sendSubStopped(SubscriptionCriteriaInstance<?> criteria);
 	
+	/**
+	 * Cancels all the subscriptions for this session
+	 */
+	public void cancelAll();	
+	
 }

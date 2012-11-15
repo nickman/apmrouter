@@ -55,6 +55,10 @@
             </column>
         </property>
     </class>
+    <query name="metricById">from metric m where m.metricId = :metricId
+    	<query-param name="metricId" type="java.lang.Long"/>
+    </query>    
+    
     <query name="allMetricsForAgent">from metric m where m.agent.agentId = :agentId
     	<query-param name="agentId" type="java.lang.Integer"/>
     </query>    

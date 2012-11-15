@@ -42,6 +42,12 @@
     
       <script>
         $(document).ready(function() {
+        	Highcharts.setOptions({
+                global: {
+                    useUTC: false
+                }
+            });	
+        	
           $("div.column-divider").draggable({
             axis: 'x', // only allow horizontal movement
             drag: function(event, ui) {

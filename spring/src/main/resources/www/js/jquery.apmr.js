@@ -397,6 +397,11 @@
 		return $.apmr.svcOp("h2ts", "liveData", {'IDS':$.isArray(ids) ? ids : [ids]}, callback || function(data){
 			console.info("Live Data Response:%o", data);
 		});						
+	},
+	$.apmr.metricById = function(metricId, callback) {
+		$.apmr.svcOp("catalog", "nq", {name:"metricById", p : {'metricId' : metricId}}, callback || function(data){
+			console.info("metricById Response:%o", data);
+		});										
 	}
 	
 	

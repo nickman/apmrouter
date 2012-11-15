@@ -92,6 +92,7 @@ public class SubscriptionDataService {
 	 */
 	@JSONRequestHandler(name="stopall")
 	public void stopAll(JsonRequest request, Channel channel) {
+		SubscriptionSession subSession = subService.getSubscriptionSession(channel);
 		
 	}
 

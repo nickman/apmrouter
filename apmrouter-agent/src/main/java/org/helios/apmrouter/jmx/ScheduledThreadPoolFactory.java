@@ -376,7 +376,7 @@ public class ScheduledThreadPoolFactory extends ScheduledThreadPoolExecutor impl
 	@Override
 	public Thread newThread(Runnable r) {
 		Thread t = new Thread(r, name + "SchedulerThread#" + serial.incrementAndGet());
-		t.setDaemon(daemonThreads);
+		t.setDaemon(true);
 		t.setUncaughtExceptionHandler(this);
 		return t;
 	}

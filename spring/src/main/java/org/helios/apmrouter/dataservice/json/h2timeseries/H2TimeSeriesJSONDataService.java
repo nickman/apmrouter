@@ -27,11 +27,9 @@ package org.helios.apmrouter.dataservice.json.h2timeseries;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -72,8 +70,12 @@ public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 	protected long step = -1;
 	/** The time-series WIDTH */
 	protected long width= -1;
+	/** A map containing the step and width, keyed by json keys */
+	protected Map<String, Long> stepWidth = null;
+	/** The time-series WIDTH as an int */
+	protected int widthAsInt = -1;
 	
-	/** The last liveData elapsed query time in ms */
+	/** A sliding window of liveData elapsed query time in ns */
 	protected final ConcurrentLongSlidingWindow lastElapsedLiveData = new ConcurrentLongSlidingWindow(60);
 
 
@@ -108,8 +110,13 @@ public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 	protected void doStart() throws Exception {
 		step = h2Dest.getTimeSeriesStep();
 		width = h2Dest.getTimeSeriesWidth();
+		widthAsInt = width>Integer.MAX_VALUE ? Integer.MAX_VALUE : (int)width; 
 		MetricData.STEP = step;
 		MetricData.WIDTH = width;
+		Map<String, Long> m = new HashMap<String, Long>(2);
+		m.put("step", step);
+		m.put("width", width);
+		stepWidth = Collections.unmodifiableMap(m);
 	}
 
 	/**
@@ -128,8 +135,7 @@ public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 		
 		Connection conn = null;
 		CallableStatement cs = null;
-		ResultSet rset = null;
-		List<MetricData> response = new ArrayList<MetricData>(ids.length());
+		ResultSet rset = null;		
 		try {
 //			StringBuilder sql = new StringBuilder("SELECT * FROM RICH_METRIC_DATA WHERE ID IN (");
 //			sql.append(ids.toString().replace("[", "").replace("]", "")).append(")");
@@ -142,43 +148,32 @@ public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 			cs = conn.prepareCall(sql.toString());
 			//cs.registerOutParameter(1, Types.OTHER);
 			rset = cs.executeQuery();
-			Map<Long, Map<Long, Set<long[]>>> metricSet = null;
+			Set<long[]> metricSet = null;
 			long currentId = -1;
 			while(rset.next()) {
-				long id = rset.getLong(1);
+				final long id = rset.getLong(1);
 				if(id!=currentId) {					
 					if(metricSet==null) {
-						metricSet = new HashMap<Long, Map<Long, Set<long[]>>>(1);
-						Map<Long, Set<long[]>> tsMap = new TreeMap<Long, Set<long[]>>();
-						metricSet.put(id, tsMap);
-						tsMap.put(rset.getTimestamp(2).getTime(), new LinkedHashSet<long[]>(Arrays.asList(new long[]{
-								rset.getLong(3), rset.getLong(4), rset.getLong(5), rset.getLong(6)
-						})));
-						
+						metricSet = new LinkedHashSet<long[]>(widthAsInt);
+						metricSet.add(new long[]{
+								rset.getTimestamp(2).getTime(), rset.getLong(3), rset.getLong(4), rset.getLong(5), rset.getLong(6)
+						});						
 					} else {
-						//gsonMarshaller.marshallToChannel(metricSet, channel);
-						channel.write(request.response().setContent(metricSet));  // TODO: replace this with a pojo
-						metricSet = new HashMap<Long, Map<Long, Set<long[]>>>(1);
-						Map<Long, Set<long[]>> tsMap = new TreeMap<Long, Set<long[]>>();
-						metricSet.put(id, tsMap);
-						tsMap.put(rset.getTimestamp(2).getTime(), new LinkedHashSet<long[]>(Arrays.asList(new long[]{
-								rset.getLong(3), rset.getLong(4), rset.getLong(5), rset.getLong(6)
-						})));												
+						channel.write(request.response().setContent(new Object[]{id, stepWidth, metricSet}));  // TODO: replace this with a pojo
+						metricSet = new LinkedHashSet<long[]>(widthAsInt);
+						metricSet.add(new long[]{
+								rset.getTimestamp(2).getTime(), rset.getLong(3), rset.getLong(4), rset.getLong(5), rset.getLong(6)
+						});						
 					}
 					currentId = id;
 				} else {
-					Map<Long, Set<long[]>> tsMap = metricSet.get(id);
-					long ts = rset.getTimestamp(2).getTime();
-					Set<long[]> data = tsMap.get(ts);
-					if(data==null) {
-						data = new LinkedHashSet<long[]>();
-						tsMap.put(ts, data);
-					}
-					data.add(new long[]{rset.getLong(3), rset.getLong(4), rset.getLong(5), rset.getLong(6)});					
+					metricSet.add(new long[]{
+							rset.getTimestamp(2).getTime(), rset.getLong(3), rset.getLong(4), rset.getLong(5), rset.getLong(6)
+					});						
 				}				
 			}
-			if(!metricSet.isEmpty()) {
-				channel.write(request.response().setContent(metricSet));  // TODO: replace this with a pojo
+			if(metricSet!=null && !metricSet.isEmpty()) {
+				channel.write(request.response().setContent(new Object[]{currentId, stepWidth, metricSet}));  // TODO: replace this with a pojo
 				//gsonMarshaller.marshallToChannel(metricSet, channel);
 			}
 //			MetricData md = null;
@@ -228,6 +223,36 @@ public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 	@ManagedMetric(category="H2TimeSeriesJSONDataService", metricType=MetricType.GAUGE, description="the rolling average of the liveData query times in ns")
 	public long getRollingLiveDataQueryTimeNs() {
 		return lastElapsedLiveData.avg(); 
+	}
+	
+	/**
+	 * Returns the last liveData query time in ns
+	 * @return the last liveData query time in ns, or -1 if there is no history
+	 */
+	@ManagedMetric(category="H2TimeSeriesJSONDataService", metricType=MetricType.GAUGE, description="the last liveData query time in ns")
+	public long getLastLiveDataQueryTimeNs() {
+		return lastElapsedLiveData.isEmpty() ? -1L : lastElapsedLiveData.get(0); 
+	}
+	
+	/**
+	 * Returns the last liveData query time in ms
+	 * @return the last liveData query time in ms, or -1 if there is no history
+	 */
+	@ManagedMetric(category="H2TimeSeriesJSONDataService", metricType=MetricType.GAUGE, description="the last liveData query time in ms")
+	public long getLastLiveDataQueryTimeMs() {
+		return TimeUnit.MILLISECONDS.convert(getLastLiveDataQueryTimeNs(), TimeUnit.NANOSECONDS); 
+	}
+	
+	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponent#resetMetrics()
+	 */
+	@Override
+	public void resetMetrics() {
+		super.resetMetrics();
+		lastElapsedLiveData.clear();
 	}
 	
 

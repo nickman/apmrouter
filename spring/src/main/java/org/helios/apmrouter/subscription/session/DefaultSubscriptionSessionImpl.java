@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.subscription.session;
 
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -134,6 +135,17 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 		}
 		return null;
 	}
+	
+	/**
+	 * Cancels all the subscriptions for this session
+	 */
+	public void cancelAll() {
+		Set<Long> criteriaIds = new HashSet<Long>(resolvedCriteria.keySet());
+		for(Long criteriaId: criteriaIds) {
+			cancelCriteria(criteriaId);
+		}
+	}
+	
 
 	/**
 	 * {@inheritDoc}
