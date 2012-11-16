@@ -27,6 +27,8 @@
 		<context:include-filter type="assignable" expression="org.helios.apmrouter.subscription.criteria.builder.AbstractSubscriptionCriteriaBuilder"/>
 	</context:component-scan>
 	
+
+	
 <!-- 
 	
  -->

@@ -242,7 +242,15 @@ public class H2TimeSeries implements Externalizable {
 	    return rs;
 	}
 	
-	public static ResultSet getValues(Connection conn, Long...ids) throws SQLException {
+	/**
+	 * Exposed as the SQL function <b><code>MV</code></b>
+	 * @param conn
+	 * @param oldestPeriod 
+	 * @param ids
+	 * @return
+	 * @throws SQLException
+	 */
+	public static ResultSet getValues(Connection conn, long oldestPeriod, Long...ids) throws SQLException {
 	    SimpleResultSet rs = new SimpleResultSet();
 	    rs.addColumn("ID", Types.NUMERIC, 255, 22);
 	    rs.addColumn("TS", Types.TIMESTAMP, 1, 22);
@@ -273,7 +281,7 @@ public class H2TimeSeries implements Externalizable {
 	    		long mid = rset.getLong(2);
 	    	    for(int i = 0; i <= mvd.size; i++) {
 	    	    	long[] row = mvd.getArray(i);
-	    	    	if(row==null) continue;
+	    	    	if(row==null || row[PERIOD]<oldestPeriod) continue;
 	    	    	rs.addRow( 
 	    	    			mid,
 	    	    			new java.sql.Timestamp(row[PERIOD]), 

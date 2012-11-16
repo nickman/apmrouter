@@ -33,6 +33,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
+import org.cliffc.high_scale_lib.ConcurrentAutoTable;
 import org.cliffc.high_scale_lib.Counter;
 import org.cliffc.high_scale_lib.NonBlockingHashMap;
 import org.helios.apmrouter.logging.APMLogLevel;
@@ -250,6 +251,26 @@ public abstract class ServerComponent {
 		if(name==null) return;
 		mget(name).add(delta);
 	}
+	
+	/**
+	 * Decrements the named metric by the passed value
+	 * @param name The name of the metric
+	 * @param delta The amount to decrement by
+	 */
+	protected void decr(String name, long delta) {
+		if(name==null) return;
+		mget(name).add(-delta);
+	}
+	
+	/**
+	 * Decrements the named metric by 1
+	 * @param name The name of the metric
+	 */
+	protected void decr(String name) {
+		if(name==null) return;
+		mget(name).decrement();
+	}	
+	
 	
 	/**
 	 * Sets the named metric to the passed value

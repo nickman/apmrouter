@@ -5,7 +5,7 @@
         position: absolute; /* Pulls it out of the normal flow */
         left: 0px;          /* Places it on the top-left       */
         top: 45px;
-        width: 298px;       /* Width is exactly 300px          */
+        width: 300px;       /* Width is exactly 300px          */
         height: 100%;
         overflow: auto;
 				border-bottom: 2px solid #e5eff8;
@@ -20,17 +20,19 @@
         height: 100%;
         top: 0px;
         left: 300px;
-        width: 3px;
+        width: 2px;
         cursor: col-resize;
+                
       }
       div.column2 {
+      	
         position: relative; /* Leave in normal flow so the     */
                             /* width can be full width         */
-        right: 0px;         /* Places it on the top-right      */
+        /* right: 0px;         Places it on the top-right      */
                             /* (leaving left also works)       */
         top: 0px;
         height: 100%;
-        margin-left: 303px; /* Left margin pushes over for the */
+        margin-left: 301px; /* Left margin pushes over for the */
                             /* other columns to have space     */
         overflow-y: auto;
       }
@@ -47,7 +49,8 @@
                     useUTC: false
                 }
             });	
-        	
+          $('#metricTree').height(parseInt($('#metricTree').parent().parent().parent().height()));
+          $('div.column-divider').height(parseInt($('div.column-divider').parent().parent().parent().height()));
           $("div.column-divider").draggable({
             axis: 'x', // only allow horizontal movement
             drag: function(event, ui) {
@@ -62,7 +65,7 @@
               $('div.column2').css('margin-left',
                   $(this).offset().left + $(this).width());
               $('#chartContainer').css('width',$(this).parent().width());
-              treeClickChart.setSize($('#chartContainer').parent().width(), 400, false);
+              //treeClickChart.setSize($('#chartContainer').parent().width(), 400, false);
               
             }
           });
@@ -70,7 +73,7 @@
       </script>
     </div>
     <div class="column2">
-      <div style="height: 4500px; background-color: #F2F2E6;">
+      <div style="background-color: #F2F2E6;">
       	<div id="chartContainer" style="height: 400px"></div>​
       </div>
     </div>

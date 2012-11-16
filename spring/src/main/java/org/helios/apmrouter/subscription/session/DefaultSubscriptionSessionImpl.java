@@ -39,6 +39,8 @@ import org.helios.apmrouter.subscription.criteria.FailedCriteriaResolutionExcept
 import org.helios.apmrouter.subscription.criteria.RecoverableFailedCriteriaResolutionException;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteria;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance;
+import org.springframework.jmx.export.annotation.ManagedMetric;
+import org.springframework.jmx.support.MetricType;
 
 /**
  * <p>Title: DefaultSubscriptionSessionImpl</p>
@@ -70,10 +72,9 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 			.append(":service=SubscriptionSession,")
 			.append("subscriber=").append(subscriberChannel.getSubscriberId())
 		);
-		this.subscriberChannel = subscriberChannel;
+		this.subscriberChannel = subscriberChannel;		
 		this.subscriberChannel.setSubscriptionSession(this);					
 	}
-
 
 
 	/**
@@ -87,13 +88,18 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 		}
 		resolvedCriteria.clear();
 		criteria.clear();
+		subscriptionService.onTerminate(this);
 	}
+	
+	
+	
 	
 	
 	/**
 	 * Sends a {@link JsonResponse} to the subscriber
 	 * @param response the {@link JsonResponse} to send
 	 */
+	@Override
 	public void send(JsonResponse response) {
 		subscriberChannel.send(response);
 	}
@@ -125,6 +131,7 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 	 * Cancels the subscription criteria with the passed id.
 	 * @param criteriaId The id of the c=subscription criteria to cancel
 	 */
+	@Override
 	public SubscriptionCriteria<?,?,?> cancelCriteria(long criteriaId) {
 		SubscriptionCriteriaInstance<?> sci = resolvedCriteria.remove(criteriaId);
 		if(sci!=null) {
@@ -139,6 +146,7 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 	/**
 	 * Cancels all the subscriptions for this session
 	 */
+	@Override
 	public void cancelAll() {
 		Set<Long> criteriaIds = new HashSet<Long>(resolvedCriteria.keySet());
 		for(Long criteriaId: criteriaIds) {
@@ -160,6 +168,7 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 	 * Sends a subscription started notification
 	 * @param criteria The criteria for which the subscription was started
 	 */
+	@Override
 	public void sendSubStarted(SubscriptionCriteriaInstance<?> criteria) {
 		subscriptionService.sendSubStarted(criteria);
 	
@@ -169,6 +178,7 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 	 * Sends a subscription stopped notification
 	 * @param criteria The criteria for which the subscription was stopped
 	 */
+	@Override
 	public void sendSubStopped(SubscriptionCriteriaInstance<?> criteria) {
 		subscriptionService.sendSubStopped(criteria);
 	}

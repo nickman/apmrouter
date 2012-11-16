@@ -78,13 +78,14 @@
 			});
 		</script>		
 	</head><body style="position: relative;" class="{layout: {type: 'border', resize: false, hgap: 6}} ui-widget">
-		<div id="topBar"  class="north" style="padding-bottom: 1px">
+		<div id="topBar"  class="north" style="padding-bottom: 0px; vertical-align: middle;" >
 				<!-- <div style="display: inline-block;"><img src="img/Helios_Symbol_45_30.png"></img></div> -->
 				<div style="display: inline-block;"><img src="img/ICE_30_30.png"></img></div>
 				
-				<h1 style="display: inline-block;"><span class="helioslight">Helios</span> Web Console</h1>
+				<!-- <h1 style="display: inline-block; vertical-align: middle;"><span style="vertical-align: middle; font-weight: bold;" class="helioslight">Helios</span> Web Console</h1> -->
+				<span style="vertical-align: middle;font-weight: bold;" class="helioslight">Helios WebConsole</span>
 				<div style="display: inline-block; width: 10px;"></div>
-				<div class="tool-widget" style="display: inline-block;">Session:&nbsp;<span id="displaySession" style="display: inline-block; width:130px;height:20px;border:1px solid blue;vertical-align:middle;line-height:2em">&nbsp;</span></div>
+				<div class="tool-widget" style="display: inline-block;">Session:&nbsp;<span id="displaySession" style="display: inline-block; width:130px;height:20px;border:1px solid blue;line-height:2em">&nbsp;</span></div>
 				<div class="tool-widget csubscriber" style="display: inline-block;">Connected:&nbsp;<div class="csubscriber-off"></div></div>
 				<div style="display: inline-block; float: right;"><font size="-1" ><i><a id="diagnosticsToggle">&nbsp;Diagnostics&nbsp;</a></i></font></div>
 				<div style="display: inline-block; float: right;"><font size="-1" ><i><a id="controlsToggle">&nbsp;Controls&nbsp;</a></i></font></div>
@@ -170,5 +171,5 @@ false;"><a class="ui-state-default" href="#">10</a></td></tr><tr><td class=" ui-
 			</div>
 			</div>
 		<div style="-moz-user-select: none;" unselectable="on" class="ui-resizable-handle ui-resizable-w"></div></div>
-		<div style="left: 0px; top: 765px; width: 1646px; height: 17px; position: absolute;" class="south"></div>
+		<div id="main-footer" style="left: 0px; top: 765px; width: 1646px; height: 17px; position: absolute;" class="south"></div>
 	<div id="ui-datepicker-div" class="ui-datepicker ui-widget ui-widget-content ui-helper-clearfix ui-corner-all ui-helper-hidden-accessible"></div></body></html>

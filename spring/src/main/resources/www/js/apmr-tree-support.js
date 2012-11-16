@@ -347,9 +347,10 @@
 			this.width = json.msg[1].width;
 			this.subSeries = {0:[], 1:[], 2:[], 3:[]};
 			this.subscription = -1;
+			this.container = null;
 			this.treeClickChart = null;
 			var st = new Date().getTime();
-			this.extractSeries(json.msg[2]);			
+			this.extractSeries(json.msg[2]);   // push directly into series. no point caching.			
 			var endt = new Date().getTime();
 			console.info("EXS:%s ms.", (endt-st));
 			metricModelCache[this.metricId] = this;
@@ -377,7 +378,7 @@
 				if(json.msg.userData!=null) {				
 					var tsdata = json.msg.userData[0];
 					$.each( _this.treeClickChart.series, function(index, series) {
-						series.addPoint([tsdata[0], tsdata[index+1]], false, true, false);
+						series.addPoint([tsdata[0], tsdata[index+1]], false, series.data.length>=_this.width, false);
 					});
 					 _this.treeClickChart.redraw();
 				}
@@ -385,48 +386,65 @@
 			
 		},
 		renderChart : function(props) {
-    		$('#chartContainer').empty();
-    		//metricModelCache
     		
-    		this.treeClickChart = new Highcharts.Chart({
-    	        chart: {
-    	            renderTo: 'chartContainer',
-    	            animation: false
-    	        },
-    	        xAxis: {
-    	            type: 'datetime'
-    	        },
-    	        yAxis: [
-    	            {title: ''},
-    	            {title: {text : 'Invocations'}, opposite: true}
-    	            
-    	        ],			
-    	        subtitle : {
-    	        	text : (this.metricDef.ag.host.name + ':' + this.metricDef.ag.name)
-    	        },
-    	        loading: {
-    	        	showDuration: 0
-    	        },
-                tooltip: {
-                    formatter: function() {
-                            return '<b>'+ this.series.name +'</b><br/>'+
-                            Highcharts.dateFormat('%Y-%m-%d %H:%M:%S', this.x) +'<br/>'+
-                            Highcharts.numberFormat(this.y, 2);
-                    }
-                },    	        
-    	        title: {
-    	            text: this.metricDef.ns
-    	        },
-    	        series: [
-    	            {id: 'series-Min-' + this.metricId, name: this.metricDef.name + " Min", data: this.subSeries[ChartModel.MIN], animation: false, visible: false},
-    	            {id: 'series-Max-' + this.metricId, name: this.metricDef.name + " Max", data: this.subSeries[ChartModel.MAX], animation: false, visible: false},
-    	            {id: 'series-Avg-' + this.metricId, name: this.metricDef.name + " Avg", data: this.subSeries[ChartModel.AVG], animation: false},
-    	            {id: 'series-Cnt-' + this.metricId, name: this.metricDef.name + " Cnt", data: this.subSeries[ChartModel.CNT], animation: false, visible: false, yAxis: 1, dashStyle : 'Dash'}
-    	        ]
-    	    });
-    		if(props.auto || false) {
-    			this.subscription = $.apmr.subMetricOn(this.metricId, this.acceptLiveUpdate(this));
-    		}
+    		//metricModelCache
+    		if(this.treeClickChart == null ) {
+    			this.container = 'chart-container-metric-' + this.metricId;
+    			$('#chartContainer>.ChartModel').hide();
+    			$('#chartContainer').append(
+    					$('<div id="' + this.container + '" class="ChartModel"></div>')
+    			);
+    			var cont = this.container;
+	    		this.treeClickChart = new Highcharts.Chart({
+	    	        chart: {
+	    	            renderTo: cont,
+	    	            animation: false
+	    	        },
+	    	        xAxis: {
+	    	            type: 'datetime'
+	    	        },
+	    	        yAxis: [
+	    	            {title: ''},
+	    	            {title: {text : 'Invocations'}, opposite: true}
+	    	            
+	    	        ],			
+	    	        subtitle : {
+	    	        	text : (this.metricDef.ag.host.name + ':' + this.metricDef.ag.name)
+	    	        },
+	    	        loading: {
+	    	        	showDuration: 0
+	    	        },
+	                tooltip: {
+	                    formatter: function() {
+	                            return '<b>'+ this.series.name +'</b><br/>'+
+	                            Highcharts.dateFormat('%Y-%m-%d %H:%M:%S', this.x) +'<br/>'+
+	                            Highcharts.numberFormat(this.y, 2);
+	                    }
+	                },    	        
+	    	        title: {
+	    	            text: this.metricDef.ns
+	    	        },
+	    	        series: [
+	    	            {id: 'series-Min-' + this.metricId, name: this.metricDef.name + " Min", data: this.subSeries[ChartModel.MIN], animation: false, visible: false},
+	    	            {id: 'series-Max-' + this.metricId, name: this.metricDef.name + " Max", data: this.subSeries[ChartModel.MAX], animation: false, visible: false},
+	    	            {id: 'series-Avg-' + this.metricId, name: this.metricDef.name + " Avg", data: this.subSeries[ChartModel.AVG], animation: false},
+	    	            {id: 'series-Cnt-' + this.metricId, name: this.metricDef.name + " Cnt", data: this.subSeries[ChartModel.CNT], animation: false, visible: false, yAxis: 1, dashStyle : 'Dash'}
+	    	        ]
+	    	    });
+	    		if(props.auto || false) {
+	    			this.subscription = $.apmr.subMetricOn(this.metricId, this.acceptLiveUpdate(this));
+	    		}
+			} else {
+				$('#chartContainer>.ChartModel').hide();
+				$('#' + this.container).show();
+			}
+		}, 
+		destroy : function() {
+			// pull container
+			// unsub
+			// clear from caches
+			// clear from $.datas()
+			this.treeClickChart.destroy();
 		}
 	});
 	

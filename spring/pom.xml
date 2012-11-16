@@ -20,7 +20,7 @@
    <dependency>
       <groupId>org.springframework.data</groupId>
       <artifactId>spring-data-mongodb</artifactId>
-      <version>1.0.3.RELEASE</version>
+      <version>1.0.4.RELEASE</version>
       <scope>compile</scope>
     </dependency>
     <dependency>
@@ -139,6 +139,13 @@
 			  <groupId>com.googlecode.json-simple</groupId>
 			  <artifactId>json-simple</artifactId>
 			</dependency>
+			
+			<!-- MongoDb -->
+			<dependency>
+			    <groupId>org.springframework.data</groupId>
+			    <artifactId>spring-data-mongodb</artifactId>
+			  </dependency>
+			
 		
 			
 			<!-- Asynch Http Client -->
@@ -168,6 +175,12 @@
 			<groupId>org.apache.camel</groupId>
 			<artifactId>camel-test-spring</artifactId>
 		</dependency>
+		  <dependency>
+		    <groupId>de.flapdoodle.embed</groupId>
+		    <artifactId>de.flapdoodle.embed.mongo</artifactId>
+		    <scope>test</scope>
+		  </dependency>	
+		
 	</dependencies>
 	<build>
 		<defaultGoal>install</defaultGoal>

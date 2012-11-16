@@ -26,6 +26,7 @@ package org.helios.apmrouter.subscription;
 
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -43,12 +44,16 @@ import org.helios.apmrouter.subscription.session.NettySubscriberChannel;
 import org.helios.apmrouter.subscription.session.SubscriptionSession;
 import org.helios.apmrouter.util.SystemClock;
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelLocal;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.export.annotation.ManagedNotification;
 import org.springframework.jmx.export.annotation.ManagedNotifications;
+import org.springframework.jmx.support.MetricType;
 
 /**
  * <p>Title: SubscriptionService</p>
@@ -117,6 +122,27 @@ public class SubscriptionService extends ServerComponentBean  {
 	}
 	
 	/**
+	 * Returns the number of active subscriber sessions
+	 * @return the number of active subscriber sessions
+	 */
+	@ManagedMetric(category="SubscriptionService", metricType=MetricType.COUNTER, description="The number of active subscriber sessions")
+	public long getActiveSubscriberSessions() {
+		return getMetricValue("ActiveSubscriberSessions");
+	}	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
+	 */
+	@Override
+	public Set<String> getSupportedMetricNames() {
+		Set<String> _metrics = new HashSet<String>(super.getSupportedMetricNames());
+		_metrics.add("ActiveSubscriberSessions");
+		return _metrics;
+	}	
+	
+	
+	/**
 	 * <p>Responds <code>true</code>.
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.ServerComponentBean#supportsSourceType(java.lang.Class)
@@ -174,14 +200,23 @@ public class SubscriptionService extends ServerComponentBean  {
 		if(session==null) {
 			synchronized(this) {
 				session = subSessions.get(channel);
-				if(session==null) {
+				if(session==null) {					
 					session = new DefaultSubscriptionSessionImpl(this, new NettySubscriberChannel(channel));					
-					subSessions.set(channel, session);		
-					applicationContext.getAutowireCapableBeanFactory().applyBeanPostProcessorsAfterInitialization(session, "SubSession-" + session.getSubscriptionSessionId());
+					subSessions.set(channel, session);	
+					incr("ActiveSubscriberSessions");
 				}
 			}
 		}
 		return session.getSubscriptionSessionId();
+	}
+	
+	/**
+	 * Callback from sessions when they terminate
+	 * @param session the terminated session
+	 */
+	public void onTerminate(SubscriptionSession session) {
+		decr("ActiveSubscriberSessions");
+		info("Terminated Subscription Session [", session.getSubscriptionSessionId(), "]");
 	}
 	
 	/**

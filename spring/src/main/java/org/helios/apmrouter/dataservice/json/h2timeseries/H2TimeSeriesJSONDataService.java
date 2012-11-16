@@ -32,7 +32,6 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
 import javax.sql.DataSource;
@@ -58,7 +57,7 @@ import org.springframework.jmx.support.MetricType;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.dataservice.json.h2timeseries.H2TimeSeriesJSONDataService</code></p>
  */
-@JSONRequestHandler(name="h2ts")
+
 public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 	/** The H2 data source */
 	protected DataSource dataSource = null;
@@ -74,6 +73,9 @@ public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 	protected Map<String, Long> stepWidth = null;
 	/** The time-series WIDTH as an int */
 	protected int widthAsInt = -1;
+	/** The oldest allowed entries in live */
+	protected long oldestLive = -1;
+	
 	
 	/** A sliding window of liveData elapsed query time in ns */
 	protected final ConcurrentLongSlidingWindow lastElapsedLiveData = new ConcurrentLongSlidingWindow(60);
@@ -110,6 +112,7 @@ public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 	protected void doStart() throws Exception {
 		step = h2Dest.getTimeSeriesStep();
 		width = h2Dest.getTimeSeriesWidth();
+		oldestLive = width * step;
 		widthAsInt = width>Integer.MAX_VALUE ? Integer.MAX_VALUE : (int)width; 
 		MetricData.STEP = step;
 		MetricData.WIDTH = width;
@@ -141,6 +144,7 @@ public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 //			sql.append(ids.toString().replace("[", "").replace("]", "")).append(")");
 //			sql.append(" ORDER BY ID, TS");
 			StringBuilder sql = new StringBuilder("CALL MV(");
+			sql.append(SystemClock.time()-oldestLive).append(",");
 			sql.append(ids.toString().replace("[", "").replace("]", "")).append(")");
 			
 			

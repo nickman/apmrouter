@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+       xmlns:mongo="http://www.springframework.org/schema/data/mongo"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/data/mongo http://www.springframework.org/schema/data/mongo/spring-mongo-1.1.xsd
+       "  >
+
+
+<!-- Enable Annotation Driven Configuration -->
+<context:annotation-config />
+
+<!-- Component Scan Packages for Annotation Driven Configuration -->
+<context:component-scan base-package="org.helios.apmrouter.catalog.domain" />
+
+<!-- Mongo DB -->
+<mongo:mongo host="127.0.0.1" port="27017" />
+
+<!-- Mongo DB Factory -->
+<mongo:db-factory dbname="mongoit" mongo-ref="mongo"/>
+
+<!-- Mongo Template -->
+<bean id="mongoTemplate" class="org.springframework.data.mongodb.core.MongoTemplate">
+<constructor-arg name="mongoDbFactory" ref="mongoDbFactory" />
+</bean>
+
+	<bean id="AssertMetrics" class="org.springframework.data.mongodb.monitor.AssertMetrics" >
+		<constructor-arg ref="mongo" />
+	</bean>
+	<bean id="BackgroundFlushingMetrics" class="org.springframework.data.mongodb.monitor.BackgroundFlushingMetrics" >
+		<constructor-arg ref="mongo" />
+	</bean>	
+	<bean id="BtreeIndexCounters" class="org.springframework.data.mongodb.monitor.BtreeIndexCounters" >
+		<constructor-arg ref="mongo" />
+	</bean>	
+	<bean id="ConnectionMetrics" class="org.springframework.data.mongodb.monitor.ConnectionMetrics" >
+		<constructor-arg ref="mongo" />
+	</bean>	
+	<bean id="GlobalLockMetrics" class="org.springframework.data.mongodb.monitor.GlobalLockMetrics" >
+		<constructor-arg ref="mongo" />
+	</bean>	
+	<bean id="MemoryMetrics" class="org.springframework.data.mongodb.monitor.MemoryMetrics" >
+		<constructor-arg ref="mongo" />
+	</bean>
+	<bean id="OperationCounters" class="org.springframework.data.mongodb.monitor.OperationCounters" >
+		<constructor-arg ref="mongo" />
+	</bean>	
+	<bean id="ServerInfo" class="org.springframework.data.mongodb.monitor.ServerInfo" >
+		<constructor-arg ref="mongo" />
+	</bean>
+	
+
+</beans>

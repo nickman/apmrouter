@@ -44,6 +44,8 @@
 		<xom.version>1.2.5</xom.version>
 		<groovy.version>2.0.1</groovy.version>
 		<json-simple.version>1.1.1</json-simple.version>
+		<spring-mongo.version>1.0.4.RELEASE</spring-mongo.version>
+		<flapdoodle.version>1.26</flapdoodle.version>
 		
 	</properties>
 	<dependencyManagement>
@@ -67,6 +69,13 @@
 				<version>${camel.version}</version>
 				<scope>test</scope>
 			</dependency>
+			  <dependency>
+			    <groupId>de.flapdoodle.embed</groupId>
+			    <artifactId>de.flapdoodle.embed.mongo</artifactId>
+			    <version>${flapdoodle.version}</version>
+			    <scope>test</scope>
+			  </dependency>	
+			
 			<!--   COMPILE/RUNTIME   -->
 			<dependency>
 				<groupId>vanilla.java</groupId>
@@ -123,6 +132,13 @@
 			  <artifactId>org.springframework.orm</artifactId>
 			  <version>${spring.version}</version>
 			</dependency>
+			
+			<!-- MongoDb -->
+			<dependency>
+			    <groupId>org.springframework.data</groupId>
+			    <artifactId>spring-data-mongodb</artifactId>
+			    <version>${spring-mongo.version}</version>
+			  </dependency>
 			
 			
 			<dependency>
