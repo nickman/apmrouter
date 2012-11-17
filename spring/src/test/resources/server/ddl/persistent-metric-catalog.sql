@@ -67,10 +67,13 @@ CREATE ALIAS IF NOT EXISTS HOSTAGENTSTATE FOR "org.helios.apmrouter.catalog.jdbc
 CREATE ALIAS IF NOT EXISTS PARENT FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.parent";
 CREATE ALIAS IF NOT EXISTS ROOT FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.root";
 
+-- =============================================================================
+--    New element triggers
+-- =============================================================================
 
-
-UPDATE HOST SET CONNECTED = NULL, AGENTS = 0;
-UPDATE AGENT SET CONNECTED = NULL, URI = NULL;
+CREATE TRIGGER IF NOT EXISTS HOST_TRG  AFTER INSERT ON HOST FOR EACH ROW CALL "org.helios.apmrouter.catalog.jdbc.h2.HostTrigger";
+CREATE TRIGGER IF NOT EXISTS AGENT_TRG  AFTER INSERT ON AGENT FOR EACH ROW CALL "org.helios.apmrouter.catalog.jdbc.h2.AgentTrigger";
+CREATE TRIGGER IF NOT EXISTS METRIC_TRG  AFTER INSERT ON METRIC FOR EACH ROW CALL "org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger";
 
 -- =============================================================================
 --    Time Series
@@ -96,3 +99,10 @@ CREATE ALIAS IF NOT EXISTS MV FOR "org.helios.apmrouter.destination.h2timeseries
 
 CREATE VIEW IF NOT EXISTS METRIC_DATA AS SELECT * FROM MV(0, -1);
 CREATE VIEW IF NOT EXISTS RICH_METRIC_DATA AS SELECT AGENT_ID, TYPE_ID, NAMESPACE, NARR, NAME, D.* FROM METRIC_DATA D, METRIC M WHERE M.METRIC_ID = D.ID;
+
+-- =============================================================================
+--    Start up purge
+-- =============================================================================
+
+UPDATE HOST SET CONNECTED = NULL, AGENTS = 0;
+UPDATE AGENT SET CONNECTED = NULL, URI = NULL;

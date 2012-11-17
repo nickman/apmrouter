@@ -57,7 +57,7 @@ import org.springframework.jmx.support.MetricType;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.dataservice.json.h2timeseries.H2TimeSeriesJSONDataService</code></p>
  */
-
+@JSONRequestHandler(name="h2ts")
 public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 	/** The H2 data source */
 	protected DataSource dataSource = null;

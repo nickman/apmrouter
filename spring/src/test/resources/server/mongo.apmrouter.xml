@@ -18,39 +18,39 @@
 <context:component-scan base-package="org.helios.apmrouter.catalog.domain" />
 
 <!-- Mongo DB -->
-<mongo:mongo host="127.0.0.1" port="27017" />
+<mongo:mongo id="mongodb"  host="127.0.0.1" port="27017" />
 
 <!-- Mongo DB Factory -->
-<mongo:db-factory dbname="mongoit" mongo-ref="mongo"/>
+<mongo:db-factory id="mongodbFactory" dbname="apmrouter" mongo-ref="mongodb"/>
 
 <!-- Mongo Template -->
 <bean id="mongoTemplate" class="org.springframework.data.mongodb.core.MongoTemplate">
-<constructor-arg name="mongoDbFactory" ref="mongoDbFactory" />
+<constructor-arg name="mongoDbFactory" ref="mongodbFactory" />
 </bean>
 
 	<bean id="AssertMetrics" class="org.springframework.data.mongodb.monitor.AssertMetrics" >
-		<constructor-arg ref="mongo" />
+		<constructor-arg ref="mongodb" />
 	</bean>
 	<bean id="BackgroundFlushingMetrics" class="org.springframework.data.mongodb.monitor.BackgroundFlushingMetrics" >
-		<constructor-arg ref="mongo" />
+		<constructor-arg ref="mongodb" />
 	</bean>	
 	<bean id="BtreeIndexCounters" class="org.springframework.data.mongodb.monitor.BtreeIndexCounters" >
-		<constructor-arg ref="mongo" />
+		<constructor-arg ref="mongodb" />
 	</bean>	
 	<bean id="ConnectionMetrics" class="org.springframework.data.mongodb.monitor.ConnectionMetrics" >
-		<constructor-arg ref="mongo" />
+		<constructor-arg ref="mongodb" />
 	</bean>	
 	<bean id="GlobalLockMetrics" class="org.springframework.data.mongodb.monitor.GlobalLockMetrics" >
-		<constructor-arg ref="mongo" />
+		<constructor-arg ref="mongodb" />
 	</bean>	
 	<bean id="MemoryMetrics" class="org.springframework.data.mongodb.monitor.MemoryMetrics" >
-		<constructor-arg ref="mongo" />
+		<constructor-arg ref="mongodb" />
 	</bean>
 	<bean id="OperationCounters" class="org.springframework.data.mongodb.monitor.OperationCounters" >
-		<constructor-arg ref="mongo" />
+		<constructor-arg ref="mongodb" />
 	</bean>	
 	<bean id="ServerInfo" class="org.springframework.data.mongodb.monitor.ServerInfo" >
-		<constructor-arg ref="mongo" />
+		<constructor-arg ref="mongodb" />
 	</bean>
 	
 

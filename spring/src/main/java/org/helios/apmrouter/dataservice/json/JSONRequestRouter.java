@@ -121,6 +121,7 @@ public class JSONRequestRouter extends ServerComponentBean {
 				warn("JSON Service [", entry.getKey(), "] had zero ops");
 			} else {
 				services.put(entry.getKey(), ops);
+				info("Added JSON Handler Service [", entry.getKey(), "]");				
 			}
 		}
 	}
