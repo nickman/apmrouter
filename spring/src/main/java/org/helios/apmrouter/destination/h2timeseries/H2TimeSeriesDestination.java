@@ -28,7 +28,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -36,7 +35,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.regex.Pattern;
 
 import javax.management.Notification;
 import javax.management.NotificationFilter;
@@ -52,7 +50,6 @@ import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.subscription.SubscriptionService;
 import org.helios.apmrouter.subscription.criteria.SubscriptionCriteriaInstance;
-import org.helios.apmrouter.subscription.criteria.builder.SubscriptionCriteriaBuilder;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -212,7 +209,8 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	 */
 	protected void sendIntervalRollEvent(long[] data, IMetric metric) {		
 		Notification notif = new Notification(String.format(NOTIF_TEMPLATE, metric.getToken()), objectName, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "TimeSeries Interval Roll for [" + metric + "]");		
-		notif.setUserData(new Object[]{data, metric.getMetricId()});
+		notif.setUserData(new Object[]{data, metric.getToken()});
+		info("Sent Interval Roll Event for Metric:", metric.getToken());
 		sendNotification(notif);
 		incr("BroadcastIntervalRolls");
 	}
@@ -365,6 +363,14 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 		return subCache.size(); 
 	}	
 	
+	/**
+	 * Returns the subcache map
+	 * @return the subcache map
+	 */
+	@ManagedAttribute(description="the subcache map")
+	public Map<Long, AtomicLong> getSubCache() {		 		
+		return new HashMap<Long, AtomicLong>(subCache.getSubCache()); 
+	}	
 	
 	
 

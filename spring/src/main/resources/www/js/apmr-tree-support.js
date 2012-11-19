@@ -269,7 +269,7 @@
 							var folder = arr[0];
 							var mlevel = arr[1];
 							var isMetricFolder = (mlevel-level==1);														
-							var uid = "folder-" + agentId + "-" + folder.replace('=', '_');
+							var uid = "folder-" + agentId + "-" + folder.replace('=', '_').replace(/\./g, '_');
 							if($('#' + uid).length==0) {
 								var newNode = {
 										attr: {id: uid, rel: isMetricFolder ? "metric-folder" : "folder", 'folder' : folder, 'agent' : agentId, 'level' : level},  
@@ -314,7 +314,7 @@
 							var mlevel = arr[1];
 							var isMetricFolder = (mlevel-level==1);														
 							if(folder!=null) {
-								var uid = "folder-" + agentId + "-" + folder.replace('=', '_');
+								var uid = "folder-" + agentId + "-" + folder.replace('=', '_').replace(/\./g, '_');
 								if($('#' + uid).length==0) {
 									var newNode = {
 											attr: {id: uid, rel: isMetricFolder ? "metric-folder" : "folder", 'folder' : folder, 'agent' : agentId, 'level' : level},  
@@ -375,12 +375,31 @@
 		acceptLiveUpdate : function(t) {		
 			var _this = t;
 			return function(json) {
-				if(json.msg.userData!=null) {				
+				if(json.msg.userData!=null && json.msg.userData.length >= 2 && json.msg.userData[1]==_this.metricId) {	
+					console.info("Live update for metric ID: %s, [%o]", json.msg.userData[1], json.msg.userData[0]);
+					var mid = json.msg.userData[1];
 					var tsdata = json.msg.userData[0];
-					$.each( _this.treeClickChart.series, function(index, series) {
-						series.addPoint([tsdata[0], tsdata[index+1]], false, series.data.length>=_this.width, false);
-					});
-					 _this.treeClickChart.redraw();
+					try {
+						$.each( _this.subSeries, function(index, series) {
+							if(tsdata[0]==series[series.length-1][0]) {
+								console.info("Updating Series Point [%s] for metric [%s]", index, _this.metricId);
+								series[series.length-1][1] = tsdata[index+1];
+								_this.treeClickChart.series[index].setData(series);
+							} else {
+								console.info("Added Series Point [%s] for metric [%s]", index, _this.metricId);
+								series.push([tsdata[0], tsdata[index+1]]);
+								if(series.length==_this.width) series.shift();
+								_this.treeClickChart.series[index].addPoint([tsdata[0], tsdata[index+1]]);
+							}
+								//_this.treeClickChart.series[index].setData(series);
+								//series.addPoint([tsdata[0], tsdata[index+1]], false, series.data.length>=_this.width, false);
+								//_this.subSeries[index].push([ts, rawData[i][x+1]])
+						});
+					} catch (e) {
+						console.error("Failed to process live update Error was [%o], %o", e, e.stack);
+					}
+					
+					//_this.treeClickChart.redraw();
 				}
 			}
 			
@@ -431,9 +450,16 @@
 	    	            {id: 'series-Cnt-' + this.metricId, name: this.metricDef.name + " Cnt", data: this.subSeries[ChartModel.CNT], animation: false, visible: false, yAxis: 1, dashStyle : 'Dash'}
 	    	        ]
 	    	    });
+	    		this.treeClickChart.series.metricId = this.metricId;
 	    		if(props.auto || false) {
 	    			this.subscription = $.apmr.subMetricOn(this.metricId, this.acceptLiveUpdate(this));
+	    			console.info("Subscribed to Metric [%s]", this.metricId);
 	    		}
+	    		var chartie = this.treeClickChart;
+	    		$('#' + this.container).resize(function(e){
+	    			console.info("Resizing [%s]", chartie);
+	    			chartie.redraw();
+	    		});
 			} else {
 				$('#chartContainer>.ChartModel').hide();
 				$('#' + this.container).show();

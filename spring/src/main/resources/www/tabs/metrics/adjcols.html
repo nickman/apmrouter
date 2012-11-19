@@ -60,11 +60,15 @@
                   $(this).offset().left + $(this).width());
             },
             stop: function(event, ui) {
-              // one more time to ensure it's right when they stop
+            	var cwidth = parseInt($(this).parent().width());
+            	// one more time to ensure it's right when they stop
               $('div.column1').width($(this).offset().left);
               $('div.column2').css('margin-left',
-                  $(this).offset().left + $(this).width());
-              $('#chartContainer').css('width',$(this).parent().width());
+                  $(this).offset().left + cwidth);
+              $('#chartContainer').css('width',cwidth);
+              console.info("Resizing %s Charts", $('#chartContainer>.ChartModel').length);
+              
+              $('#chartContainer>.ChartModel').css('width',cwidth);
               //treeClickChart.setSize($('#chartContainer').parent().width(), 400, false);
               
             }

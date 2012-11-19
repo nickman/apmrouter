@@ -85,6 +85,7 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 	public void terminate() {
 		for(SubscriptionCriteriaInstance<?> sci: resolvedCriteria.values()) {
 			sci.terminate();
+			sendSubStopped(sci);
 		}
 		resolvedCriteria.clear();
 		criteria.clear();

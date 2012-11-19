@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.subscription.impls.jmx;
 
+import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicLong;
@@ -116,7 +117,7 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 		}
 		if(criteria.isPattern()) {
 			try {
-				mbeanServerConnection.addNotificationListener(MBeanServerDelegate.DELEGATE_NAME , this, null, jmxSubId);
+				mbeanServerConnection.addNotificationListener(MBeanServerDelegate.DELEGATE_NAME , this, null, new long[]{jmxSubId, session.getSubscriptionSessionId()});
 				LOG.info("Added MBean Registration Listener on JMX Criteria MBeanServer [" + criteria.getEventSource() + "]");
 			} catch (Exception ex) {
 				LOG.error("Failed to add MBean registration listener for JMX criteria [" + criteria.getEventSource() + "]", ex);
@@ -198,9 +199,16 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 	 */
 	@Override
 	public void handleNotification(Notification notification, Object handback) {
-		if(jmxSubId.equals(handback)) {
-			session.send(request.subResponse().setContent(notification));			
-		}		
+		if(handback instanceof long[]) {
+			long[] key = (long[])handback;
+			if(key.length==2) {
+				if(jmxSubId.equals(key[0]) && session.getSubscriptionSessionId()==key[1]) {
+					session.send(request.subResponse().setContent(notification));
+					return;
+				}
+			}
+		}
+		LOG.warn("No match for notification [" + notification + " Handback:" + handback);
 	}
 	
 	/**
@@ -221,7 +229,7 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 	protected void addMBeanSource(ObjectName mbean) {
 		if(objectNames.add(mbean)) {
 			try {
-				mbeanServerConnection.addNotificationListener(mbean, this, criteria.getEventExtendedFilter(), jmxSubId);
+				mbeanServerConnection.addNotificationListener(mbean, this, criteria.getEventExtendedFilter(), new long[]{jmxSubId, session.getSubscriptionSessionId()});
 			} catch (Exception ex) {
 				LOG.warn("Failed to add notification listener for new MBean [" + mbean + "]", ex);
 				objectNames.remove(mbean);

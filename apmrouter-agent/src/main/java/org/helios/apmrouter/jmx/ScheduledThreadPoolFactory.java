@@ -126,6 +126,12 @@ public class ScheduledThreadPoolFactory extends ScheduledThreadPoolExecutor impl
 		daemonThreads = tps.daemonThreads;
 		objectName = JMXHelper.objectName("org.helios.apmrouter.jmx:service=Scheduler,name=" + name);
 		JMXHelper.registerMBean(JMXHelper.getHeliosMBeanServer(), objectName, this);
+		Thread shutdownThread = new Thread(){
+			public void run() {
+				shutdownNow();
+			}
+		};
+		Runtime.getRuntime().addShutdownHook(shutdownThread);
 	}	
 	
 	/**

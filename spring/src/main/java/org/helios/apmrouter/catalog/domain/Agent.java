@@ -83,7 +83,7 @@ public class Agent implements java.io.Serializable, DomainObject {
 		this.host = new Host();
 		this.host.setHostId((Integer)rowData[1]);
 		this.name = (String)rowData[2];
-		this.minLevel = (Integer)rowData[3];
+		this.minLevel = (Short)rowData[3];
 		this.firstConnected = new Date(((java.sql.Timestamp)rowData[4]).getTime());
 		this.lastConnected = new Date(((java.sql.Timestamp)rowData[5]).getTime());;
 		this.connected = rowData[6]==null ? null : new Date(((java.sql.Timestamp)rowData[6]).getTime());;

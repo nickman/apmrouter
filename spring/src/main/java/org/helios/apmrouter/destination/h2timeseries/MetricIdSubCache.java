@@ -57,6 +57,7 @@ public class MetricIdSubCache {
 	 * @return true if the metricId is in cache, false otherwise
 	 */
 	public boolean containsKey(long metricId) {
+		if(subCache.isEmpty()) return false;
 		return subCache.containsKey(metricId);
 	}
 	

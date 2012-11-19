@@ -4,8 +4,10 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
        xmlns:mongo="http://www.springframework.org/schema/data/mongo"
        xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:util="http://www.springframework.org/schema/util"
        xsi:schemaLocation="
        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
        http://www.springframework.org/schema/data/mongo http://www.springframework.org/schema/data/mongo/spring-mongo-1.1.xsd
        "  >
@@ -27,6 +29,17 @@
 <bean id="mongoTemplate" class="org.springframework.data.mongodb.core.MongoTemplate">
 <constructor-arg name="mongoDbFactory" ref="mongodbFactory" />
 </bean>
+
+	<bean id="MongoDbDestination" class="org.helios.apmrouter.destination.mongodb.MongoDbDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>LONG.*|DELTA.*</value>	 			
+	 		</util:set>
+ 		</property>
+		<property name="sizeTrigger" value="10"/>
+		<property name="timeTrigger" value="10000"/>
+		<property name="tsDefinition" value="p=15s,t=15m" />
+	</bean>
 
 	<bean id="AssertMetrics" class="org.springframework.data.mongodb.monitor.AssertMetrics" >
 		<constructor-arg ref="mongodb" />

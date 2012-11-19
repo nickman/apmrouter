@@ -237,6 +237,10 @@ public class SubscriptionService extends ServerComponentBean  {
 		return startSubscriptionSession(channel);
 	}
 	
+	public void getSubSessions() {
+		//return subSessions.iterator()
+	}
+	
 	/**
 	 * Returns the subscription session Id for the passed channel, or null if a session does not exist.
 	 * @param channel The channel to check for

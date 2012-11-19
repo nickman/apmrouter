@@ -81,14 +81,14 @@ public class Metric implements java.io.Serializable, DomainObject {
 		if(rowData.length!=9) {
 			throw new IllegalArgumentException("Unexpected rowData length [" + rowData.length + "] for metric notification", new Throwable());
 		}
-		this.metricId = (Integer)rowData[0];
+		this.metricId = (Long)rowData[0];
 		this.agent = new Agent();
 		this.agent.setAgentId((Integer)rowData[1]);
 		this.traceType = new TraceType();
 		this.traceType.setTypeId((Short)rowData[2]);
 		this.namespace = (String)rowData[3];
 		this.narr = (String[])rowData[4];
-		this.level = (Integer)rowData[5];
+		this.level = (Short)rowData[5];
 		this.name = (String)rowData[6];
 		this.firstSeen = rowData[7]==null ? null : new Date(((java.sql.Timestamp)rowData[7]).getTime());;
 		this.lastSeen = rowData[8]==null ? null : new Date(((java.sql.Timestamp)rowData[8]).getTime());;
