@@ -10,12 +10,11 @@
 
        xmlns:lang="http://www.springframework.org/schema/lang"       
        xsi:schemaLocation="
+       http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-3.0.xsd
        http://www.springframework.org/schema/jms http://www.springframework.org/schema/jms/spring-jms.xsd
        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
-       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
-       http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
-       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
-       
+       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd       
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd       
        http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang.xsd
        "  >
 	
@@ -23,7 +22,7 @@
 	<tx:annotation-driven transaction-manager="txManager"  />
 	
 	<context:component-scan base-package="org.helios" >
-		<context:include-filter type="annotation" expression="org.helios.apmrouter.dataservice.json.JSONRequestHandler"/>
+		<!-- <context:include-filter type="annotation" expression="org.helios.apmrouter.dataservice.json.JSONRequestHandler"/> -->
 		<context:include-filter type="assignable" expression="org.helios.apmrouter.subscription.criteria.builder.AbstractSubscriptionCriteriaBuilder"/>
 	</context:component-scan>
 	

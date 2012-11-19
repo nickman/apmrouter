@@ -4,6 +4,9 @@ package org.helios.apmrouter.catalog.domain;
 
 import java.util.Date;
 
+import javax.management.Notification;
+
+import org.helios.apmrouter.catalog.jdbc.h2.AbstractTrigger;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -60,6 +63,31 @@ public class Host implements java.io.Serializable, DomainObject {
 		this.lastConnected = lastConnected;
 		this.agentsConnected = agentsConnected;
 		this.connected = connected;		
+	}
+	
+	/**
+	 * Creates a new Host from a new host notification
+	 * @param notif The new host notification emitted from the H2 catalog DB
+	 */
+	public Host(Notification notif) {
+		if(notif==null) throw new IllegalArgumentException("The passed notification was null", new Throwable());
+		if(!AbstractTrigger.NEW_HOST.equals(notif.getType())) throw new IllegalArgumentException("The passed notification was not the right type [" + notif.getType() + "] for a host", new Throwable());
+		Object[] rowData = (Object[])notif.getUserData();		
+		if(rowData==null) {
+			throw new IllegalArgumentException("The passed host notification has a null UserData", new Throwable());
+		}
+		if(rowData.length!=9) {
+			throw new IllegalArgumentException("Unexpected rowData length [" + rowData.length + "] for host notification has a null UserData", new Throwable());
+		}
+		this.hostId = (Integer)rowData[0];
+		this.name = (String)rowData[1];
+		this.domain = (String)rowData[2];
+		this.ip = (String)rowData[3];
+		this.fqn = (String)rowData[4];
+		this.firstConnected = new Date(((java.sql.Timestamp)rowData[5]).getTime());
+		this.lastConnected = new Date(((java.sql.Timestamp)rowData[6]).getTime());;
+		this.agentsConnected = (Integer)rowData[7];
+		this.connected = rowData[8]==null ? null : new Date(((java.sql.Timestamp)rowData[8]).getTime());;		
 	}
 
 	public Integer getHostId() {

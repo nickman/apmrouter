@@ -5,6 +5,9 @@ package org.helios.apmrouter.catalog.domain;
 import java.util.Arrays;
 import java.util.Date;
 
+import javax.management.Notification;
+
+import org.helios.apmrouter.catalog.jdbc.h2.AbstractTrigger;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.DBRef;
@@ -63,6 +66,35 @@ public class Metric implements java.io.Serializable, DomainObject {
 		this.firstSeen = firstSeen;
 		this.lastSeen = lastSeen;
 	}
+	
+	/**
+	 * Creates a new Metric from a new metric notification
+	 * @param notif The new metric notification emitted from the H2 catalog DB
+	 */
+	public Metric(Notification notif) {
+		if(notif==null) throw new IllegalArgumentException("The passed notification was null", new Throwable());
+		if(!AbstractTrigger.NEW_METRIC.equals(notif.getType())) throw new IllegalArgumentException("The passed notification was not the right type [" + notif.getType() + "] for a metric", new Throwable());
+		Object[] rowData = (Object[])notif.getUserData();		
+		if(rowData==null) {
+			throw new IllegalArgumentException("The passed metric notification has a null UserData", new Throwable());
+		}
+		if(rowData.length!=9) {
+			throw new IllegalArgumentException("Unexpected rowData length [" + rowData.length + "] for metric notification", new Throwable());
+		}
+		this.metricId = (Integer)rowData[0];
+		this.agent = new Agent();
+		this.agent.setAgentId((Integer)rowData[1]);
+		this.traceType = new TraceType();
+		this.traceType.setTypeId((Short)rowData[2]);
+		this.namespace = (String)rowData[3];
+		this.narr = (String[])rowData[4];
+		this.level = (Integer)rowData[5];
+		this.name = (String)rowData[6];
+		this.firstSeen = rowData[7]==null ? null : new Date(((java.sql.Timestamp)rowData[7]).getTime());;
+		this.lastSeen = rowData[8]==null ? null : new Date(((java.sql.Timestamp)rowData[8]).getTime());;
+	}
+	
+	
 
 	public long getMetricId() {
 		return this.metricId;

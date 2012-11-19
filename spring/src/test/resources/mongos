@@ -1,0 +1,6 @@
+#!/bin/bash
+export DBDIR=/home/nwhitehead/services/mongodb/db
+export EXE=/home/nwhitehead/services/mongodb/mongodb-linux-x86_64-2.2.1/bin/mongod
+export OPTIONS="--dbpath $DBDIR --journal --jsonp --rest --smallfiles"
+echo "Starting MongoD"
+$EXE $OPTIONS

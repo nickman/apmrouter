@@ -4,6 +4,9 @@ package org.helios.apmrouter.catalog.domain;
 
 import java.util.Date;
 
+import javax.management.Notification;
+
+import org.helios.apmrouter.catalog.jdbc.h2.AbstractTrigger;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.DBRef;
@@ -61,6 +64,32 @@ public class Agent implements java.io.Serializable, DomainObject {
 		this.uri = uri;
 		this.minLevel = minLevel;		
 	}
+	
+	/**
+	 * Creates a new Agent from a new agent notification
+	 * @param notif The new agent notification emitted from the H2 catalog DB
+	 */
+	public Agent(Notification notif) {
+		if(notif==null) throw new IllegalArgumentException("The passed notification was null", new Throwable());
+		if(!AbstractTrigger.NEW_AGENT.equals(notif.getType())) throw new IllegalArgumentException("The passed notification was not the right type [" + notif.getType() + "] for an agent", new Throwable());
+		Object[] rowData = (Object[])notif.getUserData();		
+		if(rowData==null) {
+			throw new IllegalArgumentException("The passed agent notification has a null UserData", new Throwable());
+		}
+		if(rowData.length!=8) {
+			throw new IllegalArgumentException("Unexpected rowData length [" + rowData.length + "] for agent notification", new Throwable());
+		}
+		this.agentId = (Integer)rowData[0];
+		this.host = new Host();
+		this.host.setHostId((Integer)rowData[1]);
+		this.name = (String)rowData[2];
+		this.minLevel = (Integer)rowData[3];
+		this.firstConnected = new Date(((java.sql.Timestamp)rowData[4]).getTime());
+		this.lastConnected = new Date(((java.sql.Timestamp)rowData[5]).getTime());;
+		this.connected = rowData[6]==null ? null : new Date(((java.sql.Timestamp)rowData[6]).getTime());;
+		this.uri = (String)rowData[7];
+	}
+	
 
 	public int getAgentId() {
 		return this.agentId;
