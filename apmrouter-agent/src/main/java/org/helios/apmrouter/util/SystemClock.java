@@ -62,6 +62,26 @@ public enum SystemClock {
 		return currentClock.get().getTime();
 	}
 	
+	/**
+	 * Calculates the beginning time of the current period based on the passed step and the clock's current time
+	 * @param step The period step size
+	 * @return The current period
+	 */
+	public static long period(long step) {		
+		return currentClock.get().clock.period(step);
+	}
+	
+	/**
+	 * Calculates the beginning time of the current period based on the passed step and the clock's current time
+	 * @param step The period step size
+	 * @param time The raw time to calculate the period for
+	 * @return The current period
+	 */	
+	public static long period(long step, long time) {
+		return currentClock.get().clock.period(step, time);
+	}
+	
+	
 	public static long unixTime() {
 		return currentClock.get().unixTime();
 	}
@@ -463,6 +483,21 @@ public enum SystemClock {
 		 * @return the current time in SNMP {@link TimeTicks} 
 		 */
 		long timeTick();
+		
+		/**
+		 * Calculates the beginning time of the current period based on the passed step and the clock's current time
+		 * @param step The period step size
+		 * @return The current period
+		 */
+		long period(long step);
+		
+		/**
+		 * Calculates the beginning time of the current period based on the passed step and the clock's current time
+		 * @param step The period step size
+		 * @param time The raw time to calculate the period for
+		 * @return The current period
+		 */
+		long period(long step, long time);
 	}
 	
 	/**
@@ -480,6 +515,23 @@ public enum SystemClock {
 			long tt = time()/100;
 			return tt;
 		}
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.util.SystemClock.Clock#period(long)
+		 */
+		@Override
+		public long period(long step) {
+			final long t = time();
+			return t-(t%step);
+		}
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.util.SystemClock.Clock#period(long, long)
+		 */
+		@Override
+		public long period(long step, long time) {
+			return time-(time%step);
+		}
 	}
 	
 	private static class NanoClock implements Clock {		
@@ -493,6 +545,24 @@ public enum SystemClock {
 			long tt = time()/100;
 			return tt;
 		}
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.util.SystemClock.Clock#period(long)
+		 */
+		@Override
+		public long period(long step) {
+			final long t = time();
+			return t-(t%step);
+		}
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.util.SystemClock.Clock#period(long, long)
+		 */
+		@Override
+		public long period(long step, long time) {
+			return time-(time%step);
+		}
+		
 		
 	}
 	
@@ -507,6 +577,24 @@ public enum SystemClock {
 			long tt = time()/100;
 			return tt;
 		}
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.util.SystemClock.Clock#period(long)
+		 */
+		@Override
+		public long period(long step) {
+			final long t = time();
+			return t-(t%step);
+		}
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.util.SystemClock.Clock#period(long, long)
+		 */
+		@Override
+		public long period(long step, long time) {
+			return time-(time%step);
+		}
+		
 		
 	}
 	

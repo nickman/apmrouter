@@ -24,6 +24,10 @@
  */
 package org.helios.apmrouter.collections;
 
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.util.Arrays;
+
 
 /**
  * <p>Title: UnsafeLongArray</p>
@@ -51,10 +55,29 @@ public class UnsafeLongArray extends UnsafeArray {
     public static final long LONG_ARRAY_OFFSET = unsafe.arrayBaseOffset(long[].class);
     
     public static void main(String[] args) {
+    	/*
     	log("Long ArrOff:" +  unsafe.arrayBaseOffset(Long[].class));
     	log("Long IScale:" +  unsafe.arrayIndexScale(Long[].class));
     	log("long ArrOff:" +  unsafe.arrayBaseOffset(long[].class));
     	log("long IScale:" +  unsafe.arrayIndexScale(long[].class));
+    	*/
+    	try {
+	    	UnsafeLongArray ula = UnsafeArrayBuilder.newBuilder().sorted(true).initialCapacity(5).fixed(true).buildLongArray();
+	    	for(int i = 0; i < 5; i++) { ula.insert(i); }
+	    	log("ULA:" + ula);
+	    	log("ULA Arr:" + Arrays.toString(ula.getArray()));
+	    	byte[] arr = ula.getBytes();
+	    	log("Arr Length:" + arr.length);
+//	    	byte[] arr2 = new byte[arr.length];
+//	    	for(int i = 0; i < arr.length; i++) {
+//	    		arr2[arr.length-(1+i)] = arr[i];
+//	    	}
+	    	UnsafeLongArray ula2 = UnsafeArrayBuilder.newBuilder().sorted(true).initialCapacity(5).fixed(true).buildLongArray();
+	    	ula2.initAndLoad(arr);
+	    	log("ULA2:" + ula2);
+    	} catch (Exception ex) {
+    		ex.printStackTrace(System.err);
+    	}
     	
     }
     
@@ -132,7 +155,8 @@ public class UnsafeLongArray extends UnsafeArray {
 	}
 	
 
-
+	
+	
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.collections.UnsafeArray#getSlotSize()
@@ -141,16 +165,39 @@ public class UnsafeLongArray extends UnsafeArray {
 	protected int getSlotSize() {
 		return 3;
 	}
+	
+	public static long[] convert(byte[] arr) {
+		int len = arr.length;
+		if(len%8!=0) throw new RuntimeException("Mod check failed", new Throwable());
+		int arrsize = len/8;
+		long[] larr = new long[arrsize];
+		unsafe.copyMemory(arr, BYTE_ARRAY_OFFSET, larr, LONG_ARRAY_OFFSET, arr.length);
+		
+		return larr;
+
+	}
+	
+	
 
     // ======================================================================================
 	//			Standard Load Impls.
 	// ======================================================================================
 	
+	
+	protected void initAndLoad(byte[] arr) {
+		int len = arr.length;
+		if(len%8!=0) throw new RuntimeException("Mod check failed", new Throwable());
+		size = len/8;
+		freeMemory(address);
+		address = allocateMemory(len << 3);
+		unsafe.copyMemory(arr, BYTE_ARRAY_OFFSET, null, address, arr.length);		
+	}
+	
 	/**
 	 * Loads this array from a long array
 	 * @param arr The array to load
 	 */
-	private void load(long[] arr) {		
+	protected void load(long[] arr) {		
 		if(arr.length<1) return;
 		if(arr.length>maxCapacity) throw new ArrayOverflowException("Passed array of length [" + arr.length + "] is too large for this UnsafeLongArray with a max capacity of [" + maxCapacity + "]", new Throwable());
 		freeMemory(address);
@@ -204,6 +251,90 @@ public class UnsafeLongArray extends UnsafeArray {
     }
     
     /**
+     * <p>Rolls all the entries in the array one slot to the right after the referenced index, 
+     * optionally extending the array capacity if it is full when this method is called. 
+     * Logically, this opens a new slot at the referenced index, and the new slot is set to the passed new value.
+     * Once this method completes, the size of the array will have been incremented by 1, unless <b><code>fixedSize==true</code></b>
+     * in which case both the size and the capacity will be unchanged.</p>
+     * If this array is fixed capacity when <b><code>size==capacity</code></b>, 
+     * the right-most value of the array will be dropped, effectively creating a sliding-window when used with <b><code>index==0</code></b>.
+     * <p><b>Note:</b> The rolling of the array values is performed by {@link sun.misc.Unsafe#copyMemory(long, long, long)}</p>
+     * <p><b>Example</b> of calling <b><code>rollRight(1, 77, bool)</code></b> on an array of size 6 and capacity of 8</p>
+     * <p>If this array is sorted, the index is checked for the passed value and a RuntimeException will be thrown if the index is incorrect.
+     * @param index The index after which the remaining values are rolled to the right
+     * @param newValue The value to place into the new slot 
+     * @return the value of the dropped slot, or null if a slot was not dropped
+     */
+    public Long rollRightCap(int index, long newValue) {
+    	if(sorted && normalizedBinarySearch(newValue)!=index) throw new RuntimeException("The index [" + index + "] is incorrect for the value [" + newValue + "] for this sorted array", new Throwable());
+    	final Long dropped = rollRightCap(index);
+		a(index, newValue);
+    	return dropped;
+    }    
+    
+    /**
+     * <p>Rolls all the entries in the array one slot to the right after the referenced index, 
+     * optionally extending the array capacity if it is full when this method is called. 
+     * Logically, this opens a new slot at the referenced index, and the new slot is set to the passed new value.
+     * Once this method completes, the size of the array will have been incremented by 1, unless <b><code>this.fixed==true</code></b>
+     * in which case both the size and the capacity will be unchanged.</p>
+     * If this array is fixed capacity when <b><code>size==capacity</code></b>, 
+     * the right-most value of the array will be dropped, effectively creating a sliding-window when used with <b><code>index==0</code></b>.
+     * <p><b>Note:</b> The rolling of the array values is performed by {@link sun.misc.Unsafe#copyMemory(long, long, long)}</p>
+     * <p><b>Example</b> of calling <b><code>rollRight(1, 77, bool)</code></b> on an array of size 6 and capacity of 8</p>
+     * <b>Before Operation</b>
+     * <pre>
+	           -->  -->  -->  -->  -->
+	    +--+ +--+ +--+ +--+ +--+ +--+               Size:      6     Index:   1
+	    |23| |47| |19| |67| |42| |89|               Capacity:  8     Value:   77
+	    +--+ +--+ +--+ +--+ +--+ +--+ +--+ +--+
+	          /^\
+	           |
+	         Index
+      </pre><b>After Operation</b><pre>
+	     +--+ +--+ +--+ +--+ +--+ +--+ +--+          Size:      7
+	     |23| |77| |47| |19| |67| |42| |89|          Capacity:  8
+	     +--+ +--+ +--+ +--+ +--+ +--+ +--+ +--+
+     * </pre>
+     * @param index The index after which the remaining values are rolled to the right
+     * @return the rightmost item that was dropped to make room for the new value, or null if no slot was dropped
+     */
+    protected Long rollRightCap(int index) {
+    	_check(); _checkc(index);
+    	final int numberOfSlotsToMove;
+    	final boolean incrSize;
+    	final Long dropped;
+    	if(size==capacity) {
+        	if(fixed) {
+        		numberOfSlotsToMove = size-index-1;
+        		incrSize=false;
+        		dropped = a(size-1);
+        	} else {
+        		extend(false, 1);
+        		numberOfSlotsToMove = size-index;
+        		incrSize=true;
+        		dropped = null;
+        	}    	
+    	} else {
+    		numberOfSlotsToMove = size-index;
+    		incrSize=true;
+    		dropped = null;
+    	}
+    	
+    	long srcOffset = (index << slotSize); 
+    	long destOffset = ((index+1) << slotSize);
+    	long bytes = numberOfSlotsToMove << slotSize;
+		unsafe.copyMemory(
+				(address + srcOffset),   	// src: the address of the first index we want to roll
+				(address + destOffset), 	// dest: the address of the slot after the one we want to roll
+				bytes						// bytes: the number of bytes in the entries that need to be rolled
+		);		
+		if(incrSize) size++;
+		return dropped;
+    }
+    
+    
+    /**
      * Adjusts the binary search result to the actual index to insert into
      * @param v The long value to insert
      * @return the index to insert into
@@ -245,6 +376,28 @@ public class UnsafeLongArray extends UnsafeArray {
     	if(sorted) sort();
     	return this;
     }
+    
+    /**
+     * Returns this array as a byte array
+     * @return this array as a byte array
+     */
+    protected byte[] getBytes() {
+    	byte[] bytes = new byte[size*8];
+    	unsafe.copyMemory(null, address, bytes, BYTE_ARRAY_OFFSET, size << 3);
+    	return bytes;
+    }
+    
+    protected byte[] getBytesReversed() {
+    	byte[] bytes = new byte[size*8];
+    	int offset = BYTE_ARRAY_OFFSET + (size << 3);
+    	for(int i = 0; i < size; i++) {
+    		unsafe.copyMemory(null, address, bytes, offset, 8);
+    		offset -= 8;
+    	}
+    	//unsafe.copyMemory(null, address, bytes, BYTE_ARRAY_OFFSET, size << 3);
+    	return bytes;
+    }    
+    
     
     /**
      * Appends as many of the passed long values to this array as will fit up to the max capacity, discarding the remaining values.
@@ -463,6 +616,7 @@ public class UnsafeLongArray extends UnsafeArray {
     	return this;
     }
     
+
     
     
     

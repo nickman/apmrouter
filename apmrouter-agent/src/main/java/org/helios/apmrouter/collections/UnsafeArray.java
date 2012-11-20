@@ -44,6 +44,11 @@ public abstract class UnsafeArray {
 	public static final int DEFAULT_ALLOC_INCR = 128;
 	/** A marker placed in the {@link UnsafeArray#toFullString()} indicating where actual size elements terminate */
 	public static final String SIZE_MARKER = ">><<,";
+    /** The byte array offset */
+    public static final int BYTE_ARRAY_OFFSET;
+    /** The int array offset */
+    public static final int INT_ARRAY_OFFSET;
+
 	
 	/** The default capacity of an empty created UnsafeArray */
 	public static int DEFAULT_CAPACITY = 128;
@@ -84,10 +89,16 @@ public abstract class UnsafeArray {
             Field field = Unsafe.class.getDeclaredField("theUnsafe");
             field.setAccessible(true);
             unsafe = (Unsafe)field.get(null);
+            BYTE_ARRAY_OFFSET = unsafe.arrayBaseOffset(byte[].class);
+            INT_ARRAY_OFFSET = unsafe.arrayBaseOffset(int[].class);
         } catch (Exception e) {
             throw new RuntimeException("Failed to get the Unsafe instance", e);
         }
     }
+    
+
+    
+
     
     /**
      * Returns the bitshift factor for calculating the total number of bytes for this array's type.
@@ -205,9 +216,12 @@ public abstract class UnsafeArray {
 	protected void loadArray(Object data) {
 		Class<?> clazz = data.getClass().getComponentType();
 		if(!clazz.isPrimitive()) throw new RuntimeException("An array of [" + clazz.getName() + "]s cannot be loaded. Only primitives are currently supported", new Throwable());
-		long offset = unsafe.arrayBaseOffset(clazz); 
+		long offset = unsafe.arrayBaseOffset(data.getClass()); 
 		int length = Array.getLength(data);
-		if(length>maxCapacity) throw new ArrayOverflowException("Passed array of length [" + length + "] is too large for this UnsafeLongArray with a max capacity of [" + maxCapacity + "]", new Throwable());
+		
+		if(length>maxCapacity) {
+			throw new ArrayOverflowException("Passed array of length [" + length + "] is too large for this UnsafeArray with a max capacity of [" + maxCapacity + "]", new Throwable());
+		}
 		unsafe.copyMemory(data, offset, null, address, length << slotSize);
 	}
 	
@@ -373,6 +387,8 @@ public abstract class UnsafeArray {
 		if(incrSize) size++;
 		return incrSize;
     }
+    
+    
     
     /**
      * Rolls all the entries in the array one slot to the left after the referenced index
@@ -590,6 +606,13 @@ public abstract class UnsafeArray {
     	b.append("]");
     	return b.toString();
     }
+	
+	public static int toInt(byte[] arr) {
+		int[] iarr = new int[1];
+		unsafe.copyMemory(arr, INT_ARRAY_OFFSET, iarr, INT_ARRAY_OFFSET, 4);
+		return iarr[0];
+		
+	}
 
 
 }

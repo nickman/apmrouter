@@ -52,6 +52,18 @@ public class LongSlidingWindow {
 		this.array = array;
 	}
 	
+	public void reinitAndLoad(byte[] arr) {
+		array.initAndLoad(arr);
+	}
+	
+    /**
+     * Returns this sliding window as a (copied) byte array
+     * @return this sliding window as a (copied) byte array
+     */
+    public byte[] getBytes() {
+    	return array.getBytes();
+    }	
+	
 	
 	/**
 	 * Creates a new LongSlidingWindow with the provided initial values
@@ -74,6 +86,16 @@ public class LongSlidingWindow {
 			array.rollRight(0, v);
 		}
 	}
+	
+	/**
+	 * Inserts the passed value into the first slot of the array, moving all other other populated slots to the right.
+	 * @param value The value to insert
+	 * @return The dropped value if one was dropped, otherwise null
+	 */
+	public Long insert(long value) {
+		return array.rollRightCap(0, value);		
+	}
+	
 	
 	/**
 	 * Removes all the values from this array, keeping the capacity fixed.

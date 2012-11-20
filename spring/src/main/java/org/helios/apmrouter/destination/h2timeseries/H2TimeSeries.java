@@ -360,7 +360,7 @@ public class H2TimeSeries implements Externalizable {
 	 * @return The prior period's slot if a roll occurred, null if it did not
 	 */
 	public synchronized long[] addValue(long timestamp, long value) {
-		final long period = getPeriod(timestamp);
+		final long period = SystemClock.period(step, timestamp);
 		store.position(0);
 		if(size<0) {			
 			size++;
@@ -472,14 +472,7 @@ public class H2TimeSeries implements Externalizable {
 		return current;
 	}
 	
-	/**
-	 * Returns the current period
-	 * @param timestamp The timestamp to get the period for
-	 * @return the period
-	 */
-	public long getPeriod(long timestamp) {
-		return (timestamp - (timestamp%step));
-	}
+
 	
 	/**
 	 * Returns the STEP in ms. 

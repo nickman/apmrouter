@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.collections;
 
+import java.nio.LongBuffer;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
@@ -87,6 +88,126 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 		} finally {
 			writeLock.unlock();
 		}
+	}
+	
+	public void insert(LongBuffer longBuff) {
+		writeLock.lock();
+		try {
+				long[] larr = new long[longBuff.limit()];
+				longBuff.get(larr);
+				super.insert(larr);
+		} finally {
+			writeLock.unlock();
+		}
+	}
+	
+	
+	/**
+	 * Inserts the passed value into the first slot of the array, moving all other other populated slots to the right.
+	 * @param value The value to insert
+	 * @return The dropped value if one was dropped, otherwise null
+	 */
+	public Long insert(long value) {
+		writeLock.lock();
+		try {
+			return super.insert(value);
+		} finally {
+			writeLock.unlock();
+		}
+	}	
+	
+	/**
+	 * Increments the value at the specified index by the passed amount
+	 * @param index The index to update at
+	 * @param value The amount to increment by
+	 * @return The new value
+	 */
+	public long inc(int index, long value) {
+		writeLock.lock();
+		try {
+			if(size()<index+1) throw new ArrayOverflowException("Attempted to increment at index [" + index + "] but size is [" + size() + "]", new Throwable());
+			return array.set(index, array.get(index)+value).get(index);
+		} finally {
+			writeLock.unlock();
+		}
+	}
+	
+	/**
+	 * Increments the value at the specified index by 1
+	 * @param index The index to update at
+	 * @return The new value
+	 */
+	public long inc(int index) {
+		return inc(index, 1L);
+	}
+	
+	/**
+	 * Increments the value of the 0th index by the passed amount
+	 * @param value The amount to increment by
+	 * @return The new value
+	 */
+	public long inc(long value) {
+		return inc(0, value);
+	}
+	
+	/**
+	 * Increments the value of the 0th index by 1
+	 * @return The new value
+	 */
+	public long inc() {
+		return inc(0, 1L);
+	}
+	
+	/**
+	 * Attempts to locate the index of the passed value
+	 * @param value The value to search for
+	 * @return the index of the located value, which will be negative if not found
+	 */
+	public int find(long value) {
+		readLock.lock();
+		try {
+			return array.binarySearch(value);
+		} finally {
+			readLock.unlock();
+		}
+	}
+	
+	
+	/**
+	 * Sets the value of the 0th index to the passed value
+	 * @param value The value to set to 
+	 */
+	public void set(long value) {
+		writeLock.lock();
+		try {
+			array.set(0, value);
+		} finally {
+			writeLock.unlock();
+		}
+	}
+	
+	/**
+	 * Loads this window from a byte array
+	 * @param arr the byte array
+	 */
+	public void load(byte[] arr) {
+		writeLock.lock();
+		try {
+			array.load(arr);
+		} finally {
+			writeLock.unlock();
+		}
+	}
+	
+	public void reinitAndLoad(byte[] arr) {
+		writeLock.lock();
+		try {
+			array.initAndLoad(arr);
+		} finally {
+			writeLock.unlock();
+		}
+		
+		
 	}
 	
 	/**
