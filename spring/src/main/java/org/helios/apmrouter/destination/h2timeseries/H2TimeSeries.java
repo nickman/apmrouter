@@ -47,6 +47,7 @@ import java.util.Date;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.log4j.Logger;
 import org.h2.tools.SimpleResultSet;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
@@ -63,6 +64,8 @@ import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 public class H2TimeSeries implements Externalizable { 
 	/**  */
 	private static final long serialVersionUID = -963955749386799856L;
+	/** Static class logger */
+	protected static final Logger LOG = Logger.getLogger(H2TimeSeries.class);
 	/** The STEP size in ms. */
 	protected long step;
 	/** The WIDTH, or number of entries in the window */
@@ -362,6 +365,7 @@ public class H2TimeSeries implements Externalizable {
 		if(size<0) {			
 			size++;
 			put(new long[]{period, value, value, value, 1});
+			LOG.info("Initial Entry");
 			return null;
 		}			
 		final long[] values = getArray(size);			
@@ -371,17 +375,22 @@ public class H2TimeSeries implements Externalizable {
 			store.position(size * ENTRY_SIZE);
 			newValues = calcValue(values, period, value);
 			put(newValues);
+			LOG.info("Updated existing Entry:" + new Date(period));
 			return null;
 		} 
 		if(size<width) {
 			size++;
 			store.position(size * ENTRY_SIZE);
-			//log("Rolled to slot [" + size + "] Pos:[" + store.position() + "]");					
+			LOG.info("Rolled to slot [" + size + "] Pos:[" + store.position() + "]");					
 		} else {
 			store.position(ENTRY_SIZE);
 			store.compact();
 			store.position(size * ENTRY_SIZE);
-			//log("Compacted. Size: [" + size + "] Pos:[" + store.position() + "]");
+			LOG.info("Compacted. Size: [" + size + "] Pos:[" + store.position() + "]" + 
+					"\n\tPrior Period:" + new Date(values[PERIOD]) +
+					"\n\tNew Period:" + new Date(period) +
+					"\n\tStep Diff:" + (period-values[PERIOD]) + " ms."
+			);
 		}
 		
 		newValues = calcValue(null, period, value);

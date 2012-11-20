@@ -24,6 +24,9 @@
  */
 package org.helios.apmrouter.destination.mongodb;
 
+import static org.springframework.data.mongodb.core.query.Criteria.where;
+import static org.springframework.data.mongodb.core.query.Query.query;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -54,6 +57,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.data.mongodb.core.CollectionOptions;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.support.MetricType;
@@ -100,6 +105,8 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	protected String tsDefinition = null;
 	/** The maximum size of a collection as a factor of the tier specification */
 	protected long maxCollectionSizePerPeriod = 650000;
+	/** The live step size */
+	protected long step = 15000;
 	
 	
 //	BasicDBObject doc = new BasicDBObject();
@@ -223,8 +230,27 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	@Override
 	public void flushTo(Collection<IMetric> flushedItems) {
 		//info("Flushed [", flushedItems.size(), "] Items");
+		for(IMetric metric: flushedItems) {
+			final long period = getPeriod(metric.getTime());
+			Query query = query(where("period").is(period));
+			Update update = new Update().inc("cnt", 1)
+					.set("min", metric.getLongValue())
+					.set("max", metric.getLongValue());
+			
+			mongoTemplate.upsert(query, update, "live");
+		}
 		
 	}	
+	
+	/**
+	 * Returns the current period
+	 * @param timestamp The timestamp to get the period for
+	 * @return the period
+	 */
+	public long getPeriod(long timestamp) {
+		return (timestamp - (timestamp%step));
+	}
+
 	
 	/**
 	 * {@inheritDoc}
@@ -278,6 +304,7 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 				info("Created tier [", tier.getName(), "]\n\tSize:" , maxCollectionSize, "\n\tDocs:", tier.getPeriodCount());
 			}
 		}
+		step = TimeUnit.MILLISECONDS.convert(tsModel.getModelTiers().get(0).getPeriodDuration().seconds, TimeUnit.SECONDS);
 	}
 	
 	
