@@ -52,8 +52,20 @@ public class LongSlidingWindow {
 		this.array = array;
 	}
 	
+	/**
+	 * Loads this sliding window with a new data set
+	 * @param arr The new data set in the form of an array of longs encoded in a byte array
+	 */
 	public void reinitAndLoad(byte[] arr) {
 		array.initAndLoad(arr);
+	}
+	
+    /**
+     * Returns this array as an array of doubles
+     * @return an array of doubles
+     */
+	public double[] asDoubleArray() {
+		return array.asDoubleArray();
 	}
 	
     /**

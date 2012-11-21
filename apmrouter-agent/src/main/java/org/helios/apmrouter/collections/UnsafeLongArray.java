@@ -660,6 +660,7 @@ public class UnsafeLongArray extends UnsafeArray {
      */
     public double[] asDoubleArray() {
     	_check();
+    	if(size==0) return new double[0];
     	double[] arr = new double[size];
     	unsafe.copyMemory(null, address, arr, DOUBLE_ARRAY_OFFSET, size << 3);
     	return arr;    	

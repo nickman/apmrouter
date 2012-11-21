@@ -186,6 +186,19 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 		}
 	}
 	
+    /**
+     * Returns this array as an array of doubles
+     * @return an array of doubles
+     */
+	public double[] asDoubleArray() {
+		readLock.lock();
+		try {
+			return array.asDoubleArray();
+		} finally {
+			readLock.unlock();
+		}
+	}	
+	
 	/**
 	 * Loads this window from a byte array
 	 * @param arr the byte array

@@ -173,6 +173,19 @@ public class ConcurrentLongSortedSet extends LongSortedSet {
 		}
 	}
 	
+    /**
+     * Returns this array as an array of doubles
+     * @return an array of doubles
+     */
+	public double[] asDoubleArray() {
+		readLock.lock();
+		try {
+			return array.asDoubleArray();
+		} finally {
+			readLock.unlock();
+		}
+	}	
+	
 	/**
 	 * Removes all the passed values from the array
 	 * @param values The values to remove from the array

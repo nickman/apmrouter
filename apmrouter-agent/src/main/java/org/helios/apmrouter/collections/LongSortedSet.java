@@ -119,6 +119,14 @@ public class LongSortedSet {
 		return array.size();
 	}
 	
+    /**
+     * Returns this array as an array of doubles
+     * @return an array of doubles
+     */
+	public double[] asDoubleArray() {
+		return array.asDoubleArray();
+	}	
+	
 	/**
 	 * Returns true if the passed long value is in the array
 	 * @param value the long value to test for
