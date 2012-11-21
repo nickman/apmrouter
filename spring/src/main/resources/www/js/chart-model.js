@@ -3,11 +3,17 @@
 			this.metricId = json.msg[0];
 			this.metricDef = metricModelCache[this.metricId];
 			this.step = json.msg[1].step;
+			this.lastSequenceNumber = -1;
+			this.lastTimestamp = -1;
 			this.width = json.msg[1].width;
 			this.subSeries = {0:[], 1:[], 2:[], 3:[]};
 			this.subscription = -1;
 			this.container = null;
 			this.treeClickChart = null;
+			this.anim = {
+    				duration: 1000,
+                    easing: 'easeOutBounce'
+    		};
 			var st = new Date().getTime();
 			this.extractSeries(json.msg[2]);   // push directly into series. no point caching.			
 			var endt = new Date().getTime();
@@ -23,6 +29,7 @@
 			var cnt = 0;
 			for(var i = 0, m = rawData.length; i < m; i++) {
 				var ts = rawData[i][0];
+				this.lastTimestamp = ts;
 				for(var x = 0; x < 4; x++) {
 					this.subSeries[x].push([ts, rawData[i][x+1]])
 				}
@@ -31,28 +38,35 @@
 			console.info("Extracted %s Values", cnt);
 		},
 		
+		/*
+		msg: Object
+		message: "TimeSeries Interval Roll for [ICEMetric [>DELTA_COUNTER<com.cpex.ne-wk-nwhi-01/APMRouterServer/platform=APMRouter/category=ConflationService:MetricsForwarded[Wed Nov 21 14:23:19 EST 2012]:50]"
+		sequenceNumber: 3
+		source: Object
+		timeStamp: 1353525804341
+		type: "apmrouter.h2timeseries.intervalroll.110"
+		userData: Array[2]
+		__proto__: Object
+		rerid: 11
+		*/		
+		
 		acceptLiveUpdate : function(t) {		
 			var _this = t;
 			return function(json) {
+				if(json.msg.sequenceNumber<=_this.lastSequenceNumber || json.msg.timeStamp < _this.lastTimestamp) {
+					//console.warn("Out of sequence event. Current: [%s],[%s]  Incoming: [%s],[%s]", new Date(_this.lastTimestamp), _this.lastSequenceNumber, new Date(json.msg.timeStamp), json.msg.sequenceNumber);
+					return;
+				}
+				_this.lastSequenceNumber = json.msg.sequenceNumber; 
+				_this.lastTimestamp = json.msg.timeStamp;
 				if(json.msg.userData!=null && json.msg.userData.length >= 2 && json.msg.userData[1]==_this.metricId) {	
-					console.info("Live update for metric ID: %s, [%o]", json.msg.userData[1], json.msg.userData[0]);
+					console.debug("Live update for metric ID: %s, Time:[%s] Data:[%o]", json.msg.userData[1], new Date(json.msg.userData[0][0]), json.msg.userData[0]);
 					var mid = json.msg.userData[1];
 					var tsdata = json.msg.userData[0];
 					try {
-						$.each( _this.subSeries, function(index, series) {
-							if(tsdata[0]==series[series.length-1][0]) {
-								console.info("Updating Series Point [%s] for metric [%s]", index, _this.metricId);
-								series[series.length-1][1] = tsdata[index+1];
-								_this.treeClickChart.series[index].setData(series);
-							} else {
-								console.info("Added Series Point [%s] for metric [%s]", index, _this.metricId);
-								series.push([tsdata[0], tsdata[index+1]]);
-								if(series.length==_this.width) series.shift();
-								_this.treeClickChart.series[index].addPoint([tsdata[0], tsdata[index+1]]);
-							}
-								//_this.treeClickChart.series[index].setData(series);
-								//series.addPoint([tsdata[0], tsdata[index+1]], false, series.data.length>=_this.width, false);
-								//_this.subSeries[index].push([ts, rawData[i][x+1]])
+						$.each( _this.treeClickChart.series, function(index, series) {
+							var shiftPoints = series.data.length>=_this.width;
+							series.addPoint([tsdata[0], tsdata[index+1]], true, shiftPoints, _this.anim);
 						});
 					} catch (e) {
 						console.error("Failed to process live update Error was [%o], %o", e, e.stack);
@@ -100,7 +114,7 @@
 	                    }
 	                },    	        
 	    	        title: {
-	    	            text: this.metricDef.ns
+	    	            text: this.metricDef.ns + '  [' + this.metricId + ']' 
 	    	        },
 	    	        series: [
 	    	            {id: 'series-Min-' + this.metricId, name: this.metricDef.name + " Min", data: this.subSeries[ChartModel.MIN], animation: false, visible: false},
@@ -109,6 +123,12 @@
 	    	            {id: 'series-Cnt-' + this.metricId, name: this.metricDef.name + " Cnt", data: this.subSeries[ChartModel.CNT], animation: false, visible: false, yAxis: 1, dashStyle : 'Dash'}
 	    	        ]
 	    	    });
+	    		var an = this.anim;
+	    		for(var i = 0, m = this.treeClickChart.series.length; i < m; i++) {
+	    			this.treeClickChart.series[i].options.animation = an;
+	    		}
+	    		//this.subSeries = [];
+
 	    		this.treeClickChart.series.metricId = this.metricId;
 	    		if(props.auto || false) {
 	    			this.subscription = $.apmr.subMetricOn(this.metricId, this.acceptLiveUpdate(this));

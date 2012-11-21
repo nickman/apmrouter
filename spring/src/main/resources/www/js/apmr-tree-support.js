@@ -339,7 +339,7 @@
 		});
 	}
 	
-$.getScript("js/chart-model.js");	
+	
 	
 
 			

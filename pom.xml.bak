@@ -26,7 +26,7 @@
 		<hbase.version>1.3.2</hbase.version>
 		<async.version>1.2.0</async.version>
 		<high-scale-lib.version>1.1.4</high-scale-lib.version>
-		<netty-tools.version>1.3.1-SNAPSHOT</netty-tools.version>
+		<netty-tools.version>1.2.7</netty-tools.version>
 		<netty.version>3.5.8.Final</netty.version>
 		<tsdb.version>1.1.0</tsdb.version>
 		<nash.version>1.0-SNAPSHOT</nash.version>
@@ -42,7 +42,12 @@
 		<gson.version>2.2.2</gson.version>
 		<json-lib.version>2.4</json-lib.version>
 		<xom.version>1.2.5</xom.version>
-		<groovy.version>2.0.5</groovy.version>
+		<groovy.version>2.0.1</groovy.version>
+		<json-simple.version>1.1.1</json-simple.version>
+		<spring-mongo.version>1.0.4.RELEASE</spring-mongo.version>
+		<flapdoodle.version>1.26</flapdoodle.version>
+		<jfree.version>1.0.9</jfree.version>
+		
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -65,6 +70,13 @@
 				<version>${camel.version}</version>
 				<scope>test</scope>
 			</dependency>
+			  <dependency>
+			    <groupId>de.flapdoodle.embed</groupId>
+			    <artifactId>de.flapdoodle.embed.mongo</artifactId>
+			    <version>${flapdoodle.version}</version>
+			    <scope>test</scope>
+			  </dependency>	
+			
 			<!--   COMPILE/RUNTIME   -->
 			<dependency>
 				<groupId>vanilla.java</groupId>
@@ -122,6 +134,13 @@
 			  <version>${spring.version}</version>
 			</dependency>
 			
+			<!-- MongoDb -->
+			<dependency>
+			    <groupId>org.springframework.data</groupId>
+			    <artifactId>spring-data-mongodb</artifactId>
+			    <version>${spring-mongo.version}</version>
+			  </dependency>
+			
 			
 			<dependency>
 				<groupId>org.apache.camel</groupId>
@@ -151,6 +170,7 @@
 			 <artifactId>netty-tools</artifactId>
 			 <version>${netty-tools.version}</version>
 			</dependency>
+
 			
 			<!--  OpenTSDB -->
 
@@ -217,6 +237,12 @@
 				  <artifactId>hibernate-core</artifactId>
 				  <version>${hibernate.version}</version>
 				</dependency>
+			<dependency>
+			  <groupId>com.googlecode.json-simple</groupId>
+			  <artifactId>json-simple</artifactId>
+			  <version>${json-simple.version}</version>
+			</dependency>
+				
 
 				<!--  Groovy Console -->
 				<dependency>

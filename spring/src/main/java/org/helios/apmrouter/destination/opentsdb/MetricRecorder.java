@@ -454,9 +454,17 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 		//tsClient.addPoint(recording.name, recording.timestamp,  recording.value, recording.tags);
         final WritableDataPoints dp = getDataPoints(recording.name, recording.tags);
         Deferred<Object> d;
-        d = dp.addPoint(recording.timestamp, recording.value);
-        d.addErrback(this);
-        metricCounter.incrementAndGet();        
+        try {
+        	d = dp.addPoint(recording.timestamp, recording.value);
+            d.addErrback(this);
+            metricCounter.incrementAndGet();                	
+        } catch (IllegalArgumentException iae) {
+        	if(iae.getMessage().startsWith("New timestamp=")) {
+        		dropCounter.incrementAndGet();
+        	} else {
+        		throw iae;
+        	}
+        }
 	}
 	
 	/**

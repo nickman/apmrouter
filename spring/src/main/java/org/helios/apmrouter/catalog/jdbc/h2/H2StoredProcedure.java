@@ -296,14 +296,7 @@ public class H2StoredProcedure {
 				ps.setObject(i+1, insertValues[i]);
 			}
 			ps.executeUpdate();
-			rset = ps.getGeneratedKeys();
-			rset.next();
-			Object[] nums = new Object[keyIndexes.length];
-			nums[0] = rset.getLong(1);
-			for(int i = 1; i < keyIndexes.length; i++) {
-				nums[i] = (insertValues[keyIndexes[i]]);
-			}
-			return nums;
+			return key(conn, selectSql, binds, insertSql, keyIndexes, insertValues);
 		} catch (Exception e) {
 			throw new SQLException("Failed to find key for [" + selectSql + "]", e);
 		} finally {

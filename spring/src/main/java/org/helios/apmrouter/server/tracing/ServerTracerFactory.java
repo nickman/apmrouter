@@ -27,20 +27,32 @@ package org.helios.apmrouter.server.tracing;
 import static org.helios.apmrouter.util.Methods.nvl;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.helios.apmrouter.catalog.DChannelEvent;
+import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.metric.AgentIdentity;
+import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
+import org.helios.apmrouter.metric.catalog.IDelegateMetric;
+import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.router.PatternRouter;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.trace.ITracer;
+import org.helios.apmrouter.trace.ITracerFactory;
 import org.helios.apmrouter.trace.MetricSubmitter;
-import org.helios.apmrouter.trace.TracerImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.support.MetricType;
@@ -52,19 +64,19 @@ import org.springframework.jmx.support.MetricType;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.tracing.ServerTracerFactory</code></p>
  */
-public class ServerTracerFactory extends ServerComponentBean implements MetricSubmitter {
+public class ServerTracerFactory extends ServerComponentBean implements MetricSubmitter, ITracerFactory {
 	/** The pattern router the server tracers will send to */
 	protected PatternRouter patternRouter = null;
 	/** The default tracer */
 	protected ITracer defaultTracer = new ServerTracerImpl(APMROUTER_HOST_NAME, APMROUTER_AGENT_NAME, this);
-	/** The count of metric sends */
-	protected final AtomicLong sent = new AtomicLong(0);
-	/** The count of dropped metric sends */
-	protected final AtomicLong dropped = new AtomicLong(0);
-	/** The count of failed metric sends */
-	protected final AtomicLong failed = new AtomicLong(0);
 	/** A map of created tracers keyed by host/agent */
 	private final Map<String, ITracer> tracers = new ConcurrentHashMap<String, ITracer>(Collections.singletonMap(APMROUTER_HOST_NAME + ":" + APMROUTER_AGENT_NAME, defaultTracer));
+	/** The metric catalog service */
+	protected MetricCatalogService metricCatalogService = null;
+	/** The metric catalog */
+	protected IMetricCatalog metricCatalog = ICEMetricCatalog.getInstance();
+	
+
 	
 	/** The local sender URI */
 	public static final URI LOCAL_SENDER_URI = makeURI("local:0");
@@ -73,7 +85,18 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	/** The APMRouter host name */
 	public static final String APMROUTER_HOST_NAME = AgentIdentity.ID.getHostName();
 	
+	/** The singleton instance */
+	private static volatile ServerTracerFactory instance = null;
+	/** The singleton instance ctor lock */
+	private static final Object lock = new Object();
 	
+	
+	/**
+	 * Creates a new ServerTracerFactory
+	 */
+	private ServerTracerFactory() {
+		
+	}
 	
 	/**
 	 * {@inheritDoc}
@@ -81,7 +104,37 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 */
 	@Override
 	protected void doStart() throws Exception {
-		
+		metricCatalogService.hostAgentState(true, APMROUTER_HOST_NAME, "", APMROUTER_AGENT_NAME, LOCAL_SENDER_URI.toString());		
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStop()
+	 */
+	@Override
+	protected void doStop() {
+		patternRouter = null;
+		info("Stopping all local agents");
+		for(ITracer tracer: tracers.values()) {
+			metricCatalogService.hostAgentState(false, tracer.getHost(), "", tracer.getAgent(), LOCAL_SENDER_URI.toString());
+		}
+		info("Stopped [", tracers.size(), "] local agents");
+		tracers.clear();
+	}
+	
+	/**
+	 * Acquires the ServerTracerFactory singleton instance
+	 * @return the ServerTracerFactory singleton instance
+	 */
+	public static ServerTracerFactory getInstance() {
+		if(instance==null) {
+			synchronized(lock) {
+				if(instance==null) {
+					instance = new ServerTracerFactory();
+				}
+			}
+		}
+		return instance;
 	}
 	
 	/**
@@ -119,6 +172,7 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 				if(tracer==null) {
 					tracer = new ServerTracerImpl(host.trim(), agent.trim(), this);
 					tracers.put(key, tracer);
+					metricCatalogService.hostAgentState(true, host.trim(), "", agent.trim(), LOCAL_SENDER_URI.toString());
 				}
 			}
 		}
@@ -143,7 +197,7 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	@Override
 	@ManagedMetric(category="ServerSender", metricType=MetricType.COUNTER, description="the number of metrics sent")
 	public long getSentMetrics() {
-		return sent.get();
+		return getMetricValue("MetricsSent");
 	}
 
 	/**
@@ -153,35 +207,75 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	@Override
 	@ManagedMetric(category="ServerSender", metricType=MetricType.COUNTER, description="the number of metrics dropped")
 	public long getDroppedMetrics() {
-		return dropped.get();
+		return getMetricValue("MetricsDropped");
 	}
 
+	/**
+	 * Returns the number of failed metric submissions
+	 * @return the number of failed metric submissions
+	 */
 	@ManagedMetric(category="ServerSender", metricType=MetricType.COUNTER, description="the number of metrics failed")
 	public long getFailedMetrics() {
-		return failed.get();
+		return getMetricValue("MetricsFailed");
 	}
-
-
+	
+	/**
+	 * Returns the number of assigned metric tokens
+	 * @return the number of assigned metric tokens
+	 */
+	@ManagedMetric(category="ServerSender", metricType=MetricType.COUNTER, description="the number of assigned metric tokens")
+	public long getTokensAssigned() {
+		return getMetricValue("TokensAssigned");
+	}
+	
+	/**
+	 * Returns the number of metrics dropped because of a token lookup failure
+	 * @return the number of metrics dropped because of a token lookup failure
+	 */
+	@ManagedMetric(category="ServerSender", metricType=MetricType.COUNTER, description="the number of metrics dropped because of a token lookup failure")
+	public long getTokensLookupDrops() {
+		return getMetricValue("TokenLookupDrop");
+	}
+	
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.trace.MetricSubmitter#submitDirect(org.helios.apmrouter.metric.IMetric, long)
 	 */
 	@Override
 	public void submitDirect(IMetric metric, long timeout) throws TimeoutException {
-		try {
-			if(patternRouter==null) {
-				int sz = metric!=null ? 1 : 0;
-				if(sz>0) {
-					dropped.addAndGet(sz);
-					warn("ServerTracerFactory has not been started yet. Dropped [", sz, "] metrics");
+		submit(Collections.singletonList(metric));
+	}
+	
+	/**
+	 * Processes submitted metrics through the metric catalog
+	 * @param metrics A collection of metrics
+	 * @return the number of metrics left in the collection after processing
+	 */
+	protected int processMetrics(Collection<IMetric> metrics) {
+		int cnt = 0;
+		for(Iterator<IMetric> iter = metrics.iterator(); iter.hasNext();) {
+			IMetric metric = iter.next();
+			if(metric.getToken()==-1) {
+				long token = metricCatalogService.getID(metric.getToken(), metric.getHost(), metric.getAgent(), metric.getType().ordinal(), metric.getNamespaceF(), metric.getName());
+				if(token!=0) {
+					incr("TokensAssigned");
+					metricCatalog.setToken(metric.getHost(), metric.getAgent(), metric.getName(), metric.getType(), metric.getNamespace());
+					metric.getMetricId().setToken(token);
 				}
-				return;
+
 			}
-			patternRouter.route(metric);
-			sent.incrementAndGet();
-		} catch (Exception e) {
-			failed.incrementAndGet();
-		}				
+			IDelegateMetric metricId = metricCatalogService.getMetricID(metric.getToken());			
+			if(metricId==null) {
+				iter.remove();
+				debug("Token Lookup Miss [", metric.getToken(), "]");
+				incr("TokenLookupDrop");
+			} else {
+				cnt++;
+				((ICEMetric)metric).setMetricId(metricId);
+			}
+		}
+		return cnt;
+		
 	}
 
 
@@ -192,21 +286,19 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 */
 	@Override
 	public void submit(Collection<IMetric> metrics) {
+		final int metricCount = processMetrics(metrics);
+		if(metricCount==0) return;
 		try {
 			if(patternRouter==null) {
-				int sz = metrics!=null ? metrics.size() : 0;
-				if(sz>0) {
-					dropped.addAndGet(sz);
-					warn("ServerTracerFactory has not been started yet. Dropped [", sz, "] metrics");
-				}
+				incr("MetricsDropped");
+				warn("ServerTracerFactory has not been started yet. Dropped [", metricCount, "] metrics");				
 				return;
 			}			
 			patternRouter.route(metrics);
-			sent.incrementAndGet();
+			incr("MetricsSent");
 		} catch (Exception e) {
-			failed.incrementAndGet();
+			incr("MetricsFailed");
 		}				
-		
 	}
 
 
@@ -217,21 +309,25 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 */
 	@Override
 	public void submit(IMetric... metrics) {
-		try {
-			if(patternRouter==null) {
-				int sz = metrics!=null ? metrics.length : 0;
-				if(sz>0) {
-					dropped.addAndGet(sz);
-					warn("ServerTracerFactory has not been started yet. Dropped [", sz, "] metrics");
-				}
-				return;
-			}
-			patternRouter.route(metrics);
-			sent.incrementAndGet();
-		} catch (Exception e) {
-			failed.incrementAndGet();
-		}						
+		if(metrics!=null && metrics.length>0) {
+			submit(new ArrayList<IMetric>(Arrays.asList(metrics)));
+		}
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
+	 */
+	@Override
+	public Set<String> getSupportedMetricNames() {
+		Set<String> metrics = new HashSet<String>(super.getSupportedMetricNames());
+		metrics.add("TokenLookupDrop");
+		metrics.add("MetricsSent");
+		metrics.add("MetricsDropped");
+		metrics.add("MetricsFailed");
+		metrics.add("TokensAssigned");
+		return metrics;
+	}		
 
 
 
@@ -255,4 +351,13 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	public long getQueuedMetrics() {
 		return 0;
 	}
+	
+	/**
+	 * Sets the metricCatalogService
+	 * @param metricCatalogService the metricCatalogService to set
+	 */
+	@Autowired(required=true)
+	public void setMetricCatalogService(MetricCatalogService metricCatalogService) {
+		this.metricCatalogService = metricCatalogService;
+	}	
 }

@@ -61,6 +61,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
+import org.springframework.jmx.export.annotation.ManagedOperation;
 import org.springframework.jmx.support.MetricType;
 
 import com.mongodb.Mongo;
@@ -362,6 +363,7 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	 */
 	@Override
 	@ManagedMetric(category="MongoDbCatalog", metricType=MetricType.COUNTER, description="the number of agents inserted")
+	@ManagedOperation
 	public long getAgentsInserted() {
 		return getMetricValue("AgentsInserted"); 
 	}

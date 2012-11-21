@@ -37,6 +37,7 @@ import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.router.PatternRouter;
@@ -64,7 +65,7 @@ import org.springframework.jmx.export.annotation.ManagedAttribute;
 
 public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	/** The metric catalog */
-	protected IMetricCatalog metricCatalog = null;
+	protected IMetricCatalog metricCatalog = ICEMetricCatalog.getInstance();
 	/** The pattern router for handing off metrics to */
 	protected PatternRouter router = null;
 	/** The metric catalog service */
@@ -111,6 +112,13 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 		processMetrics(metrics, opCode, remoteAddress, channel);
 	}
 	
+	/**
+	 * Processes the incoming metrics
+	 * @param metrics A collection of metrics
+	 * @param opCode The op-code the metrics were sent under
+	 * @param remoteAddress The remote address of the submitter
+	 * @param channel The channel the submitter is transmitting on
+	 */
 	public void processMetrics(Collection<IMetric> metrics, OpCode opCode, SocketAddress remoteAddress, Channel channel) {
 		try {
 			

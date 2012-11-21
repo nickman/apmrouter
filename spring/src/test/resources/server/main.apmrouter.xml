@@ -24,6 +24,9 @@
 	
 	<context:annotation-config/>
 	<context:mbean-export registration="ignoreExisting" />
+	
+	<bean id="ServerTracerFactory" class="org.helios.apmrouter.server.tracing.ServerTracerFactory" factory-method="getInstance" />
+	<bean id="ServerMonitor" class="org.helios.apmrouter.server.monitor.ServerMonitor" depends-on="ServerTracerFactory" />		
 
 	<bean id="HotDeployer" class="org.helios.apmrouter.deployer.SpringHotDeployer">
 		<property name="hotDirNames">

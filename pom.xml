@@ -46,6 +46,7 @@
 		<json-simple.version>1.1.1</json-simple.version>
 		<spring-mongo.version>1.0.4.RELEASE</spring-mongo.version>
 		<flapdoodle.version>1.26</flapdoodle.version>
+		<jfree.version>1.0.9</jfree.version>
 		
 	</properties>
 	<dependencyManagement>
@@ -77,6 +78,12 @@
 			  </dependency>	
 			
 			<!--   COMPILE/RUNTIME   -->
+			<dependency>
+			  <groupId>jfree</groupId>
+			  <artifactId>jfreechart</artifactId>
+			  <version>${jfree.version}</version>
+			</dependency>
+			
 			<dependency>
 				<groupId>vanilla.java</groupId>
 				<artifactId>chronicle</artifactId>

@@ -45,7 +45,9 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.Map;
 import java.util.Random;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -510,7 +512,7 @@ public class UnsafeH2TimeSeries implements Serializable {
 	    rs.addColumn("MAX", Types.NUMERIC, 255, 22);
 	    rs.addColumn("AVG", Types.NUMERIC, 255, 22);
 	    rs.addColumn("CNT", Types.NUMERIC, 255, 22);
-	    for(int i = 0; i <= mvd.periods.size(); i++) {
+	    for(int i = 0; i < mvd.periods.size(); i++) {
 	    	long[] row = mvd.getArray(i);
 	    	if(row==null) continue;
 	    	rs.addRow( 
@@ -561,10 +563,16 @@ public class UnsafeH2TimeSeries implements Serializable {
 	    		byte[] utsBytes = rset.getBytes(1);
 	    		deserBytes.insert(utsBytes.length);
 	    		UnsafeH2TimeSeries mvd = UnsafeH2TimeSeries.deserialize(utsBytes);
+	    		Map<Long, long[]> orderedMap = new TreeMap<Long, long[]>();
+	    		for(int i = 0; i < mvd.getSize(); i++) {
+	    			long[] row = mvd.getArray(i);
+	    			if(row[PERIOD]<oldestPeriod) continue;
+	    			orderedMap.put(row[PERIOD], row);
+	    		}
 	    		long mid = rset.getLong(2);
-	    	    for(int i = 0; i < mvd.getSize(); i++) {
-	    	    	long[] row = mvd.getArray(i);
-	    	    	if(row==null || row[PERIOD]<oldestPeriod) continue;
+	    	    for(Map.Entry<Long, long[]> entry: orderedMap.entrySet()) {
+	    	    	long[] row = entry.getValue();
+	    	    	if(row==null || row[PERIOD]<oldestPeriod) continue;	    	    	
 	    	    	rs.addRow( 
 	    	    			mid,
 	    	    			new java.sql.Timestamp(row[PERIOD]), 

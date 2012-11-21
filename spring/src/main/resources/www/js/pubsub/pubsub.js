@@ -35,7 +35,7 @@
 			}
 			try {
 				if(callback.apply!=null) {
-					console.info("Published Event [%o]", args);
+					//console.info("Published Event [%o]", args);
 					callback.apply(d, args || []);
 				}
 			} catch (e) {

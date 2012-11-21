@@ -30,7 +30,11 @@
       <scope>test</scope>
     </dependency>	
 	
-	
+		<!--  JFree -->
+		<dependency>
+		  <groupId>jfree</groupId>
+		  <artifactId>jfreechart</artifactId>
+		</dependency>
 	
 		<!--  SNMP Events -->
 		<dependency>

@@ -267,7 +267,7 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	protected void sendIntervalRollEvent(long[] data, IMetric metric) {		
 		Notification notif = new Notification(String.format(NOTIF_TEMPLATE, metric.getToken()), objectName, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "TimeSeries Interval Roll for [" + metric + "]");		
 		notif.setUserData(new Object[]{data, metric.getToken()});
-		info("Sent Interval Roll Event for Metric:", metric.getToken());
+		info("Sent Interval Roll Event [", notif.getSequenceNumber() , "] for Metric:", metric.getToken());
 		sendNotification(notif);
 		incr("BroadcastIntervalRolls");
 	}
