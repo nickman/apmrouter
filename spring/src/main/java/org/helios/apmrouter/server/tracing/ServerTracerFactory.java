@@ -26,18 +26,18 @@ package org.helios.apmrouter.server.tracing;
 
 import static org.helios.apmrouter.util.Methods.nvl;
 
-import java.net.SocketAddress;
 import java.net.URI;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.router.PatternRouter;
 import org.helios.apmrouter.server.ServerComponentBean;
-import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.MetricSubmitter;
 import org.helios.apmrouter.trace.TracerImpl;
@@ -56,7 +56,7 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	/** The pattern router the server tracers will send to */
 	protected PatternRouter patternRouter = null;
 	/** The default tracer */
-	protected ITracer defaultTracer = null;
+	protected ITracer defaultTracer = new ServerTracerImpl(APMROUTER_HOST_NAME, APMROUTER_AGENT_NAME, this);
 	/** The count of metric sends */
 	protected final AtomicLong sent = new AtomicLong(0);
 	/** The count of dropped metric sends */
@@ -64,10 +64,25 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	/** The count of failed metric sends */
 	protected final AtomicLong failed = new AtomicLong(0);
 	/** A map of created tracers keyed by host/agent */
-	private final Map<String, ITracer> tracers = new ConcurrentHashMap<String, ITracer>();
+	private final Map<String, ITracer> tracers = new ConcurrentHashMap<String, ITracer>(Collections.singletonMap(APMROUTER_HOST_NAME + ":" + APMROUTER_AGENT_NAME, defaultTracer));
 	
 	/** The local sender URI */
 	public static final URI LOCAL_SENDER_URI = makeURI("local:0");
+	/** The APMRouter agent name */
+	public static final String APMROUTER_AGENT_NAME = "APMRouterServer";
+	/** The APMRouter host name */
+	public static final String APMROUTER_HOST_NAME = AgentIdentity.ID.getHostName();
+	
+	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
+	 */
+	@Override
+	protected void doStart() throws Exception {
+		
+	}
 	
 	/**
 	 * Returns the default tracer instance
@@ -102,7 +117,7 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 			synchronized(tracers) {
 				tracer = tracers.get(key);
 				if(tracer==null) {
-					tracer = new TracerImpl(host.trim(), agent.trim(), this);
+					tracer = new ServerTracerImpl(host.trim(), agent.trim(), this);
 					tracers.put(key, tracer);
 				}
 			}
@@ -115,7 +130,7 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 * Sets the pattern router the server tracers will send to
 	 * @param patternRouter the patternRouter to set
 	 */
-	@Autowired
+	@Autowired(required=true)
 	public void setPatternRouter(PatternRouter patternRouter) {
 		this.patternRouter = patternRouter;
 	}
@@ -154,6 +169,14 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	@Override
 	public void submitDirect(IMetric metric, long timeout) throws TimeoutException {
 		try {
+			if(patternRouter==null) {
+				int sz = metric!=null ? 1 : 0;
+				if(sz>0) {
+					dropped.addAndGet(sz);
+					warn("ServerTracerFactory has not been started yet. Dropped [", sz, "] metrics");
+				}
+				return;
+			}
 			patternRouter.route(metric);
 			sent.incrementAndGet();
 		} catch (Exception e) {
@@ -170,6 +193,14 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	@Override
 	public void submit(Collection<IMetric> metrics) {
 		try {
+			if(patternRouter==null) {
+				int sz = metrics!=null ? metrics.size() : 0;
+				if(sz>0) {
+					dropped.addAndGet(sz);
+					warn("ServerTracerFactory has not been started yet. Dropped [", sz, "] metrics");
+				}
+				return;
+			}			
 			patternRouter.route(metrics);
 			sent.incrementAndGet();
 		} catch (Exception e) {
@@ -187,6 +218,14 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	@Override
 	public void submit(IMetric... metrics) {
 		try {
+			if(patternRouter==null) {
+				int sz = metrics!=null ? metrics.length : 0;
+				if(sz>0) {
+					dropped.addAndGet(sz);
+					warn("ServerTracerFactory has not been started yet. Dropped [", sz, "] metrics");
+				}
+				return;
+			}
 			patternRouter.route(metrics);
 			sent.incrementAndGet();
 		} catch (Exception e) {
@@ -202,7 +241,7 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 */
 	@Override
 	public void resetStats() {
-		// TODO Auto-generated method stub
+		super.resetMetrics();
 		
 	}
 
@@ -214,7 +253,6 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 */
 	@Override
 	public long getQueuedMetrics() {
-		// TODO Auto-generated method stub
 		return 0;
 	}
 }

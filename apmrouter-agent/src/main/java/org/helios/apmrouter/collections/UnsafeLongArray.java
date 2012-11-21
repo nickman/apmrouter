@@ -53,14 +53,22 @@ public class UnsafeLongArray extends UnsafeArray {
 	// ==================================================================================
     /** The memory offset for a long array */
     public static final long LONG_ARRAY_OFFSET = unsafe.arrayBaseOffset(long[].class);
+    /** The memory offset for a double array */
+    public static final long DOUBLE_ARRAY_OFFSET = unsafe.arrayBaseOffset(double[].class);
+    
     
     public static void main(String[] args) {
-    	/*
+    	
     	log("Long ArrOff:" +  unsafe.arrayBaseOffset(Long[].class));
     	log("Long IScale:" +  unsafe.arrayIndexScale(Long[].class));
     	log("long ArrOff:" +  unsafe.arrayBaseOffset(long[].class));
     	log("long IScale:" +  unsafe.arrayIndexScale(long[].class));
-    	*/
+    	log("==========================");
+    	log("Double ArrOff:" +  unsafe.arrayBaseOffset(Double[].class));
+    	log("Double IScale:" +  unsafe.arrayIndexScale(Double[].class));
+    	log("double ArrOff:" +  unsafe.arrayBaseOffset(double[].class));
+    	log("double IScale:" +  unsafe.arrayIndexScale(double[].class));
+    	
     	try {
 	    	UnsafeLongArray ula = UnsafeArrayBuilder.newBuilder().sorted(true).initialCapacity(5).fixed(true).buildLongArray();
 	    	for(int i = 0; i < 5; i++) { ula.insert(i); }
@@ -75,11 +83,14 @@ public class UnsafeLongArray extends UnsafeArray {
 	    	UnsafeLongArray ula2 = UnsafeArrayBuilder.newBuilder().sorted(true).initialCapacity(5).fixed(true).buildLongArray();
 	    	ula2.initAndLoad(arr);
 	    	log("ULA2:" + ula2);
+	    	log("ULA2 DOUBLE:" + Arrays.toString(ula2.asDoubleArray()));
     	} catch (Exception ex) {
     		ex.printStackTrace(System.err);
     	}
     	
     }
+    
+    
     
 	/**
 	 * Creates a new UnsafeLongArray
@@ -641,6 +652,17 @@ public class UnsafeLongArray extends UnsafeArray {
     	long[] arr = new long[capacity];
     	unsafe.copyMemory(null, address, arr, LONG_ARRAY_OFFSET, capacity << 3);
     	return arr;
+    }
+    
+    /**
+     * Returns this array as an array of doubles
+     * @return an array of doubles
+     */
+    public double[] asDoubleArray() {
+    	_check();
+    	double[] arr = new double[size];
+    	unsafe.copyMemory(null, address, arr, DOUBLE_ARRAY_OFFSET, size << 3);
+    	return arr;    	
     }
     
     

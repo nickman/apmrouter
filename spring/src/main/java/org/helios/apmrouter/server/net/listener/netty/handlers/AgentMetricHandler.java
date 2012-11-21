@@ -26,6 +26,7 @@ package org.helios.apmrouter.server.net.listener.netty.handlers;
 
 import java.net.SocketAddress;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -106,9 +107,13 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 //		int byteOrder = buff.getByte(1);
 //		int totalSize = buff.getInt(2);
 		List<IMetric> metrics = new ArrayList<IMetric>();
-		
+		Collections.addAll(metrics, dmc.decode());
+		processMetrics(metrics, opCode, remoteAddress, channel);
+	}
+	
+	public void processMetrics(Collection<IMetric> metrics, OpCode opCode, SocketAddress remoteAddress, Channel channel) {
 		try {
-			Collections.addAll(metrics, dmc.decode());
+			
 			for(Iterator<IMetric> iter = metrics.iterator(); iter.hasNext();) {
 				IMetric metric = iter.next();
 				if(metric.getMetricId()==null) {

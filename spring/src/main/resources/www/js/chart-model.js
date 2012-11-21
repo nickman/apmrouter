@@ -1,0 +1,171 @@
+	var ChartModel = Object.subClass({
+		init: function(json){
+			this.metricId = json.msg[0];
+			this.metricDef = metricModelCache[this.metricId];
+			this.step = json.msg[1].step;
+			this.width = json.msg[1].width;
+			this.subSeries = {0:[], 1:[], 2:[], 3:[]};
+			this.subscription = -1;
+			this.container = null;
+			this.treeClickChart = null;
+			var st = new Date().getTime();
+			this.extractSeries(json.msg[2]);   // push directly into series. no point caching.			
+			var endt = new Date().getTime();
+			console.info("EXS:%s ms.", (endt-st));
+			metricModelCache[this.metricId] = this;
+		},
+		ChartModel : function(json) {
+			if (!(this instanceof arguments.callee)) {
+				return new ChartModel(json);
+			}
+		},
+		extractSeries : function(rawData) {
+			var cnt = 0;
+			for(var i = 0, m = rawData.length; i < m; i++) {
+				var ts = rawData[i][0];
+				for(var x = 0; x < 4; x++) {
+					this.subSeries[x].push([ts, rawData[i][x+1]])
+				}
+				cnt++;
+			}
+			console.info("Extracted %s Values", cnt);
+		},
+		
+		acceptLiveUpdate : function(t) {		
+			var _this = t;
+			return function(json) {
+				if(json.msg.userData!=null && json.msg.userData.length >= 2 && json.msg.userData[1]==_this.metricId) {	
+					console.info("Live update for metric ID: %s, [%o]", json.msg.userData[1], json.msg.userData[0]);
+					var mid = json.msg.userData[1];
+					var tsdata = json.msg.userData[0];
+					try {
+						$.each( _this.subSeries, function(index, series) {
+							if(tsdata[0]==series[series.length-1][0]) {
+								console.info("Updating Series Point [%s] for metric [%s]", index, _this.metricId);
+								series[series.length-1][1] = tsdata[index+1];
+								_this.treeClickChart.series[index].setData(series);
+							} else {
+								console.info("Added Series Point [%s] for metric [%s]", index, _this.metricId);
+								series.push([tsdata[0], tsdata[index+1]]);
+								if(series.length==_this.width) series.shift();
+								_this.treeClickChart.series[index].addPoint([tsdata[0], tsdata[index+1]]);
+							}
+								//_this.treeClickChart.series[index].setData(series);
+								//series.addPoint([tsdata[0], tsdata[index+1]], false, series.data.length>=_this.width, false);
+								//_this.subSeries[index].push([ts, rawData[i][x+1]])
+						});
+					} catch (e) {
+						console.error("Failed to process live update Error was [%o], %o", e, e.stack);
+					}
+					
+					//_this.treeClickChart.redraw();
+				}
+			}
+			
+		},
+		renderChart : function(props) {
+    		
+    		//metricModelCache
+    		if(this.treeClickChart == null ) {
+    			this.container = 'chart-container-metric-' + this.metricId;
+    			$('#chartContainer>.ChartModel').hide();
+    			$('#chartContainer').append(
+    					$('<div id="' + this.container + '" class="ChartModel"></div>')
+    			);
+    			var cont = this.container;
+	    		this.treeClickChart = new Highcharts.Chart({
+	    	        chart: {
+	    	            renderTo: cont,
+	    	            animation: false
+	    	        },
+	    	        xAxis: {
+	    	            type: 'datetime'
+	    	        },
+	    	        yAxis: [
+	    	            {title: ''},
+	    	            {title: {text : 'Invocations'}, opposite: true}
+	    	            
+	    	        ],			
+	    	        subtitle : {
+	    	        	text : (this.metricDef.ag.host.name + ':' + this.metricDef.ag.name)
+	    	        },
+	    	        loading: {
+	    	        	showDuration: 0
+	    	        },
+	                tooltip: {
+	                    formatter: function() {
+	                            return '<b>'+ this.series.name +'</b><br/>'+
+	                            Highcharts.dateFormat('%Y-%m-%d %H:%M:%S', this.x) +'<br/>'+
+	                            Highcharts.numberFormat(this.y, 2);
+	                    }
+	                },    	        
+	    	        title: {
+	    	            text: this.metricDef.ns
+	    	        },
+	    	        series: [
+	    	            {id: 'series-Min-' + this.metricId, name: this.metricDef.name + " Min", data: this.subSeries[ChartModel.MIN], animation: false, visible: false},
+	    	            {id: 'series-Max-' + this.metricId, name: this.metricDef.name + " Max", data: this.subSeries[ChartModel.MAX], animation: false, visible: false},
+	    	            {id: 'series-Avg-' + this.metricId, name: this.metricDef.name + " Avg", data: this.subSeries[ChartModel.AVG], animation: false},
+	    	            {id: 'series-Cnt-' + this.metricId, name: this.metricDef.name + " Cnt", data: this.subSeries[ChartModel.CNT], animation: false, visible: false, yAxis: 1, dashStyle : 'Dash'}
+	    	        ]
+	    	    });
+	    		this.treeClickChart.series.metricId = this.metricId;
+	    		if(props.auto || false) {
+	    			this.subscription = $.apmr.subMetricOn(this.metricId, this.acceptLiveUpdate(this));
+	    			console.info("Subscribed to Metric [%s]", this.metricId);
+	    		}
+	    		var chartie = this.treeClickChart;
+	    		$('#' + this.container).resize(function(e){
+	    			console.info("Resizing [%s]", chartie);
+	    			chartie.redraw();
+	    		});
+			} else {
+				$('#chartContainer>.ChartModel').hide();
+				$('#' + this.container).show();
+			}
+		}, 
+		destroy : function() {
+			// pull container
+			// unsub
+			// clear from caches
+			// clear from $.datas()
+			this.treeClickChart.destroy();
+		}
+	});
+	
+	ChartModel.MIN = 0;
+	ChartModel.MAX = 1;
+	ChartModel.AVG = 2;
+	ChartModel.CNT = 3;
+	ChartModel.DECODE = {'MIN':0, 'MAX':1, 'AVG':2, 'CNT':3}
+	ChartModel.XDECODE = {0:'MIN', 1:'MAX', 2:'AVG', 3:'CNT'}
+	
+	ChartModel.find = function(metricId, callback) {
+		// Check the cache and type of cached object
+		var o = metricModelCache[metricId];
+		if(o!=null && (o instanceof ChartModel)) {
+			if(callback!=null) {
+				callback(o);				
+			}
+			return o;
+		}
+		if(o==null) {  // we don't have the metricDef
+			$.apmr.metricById(metricId, function(json){
+				var metricDef = json.msg[0];
+				metricModelCache[metricId] = metricDef;
+				$.apmr.liveData(metricId, function(tsdata){
+					var model = new ChartModel(tsdata);
+					if(callback!=null) {
+						callback(model);
+					}
+				});
+			});
+		} else {
+			$.apmr.liveData([metricId], function(tsdata){		                		
+				var model = new ChartModel(tsdata);
+				if(callback!=null) {
+					callback(model);
+				}
+			});
+		}
+	}

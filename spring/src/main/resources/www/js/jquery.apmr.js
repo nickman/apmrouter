@@ -146,6 +146,20 @@
 		this.config.ws.send(JSON.stringify(req));
 		return rid;
 	},
+	$.apmr.sendSub = function(req, subCallback, handshakeCallback) {
+		var rid = this.config.requestId++;
+		var topic = '/' + req.t + '/' + rid;
+		if(handshakeCallback!=null) {			
+			$.oneTime(topic, handshakeCallback);			
+		}
+		if(subCallback!=null) {			
+			$.subscribe(topic, subCallback);			
+		}		
+		req['rid']=rid;
+		this.config.ws.send(JSON.stringify(req));
+		return rid;
+	},
+	
 	
 	$.apmr.sendWho = function() {
 		return this.send({'t': 'who', 'agent' : 'Anonymous'});
@@ -179,6 +193,21 @@
 		}
 		return null;
 	}
+	
+	/**
+	 * Initiates a subscription.
+	 * @param subprops: <ul>
+	 * 	<li><b>sourcetype</b>: The event source type, e.g. "jmx". <b>Mandatory</b></li>
+	 * 	<li><b>sourcename</b>: The event source name, e.g. "service:jmx:local://DefaultDomain". <b>Mandatory</b></li>
+	 *  <li><b>op</b>: The operation to execute, i.e. "start" or "stop". <b>Mandatory</b></li>
+	 * 	<li><b>filter</b>: The event filter specifier, e.g. "org.helios.apmrouter.session:service=SharedChannelGroup". <b>Mandatory</b></li>
+	 * 	<li><b>xfilter</b>: An optional extended filter, e.g. and array of JMX notification types</li>
+	 *  <li><b>args</b>: Optional additional arguments in the form of properties.</li>
+	 * 	<li><b>subhandler</b>: The callback handler that will receive subscribed events</li>
+	 * 	<li><b>confirmhandler</b>: The callback handler that will receive the confirmation of a subscription operation or a timeout notification
+	 * which indicates the subscription request failed.</li>
+	 * </ul>
+	 */
 	
 	$.apmr.sub = function(callback, op, type, esn, filter, ex) {
 		var sub = $.apmr._subStore(type, esn, filter, ex, callback);
@@ -228,14 +257,14 @@
 	$.apmr.subtreeOn = function(callback) {
 		var sub = $.apmr.sub(callback || $.apmr.stateChange, "start", "jmx", "service:jmx:local://DefaultDomain", "org.helios.apmrouter.session:service=SharedChannelGroup");
 		if(sub==null) {  // restart the sub.
-			console.warn("Need to restart sub");
+			console.warn("Need to restart tree sub");
 		} else {
 			console.info("Started Sub [#%s] for [%s]-[%s]", sub.topic, "service:jmx:local://DefaultDomain", "org.helios.apmrouter.session:service=SharedChannelGroup");
 			var subHandle = $.subscribe(sub.topic, callback || $.apmr.stateChange);
 			sub.subHandle = subHandle;
 		}
 	},
-	$.apmr.subMetricOn = function(metricId, callback) {
+	$.apmr.subMetricOn = function(metricId, callback) {		
 		var sub = $.apmr.sub(callback || $.apmr.liveMetric, 
 				"start", 
 				"jmx", 
@@ -248,6 +277,8 @@
 			var subHandle = $.subscribe(sub.topic, callback || $.apmr.stateChange);
 			sub.subHandle = subHandle;
 			return sub['rid'];
+		} else {
+			console.warn("Need to restart metric sub");
 		}
 	},
 	$.apmr.subMetricOff = function(reqId, callback) {

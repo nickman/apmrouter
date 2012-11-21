@@ -24,29 +24,26 @@
  */
 package org.helios.apmrouter.server.tracing;
 
-import org.helios.apmrouter.sender.ISender;
+import org.helios.apmrouter.trace.MetricSubmitter;
 import org.helios.apmrouter.trace.TracerImpl;
 
 /**
  * <p>Title: ServerTracerImpl</p>
- * <p>Description: </p> 
+ * <p>Description: A special tracer implementation that sends directly to the in-vm pattern router.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.tracing.ServerTracerImpl</code></p>
  */
 
 public class ServerTracerImpl extends TracerImpl {
-	/** The sender this tracer uses */
-	protected final ISender sender;
 	/**
 	 * Creates a new ServerTracerImpl
 	 * @param host The tracer's host
 	 * @param agent The tracer's agent
-	 * @param sender the SenderFactory this tracer will use
+	 * @param submitter The metric submitter
 	 */
-	public ServerTracerImpl(String host, String agent, ISender sender) {
-		super(host, agent, null);
-		this.sender = sender;
+	public ServerTracerImpl(String host, String agent, MetricSubmitter submitter) {
+		super(host, agent, submitter);
 	}
 
 }
