@@ -35,6 +35,8 @@ import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
 import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.monitor.jvm.JVMMonitor;
+import org.helios.apmrouter.monitor.nativex.NativeMonitor;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.server.tracing.ServerTracerFactory;
 import org.helios.apmrouter.trace.ITracer;
@@ -68,7 +70,8 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 	 */
 	@Override
 	protected void doStart() throws Exception {
-		org.helios.apmrouter.monitor.DefaultMonitorBoot.boot();
+		new JVMMonitor().startMonitor();
+		new NativeMonitor().startMonitor();
 	}
 	
 	/**

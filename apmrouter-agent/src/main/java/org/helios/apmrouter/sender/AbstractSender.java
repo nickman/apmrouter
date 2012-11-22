@@ -41,6 +41,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
+import org.helios.apmrouter.collections.ILongSlidingWindow;
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.jmx.ScheduledThreadPoolFactory;
@@ -99,7 +100,7 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	protected final AtomicBoolean connected = new AtomicBoolean(false);
 	
 	/** Sliding window of ping times */
-	protected final ConcurrentLongSlidingWindow pingTimes = new ConcurrentLongSlidingWindow(64); 
+	protected final ILongSlidingWindow pingTimes = new ConcurrentLongSlidingWindow(64); 
 	/** The URI of the apmrouter server to connect to */
 	protected final URI serverURI;
 	/** The sending channel */

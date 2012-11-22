@@ -257,6 +257,10 @@
 							callback([newNode]);
 							metricModelCache[metric.id] = metric;
 							$('#' + uid).livequery(function(){}, function(){
+								var cachedModel = metricModelCache[metric.id];
+								if(cachedModel instanceof ChartModel) {
+									cachedModel.destroy();
+								}
 								delete metricModelCache[metric.id];
 								console.info("Deleted metricModelCache Entry [%s]", metric.id);
 							});							
@@ -301,6 +305,10 @@
 							$('#' + $(node).attr('id')).attr('rel', 'metric-folder');
 							metricModelCache[metric.id] = metric;
 							$('#' + uid).livequery(function(){}, function(){
+								var cachedModel = metricModelCache[metric.id];
+								if(cachedModel instanceof ChartModel) {
+									cachedModel.destroy();
+								}
 								delete metricModelCache[metric.id];
 								console.info("Deleted metricModelCache Entry [%s]", metric.id);
 							});

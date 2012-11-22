@@ -38,17 +38,6 @@
 			console.info("Extracted %s Values", cnt);
 		},
 		
-		/*
-		msg: Object
-		message: "TimeSeries Interval Roll for [ICEMetric [>DELTA_COUNTER<com.cpex.ne-wk-nwhi-01/APMRouterServer/platform=APMRouter/category=ConflationService:MetricsForwarded[Wed Nov 21 14:23:19 EST 2012]:50]"
-		sequenceNumber: 3
-		source: Object
-		timeStamp: 1353525804341
-		type: "apmrouter.h2timeseries.intervalroll.110"
-		userData: Array[2]
-		__proto__: Object
-		rerid: 11
-		*/		
 		
 		acceptLiveUpdate : function(t) {		
 			var _this = t;
@@ -66,13 +55,24 @@
 					try {
 						$.each( _this.treeClickChart.series, function(index, series) {
 							var shiftPoints = series.data.length>=_this.width;
-							series.addPoint([tsdata[0], tsdata[index+1]], true, shiftPoints, _this.anim);
+//							var viz = series.visible;
+//							if(shiftPoints && !viz) series.show();
+							series.addPoint([tsdata[0], tsdata[index+1]], true, shiftPoints, false);
+							_this.treeClickChart.redraw();
+//							if(shiftPoints && !viz) series.hide();
 						});
+//						$.each( _this.subSeries, function(index, series) {
+//							var shiftPoints = series.length>=_this.width;
+//							series.push([tsdata[0], tsdata[index+1]]);
+//							if(shiftPoints) series.shift();
+//							_this.treeClickChart.series[index].
+//						});
+						
 					} catch (e) {
 						console.error("Failed to process live update Error was [%o], %o", e, e.stack);
 					}
 					
-					//_this.treeClickChart.redraw();
+					_this.treeClickChart.redraw();
 				}
 			}
 			
@@ -110,8 +110,22 @@
 	                    formatter: function() {
 	                            return '<b>'+ this.series.name +'</b><br/>'+
 	                            Highcharts.dateFormat('%Y-%m-%d %H:%M:%S', this.x) +'<br/>'+
-	                            Highcharts.numberFormat(this.y, 2);
+	                            Highcharts.numberFormat(this.y, 2) +'<br/>'+
+	                            "Length:" + this.series.data.length;
+	                            /*
+	                             * Need to format like this:
+	                             * ==========================
+	                             * Fully Qualfied Name
+	                             * Timestamp
+	                             * Min
+	                             * Max
+	                             * Avg
+	                             * Cnt 
+	                             * ==========================
+	                             * this.series.index is the index of the series.
+	                             */
 	                    }
+	    	        
 	                },    	        
 	    	        title: {
 	    	            text: this.metricDef.ns + '  [' + this.metricId + ']' 
@@ -145,11 +159,11 @@
 			}
 		}, 
 		destroy : function() {
-			// pull container
-			// unsub
-			// clear from caches
-			// clear from $.datas()
+			$.apmr.subMetricOff(this.subscription);
+			$('#' + this.container).remove();
+			console.info("Removed chart [%s]", '#' + this.container);			
 			this.treeClickChart.destroy();
+			console.info("Destroyed chart for metric [%s]", this.metricId);
 		}
 	});
 	

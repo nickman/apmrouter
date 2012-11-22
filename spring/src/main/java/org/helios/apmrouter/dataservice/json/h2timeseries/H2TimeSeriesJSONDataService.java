@@ -37,6 +37,7 @@ import java.util.concurrent.TimeUnit;
 import javax.sql.DataSource;
 
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
+import org.helios.apmrouter.collections.ILongSlidingWindow;
 import org.helios.apmrouter.dataservice.json.JSONRequestHandler;
 import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.dataservice.json.marshalling.GSONJSONMarshaller;
@@ -78,7 +79,7 @@ public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 	
 	
 	/** A sliding window of liveData elapsed query time in ns */
-	protected final ConcurrentLongSlidingWindow lastElapsedLiveData = new ConcurrentLongSlidingWindow(60);
+	protected final ILongSlidingWindow lastElapsedLiveData = new ConcurrentLongSlidingWindow(60);
 
 
 	/** The column ID for the agent */

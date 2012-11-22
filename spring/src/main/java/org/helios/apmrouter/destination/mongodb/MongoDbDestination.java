@@ -46,6 +46,7 @@ import org.helios.apmrouter.catalog.domain.Metric;
 import org.helios.apmrouter.catalog.jdbc.h2.AbstractTrigger;
 import org.helios.apmrouter.catalog.jdbc.h2.NewElementTriggers;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
+import org.helios.apmrouter.collections.ILongSlidingWindow;
 import org.helios.apmrouter.destination.BaseDestination;
 import org.helios.apmrouter.destination.accumulator.FlushQueueReceiver;
 import org.helios.apmrouter.destination.accumulator.TimeSizeFlushQueue;
@@ -88,11 +89,11 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	/** Thread run indicator */
 	protected final AtomicBoolean keepRunning = new AtomicBoolean(false);
 	/** The last catalog elapsed write time in ms */
-	protected final ConcurrentLongSlidingWindow lastCatalogElapsedNs = new ConcurrentLongSlidingWindow(60);
+	protected final ILongSlidingWindow lastCatalogElapsedNs = new ConcurrentLongSlidingWindow(60);
 	/** The last metric-data elapsed write time in ms */
-	protected final ConcurrentLongSlidingWindow lastMetricElapsedNs = new ConcurrentLongSlidingWindow(60);
+	protected final ILongSlidingWindow lastMetricElapsedNs = new ConcurrentLongSlidingWindow(60);
 	/** The last metric-data batch size */
-	protected final ConcurrentLongSlidingWindow lastBatchSize = new ConcurrentLongSlidingWindow(60);
+	protected final ILongSlidingWindow lastBatchSize = new ConcurrentLongSlidingWindow(60);
 	
 	/** The time based flush trigger in ms. */
 	protected long timeTrigger = 15000;

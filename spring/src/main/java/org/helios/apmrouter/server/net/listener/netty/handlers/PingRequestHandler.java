@@ -31,6 +31,7 @@ import java.util.concurrent.CountDownLatch;
 
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
+import org.helios.apmrouter.collections.ILongSlidingWindow;
 import org.helios.apmrouter.server.services.session.DecoratedChannel;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.helios.apmrouter.server.services.session.VirtualUDPChannel;
@@ -56,7 +57,7 @@ public class PingRequestHandler extends AbstractAgentRequestHandler implements T
 	/**  */
 	private static final OpCode[] handledCodes = new OpCode[]{OpCode.PING, OpCode.PING_RESPONSE};
 	/** Sliding window of ping times */
-	protected final ConcurrentLongSlidingWindow pingTimes = new ConcurrentLongSlidingWindow(64); 
+	protected final ILongSlidingWindow pingTimes = new ConcurrentLongSlidingWindow(64); 
 	/**
 	 * Creates a new PingRequestHandler
 	 */

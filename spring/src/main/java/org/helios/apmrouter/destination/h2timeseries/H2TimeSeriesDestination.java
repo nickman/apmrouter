@@ -43,6 +43,8 @@ import javax.management.ObjectName;
 import javax.sql.DataSource;
 
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
+import org.helios.apmrouter.collections.ILongSlidingWindow;
+import org.helios.apmrouter.collections.UnsafeArray;
 import org.helios.apmrouter.destination.BaseDestination;
 import org.helios.apmrouter.destination.accumulator.FlushQueueReceiver;
 import org.helios.apmrouter.destination.accumulator.TimeSizeFlushQueue;
@@ -98,11 +100,11 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	protected final MetricIdSubCache subCache = new MetricIdSubCache();
 	
 	/** The last elapsed write time in ms */
-	protected final ConcurrentLongSlidingWindow lastElapsedNs = new ConcurrentLongSlidingWindow(60);
+	protected final ILongSlidingWindow lastElapsedNs = new ConcurrentLongSlidingWindow(60);
 	/** The last average elapsed write time per metric in ns */
-	protected final ConcurrentLongSlidingWindow lastAvgPerElapsedNs = new ConcurrentLongSlidingWindow(60);
+	protected final ILongSlidingWindow lastAvgPerElapsedNs = new ConcurrentLongSlidingWindow(60);
 	/** The last saved batch size */
-	protected final ConcurrentLongSlidingWindow lastBatchSize = new ConcurrentLongSlidingWindow(60);
+	protected final ILongSlidingWindow lastBatchSize = new ConcurrentLongSlidingWindow(60);
 	
 	/**
 	 * Creates a new H2TimeSeriesDestination
@@ -230,15 +232,20 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 			    updatePs = conn.prepareStatement("MERGE INTO UNSAFE_METRIC_VALUES KEY(ID) VALUES(?,?)");
 			    rset = st.executeQuery(sql.toString());			    
 			    while(rset.next()) {
-			    	long metricId = rset.getLong(1);
-			    	UnsafeH2TimeSeries hts = UnsafeH2TimeSeries.deserialize(rset.getBytes(2));
-			    	IMetric im = metricMap.get(metricId);
-			    	if(im==null) continue;
-			    	long[] rolledPeriod = hts.addValue(im.getTime(), im.getLongValue());
-			    	if(rolledPeriod!=null && subCache.containsKey(metricId)) sendIntervalRollEvent(rolledPeriod, im);
-			    	updatePs.setLong(1, metricId);
-			    	updatePs.setBytes(2, UnsafeH2TimeSeries.serialize(hts));
-			    	updatePs.addBatch();
+			    	UnsafeH2TimeSeries hts = null;
+			    	try {
+				    	long metricId = rset.getLong(1);
+				    	hts = UnsafeH2TimeSeries.deserialize(rset.getBytes(2));
+				    	IMetric im = metricMap.get(metricId);
+				    	if(im==null) continue;
+				    	long[] rolledPeriod = hts.addValue(im.getTime(), im.getLongValue());
+				    	if(rolledPeriod!=null && subCache.containsKey(metricId)) sendIntervalRollEvent(rolledPeriod, im);
+				    	updatePs.setLong(1, metricId);
+				    	updatePs.setBytes(2, UnsafeH2TimeSeries.serialize(hts));
+				    	updatePs.addBatch();
+			    	} finally {
+			    		if(hts!=null) hts.destroy();
+			    	}
 			    }
 		    	updatePs.executeBatch();
 		    	updatePs.clearBatch();
@@ -267,7 +274,7 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	protected void sendIntervalRollEvent(long[] data, IMetric metric) {		
 		Notification notif = new Notification(String.format(NOTIF_TEMPLATE, metric.getToken()), objectName, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "TimeSeries Interval Roll for [" + metric + "]");		
 		notif.setUserData(new Object[]{data, metric.getToken()});
-		info("Sent Interval Roll Event [", notif.getSequenceNumber() , "] for Metric:", metric.getToken());
+		debug("Sent Interval Roll Event [", notif.getSequenceNumber() , "] for Metric:", metric.getToken());
 		sendNotification(notif);
 		incr("BroadcastIntervalRolls");
 	}
@@ -319,6 +326,24 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	public long getSerializationWrites() {
 		return UnsafeH2TimeSeries.getSerializationWrites();
 	}
+	
+	/**
+	 * Returns the number of unmanaged pointers from {@link UnsafeArray}s.
+	 * @return the number of unmanaged pointers
+	 */
+	@ManagedMetric(category="H2TimeSeries", metricType=MetricType.COUNTER, description="The number of unmanaged pointers")
+	public long getUnmanagedPointers() {
+		return UnsafeArray.getPointerCount();
+	}	
+	
+	/**
+	 * Returns the number of allocated {@link UnsafeH2TimeSeries} instances
+	 * @return the number of allocated {@link UnsafeH2TimeSeries} instances
+	 */
+	@ManagedMetric(category="H2TimeSeries", metricType=MetricType.COUNTER, description="the number of allocated UnsafeH2TimeSeries instances")
+	public long getAllocatedTimeSeriesInstances() {
+		return UnsafeH2TimeSeries.getAllocatedInstances();
+	}		
 	
 	/**
 	 * Returns the rolling average the byte array read from H2 to populate H2 TimeSeries

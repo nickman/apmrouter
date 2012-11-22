@@ -37,7 +37,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
  * <p><code>org.helios.apmrouter.collections.ConcurrentLongSlidingWindow</code></p>
  */
 
-public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
+public class ConcurrentLongSlidingWindow extends LongSlidingWindow implements ILongSlidingWindow {
 	/** The reentrant read/write lock */
 	private final ReentrantReadWriteLock readWriteLock;
 	/** The concurrent read lock */
@@ -77,8 +77,8 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	}
 	
 	/**
-	 * Inserts the each passed value into the first slot position in the array dropping the values in the last slot to make room if required
-	 * @param values The values to insert
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#insert(long)
 	 */
 	@Override
 	public void insert(long...values) {
@@ -90,6 +90,11 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 		}
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#insert(java.nio.LongBuffer)
+	 */
+	@Override
 	public void insert(LongBuffer longBuff) {
 		writeLock.lock();
 		try {
@@ -103,10 +108,10 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	
 	
 	/**
-	 * Inserts the passed value into the first slot of the array, moving all other other populated slots to the right.
-	 * @param value The value to insert
-	 * @return The dropped value if one was dropped, otherwise null
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#insert(long)
 	 */
+	@Override
 	public Long insert(long value) {
 		writeLock.lock();
 		try {
@@ -117,11 +122,10 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	}	
 	
 	/**
-	 * Increments the value at the specified index by the passed amount
-	 * @param index The index to update at
-	 * @param value The amount to increment by
-	 * @return The new value
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#inc(int, long)
 	 */
+	@Override
 	public long inc(int index, long value) {
 		writeLock.lock();
 		try {
@@ -133,36 +137,37 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	}
 	
 	/**
-	 * Increments the value at the specified index by 1
-	 * @param index The index to update at
-	 * @return The new value
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#inc(int)
 	 */
+	@Override
 	public long inc(int index) {
 		return inc(index, 1L);
 	}
 	
 	/**
-	 * Increments the value of the 0th index by the passed amount
-	 * @param value The amount to increment by
-	 * @return The new value
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#inc(long)
 	 */
+	@Override
 	public long inc(long value) {
 		return inc(0, value);
 	}
 	
 	/**
-	 * Increments the value of the 0th index by 1
-	 * @return The new value
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#inc()
 	 */
+	@Override
 	public long inc() {
 		return inc(0, 1L);
 	}
 	
 	/**
-	 * Attempts to locate the index of the passed value
-	 * @param value The value to search for
-	 * @return the index of the located value, which will be negative if not found
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#find(long)
 	 */
+	@Override
 	public int find(long value) {
 		readLock.lock();
 		try {
@@ -174,9 +179,10 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	
 	
 	/**
-	 * Sets the value of the 0th index to the passed value
-	 * @param value The value to set to 
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#set(long)
 	 */
+	@Override
 	public void set(long value) {
 		writeLock.lock();
 		try {
@@ -187,9 +193,10 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	}
 	
     /**
-     * Returns this array as an array of doubles
-     * @return an array of doubles
-     */
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#asDoubleArray()
+	 */
+	@Override
 	public double[] asDoubleArray() {
 		readLock.lock();
 		try {
@@ -200,9 +207,10 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	}	
 	
 	/**
-	 * Loads this window from a byte array
-	 * @param arr the byte array
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#load(byte[])
 	 */
+	@Override
 	public void load(byte[] arr) {
 		writeLock.lock();
 		try {
@@ -212,6 +220,11 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 		}
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#reinitAndLoad(byte[])
+	 */
+	@Override
 	public void reinitAndLoad(byte[] arr) {
 		writeLock.lock();
 		try {
@@ -224,7 +237,8 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	}
 	
 	/**
-	 * Removes all the values from this array, keeping the capacity fixed.
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#clear()
 	 */
 	@Override
 	public void clear() {
@@ -237,8 +251,8 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	}
 	
 	/**
-	 * Indicates if this set is empty
-	 * @return true if this set is empty, false otherwise
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#isEmpty()
 	 */
 	@Override
 	public boolean isEmpty() {
@@ -252,7 +266,7 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see java.lang.Object#toString()
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#toString()
 	 */
 	@Override
 	public String toString() {
@@ -266,7 +280,7 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see java.lang.Object#clone()
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#clone()
 	 */
 	@Override
 	public LongSlidingWindow clone() {
@@ -279,9 +293,8 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	}
 	
 	/**
-	 * Returns the long value at the specified array index
-	 * @param index the index of the value to retrieve 
-	 * @return the long value at the specified array index
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#get(int)
 	 */
 	@Override
 	public long get(int index) {
@@ -295,8 +308,8 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	
 	
 	/**
-	 * Returns the number of entries in the array
-	 * @return the number of entries in the array
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#size()
 	 */
 	@Override
 	public int size() {
@@ -309,9 +322,8 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	}
 	
 	/**
-	 * Returns the sum of all the longs in the array within the passed ending index range
-	 * @param within The index of the last entry to sum 
-	 * @return the sum of all the longs in the array
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#sum(int)
 	 */
 	@Override
 	public long sum(int within) {
@@ -324,8 +336,8 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	}
 	
 	/**
-	 * Returns the sum of all the longs in the array 
-	 * @return the sum of all the longs in the array
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#sum()
 	 */
 	@Override
 	public long sum() {
@@ -339,9 +351,8 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	}
 	
 	/**
-	 * Returns the average of all the longs in the array within the passed ending index range
-	 * @param within The index of the last entry to average 
-	 * @return the average of all the longs in the array
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#avg(int)
 	 */
 	@Override
 	public long avg(int within) {
@@ -354,8 +365,8 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow {
 	}
 	
 	/**
-	 * Returns the average of all the longs in the array 
-	 * @return the average of all the longs in the array
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#avg()
 	 */
 	@Override
 	public long avg() {

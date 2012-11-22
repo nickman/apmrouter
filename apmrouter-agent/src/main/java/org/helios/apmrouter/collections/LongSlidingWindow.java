@@ -37,6 +37,13 @@ public class LongSlidingWindow {
 	protected final UnsafeLongArray array;
 	
 	/**
+     * Deallocates this UnsafeLongArrray
+     */
+    public void destroy() {
+    	array.destroy();
+    }
+	
+	/**
 	 * Creates a new and empty LongSlidingWindow
 	 * @param size The size of the sliding window
 	 */
@@ -52,20 +59,8 @@ public class LongSlidingWindow {
 		this.array = array;
 	}
 	
-	/**
-	 * Loads this sliding window with a new data set
-	 * @param arr The new data set in the form of an array of longs encoded in a byte array
-	 */
 	public void reinitAndLoad(byte[] arr) {
 		array.initAndLoad(arr);
-	}
-	
-    /**
-     * Returns this array as an array of doubles
-     * @return an array of doubles
-     */
-	public double[] asDoubleArray() {
-		return array.asDoubleArray();
 	}
 	
     /**
@@ -149,6 +144,13 @@ public class LongSlidingWindow {
 	 */
 	public long get(int index) {
 		return array.get(index);
+	}
+	
+	/**
+	 * @return
+	 */
+	public double[] asDoubleArray() {
+		return array.asDoubleArray();
 	}
 	
 	

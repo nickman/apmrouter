@@ -57,6 +57,7 @@ import org.apache.log4j.Logger;
 import org.h2.tools.SimpleResultSet;
 import org.helios.apmrouter.collections.ArrayOverflowException;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
+import org.helios.apmrouter.collections.ILongSlidingWindow;
 import org.helios.apmrouter.util.SystemClock;
 
 /**
@@ -98,8 +99,18 @@ public class UnsafeH2TimeSeries implements Serializable {
 	/** The timestamp of the last serialization metric reset */
 	private static final AtomicLong LastReset = new AtomicLong(System.currentTimeMillis());
 	/** The rolling deser bytes */
-	protected static final ConcurrentLongSlidingWindow deserBytes = new ConcurrentLongSlidingWindow(60);
+	protected static final ILongSlidingWindow deserBytes = new ConcurrentLongSlidingWindow(60);
+	/** The count of UnsafeH2TimeSeries allocated instances */
+	private static final AtomicLong AllocatedInstances = new AtomicLong(0L);
 	
+	
+	/**
+	 * Returns the count of UnsafeH2TimeSeries allocated instances
+	 * @return the count of UnsafeH2TimeSeries allocated instances
+	 */
+	public static long getAllocatedInstances() {
+		return AllocatedInstances.get();
+	}
 	
 	/**
 	 * Returns the rolling average of the DB read deserialization bytes
@@ -162,6 +173,17 @@ public class UnsafeH2TimeSeries implements Serializable {
 		return uts;
 	}
 	
+	/**
+     * Deallocates this UnsafeH2TimeSeries
+     */
+    public void destroy() {
+    	periods.destroy();
+    	mins.destroy();
+    	maxes.destroy();
+    	averages.destroy();
+    	counts.destroy();
+    	AllocatedInstances.decrementAndGet();
+    }
 
 	private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -211,6 +233,7 @@ public class UnsafeH2TimeSeries implements Serializable {
 		maxes = new ConcurrentLongSlidingWindow(width);
 		averages = new ConcurrentLongSlidingWindow(width);
 		counts = new ConcurrentLongSlidingWindow(width);
+		AllocatedInstances.incrementAndGet();
 		
 	}
 	
@@ -280,10 +303,9 @@ public class UnsafeH2TimeSeries implements Serializable {
 	 * @param id The metric ID of the metric to upsert a time-series entry for
 	 * @param ts The timestamp of the value to add
 	 * @param value  The value to add
-	 * @return an updated UnsafeH2TimeSeries
 	 * @throws Exception Thrown on any error
 	 */
-	public static UnsafeH2TimeSeries make_and_add(Connection conn, long step, int width, boolean compressed, boolean sticky, long id, Timestamp ts, long value) throws Exception {
+	public static void make_and_add(Connection conn, long step, int width, boolean compressed, boolean sticky, long id, Timestamp ts, long value) throws Exception {
 		PreparedStatement ps = null;
 		ResultSet rset = null;		
 		UnsafeH2TimeSeries mvd = null;
@@ -299,8 +321,14 @@ public class UnsafeH2TimeSeries implements Serializable {
 				mvd = new UnsafeH2TimeSeries(step, width, compressed);
 			}
 			mvd.addValue(ts.getTime(), value);
-			return mvd;
+			rset.close();
+			ps.close();
+			ps = conn.prepareStatement("UPDATE UNSAFE_METRIC_VALUES SET V = ? WHERE ID = ?");
+			ps.setBytes(1, UnsafeH2TimeSeries.serialize(mvd));
+			ps.setLong(2, id);
+			ps.execute();
 		} finally {
+			if(mvd!=null) mvd.destroy();
 			if(rset!=null) try { rset.close(); } catch (Exception ex) { /* No Op */ }
 			if(ps!=null) try { ps.close(); } catch (Exception ex) {/* No Op */}
 		}
@@ -315,11 +343,10 @@ public class UnsafeH2TimeSeries implements Serializable {
 	 * @param id The metric ID of the metric to upsert a time-series entry for
 	 * @param ts The timestamp of the value to add
 	 * @param value  The value to add
-	 * @return an updated UnsafeH2TimeSeries
 	 * @throws Exception Thrown on any error
 	 */
-	public static UnsafeH2TimeSeries make_and_add(Connection conn, long step, int width, boolean sticky, long id, Timestamp ts, long value) throws Exception {
-		return make_and_add(conn, step, width, true, sticky, id, ts, value);
+	public static void make_and_add(Connection conn, long step, int width, boolean sticky, long id, Timestamp ts, long value) throws Exception {
+		make_and_add(conn, step, width, true, sticky, id, ts, value);
 	}	
 	
 	
@@ -331,13 +358,16 @@ public class UnsafeH2TimeSeries implements Serializable {
 	 */
 	public static boolean isType(byte[] data) throws Exception {
 		if(data==null) return false;
+		UnsafeH2TimeSeries hts = null;
 		try {
-			deserialize(data);
+			hts = deserialize(data);
 			return true;
 		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
 			throw ex;
-		}		
+		} finally {
+			if(hts!=null) hts.destroy();
+		}
 	}
 
 	
@@ -362,6 +392,7 @@ public class UnsafeH2TimeSeries implements Serializable {
 		currentPeriod = periods.get(0);
 		boolean update = period==currentPeriod;
 		if(!update) {
+			// FIXME: Not sure why it happens, but if it is legit, find the bucket and update it.
 			if(period-currentPeriod < step) throw new IllegalStateException("Unexpected period increment.\n\tCurrent Period:" + new Date(currentPeriod) + "\n\tNew Period:" + new Date(period) + "\n\tDiff:" + (period-currentPeriod), new Throwable());
 			// Roll new period
 			final long[] rolledPeriod = getArray(0);
@@ -502,27 +533,32 @@ public class UnsafeH2TimeSeries implements Serializable {
 	 * Returns all the resolved values in the time-series in a result set
 	 * @param data The byte array
 	 * @return A result set iterating all the values in the time-series
-	 * @throws Exception
+	 * @throws Exception thrown on any error
 	 */
 	public static ResultSet allvalues(byte[] data) throws Exception {
-		UnsafeH2TimeSeries mvd = deserialize(data);
-		SimpleResultSet rs = new SimpleResultSet();
-	    rs.addColumn("TS", Types.TIMESTAMP, 1, 22);
-	    rs.addColumn("MIN", Types.NUMERIC, 255, 22);
-	    rs.addColumn("MAX", Types.NUMERIC, 255, 22);
-	    rs.addColumn("AVG", Types.NUMERIC, 255, 22);
-	    rs.addColumn("CNT", Types.NUMERIC, 255, 22);
-	    for(int i = 0; i < mvd.periods.size(); i++) {
-	    	long[] row = mvd.getArray(i);
-	    	if(row==null) continue;
-	    	rs.addRow( 
-	    			new java.sql.Timestamp(row[PERIOD]), 
-	    			row[MIN], 
-	    			row[MAX], 
-	    			row[AVG], 
-	    			row[CNT]);
-	    }
-	    return rs;
+		UnsafeH2TimeSeries mvd = null;
+		try {
+			mvd = deserialize(data);
+			SimpleResultSet rs = new SimpleResultSet();
+		    rs.addColumn("TS", Types.TIMESTAMP, 1, 22);
+		    rs.addColumn("MIN", Types.NUMERIC, 255, 22);
+		    rs.addColumn("MAX", Types.NUMERIC, 255, 22);
+		    rs.addColumn("AVG", Types.NUMERIC, 255, 22);
+		    rs.addColumn("CNT", Types.NUMERIC, 255, 22);
+		    for(int i = 0; i < mvd.periods.size(); i++) {
+		    	long[] row = mvd.getArray(i);
+		    	if(row==null) continue;
+		    	rs.addRow( 
+		    			new java.sql.Timestamp(row[PERIOD]), 
+		    			row[MIN], 
+		    			row[MAX], 
+		    			row[AVG], 
+		    			row[CNT]);
+		    }
+		    return rs;			
+		} finally {
+			if(mvd!=null) mvd.destroy();
+		}
 	}
 	
 	/**
@@ -534,6 +570,7 @@ public class UnsafeH2TimeSeries implements Serializable {
 	 * @throws SQLException
 	 */
 	public static ResultSet getValues(Connection conn, long oldestPeriod, Long...ids) throws SQLException {
+		
 	    SimpleResultSet rs = new SimpleResultSet();
 	    rs.addColumn("ID", Types.NUMERIC, 255, 22);
 	    rs.addColumn("TS", Types.TIMESTAMP, 1, 22);
@@ -560,28 +597,33 @@ public class UnsafeH2TimeSeries implements Serializable {
 	    	//ps.setArray(1, conn.createArrayOf("java.lang.Long", ids));
 	    	rset = ps.executeQuery();
 	    	while(rset.next()) {
-	    		byte[] utsBytes = rset.getBytes(1);
-	    		deserBytes.insert(utsBytes.length);
-	    		UnsafeH2TimeSeries mvd = UnsafeH2TimeSeries.deserialize(utsBytes);
-	    		Map<Long, long[]> orderedMap = new TreeMap<Long, long[]>();
-	    		for(int i = 0; i < mvd.getSize(); i++) {
-	    			long[] row = mvd.getArray(i);
-	    			if(row[PERIOD]<oldestPeriod) continue;
-	    			orderedMap.put(row[PERIOD], row);
+	    		UnsafeH2TimeSeries mvd = null;
+	    		try {
+		    		byte[] utsBytes = rset.getBytes(1);
+		    		deserBytes.insert(utsBytes.length);
+		    		mvd = UnsafeH2TimeSeries.deserialize(utsBytes);
+		    		Map<Long, long[]> orderedMap = new TreeMap<Long, long[]>();
+		    		for(int i = 0; i < mvd.getSize(); i++) {
+		    			long[] row = mvd.getArray(i);
+		    			if(row[PERIOD]<oldestPeriod) continue;
+		    			orderedMap.put(row[PERIOD], row);
+		    		}
+		    		long mid = rset.getLong(2);
+		    	    for(Map.Entry<Long, long[]> entry: orderedMap.entrySet()) {
+		    	    	long[] row = entry.getValue();
+		    	    	if(row==null || row[PERIOD]<oldestPeriod) continue;	    	    	
+		    	    	rs.addRow( 
+		    	    			mid,
+		    	    			new java.sql.Timestamp(row[PERIOD]), 
+		    	    			row[MIN], 
+		    	    			row[MAX], 
+		    	    			row[AVG], 
+		    	    			row[CNT]);
+		    	    }
+	    		} finally {
+	    			if(mvd!=null) mvd.destroy();
 	    		}
-	    		long mid = rset.getLong(2);
-	    	    for(Map.Entry<Long, long[]> entry: orderedMap.entrySet()) {
-	    	    	long[] row = entry.getValue();
-	    	    	if(row==null || row[PERIOD]<oldestPeriod) continue;	    	    	
-	    	    	rs.addRow( 
-	    	    			mid,
-	    	    			new java.sql.Timestamp(row[PERIOD]), 
-	    	    			row[MIN], 
-	    	    			row[MAX], 
-	    	    			row[AVG], 
-	    	    			row[CNT]);
-	    	    }
-	    		
+		    		
 	    	}
 	    } finally {
 	    	if(rset!=null) try { rset.close(); } catch (Exception ex) {/* No Op */}
@@ -595,13 +637,16 @@ public class UnsafeH2TimeSeries implements Serializable {
 	 * @param data The byte array to be desrialized into a UnsafeH2TimeSeries
 	 * @param timestamp The effective timestamp of the data to be added
 	 * @param value The data to be added
-	 * @return the updated UnsafeH2TimeSeries
 	 * @throws Exception thrown on any error
 	 */
-	public static UnsafeH2TimeSeries add(byte[] data, Timestamp timestamp, long value) throws Exception {
-		UnsafeH2TimeSeries mvd = deserialize(data);
-		mvd.addValue(timestamp.getTime(), value);
-		return mvd;
+	public static void add(byte[] data, Timestamp timestamp, long value) throws Exception {
+		UnsafeH2TimeSeries mvd = null;
+		try {
+			mvd = deserialize(data);
+			mvd.addValue(timestamp.getTime(), value);
+		} finally {
+			if(mvd!=null) mvd.destroy();
+		}
 	}
 
 	
