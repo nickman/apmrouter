@@ -50,11 +50,41 @@
 		}
 	}
 	
+	function initResizes() {
+        $("div.column-divider").draggable({
+            axis: 'x', // only allow horizontal movement
+            drag: function(event, ui) {
+              // adjust column1 as they drag
+              $('div.column1').width($(this).offset().left);
+              $('div.column2').css('margin-left',
+                  $(this).offset().left + $(this).width());
+            },
+            stop: function(event, ui) {
+            	var cwidth = parseInt($(this).parent().width());
+            	// one more time to ensure it's right when they stop
+              $('div.column1').width($(this).offset().left);
+              //$('div.column2').css('margin-left', $(this).offset().left + cwidth);
+              //$('#chartContainer').css('width',cwidth);
+              console.info("Resizing %s Charts", $('#chartContainer>.ChartModel').length);              
+              $('#chartContainer>.ChartModel').css('width',(cwidth-$(this).offset().left));
+              $('#chartContainer>.ChartModel').resize();
+              //treeClickChart.setSize($('#chartContainer').parent().width(), 400, false);
+              
+            }
+          });
+	}
+	
 	function initMetricTree() {
 		$.apmr.config.downedNodeReaper = setTimeout(reapDownedNodes, 2000);
+		$('#metricTree').bind("loaded.jstree", function (event, data) {
+			
+		});
+
 		$('#metricTree')
 		.jstree({
 			core : { 
+				load_open : true,
+				open_parents : true,
 				animation : 0
 			},
 			json_data : {
@@ -64,7 +94,7 @@
 					populateNode(node, callback);
 				}
 			},					
-			plugins : [ "themes", "ui", "types", "json_data", "crrm", "unique"],
+			plugins : [ "themes", "ui", "types", "json_data", "crrm", "unique", "cookies"],
 			types : {
 				'types' : {
 		            'root' : {
@@ -157,6 +187,7 @@
 			}
 		});
 		metricTree = $.jstree._reference('#metricTree');
+		
 		//$.apmr.connect(); 
 	}
 	
@@ -195,6 +226,11 @@
 						}
 					});
 					callback(nodeArray); fixOpen(nodeArray);
+					//$.jstree._reference('#metricTree').open_all(); 
+					//$.jstree._reference('#metricTree').open_all(); 
+					//$.jstree._reference('#metricTree').open_all();
+					$.jstree._reference('#metricTree').open_node ( $('#root'));
+
 				});
 				break;
 			case 'domain':

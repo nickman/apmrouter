@@ -41,6 +41,11 @@ public class UnsafeExcerpt<C extends DirectChronicle> extends AbstractExcerpt<C>
 
         assert limit > start && position < limit && endPosition > startPosition;
     }
+    
+    public void insertAndRollRight(int startingPosition, int slotsToMove) {
+    	final int currentPos = position();
+    	
+    }
 
     // RandomDataInput
 

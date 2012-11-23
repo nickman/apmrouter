@@ -84,6 +84,9 @@ public class UnsafeH2TimeSeries implements Serializable {
 	protected final int width;
 	/** Indicates if the data stream should be compressed */
 	protected final boolean compressed;
+
+	/** A counter of unexpected derived periods */
+	protected static final AtomicLong periodErrors = new AtomicLong(0L);
 	
 	/** The value store for the periods */
 	protected final ConcurrentLongSlidingWindow periods;
@@ -110,6 +113,19 @@ public class UnsafeH2TimeSeries implements Serializable {
 	
 	
 	/**
+	 * Resets the statistics
+	 */
+	public static void resetStats() {
+		periodErrors.set(0L);
+		SerializationReads.set(0L);
+		SerializationWrites.set(0L);
+		AllocatedInstances.set(0L);
+		deserBytes.clear();
+		LastReset.set(System.currentTimeMillis());
+		
+	}
+	
+	/**
 	 * Returns the count of UnsafeH2TimeSeries allocated instances
 	 * @return the count of UnsafeH2TimeSeries allocated instances
 	 */
@@ -132,6 +148,15 @@ public class UnsafeH2TimeSeries implements Serializable {
 	public static long getSerializationReads() {
 		return SerializationReads.get();
 	}
+	
+	/**
+	 * Returns the number of period errors since the last metric reset
+	 * @return the number of period errors since the last metric reset
+	 */
+	public static long getRolledPeriodErrors() {
+		return periodErrors.get();
+	}
+		
 	
 	/**
 	 * Returns the number of Serialization Writes since the last metric reset
@@ -457,7 +482,10 @@ public class UnsafeH2TimeSeries implements Serializable {
 		boolean update = period==currentPeriod;
 		if(!update) {
 			// FIXME: Not sure why it happens, but if it is legit, find the bucket and update it.
-			if(period-currentPeriod < step) throw new IllegalStateException("Unexpected period increment.\n\tCurrent Period:" + new Date(currentPeriod) + "\n\tNew Period:" + new Date(period) + "\n\tDiff:" + (period-currentPeriod), new Throwable());
+			if(period-currentPeriod < step) {
+				periodErrors.incrementAndGet();
+				throw new IllegalStateException("Unexpected period increment.\n\tCurrent Period:" + new Date(currentPeriod) + "\n\tNew Period:" + new Date(period) + "\n\tDiff:" + (period-currentPeriod), new Throwable());
+			}
 			// Roll new period
 			final long[] rolledPeriod = getArray(0);
 			final long[] droppedPeriod = new long[5];  // <---- use this guy to roll up to the next tier.

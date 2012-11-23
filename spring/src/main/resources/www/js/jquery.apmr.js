@@ -300,10 +300,23 @@
 					break;  // nuthin'
 				case "apmrouter.session.identified":
 					if($('#host-' + e.userData.hi).length==0) {
+						var domainId = '#domain-' + (e.userData.d.join('_'));
+						// ==================================================================================
+						//  Adding new domain if not present into the tree
+						// ==================================================================================
+						/*
+						if($(domainId).length<1) {
+							var uid = 'domain-' + (e.userData.d.join('_'));
+							$("#metricTree").jstree("create", $('#root'), "inside" , {
+								attr: {id: uid, rel: "domain", 'domain' : e.userData.d.join('.')},  
+								data : {title: e.userData.d.join('.')}
+							}, false, true);
+						}
+						*/
 						// ==================================================================================
 						//  Adding a new host into the tree
-						// ==================================================================================
-						var domainId = '#domain-' + (e.userData.d.join('_'));
+						// ==================================================================================						
+						
 						var hostName = e.userData.h.split('.').pop();
 						$("#metricTree").jstree("create", $(domainId), "inside" , {
 							attr: {id: "host-" + e.userData.hi, rel: "server", 'host' : e.userData.hi},  

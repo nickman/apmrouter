@@ -140,6 +140,8 @@ public class ScriptMonitor extends AbstractMonitor {
 				scriptBindings.put(COLLECTION_SWEEP, collectionSweep);
 				sc.invoke(scriptBindings);
 				sc.resetErrors();
+			} catch (UnavailableMBeanServerException uex) {
+				/* No Op */
 			} catch (Exception e) {
 				int err = sc.incrementErrors();
 				if(err>=maxErrors) {

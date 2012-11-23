@@ -309,13 +309,22 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	}
 	
 	/**
+	 * Returns the number of period errors since the last metric reset
+	 * @return the number of period errors since the last metric reset
+	 */
+	@ManagedMetric(category="H2TimeSeries", metricType=MetricType.COUNTER, description="The number of period errors since the last metric reset")
+	public long getRolledPeriodErrors() {
+		return UnsafeH2TimeSeries.getRolledPeriodErrors();
+	}
+	
+	/**
 	 * Returns the cummulative number of H2 TimeSeries serialization reads since the last reset
 	 * @return the cummulative number of H2 TimeSeries serialization reads
 	 */
 	@ManagedMetric(category="H2TimeSeries", metricType=MetricType.COUNTER, description="The cummulative number of H2 TimeSeries serialization reads")
 	public long getSerializationReads() {
 		return UnsafeH2TimeSeries.getSerializationReads();
-	}
+	}	
 	
 	/**
 	 * Returns the cummulative number of H2 TimeSeries serialization writes since the last reset

@@ -58,6 +58,15 @@ public abstract class AbstractMonitor implements Monitor, Runnable {
 	/** The properties set by XML config for this monitor */
 	protected Properties configProps = new Properties();
 	
+	static {
+		Runtime.getRuntime().addShutdownHook(new Thread(){
+			@Override
+			public void run() {
+				scheduler.shutdownNow();
+			}
+		});
+	}
+	
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.monitor.Monitor#collect()

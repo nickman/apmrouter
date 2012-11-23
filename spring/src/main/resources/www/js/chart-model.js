@@ -149,9 +149,19 @@
 	    			console.info("Subscribed to Metric [%s]", this.metricId);
 	    		}
 	    		var chartie = this.treeClickChart;
-	    		$('#' + this.container).resize(function(e){
+	    		var parent = $('#' + this.container).parent();
+	    		$('#' + this.container).resizable({
+	                handles: 's',
+	                stop: function(event, ui) {
+	                    $(this).css("width", '');
+	                    chartie.setSize($(this).width(), $(this).height());
+	               }
+	            });        
+
+	    		parent.resize(function(e){
 	    			console.info("Resizing [%s]", chartie);
-	    			chartie.redraw();
+	    			chartie.setSize(parent.width(), parent.height());
+	    			//chartie.redraw();
 	    		});
 			} else {
 				$('#chartContainer>.ChartModel').hide();

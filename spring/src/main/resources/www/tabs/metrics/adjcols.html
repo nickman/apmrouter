@@ -32,7 +32,7 @@
                             /* (leaving left also works)       */
         top: 0px;
         height: 100%;
-        margin-left: 301px; /* Left margin pushes over for the */
+        margin-left: 285px; /* Left margin pushes over for the */
                             /* other columns to have space     */
         overflow-y: auto;
       }
@@ -50,35 +50,12 @@
                 }
             });	
           $('#metricTree').height(parseInt($('#metricTree').parent().parent().parent().height()));
+          $('#metricDisplay').height(parseInt($('#metricTree').parent().parent().parent().height()));
           $('div.column-divider').height(parseInt($('div.column-divider').parent().parent().parent().height()));
-          $("div.column-divider").draggable({
-            axis: 'x', // only allow horizontal movement
-            drag: function(event, ui) {
-              // adjust column1 as they drag
-              $('div.column1').width($(this).offset().left);
-              $('div.column2').css('margin-left',
-                  $(this).offset().left + $(this).width());
-            },
-            stop: function(event, ui) {
-            	var cwidth = parseInt($(this).parent().width());
-            	// one more time to ensure it's right when they stop
-              $('div.column1').width($(this).offset().left);
-              $('div.column2').css('margin-left',
-                  $(this).offset().left + cwidth);
-              $('#chartContainer').css('width',cwidth);
-              console.info("Resizing %s Charts", $('#chartContainer>.ChartModel').length);
-              
-              $('#chartContainer>.ChartModel').css('width',cwidth);
-              $('#chartContainer>.ChartModel').resize();
-              //treeClickChart.setSize($('#chartContainer').parent().width(), 400, false);
-              
-            }
-          });
+          initResizes();
         });
       </script>
     </div>
-    <div class="column2">
-      <div style="background-color: #F2F2E6;">
-      	<div id="chartContainer" style="height: 400px"></div>​
+      <div style="background-color: #F2F2E6;" class="column2" id="metricDisplay">
+      	<div id="chartContainer" style="height: 400px"></div>
       </div>
-    </div>
