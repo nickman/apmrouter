@@ -77,6 +77,8 @@ public class NativeMonitor extends AbstractMonitor {
 	protected boolean traceAllCpus = false;
 	
 
+	/** Indicates if this is windows */
+	public static final boolean isWindows = System.getProperty("os.name").toLowerCase().contains("windows") ;
 
 	/** The NIC name tag foramat */
 	public static final String NIC_NAME = "if=%s";			
@@ -226,12 +228,12 @@ public class NativeMonitor extends AbstractMonitor {
 		tracer.traceGauge(procCpu.getUser(), "User", "platform=JVM", "category=cpu");
 		tracer.traceGauge( dbl2longPerc(procCpu.getPercent()), "PercentUsage", "platform=JVM", "category=cpu");
 		ProcMem pmem = hsigar.getProcMem(hsigar.pid);
-		tracer.traceGauge(pmem.getMajorFaults(), "MajorFaults", "platform=JVM", "category=memory");
-		tracer.traceGauge(pmem.getMinorFaults(), "MinorFaults", "platform=JVM", "category=memory");
-		tracer.traceGauge(pmem.getPageFaults(), "PageFaults", "platform=JVM", "category=memory");
-		tracer.traceGauge(pmem.getResident(), "Resident", "platform=JVM", "category=memory");
-		tracer.traceGauge(pmem.getShare(), "Shared", "platform=JVM", "category=memory");
-		tracer.traceGauge(pmem.getSize(), "Size", "platform=JVM", "category=memory");
+		tracer.traceGauge(pmem.getMajorFaults(), "MajorFaults", "platform=JVM", "category=processMemory");
+		tracer.traceGauge(pmem.getMinorFaults(), "MinorFaults", "platform=JVM", "category=processMemory");
+		tracer.traceGauge(pmem.getPageFaults(), "PageFaults", "platform=JVM", "category=processMemory");
+		tracer.traceGauge(pmem.getResident(), "Resident", "platform=JVM", "category=processMemory");
+		if(!isWindows) tracer.traceGauge(pmem.getShare(), "Shared", "platform=JVM", "category=processMemory");
+		tracer.traceGauge(pmem.getSize(), "Size", "platform=JVM", "category=processMemory");
 		tracer.traceGauge(hsigar.getProcFd(hsigar.pid).getTotal(), "OpenFileDescriptors", "platform=JVM", "category=fd");
 		
 	}

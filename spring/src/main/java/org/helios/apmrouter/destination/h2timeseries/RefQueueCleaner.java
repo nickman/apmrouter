@@ -26,7 +26,10 @@ package org.helios.apmrouter.destination.h2timeseries;
 
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
-import java.lang.ref.SoftReference;
+import java.lang.ref.WeakReference;
+import java.util.Collections;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -40,6 +43,8 @@ import java.util.concurrent.atomic.AtomicLong;
 public class RefQueueCleaner {
 	/** The reference queue to clear */
 	private static final ReferenceQueue<UnsafeH2TimeSeries> refQueue = new ReferenceQueue<UnsafeH2TimeSeries>();
+	/** A weak hash map of live instances */
+	private static final Map<WeakReference<UnsafeH2TimeSeries>, String> refMap = (Map<WeakReference<UnsafeH2TimeSeries>, String>) Collections.synchronizedMap(new WeakHashMap<WeakReference<UnsafeH2TimeSeries>, String>()); 
 	
 	/** The counter of created instances */
 	private static final AtomicLong createdInstances = new AtomicLong(0L);
@@ -49,6 +54,9 @@ public class RefQueueCleaner {
 	/** The ref queue clearing thread */
 	private static final Thread refCleanerThread;
 	
+	public static void main(String[] args) {
+		
+	}
 	
 	static {
 		refCleanerThread = new Thread(new Runnable(){
@@ -60,7 +68,7 @@ public class RefQueueCleaner {
 						if(uts!=null) uts.destroy();
 						clearedInstances.incrementAndGet();
 					} catch (Exception ex) {
-						
+						/* No Op */
 					}
 				}
 			}
@@ -71,7 +79,7 @@ public class RefQueueCleaner {
 	
 	
 	public static void createRef(UnsafeH2TimeSeries hts) {
-		new SoftReference<UnsafeH2TimeSeries>(hts, refQueue);
+		refMap.put(new WeakReference<UnsafeH2TimeSeries>(hts, refQueue), null);
 		createdInstances.incrementAndGet();
 	}
 
@@ -92,6 +100,14 @@ public class RefQueueCleaner {
 	public static long getClearedinstances() {
 		return clearedInstances.get();
 	}
+	
+	/**
+	 * Returns the count of cleared instances
+	 * @return the cleared instance count
+	 */
+	public static long getInstanceCount() {
+		return refMap.size();
+	}	
 	
 	
 }

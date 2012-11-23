@@ -39,7 +39,6 @@ import java.io.InputStream;
 import java.io.ObjectStreamException;
 import java.io.PushbackInputStream;
 import java.io.Serializable;
-import java.sql.Blob;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -208,11 +207,9 @@ public class UnsafeH2TimeSeries implements Serializable {
 	 * @param sticky Indicates if the metric is sticky
 	 * @return a new UnsafeH2TimeSeries
 	 */
-	public static Blob make(Connection conn, long step, int width, boolean compressed, boolean sticky) {
+	public static byte[] make(long step, int width, boolean compressed, boolean sticky) {
 		try {
-			Blob blob = conn.createBlob();
-			blob.setBytes(0, serialize(new UnsafeH2TimeSeries(step, width, true)));
-			return blob;
+			return serialize(new UnsafeH2TimeSeries(step, width, compressed));
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException(e);
@@ -226,11 +223,9 @@ public class UnsafeH2TimeSeries implements Serializable {
 	 * @param sticky Indicates if the metric is sticky
 	 * @return a new UnsafeH2TimeSeries
 	 */
-	public static Blob make(Connection conn, long step, int width, boolean sticky) {
+	public static byte[] make(long step, int width, boolean sticky) {
 		try {
-			Blob blob = conn.createBlob();
-			blob.setBytes(0, serialize(new UnsafeH2TimeSeries(step, width, true)));
-			return blob;
+			return serialize(new UnsafeH2TimeSeries(step, width, true));
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new RuntimeException(e);

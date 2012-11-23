@@ -144,8 +144,8 @@ public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 //			StringBuilder sql = new StringBuilder("SELECT * FROM RICH_METRIC_DATA WHERE ID IN (");
 //			sql.append(ids.toString().replace("[", "").replace("]", "")).append(")");
 //			sql.append(" ORDER BY ID, TS");
-			//StringBuilder sql = new StringBuilder("CALL UNSAFE_MV(");
-			StringBuilder sql = new StringBuilder("CALL MV(");
+			StringBuilder sql = new StringBuilder("CALL UNSAFE_MV(");
+			//StringBuilder sql = new StringBuilder("CALL MV(");
 			sql.append(SystemClock.time()-oldestLive).append(",");
 			sql.append(ids.toString().replace("[", "").replace("]", "")).append(")");
 			

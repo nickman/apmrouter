@@ -234,16 +234,13 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 			    	UnsafeH2TimeSeries hts = null;
 			    	try {
 				    	long metricId = rset.getLong(1);
-				    	//hts = UnsafeH2TimeSeries.deserialize(rset.getBytes(2));
-				    	Blob blob = rset.getBlob(2);
-				    	hts = new UnsafeH2TimeSeries(blob.getBinaryStream(), blob.length());
+				    	hts = UnsafeH2TimeSeries.deserialize(rset.getBytes(2));
 				    	IMetric im = metricMap.get(metricId);
 				    	if(im==null) continue;
 				    	long[] rolledPeriod = hts.addValue(im.getTime(), im.getLongValue());
 				    	if(rolledPeriod!=null && subCache.containsKey(metricId)) sendIntervalRollEvent(rolledPeriod, im);
 				    	updatePs.setLong(1, metricId);
-				    	//updatePs.setBytes(2, UnsafeH2TimeSeries.serialize(hts));
-				    	updatePs.setBlob(2, hts.toInputStream());
+				    	updatePs.setBytes(2, UnsafeH2TimeSeries.serialize(hts));
 				    	updatePs.addBatch();
 			    	} finally {
 			    		if(hts!=null) hts.destroy();
@@ -345,7 +342,17 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	@ManagedMetric(category="H2TimeSeries", metricType=MetricType.COUNTER, description="the number of allocated UnsafeH2TimeSeries instances")
 	public long getAllocatedTimeSeriesInstances() {
 		return UnsafeH2TimeSeries.getAllocatedInstances();
+	}
+	
+	/**
+	 * Returns the current number of allocated {@link UnsafeH2TimeSeries} instances
+	 * @return the current number of allocated {@link UnsafeH2TimeSeries} instances
+	 */
+	@ManagedMetric(category="H2TimeSeries", metricType=MetricType.COUNTER, description="the current number of allocated UnsafeH2TimeSeries instances")
+	public long getCurrentTimeSeriesInstances() {
+		return RefQueueCleaner.getInstanceCount();
 	}		
+	
 	
 	/**
 	 * Returns the rolling average the byte array read from H2 to populate H2 TimeSeries
