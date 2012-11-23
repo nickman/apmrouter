@@ -365,7 +365,7 @@ public class H2TimeSeries implements Externalizable {
 		if(size<0) {			
 			size++;
 			put(new long[]{period, value, value, value, 1});
-			LOG.info("Initial Entry");
+			//LOG.info("Initial Entry");
 			return null;
 		}			
 		final long[] values = getArray(size);			

@@ -35,8 +35,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectStreamException;
+import java.io.PushbackInputStream;
 import java.io.Serializable;
+import java.sql.Blob;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -51,6 +54,9 @@ import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+
+import javax.sql.rowset.serial.SerialBlob;
+import javax.sql.rowset.serial.SerialException;
 
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
@@ -202,8 +208,15 @@ public class UnsafeH2TimeSeries implements Serializable {
 	 * @param sticky Indicates if the metric is sticky
 	 * @return a new UnsafeH2TimeSeries
 	 */
-	public static UnsafeH2TimeSeries make(long step, int width, boolean compressed, boolean sticky) {
-		return new UnsafeH2TimeSeries(step, width, compressed);
+	public static Blob make(Connection conn, long step, int width, boolean compressed, boolean sticky) {
+		try {
+			Blob blob = conn.createBlob();
+			blob.setBytes(0, serialize(new UnsafeH2TimeSeries(step, width, true)));
+			return blob;
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException(e);
+		}		
 	}
 	
 	/**
@@ -213,8 +226,15 @@ public class UnsafeH2TimeSeries implements Serializable {
 	 * @param sticky Indicates if the metric is sticky
 	 * @return a new UnsafeH2TimeSeries
 	 */
-	public static UnsafeH2TimeSeries make(long step, int width, boolean sticky) {
-		return new UnsafeH2TimeSeries(step, width, true);
+	public static Blob make(Connection conn, long step, int width, boolean sticky) {
+		try {
+			Blob blob = conn.createBlob();
+			blob.setBytes(0, serialize(new UnsafeH2TimeSeries(step, width, true)));
+			return blob;
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new RuntimeException(e);
+		}		
 	}	
 	
 	/**
@@ -234,7 +254,56 @@ public class UnsafeH2TimeSeries implements Serializable {
 		averages = new ConcurrentLongSlidingWindow(width);
 		counts = new ConcurrentLongSlidingWindow(width);
 		AllocatedInstances.incrementAndGet();
+		RefQueueCleaner.createRef(this);
 		
+	}
+	
+	/**
+	 * Returns an input stream containing the bytes for this UnsafeH2TimeSeries
+	 * @return an input stream containing the bytes for this UnsafeH2TimeSeries
+	 * @throws IOException thrown on any IO error
+	 */
+	public InputStream toInputStream() throws IOException {
+		 ByteArrayInputStream bais = new ByteArrayInputStream(serialize(this));
+		 return bais;
+	}
+	
+	/**
+	 * Creates a new UnsafeH2TimeSeries from an input stream
+	 * @param is The input stream to read from
+	 * @throws IOException thrown on any IO error
+	 */
+	public UnsafeH2TimeSeries(InputStream is, long length) throws IOException {
+		if(is==null) throw new IllegalArgumentException("InputStream was null", new Throwable());
+		
+		PushbackInputStream pushIs = new PushbackInputStream(is, (int)length);
+		byte[] gzipTest = new byte[2];
+		pushIs.read(gzipTest, 0, 2);
+		compressed = isGzip(gzipTest);
+		pushIs.unread(gzipTest);		
+		GZIPInputStream dis = null;
+		DataInputStream dais = null;
+		if(compressed) {
+			dis = new GZIPInputStream(pushIs);
+		}
+		dais = new DataInputStream(compressed ? dis : pushIs);			
+		step = dais.readLong();
+		width = dais.readInt();
+		int sz = dais.readInt();
+		periods = new ConcurrentLongSlidingWindow(width);
+		mins = new ConcurrentLongSlidingWindow(width);
+		maxes = new ConcurrentLongSlidingWindow(width);
+		averages = new ConcurrentLongSlidingWindow(width);
+		counts = new ConcurrentLongSlidingWindow(width);
+		for(int i = 0; i < sz; i++) {
+			periods.insert(dais.readLong());
+			mins.insert(dais.readLong());
+			maxes.insert(dais.readLong());
+			averages.insert(dais.readLong());
+			counts.insert(dais.readLong());
+		}
+		AllocatedInstances.incrementAndGet();
+		RefQueueCleaner.createRef(this);
 	}
 	
 	/**

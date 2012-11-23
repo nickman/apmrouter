@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.destination.h2timeseries;
 
+import java.sql.Blob;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -88,7 +89,10 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	/** The time/size triggered flush queue */
 	protected TimeSizeFlushQueue<IMetric> flushQueue = null;
 	/** The base sql update statement for fetching time-series values to update */
-	protected StringBuilder selectSql = null;
+	protected StringBuilder safeSelectSql = null;
+	/** The base sql update statement for fetching time-series values to update */
+	protected StringBuilder unsafeSelectSql = null;
+	
 	/** The notification type emitted from this MBean */
 	protected static final String NOTIF_TYPE = "apmrouter.h2timeseries.intervalroll";
 	/** The notification template for types emitted from this MBean */
@@ -136,7 +140,8 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	protected void doStart() throws Exception {
 		super.doStart();
 		flushQueue = new TimeSizeFlushQueue<>(getClass().getSimpleName(), sizeTrigger, timeTrigger, this);
-		selectSql = new StringBuilder("select METRIC_ID, NVL2(V, V, UNSAFE_MAKE_MV(").append(timeSeriesStep).append(",").append(timeSeriesWidth).append(",false)) from METRIC M left outer join UNSAFE_METRIC_VALUES MV on MV.ID = m.METRIC_ID where  M.METRIC_ID IN (");
+		unsafeSelectSql = new StringBuilder("select METRIC_ID, NVL2(V, V, UNSAFE_MAKE_MV(").append(timeSeriesStep).append(",").append(timeSeriesWidth).append(",false)) from METRIC M left outer join UNSAFE_METRIC_VALUES MV on MV.ID = m.METRIC_ID where  M.METRIC_ID IN (");
+		safeSelectSql = new StringBuilder("select METRIC_ID, NVL2(V, V, MAKE_MV(").append(timeSeriesStep).append(",").append(timeSeriesWidth).append(",false)) from METRIC M left outer join METRIC_VALUES MV on MV.ID = m.METRIC_ID where  M.METRIC_ID IN (");
 	}
 	
 	/**
@@ -148,68 +153,62 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 		registerSubListener();
 	}
 	
-//	/**
-//	 * {@inheritDoc}
-//	 * @see org.helios.apmrouter.destination.accumulator.FlushQueueReceiver#flushTo(java.util.Collection)
-//	 */
-//	@Override
-//	public void flushTo(Collection<IMetric> items) {
-//		
-//		Set<IMetric> flushedItemss = new HashSet<IMetric>(items);
-//		Map<Long, IMetric> metricMap = new HashMap<Long, IMetric>(flushedItemss.size());
-//		for(IMetric im: flushedItemss) {
-//			metricMap.put(im.getToken(), im);
-//		}
-//		ElapsedTime et = null;
-//		final int fiSize = metricMap.size();
-//		if(!metricMap.isEmpty()) {
-//			SystemClock.startTimer();
-//			Connection conn = null;
-//			Statement st = null;
-//			PreparedStatement updatePs = null;
-//			ResultSet rset = null;
-//			try {
-//				StringBuilder sql = new StringBuilder(selectSql.toString());
-//				sql.append(metricMap.keySet().toString().replace("[", "").replace("]","")).append(")");
-//			    conn = dataSource.getConnection();
-//			    st = conn.createStatement();
-//			    updatePs = conn.prepareStatement("MERGE INTO METRIC_VALUES KEY(ID) VALUES(?,?)");
-//			    rset = st.executeQuery(sql.toString());			    
-//			    while(rset.next()) {
-//			    	long metricId = rset.getLong(1);
-//			    	H2TimeSeries hts = (H2TimeSeries)rset.getObject(2);
-//			    	IMetric im = metricMap.get(metricId);
-//			    	if(im==null) continue;
-//			    	long[] rolledPeriod = hts.addValue(im.getTime(), im.getLongValue());
-//			    	if(rolledPeriod!=null && subCache.containsKey(metricId)) sendIntervalRollEvent(rolledPeriod, im);
-//			    	updatePs.setLong(1, metricId);
-//			    	updatePs.setObject(2, hts);
-//			    	updatePs.addBatch();
-//			    }
-//		    	updatePs.executeBatch();
-//		    	updatePs.clearBatch();
-//			    et = SystemClock.endTimer();
-//			    lastBatchSize.insert(fiSize);
-//			    lastElapsedNs.insert(et.elapsedNs);
-//			    lastAvgPerElapsedNs.insert(et.avgNs(fiSize));
-//			    debug("\n\tSaved Batch of [", fiSize , "] Metrics.\n\tElapsed Time:", et);
-//			} catch (Exception ex) {
-//				ex.printStackTrace(System.err);
-//			} finally {
-//				if(rset!=null) try { rset.close(); } catch (Exception e) {}
-//				if(st!=null) try { st.close(); } catch (Exception e) {}
-//				if(updatePs!=null) try { updatePs.close(); } catch (Exception e) {}
-//				if(conn!=null) try { conn.close(); } catch (Exception e) {}
-//			}
-//		}
-//	}
+	public void flushToSafe(Collection<IMetric> items) {
+		Set<IMetric> flushedItemss = new HashSet<IMetric>(items);
+		Map<Long, IMetric> metricMap = new HashMap<Long, IMetric>(flushedItemss.size());
+		for(IMetric im: flushedItemss) {
+			metricMap.put(im.getToken(), im);
+		}
+		ElapsedTime et = null;
+		final int fiSize = metricMap.size();
+		if(!metricMap.isEmpty()) {
+			SystemClock.startTimer();
+			Connection conn = null;
+			Statement st = null;
+			PreparedStatement updatePs = null;
+			ResultSet rset = null;
+			try {
+				StringBuilder sql = new StringBuilder(safeSelectSql.toString());
+				sql.append(metricMap.keySet().toString().replace("[", "").replace("]","")).append(")");
+			    conn = dataSource.getConnection();
+			    st = conn.createStatement();
+			    updatePs = conn.prepareStatement("MERGE INTO METRIC_VALUES KEY(ID) VALUES(?,?)");
+			    rset = st.executeQuery(sql.toString());			    
+			    while(rset.next()) {
+			    	long metricId = rset.getLong(1);
+			    	H2TimeSeries hts = (H2TimeSeries)rset.getObject(2);
+			    	IMetric im = metricMap.get(metricId);
+			    	if(im==null) continue;
+			    	long[] rolledPeriod = hts.addValue(im.getTime(), im.getLongValue());
+			    	if(rolledPeriod!=null && subCache.containsKey(metricId)) sendIntervalRollEvent(rolledPeriod, im);
+			    	updatePs.setLong(1, metricId);
+			    	updatePs.setObject(2, hts);
+			    	updatePs.addBatch();
+			    }
+		    	updatePs.executeBatch();
+		    	updatePs.clearBatch();
+			    et = SystemClock.endTimer();
+			    lastBatchSize.insert(fiSize);
+			    lastElapsedNs.insert(et.elapsedNs);
+			    lastAvgPerElapsedNs.insert(et.avgNs(fiSize));
+			    debug("\n\tSaved Batch of [", fiSize , "] Metrics.\n\tElapsed Time:", et);
+			} catch (Exception ex) {
+				ex.printStackTrace(System.err);
+			} finally {
+				if(rset!=null) try { rset.close(); } catch (Exception e) {}
+				if(st!=null) try { st.close(); } catch (Exception e) {}
+				if(updatePs!=null) try { updatePs.close(); } catch (Exception e) {}
+				if(conn!=null) try { conn.close(); } catch (Exception e) {}
+			}
+		}
+	}
 	
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.accumulator.FlushQueueReceiver#flushTo(java.util.Collection)
-	 */
-	@Override
 	public void flushTo(Collection<IMetric> items) {
+		//flushToSafe(items);
+		flushToUnsafe(items);
+	}
+	
+	public void flushToUnsafe(Collection<IMetric> items) {
 		
 		Set<IMetric> flushedItemss = new HashSet<IMetric>(items);
 		Map<Long, IMetric> metricMap = new HashMap<Long, IMetric>(flushedItemss.size());
@@ -225,7 +224,7 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 			PreparedStatement updatePs = null;
 			ResultSet rset = null;
 			try {
-				StringBuilder sql = new StringBuilder(selectSql.toString());
+				StringBuilder sql = new StringBuilder(unsafeSelectSql.toString());
 				sql.append(metricMap.keySet().toString().replace("[", "").replace("]","")).append(")");
 			    conn = dataSource.getConnection();
 			    st = conn.createStatement();
@@ -235,13 +234,16 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 			    	UnsafeH2TimeSeries hts = null;
 			    	try {
 				    	long metricId = rset.getLong(1);
-				    	hts = UnsafeH2TimeSeries.deserialize(rset.getBytes(2));
+				    	//hts = UnsafeH2TimeSeries.deserialize(rset.getBytes(2));
+				    	Blob blob = rset.getBlob(2);
+				    	hts = new UnsafeH2TimeSeries(blob.getBinaryStream(), blob.length());
 				    	IMetric im = metricMap.get(metricId);
 				    	if(im==null) continue;
 				    	long[] rolledPeriod = hts.addValue(im.getTime(), im.getLongValue());
 				    	if(rolledPeriod!=null && subCache.containsKey(metricId)) sendIntervalRollEvent(rolledPeriod, im);
 				    	updatePs.setLong(1, metricId);
-				    	updatePs.setBytes(2, UnsafeH2TimeSeries.serialize(hts));
+				    	//updatePs.setBytes(2, UnsafeH2TimeSeries.serialize(hts));
+				    	updatePs.setBlob(2, hts.toInputStream());
 				    	updatePs.addBatch();
 			    	} finally {
 			    		if(hts!=null) hts.destroy();
@@ -392,6 +394,24 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	@ManagedMetric(category="H2TimeSeries", metricType=MetricType.GAUGE, description="the rolling average of elapsed write times in ms")
 	public long getRollingElapsedWriteTimeMs() {
 		return TimeUnit.MILLISECONDS.convert(getRollingElapsedWriteTimeNs(), TimeUnit.NANOSECONDS); 
+	}
+	
+	/**
+	 * Returns the number of created soft references
+	 * @return the number of created soft references
+	 */
+	@ManagedMetric(category="H2TimeSeries", metricType=MetricType.GAUGE, description="the number of created references")
+	public long getCreatedInstances() {
+		return RefQueueCleaner.getCreatedinstances(); 
+	}
+	
+	/**
+	 * Returns the number of cleared soft references
+	 * @return the number of cleared soft references
+	 */
+	@ManagedMetric(category="H2TimeSeries", metricType=MetricType.GAUGE, description="the number of cleared references")
+	public long getClearedInstances() {
+		return RefQueueCleaner.getClearedinstances(); 
 	}
 	
 	/**
