@@ -24,9 +24,9 @@
  */
 package org.helios.apmrouter.collections;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
 import java.util.Arrays;
+
+import org.helios.apmrouter.unsafe.UnsafeAdapter;
 
 
 /**
@@ -182,7 +182,7 @@ public class UnsafeLongArray extends UnsafeArray {
 		if(len%8!=0) throw new RuntimeException("Mod check failed", new Throwable());
 		int arrsize = len/8;
 		long[] larr = new long[arrsize];
-		unsafe.copyMemory(arr, BYTE_ARRAY_OFFSET, larr, LONG_ARRAY_OFFSET, arr.length);
+		UnsafeAdapter.copyMemory(arr, BYTE_ARRAY_OFFSET, larr, LONG_ARRAY_OFFSET, arr.length);
 		
 		return larr;
 
@@ -201,7 +201,7 @@ public class UnsafeLongArray extends UnsafeArray {
 		size = len/8;
 		freeMemory(address);
 		address = allocateMemory(len << 3);
-		unsafe.copyMemory(arr, BYTE_ARRAY_OFFSET, null, address, arr.length);		
+		UnsafeAdapter.copyMemory(arr, BYTE_ARRAY_OFFSET, null, address, arr.length);		
 	}
 	
 	/**
@@ -213,7 +213,7 @@ public class UnsafeLongArray extends UnsafeArray {
 		if(arr.length>maxCapacity) throw new ArrayOverflowException("Passed array of length [" + arr.length + "] is too large for this UnsafeLongArray with a max capacity of [" + maxCapacity + "]", new Throwable());
 		freeMemory(address);
 		address = allocateMemory(arr.length << 3);
-		unsafe.copyMemory(arr, LONG_ARRAY_OFFSET, null, address, arr.length << 3);
+		UnsafeAdapter.copyMemory(arr, LONG_ARRAY_OFFSET, null, address, arr.length << 3);
 		size = capacity = arr.length;
 		if(sorted) sort();
 	}
@@ -381,7 +381,7 @@ public class UnsafeLongArray extends UnsafeArray {
     		while(newSize > capacity) {
     			extend(false, vl);
     		}
-        	unsafe.copyMemory(values, LONG_ARRAY_OFFSET, null, address + (size << 3), vl << 3);    		
+    		UnsafeAdapter.copyMemory(values, LONG_ARRAY_OFFSET, null, address + (size << 3), vl << 3);    		
         	size += vl;
     	}
     	if(sorted) sort();
@@ -394,7 +394,7 @@ public class UnsafeLongArray extends UnsafeArray {
      */
     protected byte[] getBytes() {
     	byte[] bytes = new byte[size*8];
-    	unsafe.copyMemory(null, address, bytes, BYTE_ARRAY_OFFSET, size << 3);
+    	UnsafeAdapter.copyMemory(null, address, bytes, BYTE_ARRAY_OFFSET, size << 3);
     	return bytes;
     }
     
@@ -402,7 +402,7 @@ public class UnsafeLongArray extends UnsafeArray {
     	byte[] bytes = new byte[size*8];
     	int offset = BYTE_ARRAY_OFFSET + (size << 3);
     	for(int i = 0; i < size; i++) {
-    		unsafe.copyMemory(null, address, bytes, offset, 8);
+    		UnsafeAdapter.copyMemory(null, address, bytes, offset, 8);
     		offset -= 8;
     	}
     	//unsafe.copyMemory(null, address, bytes, BYTE_ARRAY_OFFSET, size << 3);
@@ -429,7 +429,7 @@ public class UnsafeLongArray extends UnsafeArray {
     		while(newSize > capacity) {
     			extend(true, vl);
     		}
-        	unsafe.copyMemory(values, LONG_ARRAY_OFFSET, null, address + (size << 3), howManyWillFit << 3);    		
+    		UnsafeAdapter.copyMemory(values, LONG_ARRAY_OFFSET, null, address + (size << 3), howManyWillFit << 3);    		
         	size = newSize;
     	}
     	if(sorted) sort();
@@ -638,7 +638,7 @@ public class UnsafeLongArray extends UnsafeArray {
     public long[] getArray() {
     	_check();
     	long[] arr = new long[size];
-    	if(size>0) unsafe.copyMemory(null, address, arr, LONG_ARRAY_OFFSET, size << 3);
+    	if(size>0) UnsafeAdapter.copyMemory(null, address, arr, LONG_ARRAY_OFFSET, size << 3);
     	return arr;
     }
     
@@ -650,7 +650,7 @@ public class UnsafeLongArray extends UnsafeArray {
     public long[] getAllocatedArray() {
     	_check();
     	long[] arr = new long[capacity];
-    	unsafe.copyMemory(null, address, arr, LONG_ARRAY_OFFSET, capacity << 3);
+    	UnsafeAdapter.copyMemory(null, address, arr, LONG_ARRAY_OFFSET, capacity << 3);
     	return arr;
     }
     
@@ -662,7 +662,7 @@ public class UnsafeLongArray extends UnsafeArray {
     	_check();
     	if(size==0) return new double[0];
     	double[] arr = new double[size];
-    	unsafe.copyMemory(null, address, arr, DOUBLE_ARRAY_OFFSET, size << 3);
+    	UnsafeAdapter.copyMemory(null, address, arr, DOUBLE_ARRAY_OFFSET, size << 3);
     	return arr;    	
     }
     

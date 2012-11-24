@@ -68,17 +68,6 @@ public class UnavailableMBeanServerException extends RuntimeException {
 		super(message, cause);
 	}
 
-	/**
-	 * Creates a new UnavailableMBeanServerException
-	 * @param message
-	 * @param cause
-	 * @param enableSuppression
-	 * @param writableStackTrace
-	 */
-	public UnavailableMBeanServerException(String message, Throwable cause,
-			boolean enableSuppression, boolean writableStackTrace) {
-		super(message, cause, enableSuppression, writableStackTrace);
-		// TODO Auto-generated constructor stub
-	}
+
 
 }

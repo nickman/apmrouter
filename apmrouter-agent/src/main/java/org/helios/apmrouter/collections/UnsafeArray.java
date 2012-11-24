@@ -28,6 +28,8 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.helios.apmrouter.unsafe.UnsafeAdapter;
+
 import sun.misc.Unsafe;
 
 /**
@@ -165,7 +167,7 @@ public abstract class UnsafeArray {
 		slotSize = getSlotSize();
 		capacity = initialCapacity;
 		address = allocateMemory(capacity << slotSize);
-		unsafe.setMemory(null, address, capacity << slotSize, (byte)0);		
+		UnsafeAdapter.setMemory(null, address, capacity << slotSize, (byte)0);		
 		size = 0;
 		
 	}
@@ -222,7 +224,7 @@ public abstract class UnsafeArray {
 		if(length>maxCapacity) {
 			throw new ArrayOverflowException("Passed array of length [" + length + "] is too large for this UnsafeArray with a max capacity of [" + maxCapacity + "]", new Throwable());
 		}
-		unsafe.copyMemory(data, offset, null, address, length << slotSize);
+		UnsafeAdapter.copyMemory(data, offset, null, address, length << slotSize);
 	}
 	
 	/**
@@ -609,7 +611,7 @@ public abstract class UnsafeArray {
 	
 	public static int toInt(byte[] arr) {
 		int[] iarr = new int[1];
-		unsafe.copyMemory(arr, INT_ARRAY_OFFSET, iarr, INT_ARRAY_OFFSET, 4);
+		UnsafeAdapter.copyMemory(arr, INT_ARRAY_OFFSET, iarr, INT_ARRAY_OFFSET, 4);
 		return iarr[0];
 		
 	}

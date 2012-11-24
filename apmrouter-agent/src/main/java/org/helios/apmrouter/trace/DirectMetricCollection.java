@@ -47,6 +47,7 @@ import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.sender.ISender;
 import org.helios.apmrouter.sender.SenderFactory;
+import org.helios.apmrouter.unsafe.UnsafeAdapter;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 
@@ -376,7 +377,7 @@ public class DirectMetricCollection implements Runnable {
     	byte[] bytes = new byte[rbuff.readableBytes()];
     	rbuff.readBytes(bytes);
     	DirectMetricCollection d = new DirectMetricCollection(bytes.length);
-    	unsafe.copyMemory(bytes, BYTE_ARRAY_OFFSET, null, d.address, bytes.length);
+    	UnsafeAdapter.copyMemory(bytes, BYTE_ARRAY_OFFSET, null, d.address, bytes.length);
     	d.size = bytes.length;
     	d.setSize(bytes.length);
     	bytes = null;
@@ -391,7 +392,7 @@ public class DirectMetricCollection implements Runnable {
     public ChannelBuffer toChannelBufferX() {
     	shrinkWrap();
     	byte[] bytes = new byte[size];
-    	unsafe.copyMemory(null, address, bytes, BYTE_ARRAY_OFFSET, size);
+    	UnsafeAdapter.copyMemory(null, address, bytes, BYTE_ARRAY_OFFSET, size);
     	destroy();
     	ChannelBuffer cb = ChannelBuffers.directBuffer(bytes.length);
     	cb.writeBytes(bytes);
@@ -470,7 +471,7 @@ public class DirectMetricCollection implements Runnable {
 			}
     	}
 //		byte[] bytes = new byte[size];
-//		unsafe.copyMemory(null, (address), bytes, BYTE_ARRAY_OFFSET, size);
+//		UnsafeAdapter.copyMemory(null, (address), bytes, BYTE_ARRAY_OFFSET, size);
 //		destroy();
 //		cb.writeBytes(bytes);
 //		logBits(cb);
@@ -524,7 +525,7 @@ public class DirectMetricCollection implements Runnable {
      */
     protected void copyFrom(Object srcObject, long srcOffset, int byteCount) {
     	while(size + byteCount > capacity) extend();    
-    	unsafe.copyMemory(srcObject, srcOffset, null, address, byteCount);
+    	UnsafeAdapter.copyMemory(srcObject, srcOffset, null, address, byteCount);
     	size += byteCount;
     	updateCount();
     	setSize(size);
@@ -668,7 +669,7 @@ public class DirectMetricCollection implements Runnable {
 		 */
 		protected byte[] readBytes(int bytesToRead) {
 			byte[] bytes = new byte[bytesToRead];
-			unsafe.copyMemory(null, (address + offset), bytes, BYTE_ARRAY_OFFSET, bytesToRead);
+			UnsafeAdapter.copyMemory(null, (address + offset), bytes, BYTE_ARRAY_OFFSET, bytesToRead);
 			offset += bytesToRead;
 			return bytes;
 		}
@@ -1045,7 +1046,7 @@ public class DirectMetricCollection implements Runnable {
     	if(bb.isDirect()) {
     		DirectBuffer db = (DirectBuffer)bb;
     		int byteCount = bb.limit();
-    		unsafe.copyMemory(null, db.address(), null, address + size, byteCount);
+    		UnsafeAdapter.copyMemory(null, db.address(), null, address + size, byteCount);
     		size += byteCount;
     	} else {
     		byte[] bytes = new byte[bb.limit()];
@@ -1062,7 +1063,7 @@ public class DirectMetricCollection implements Runnable {
      * @param bytes the bytes to write
      */
     protected void writeBytes(byte[] bytes) {
-    	unsafe.copyMemory(bytes, BYTE_ARRAY_OFFSET, null, address + size, bytes.length);
+    	UnsafeAdapter.copyMemory(bytes, BYTE_ARRAY_OFFSET, null, address + size, bytes.length);
     	size += bytes.length;
     }
     

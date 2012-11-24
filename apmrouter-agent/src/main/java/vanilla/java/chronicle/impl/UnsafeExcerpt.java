@@ -16,10 +16,12 @@
 
 package vanilla.java.chronicle.impl;
 
+import java.lang.reflect.Field;
+
+import org.helios.apmrouter.unsafe.UnsafeAdapter;
+
 import sun.misc.Unsafe;
 import sun.nio.ch.DirectBuffer;
-
-import java.lang.reflect.Field;
 
 /**
  * @author peter.lawrey
@@ -61,19 +63,19 @@ public class UnsafeExcerpt<C extends DirectChronicle> extends AbstractExcerpt<C>
 
     @Override
     public void write(int offset, byte[] b) {
-        UNSAFE.copyMemory(b, BYTES_OFFSET, null, position, b.length);
+    	UnsafeAdapter.copyMemory(b, BYTES_OFFSET, null, position, b.length);
         position += b.length;
     }
 
     @Override
     public void write(byte[] b, int off, int len) {
-        UNSAFE.copyMemory(b, BYTES_OFFSET + off, null, position, len);
+    	UnsafeAdapter.copyMemory(b, BYTES_OFFSET + off, null, position, len);
         position += len;
     }
     
     @Override
     public void readFully(byte[] b, int off, int len) {
-        UNSAFE.copyMemory(null, position, b, BYTES_OFFSET + off, len);
+    	UnsafeAdapter.copyMemory(null, position, b, BYTES_OFFSET + off, len);
         position += len;
     }
 
