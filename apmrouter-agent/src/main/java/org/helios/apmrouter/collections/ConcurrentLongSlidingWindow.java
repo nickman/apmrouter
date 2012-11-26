@@ -207,6 +207,19 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow implements IL
 	}	
 	
 	/**
+	 * Returns this sliding window as a long array
+	 * @return a long array
+	 */
+	public long[] asLongArray() {
+		readLock.lock();
+		try {
+			return array.getArray();
+		} finally {
+			readLock.unlock();
+		}
+	}
+	
+	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#load(byte[])
 	 */

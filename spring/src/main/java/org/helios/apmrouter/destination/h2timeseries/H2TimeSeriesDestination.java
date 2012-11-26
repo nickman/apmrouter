@@ -29,11 +29,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -222,8 +223,18 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 		SystemClock.startTimer();
 		int cnt = 0;
 		int errs = 0;
-		for(IMetric im: items) {
+		Set<IMetric> sortedSet = new TreeSet<IMetric>(new Comparator<IMetric>(){
+			@Override
+			public int compare(IMetric im1, IMetric im2) {
+				long t1 = im1.getTime(), t2 = im2.getTime();				
+				return t1==t2 ? -1 : t1<t2 ? -1 : +1;
+			}
+		});
+		sortedSet.addAll(items);
+		
+		for(IMetric im: sortedSet) {
 			try {
+				info("Processing [", im, "]");
 				liveTier.addValue(im);
 				cnt++;
 			} catch (Exception ex) {
@@ -235,6 +246,7 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 			warn("Encountered [", errs, "] in time-series flush");
 		}
 		info("Processed [", cnt, "] Items in", et, "   Avg Per:", et.avgNs(cnt), " ns.");
+		
 		
 	}
 	
@@ -316,7 +328,15 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	protected void doAcceptRoute(IMetric routable) {
 		try {	
 			routable.getLongValue();
-			flushQueue.put(routable);
+			//flushQueue.put(routable);
+			SystemClock.startTimer();
+			long[] rolledPeriod = null;
+			synchronized(liveTier) {
+				rolledPeriod = liveTier.addValue(routable);
+			}
+			if(rolledPeriod!=null && subCache.containsKey(routable.getToken())) sendIntervalRollEvent(rolledPeriod, routable);
+			lastElapsedNs.insert(SystemClock.endTimer().elapsedNs);
+			//info("Elapsed Time:", SystemClock.endTimer());
 			incr("MetricsForwarded");
 		} catch (Exception e) {
 			incr("InvalidMetricDrops");

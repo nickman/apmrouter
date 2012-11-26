@@ -70,7 +70,19 @@ public class LongSlidingWindow {
     public byte[] getBytes() {
     	return array.getBytes();
     }	
+    
+    public boolean isFull() {
+    	return array.size()==array.maxCapacity;
+    }
 	
+    public String debug() {
+    	return new StringBuilder("LongSlidingWindow:")
+    		.append("\n\tSize:").append(array.size)
+    		.append("\n\tMax Size:").append(array.maxCapacity)
+    		.append("\n\tSorted:").append(array.sorted)
+    		
+    	.toString();
+    }
 	
 	/**
 	 * Creates a new LongSlidingWindow with the provided initial values
@@ -78,7 +90,7 @@ public class LongSlidingWindow {
 	 * @param values The initial values to load
 	 */
 	public LongSlidingWindow(int size, long[] values) {
-		array = UnsafeArrayBuilder.newBuilder().sorted(true).fixed(true).maxCapacity(size).buildLongArray();
+		array = UnsafeArrayBuilder.newBuilder().sorted(false).fixed(true).maxCapacity(size).buildLongArray();
 		for(long v: values) {
 			array.rollRight(0, v);
 		}
@@ -147,10 +159,19 @@ public class LongSlidingWindow {
 	}
 	
 	/**
-	 * @return
+	 * Returns this sliding window as a double array
+	 * @return a double array
 	 */
 	public double[] asDoubleArray() {
 		return array.asDoubleArray();
+	}
+	
+	/**
+	 * Returns this sliding window as a long array
+	 * @return a long array
+	 */
+	public long[] asLongArray() {
+		return array.getArray();
 	}
 	
 	

@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.catalog;
 
+import java.sql.SQLException;
 import java.util.Map;
 
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
@@ -107,5 +108,15 @@ public interface MetricCatalogService {
 	 * @return The dchannel state change event
 	 */
 	public DChannelEvent onIdentifiedChannel(DecoratedChannel channel);
+	
+	/**
+	 * Finds the assigned metric ID for the passed host/agent/name and namespace
+	 * @param host The host name
+	 * @param agent The agent name
+	 * @param namespace The metric namespace
+	 * @param name The metric name
+	 * @return The metric ID or -1 if one was not found
+	 */
+	public long isAssigned(String host, String agent, String namespace, String name);	
 	
 }

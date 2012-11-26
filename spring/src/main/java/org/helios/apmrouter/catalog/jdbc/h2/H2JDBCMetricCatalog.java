@@ -158,8 +158,34 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 		}				
 	}
 	
-	public boolean isAssigned(String host, String agent, String namespace, String name) {
-		
+	/**
+	 * Finds the assigned metric ID for the passed host/agent/name and namespace
+	 * @param host The host name
+	 * @param agent The agent name
+	 * @param namespace The metric namespace
+	 * @param name The metric name
+	 * @return The metric ID or -1 if one was not found
+	 */
+	public long isAssigned(String host, String agent, String namespace, String name)  {
+		Connection conn = null;
+		CallableStatement cs = null;
+		try {
+			conn = ds.getConnection();
+			cs = conn.prepareCall("? = CALL ASSIGNED(?,?,?,?)");
+			cs.registerOutParameter(1, Types.NUMERIC);
+			cs.setNull(1, Types.NULL);
+			cs.setString(2, host);
+			cs.setString(3, agent);
+			cs.setString(4, namespace);
+			cs.setString(5, name);
+			cs.execute();			
+			return cs.getLong(1);
+		} catch (Exception ex) {
+			throw new RuntimeException("Assign exception", ex);
+		} finally {
+			if(cs!=null) try { cs.close(); } catch (Exception ex) {/* No Op */}
+			if(conn!=null) try { conn.close(); } catch (Exception ex) {/* No Op */}
+		}
 	}
 	
 	/**
@@ -443,3 +469,4 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 		this.chronicleManager = chronicleManager;
 	}
 }
+

@@ -225,9 +225,16 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	 * @param metric The untokenized metric
 	 */
 	protected void sendToken(final Channel incoming, final SocketAddress remoteAddress, final IMetric metric) {
-		long token = metricCatalogService.getID(metric.getToken(), metric.getHost(), metric.getAgent(), metric.getType().ordinal(), metric.getNamespaceF(), metric.getName());
-		if(token!=0) {
-			metricCatalog.setToken(metric.getHost(), metric.getAgent(), metric.getName(), metric.getType(), metric.getNamespace());
+		long token = metric.getToken();
+		if(token==-1) {
+			token = metricCatalogService.isAssigned(metric.getHost(), metric.getAgent(), metric.getNamespaceF(), metric.getName());
+			if(token==-1) {
+				token = metricCatalogService.getID(metric.getToken(), metric.getHost(), metric.getAgent(), metric.getType().ordinal(), metric.getNamespaceF(), metric.getName());
+			}
+			if(token!=0) {
+				metricCatalog.setToken(metric.getHost(), metric.getAgent(), metric.getName(), metric.getType(), metric.getNamespace());
+				metric.getMetricId().setToken(token);
+			}				
 		}
 		byte[] bytes = metric.getFQN().getBytes();
 		// Buffer size:  OpCode, fqn size, fqn bytes, token

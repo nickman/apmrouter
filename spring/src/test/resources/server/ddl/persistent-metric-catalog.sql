@@ -66,6 +66,8 @@ CREATE ALIAS IF NOT EXISTS TOUCH FOR "org.helios.apmrouter.catalog.jdbc.h2.H2Sto
 CREATE ALIAS IF NOT EXISTS HOSTAGENTSTATE FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.hostAgentState";
 CREATE ALIAS IF NOT EXISTS PARENT FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.parent";
 CREATE ALIAS IF NOT EXISTS ROOT FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.root";
+CREATE ALIAS IF NOT EXISTS ASSIGNED FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.getAssigned";
+
 
 -- =============================================================================
 --    New element triggers
@@ -121,6 +123,15 @@ CREATE ALIAS IF NOT EXISTS UNSAFE_MV FOR "org.helios.apmrouter.destination.h2tim
 CREATE VIEW IF NOT EXISTS UNSAFE_METRIC_DATA AS SELECT * FROM UNSAFE_MV(0, -1);
 CREATE VIEW IF NOT EXISTS UNSAFE_RICH_METRIC_DATA AS SELECT AGENT_ID, TYPE_ID, NAMESPACE, NARR, NAME, D.* FROM UNSAFE_METRIC_DATA D, METRIC M WHERE M.METRIC_ID = D.ID;
 
+-- =============================================================================
+--    Chronicle Time Series
+-- =============================================================================
+
+
+CREATE ALIAS IF NOT EXISTS CV FOR "org.helios.apmrouter.catalog.jdbc.h2.ChronicleTSAdapter.getValues";
+
+CREATE VIEW IF NOT EXISTS CMETRIC_DATA AS SELECT * FROM CV(0, -1);
+CREATE VIEW IF NOT EXISTS CRICH_METRIC_DATA AS SELECT AGENT_ID, TYPE_ID, NAMESPACE, NARR, NAME, D.* FROM CMETRIC_DATA D, METRIC M WHERE M.METRIC_ID = D.ID;
 
 
 -- =============================================================================

@@ -18,6 +18,7 @@ package vanilla.java.chronicle.impl;
 
 import java.lang.reflect.Field;
 
+import org.helios.apmrouter.collections.LongSlidingWindow;
 import org.helios.apmrouter.unsafe.UnsafeAdapter;
 
 import sun.misc.Unsafe;
@@ -51,19 +52,38 @@ public class UnsafeExcerpt<C extends DirectChronicle> extends AbstractExcerpt<C>
     /**
      * Rolls the bytes in this excerpt to the right
      * @param startingPosition The starting position of the roll
-     * @param slotsToMove The number of bytes to roll
+     * @param rightBytes The number of bytes to the right the slots should be rolled
+     * @param bytesToMove The number of bytes to roll
      */
-    public void insertAndRollRight(long startingPosition, long slotsToMove) {
+    public void insertAndRollRight(long startingPosition, long rightBytes, long bytesToMove) {
     	long address = ((DirectBuffer) buffer).address();
-    	UNSAFE.copyMemory(address + startingPosition, address + startingPosition + slotsToMove, slotsToMove);
+    	UNSAFE.copyMemory(address + startingPosition, address + startingPosition + rightBytes, bytesToMove);
+    }
+    
+    public long[] insertNewPeriod(int size, int offset, long...values) {
+    	try {
+	    	LongSlidingWindow sw = new LongSlidingWindow(size*5, readLongArray(offset, size*5));	    	
+	    	//sw.insert(readLongArray(offset, size*5));
+	    	long[] retValues = new long[5];
+	    	for(int i = 0; i < retValues.length; i++) {
+	    		retValues[i] = sw.insert(values[i]);
+	    	}
+	    	writeLongArray(offset, sw.asLongArray());
+	    	sw.destroy();
+	    	return retValues;
+    	} catch (Exception ex) {
+    		ex.printStackTrace(System.err);
+    		return null;
+    	}
     }
     
     /**
      * Rolls the bytes in this excerpt to the right starting at position zero
+     * @param rightBytes The number of bytes to the right the slots should be rolled
      * @param slotsToMove The number of bytes to roll
      */
-    public void insertAndRollRight(long slotsToMove) {
-    	insertAndRollRight(0, slotsToMove);
+    public void insertAndRollRight(long rightBytes, long slotsToMove) {
+    	insertAndRollRight(0, rightBytes, slotsToMove);
     }
     
 
@@ -148,7 +168,7 @@ public class UnsafeExcerpt<C extends DirectChronicle> extends AbstractExcerpt<C>
      */
     public long[] readLongArray(int offset, int length) {
     	long[] arr = new long[length];
-    	UNSAFE.copyMemory(null, address + offset, arr, LONGS_OFFSET, length << 3);
+    	UNSAFE.copyMemory(null, start + offset, arr, LONGS_OFFSET, length << 3);
     	return arr;
     }
     
@@ -170,7 +190,7 @@ public class UnsafeExcerpt<C extends DirectChronicle> extends AbstractExcerpt<C>
      * @param arr The array to write
      */
     public void writeLongArray(int offset, long...arr) {
-    	UNSAFE.copyMemory(arr, LONGS_OFFSET, null, address + offset, arr.length << 3);
+    	UNSAFE.copyMemory(arr, LONGS_OFFSET, null, start + offset, arr.length << 3);
     }
     
     /**

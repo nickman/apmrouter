@@ -64,14 +64,18 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 	/** A map of maps of COUNTER metric providing operation names for a bean keyed by the JMX ObjectName */
 	protected final Map<ObjectName, Map<String, String>> counterMetrics = new HashMap<ObjectName, Map<String, String>>();
 	
+	private final boolean ONE_METRIC_ONLY = true;
+	
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
 	 */
 	@Override
 	protected void doStart() throws Exception {
-		new JVMMonitor().startMonitor();
-		new NativeMonitor().startMonitor();
+		if(!ONE_METRIC_ONLY) {
+			new JVMMonitor().startMonitor();
+			new NativeMonitor().startMonitor();
+		}
 	}
 	
 	/**
@@ -181,13 +185,17 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 	@Override
 	public void run() {
 		while(true) {
-			SystemClock.startTimer();
-			try {
-				debug("Collecting Server Metrics");
-				trace();
-			} finally {
-				ElapsedTime et = SystemClock.endTimer();
-				tracer.traceGauge(et.elapsedMs, "ElapsedTimeMs", "platform=APMRouter", "category=ServerMonitor");
+			if(!ONE_METRIC_ONLY) {
+				SystemClock.startTimer();
+				try {
+					debug("Collecting Server Metrics");
+					trace();
+				} finally {
+					ElapsedTime et = SystemClock.endTimer();
+					tracer.traceGauge(et.elapsedMs, "ElapsedTimeMs", "platform=APMRouter", "category=ServerMonitor");
+				}
+			} else {
+				tracer.traceGauge(SystemClock.time()%5000, "ElapsedTimeMs", "platform=APMRouter", "category=ServerMonitor");
 			}
 			SystemClock.sleep(5000);
 		}

@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.destination.chronicletimeseries;
 
+import java.util.Date;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -40,7 +41,6 @@ import vanilla.java.chronicle.impl.UnsafeExcerpt;
 
 public class SeriesEntry {
 	protected final long metricId;
-	protected final long longHashCode;
 	protected long startPeriod = -1;
 	protected long endPeriod = -1;
 	protected int periodCount = -1;
@@ -49,7 +49,6 @@ public class SeriesEntry {
 	SeriesEntry(UnsafeExcerpt<IndexedChronicle> ex, long metricId, boolean includePeriods) {
 		if(!ex.index(metricId)) throw new IllegalArgumentException("Invalid index [" + metricId + "]", new Throwable());
 		this.metricId = metricId;
-		longHashCode = ex.readLong();
 		startPeriod = ex.readLong();
 		endPeriod = ex.readLong();		
 		periodCount = ex.readInt();		
@@ -63,5 +62,24 @@ public class SeriesEntry {
 				periods.put(ts, values);
 			}
 		}
+	}
+	
+	public String toString() {
+		StringBuilder b = new StringBuilder("Metric ID:");
+		b.append(metricId);
+		b.append("\nStart Period:").append(new Date(startPeriod));
+		b.append("\nEnd Period:").append(new Date(endPeriod));
+		b.append("\nPeriod Count:").append(periodCount).append("/").append(periods.size());
+		if(!periods.isEmpty()) {
+			for(Map.Entry<Long, long[]> pentry: periods.entrySet()) {
+				long[] arr = pentry.getValue();
+				b.append("\n\tPeriod:").append(new Date(pentry.getKey()))
+					.append(" Min:").append(arr[0])
+					.append(" Max:").append(arr[1])
+					.append(" Avg:").append(arr[2])
+					.append(" Cnt:").append(arr[3]);
+			}
+		}
+		return b.toString();
 	}
 }

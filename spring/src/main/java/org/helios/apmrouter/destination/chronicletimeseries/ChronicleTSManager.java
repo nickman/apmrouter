@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.helios.apmrouter.catalog.jdbc.h2.ChronicleTSAdapter;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.tsmodel.Tier;
 import org.helios.apmrouter.tsmodel.TimeSeriesModel;
@@ -76,6 +77,7 @@ public class ChronicleTSManager extends ServerComponentBean {
 		t.setDaemon(false);
 		t.setPriority(Thread.MAX_PRIORITY);
 		Runtime.getRuntime().addShutdownHook(t);
+		ChronicleTSAdapter.setCts(this);
 	}
 	
 	/**

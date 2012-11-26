@@ -90,9 +90,33 @@ public interface ChronicleTierMXBean {
 	/**
 	 * Dumps a formatted output of the excerpt at the passed index
 	 * @param index The index to dump
+	 * @param includePeriods Defines if the dump should include period data
 	 * @return A formatted string
 	 */
-	public String dump(long index);
+	public String dump(long index, boolean includePeriods);
 	
+	/**
+	 * Returns the tier definition pattern
+	 * @return the tier definition pattern
+	 */
+	public String getPattern();
+	
+	/**
+	 * Returns the number of periods in this tier
+	 * @return the number of periods in this tier
+	 */	
+	public int getPeriodCount();
+	
+	/**
+	 * Returns the period duration in seconds for this tier
+	 * @return the period duration in seconds for this tier
+	 */
+	public long getPeriodDuration();	
+	
+	/**
+	 * Returns the period duration in ms for this tier
+	 * @return the period duration in ms for this tier
+	 */
+	public long getPeriodDurationMs();	
 	
 }

@@ -256,9 +256,12 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 		for(Iterator<IMetric> iter = metrics.iterator(); iter.hasNext();) {
 			IMetric metric = iter.next();
 			if(metric.getToken()==-1) {
-				long token = metricCatalogService.getID(metric.getToken(), metric.getHost(), metric.getAgent(), metric.getType().ordinal(), metric.getNamespaceF(), metric.getName());
-				if(token!=0) {
-					incr("TokensAssigned");
+				long token = -1;
+				token = metricCatalogService.isAssigned(metric.getHost(), metric.getAgent(), metric.getNamespaceF(), metric.getName());
+				if(token==-1) {
+					token = metricCatalogService.getID(metric.getToken(), metric.getHost(), metric.getAgent(), metric.getType().ordinal(), metric.getNamespaceF(), metric.getName());
+				}
+				if(token!=-1) {
 					metricCatalog.setToken(metric.getHost(), metric.getAgent(), metric.getName(), metric.getType(), metric.getNamespace());
 					metric.getMetricId().setToken(token);
 				}

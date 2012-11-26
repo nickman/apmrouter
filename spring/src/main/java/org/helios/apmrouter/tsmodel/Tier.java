@@ -62,6 +62,8 @@ public class Tier implements TierMBean {
 	protected String name;
 	/** The level of the tier */
 	protected int level = -1;
+	/** The tier pattern */
+	protected final String pattern;
 	/** Instance logger */
 	protected final Logger log = Logger.getLogger(getClass());
 	/** The field codes for a tier definition */
@@ -97,6 +99,7 @@ public class Tier implements TierMBean {
 	Tier(String tierDef, int level) {
 		if(tierDef==null) throw new InvalidTierDefinitionException("The passed tier definition was null");
 		tierDef = tierDef.trim().replace(" ", "").toLowerCase();
+		pattern = tierDef;
 		if(tierDef.isEmpty()) throw new InvalidTierDefinitionException("The passed tier definition was empty");
 		if(level<0) throw new InvalidTierDefinitionException("The passed tier level [" + level + "] is invalid (<0)");
 		if(level==0) {
@@ -389,6 +392,14 @@ public class Tier implements TierMBean {
 		} else if (!tierDuration.equals(other.tierDuration))
 			return false;
 		return true;
+	}
+
+	/**
+	 * Returns the tier definition pattern
+	 * @return the tier definition pattern
+	 */
+	public String getPattern() {
+		return pattern;
 	}
 
 
