@@ -24,7 +24,6 @@
  */
 package org.helios.apmrouter.destination.h2timeseries;
 
-import java.sql.Blob;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -34,6 +33,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -49,6 +49,8 @@ import org.helios.apmrouter.collections.UnsafeArray;
 import org.helios.apmrouter.destination.BaseDestination;
 import org.helios.apmrouter.destination.accumulator.FlushQueueReceiver;
 import org.helios.apmrouter.destination.accumulator.TimeSizeFlushQueue;
+import org.helios.apmrouter.destination.chronicletimeseries.ChronicleTSManager;
+import org.helios.apmrouter.destination.chronicletimeseries.ChronicleTier;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.subscription.SubscriptionService;
@@ -78,6 +80,11 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	protected DataSource dataSource = null;
 	/** The subscription service */
 	protected SubscriptionService subscriptionService = null;	
+	/** The chronicle time-series manager */
+	protected ChronicleTSManager timeSeriesManager = null;
+	/** The chronicle time-series live tier */
+	protected ChronicleTier liveTier = null;
+	
 	/** The live time-series STEP size in ms. */
 	protected long timeSeriesStep = 15000;
 	/** The live time-series WIDTH */
@@ -142,6 +149,7 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 		flushQueue = new TimeSizeFlushQueue<>(getClass().getSimpleName(), sizeTrigger, timeTrigger, this);
 		unsafeSelectSql = new StringBuilder("select METRIC_ID, NVL2(V, V, UNSAFE_MAKE_MV(").append(timeSeriesStep).append(",").append(timeSeriesWidth).append(",false)) from METRIC M left outer join UNSAFE_METRIC_VALUES MV on MV.ID = m.METRIC_ID where  M.METRIC_ID IN (");
 		safeSelectSql = new StringBuilder("select METRIC_ID, NVL2(V, V, MAKE_MV(").append(timeSeriesStep).append(",").append(timeSeriesWidth).append(",false)) from METRIC M left outer join METRIC_VALUES MV on MV.ID = m.METRIC_ID where  M.METRIC_ID IN (");
+		liveTier = timeSeriesManager.getLiveTier();
 	}
 	
 	/**
@@ -205,7 +213,29 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	
 	public void flushTo(Collection<IMetric> items) {
 		//flushToSafe(items);
-		flushToUnsafe(items);
+		//flushToUnsafe(items);
+		flushToChronicle(items);
+	}
+	
+	public void flushToChronicle(Collection<IMetric> items) {
+		if(items==null || items.isEmpty()) return;
+		SystemClock.startTimer();
+		int cnt = 0;
+		int errs = 0;
+		for(IMetric im: items) {
+			try {
+				liveTier.addValue(im);
+				cnt++;
+			} catch (Exception ex) {
+				errs++;
+			}
+		}
+		ElapsedTime et = SystemClock.endTimer();
+		if(errs>0) {
+			warn("Encountered [", errs, "] in time-series flush");
+		}
+		info("Processed [", cnt, "] Items in", et, "   Avg Per:", et.avgNs(cnt), " ns.");
+		
 	}
 	
 	public void flushToUnsafe(Collection<IMetric> items) {
@@ -722,6 +752,14 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	@Override
 	public boolean isNotificationEnabled(Notification notification) {
 		return objectName.toString().equals(notification.getSource().toString());
+	}
+
+	/**
+	 * Sets the chronicle time-series manager 
+	 * @param timeSeriesManager the timeSeriesManager to set
+	 */
+	public void setTimeSeriesManager(ChronicleTSManager timeSeriesManager) {
+		this.timeSeriesManager = timeSeriesManager;
 	}
 
 

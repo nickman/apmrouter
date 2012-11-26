@@ -50,6 +50,8 @@ public class ThreadPoolConfig {
 	boolean fairQueue = true;
 	/** If core threads are allowed to timeout */
 	boolean coreThreadsTimeout = false;
+	/** If threads are daemon threads */
+	boolean daemonThreads = true;
 	
 	/**
 	 * Sets the core pool size
@@ -99,6 +101,13 @@ public class ThreadPoolConfig {
 	 */
 	public void setCoreThreadsStarted(int coreThreadsStarted) {
 		this.coreThreadsStarted = coreThreadsStarted;
+	}
+	/**
+	 * Sets 
+	 * @param daemonThreads the daemonThreads to set
+	 */
+	public void setDaemonThreads(boolean daemonThreads) {
+		this.daemonThreads = daemonThreads;
 	}
 	
 	

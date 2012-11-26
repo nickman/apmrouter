@@ -110,6 +110,12 @@ public class IndexedChronicle extends AbstractChronicle {
     public Excerpt<IndexedChronicle> createExcerpt() {
         return useUnsafe ? new UnsafeExcerpt<IndexedChronicle>(this) : new ByteBufferExcerpt<IndexedChronicle>(this);
     }
+    
+    public UnsafeExcerpt<IndexedChronicle> createUnsafeExcerpt() {
+    	if(!useUnsafe) throw new IllegalStateException("Cannot acquire an unsafe excerpt for a non-unsafe chronicle", new Throwable());
+        return new UnsafeExcerpt<IndexedChronicle>(this);
+    }
+    
 
     @Override
     public long getIndexData(long indexId) {

@@ -51,6 +51,7 @@
 				<property name="corePoolSize" value="1" />
 				<property name="maximumPoolSize" value="5" />
 				<property name="coreThreadsStarted" value="1" />
+				<property name="daemonThreads" value="true" />
 			</bean>
 		</constructor-arg>
 	</bean>

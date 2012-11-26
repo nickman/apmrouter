@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS  PUBLIC.HOST(
     
 
 CREATE TABLE IF NOT EXISTS  PUBLIC.METRIC(
-    METRIC_ID LONG  NOT NULL IDENTITY COMMENT 'The unique id of the metric.',
+    METRIC_ID LONG  NOT NULL COMMENT 'The unique id of the metric.',
     AGENT_ID INTEGER NOT NULL COMMENT 'The  agent identifier for this metric',
     TYPE_ID SMALLINT NOT NULL COMMENT 'The metric type of the metric',
     NAMESPACE VARCHAR2(200) COMMENT 'The namespace of the metric',

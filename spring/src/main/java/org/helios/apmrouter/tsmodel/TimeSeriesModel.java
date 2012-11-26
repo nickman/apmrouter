@@ -25,6 +25,7 @@
 package org.helios.apmrouter.tsmodel;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 
@@ -39,7 +40,7 @@ import java.util.List;
 public class TimeSeriesModel {
 	
 	/** The timeseries tiers */
-	protected LinkedHashSet<Tier> tiers = new LinkedHashSet<Tier>();
+	protected final LinkedHashSet<Tier> tiers = new LinkedHashSet<Tier>();
 	
 	/**
 	 * Creates a new TimeSeriesModel
@@ -65,11 +66,35 @@ public class TimeSeriesModel {
 	}
 	
 	/**
+	 * Returns the number of tiers
+	 * @return the number of tiers
+	 */
+	public int getTierCount() {
+		return tiers.size();
+	}
+	
+	/**
 	 * Returns a copy of the tier collection for this model
 	 * @return a copy of the tier collection for this model
 	 */
 	public List<Tier> getModelTiers() {
 		return new ArrayList<Tier>(tiers);
+	}
+	
+	/**
+	 * Returns a list of tier pairs where the second tier is the parent of the first, or null if the first has no parent
+	 * @return a list of child/parent tier pairs 
+	 */
+	public List<Tier[]> getModelTierPairs() {
+		ArrayList<Tier[]> pairs = new ArrayList<Tier[]>();
+		Tier[] _tiers = tiers.toArray(new Tier[tiers.size()]);
+		for(int i = 0; i < _tiers.length; i++) {
+			Tier[] childParent = new Tier[2];
+			childParent[0] = _tiers[i];
+			childParent[1] = i==_tiers.length-1 ? null : _tiers[i+1];
+			pairs.add(childParent);
+		}
+		return pairs;
 	}
 	
 	/**
@@ -115,6 +140,9 @@ public class TimeSeriesModel {
 		String config = "p=5s,t=1m | p=1m,t=2m | p=5m,t=15m";
 		TimeSeriesModel model1 = TimeSeriesModel.create(config);
 		log(model1);
+		for(Tier[] t: model1.getModelTierPairs()) {
+			log(Arrays.toString(t));
+		}
 		
 		
 	}

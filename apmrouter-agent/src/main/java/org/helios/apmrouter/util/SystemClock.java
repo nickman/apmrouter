@@ -82,14 +82,25 @@ public enum SystemClock {
 	}
 	
 	
+	/**
+	 * Returns the current time in seconds
+	 * @return the current time in seconds
+	 */
 	public static long unixTime() {
-		return currentClock.get().unixTime();
+		return currentClock.get().clock.unixTime();
 	}
 	
+	/**
+	 * @return
+	 */
 	public static long timeTick() {
-		return currentClock.get().timeTick();
+		return currentClock.get().clock.timeTick();
 	}
 	
+	/**
+	 * Returns the JVM up time in ms.
+	 * @return the up time in ms.
+	 */
 	public static long upTime() {
 		return ManagementFactory.getRuntimeMXBean().getUptime();
 	}

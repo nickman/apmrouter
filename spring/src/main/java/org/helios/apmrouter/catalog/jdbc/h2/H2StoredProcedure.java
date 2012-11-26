@@ -165,18 +165,51 @@ public class H2StoredProcedure {
 	 * @throws SQLException thrown on any error
 	 */
 	public static long getID(Connection conn, long token, String host, String agent, int typeId, String namespace, String name) throws SQLException {
-		if(token!=-1) return 0;
+		
 		int hostId = ((Number)key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, DOMAIN, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE, host, domain(host))[0]).intValue();
 		Object[] nums = key(conn, "SELECT AGENT_ID,MIN_LEVEL FROM AGENT WHERE NAME=? AND HOST_ID=?", new Object[]{agent, hostId}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE_TWO, hostId, agent, nsLevel(namespace));
 		int agentId = ((Number)nums[0]).intValue();
 		int agentMinLevel = ((Number)nums[1]).intValue();
 		int nsLevel = nsLevel(namespace);
-		long metricId = ((Number)key(conn, "SELECT METRIC_ID FROM METRIC WHERE AGENT_ID=? AND NAMESPACE=? AND NAME=?", new Object[]{agentId, namespace, name}, 
-				"INSERT INTO METRIC (AGENT_ID, TYPE_ID, NAMESPACE, NARR, LEVEL, NAME, FIRST_SEEN, LAST_SEEN) VALUES (?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE, agentId, typeId, namespace, nsItems(namespace), nsLevel, name)[0]).longValue();
+		nums = key(conn, "SELECT METRIC_ID FROM METRIC WHERE AGENT_ID=? AND NAMESPACE=? AND NAME=?", new Object[]{agentId, namespace, name}, 
+				"INSERT INTO METRIC (METRIC_ID, AGENT_ID, TYPE_ID, NAMESPACE, NARR, LEVEL, NAME, FIRST_SEEN, LAST_SEEN) VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE, token, agentId, typeId, namespace, nsItems(namespace), nsLevel, name);
+		long metricId = ((Number)nums[0]).longValue();
 		if(nsLevel<agentMinLevel) {
 			setAgentMinLevel(conn, agentId, nsLevel);
 		}
 		return metricId;
+	}
+	
+	/**
+	 * Finds the assigned metric ID for the passed host/agent/name and namespace
+	 * @param conn The connection
+	 * @param host The host name
+	 * @param agent The agent name
+	 * @param namespace The metric namespace
+	 * @param name The metric name
+	 * @return The metric ID or -1 if one was not found
+	 */
+	public static long getAssigned(Connection conn, String host, String agent, String namespace, String name) {
+		PreparedStatement ps = null;
+		ResultSet rset = null;
+		try {
+			ps = conn.prepareStatement("SELECT METRIC_ID FROM METRIC M, AGENT A, HOST H WHERE M.AGENT_ID = A.AGENT_ID AND A.HOST_ID = H.HOST_ID " + 
+					" AND H.NAME = ? AND A.NAME=? AND M.NAME=? and M.NAMESPACE=?"
+			);
+			ps.setString(1, host);
+			ps.setString(2, agent);
+			ps.setString(3, name);
+			ps.setString(4, namespace);
+			rset = ps.executeQuery();
+			if(!rset.next()) return -1L;
+			return rset.getLong(1);
+		} catch (Exception ex) {
+			throw new RuntimeException("Failed to validate ID", ex);
+		} finally {
+			if(rset!=null) try { rset.close(); } catch (Exception e) { /* No Op */ }
+			if(ps!=null) try { ps.close(); } catch (Exception e) { /* No Op */ }
+		}
+		
 	}
 	
 	private static void setAgentMinLevel(Connection conn, int agentId, int minLevel) throws SQLException {

@@ -31,7 +31,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -44,6 +43,8 @@ import org.helios.apmrouter.catalog.DChannelEventType;
 import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.collections.LongSlidingWindow;
+import org.helios.apmrouter.destination.chronicletimeseries.ChronicleTSManager;
+import org.helios.apmrouter.destination.chronicletimeseries.ChronicleTier;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
@@ -71,6 +72,11 @@ import org.springframework.jmx.export.annotation.ManagedMetric;
 public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCatalogService {
 	/** The h2 datasource */
 	protected DataSource ds = null;
+	/** The Chronicle time-series manager */
+	protected ChronicleTSManager chronicleManager = null;
+	/** The Chronicle time-series live tier */
+	protected ChronicleTier liveTier= null;
+	
 	/** Indicates if the metric catalog should be kept real time */
 	protected boolean realtime = false;
 	
@@ -86,6 +92,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	 */
 	@Override
 	public void doStart() throws Exception {
+		if(chronicleManager!=null) liveTier = chronicleManager.getLiveTier();
 		Connection conn = null;
 		PreparedStatement ps = null;
 		try {
@@ -151,6 +158,10 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 		}				
 	}
 	
+	public boolean isAssigned(String host, String agent, String namespace, String name) {
+		
+	}
+	
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.catalog.MetricCatalogService#getID(long, java.lang.String, java.lang.String, int, java.lang.String, java.lang.String)
@@ -159,9 +170,11 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	public long getID(long token, String host, String agent, int typeId, String namespace, String name) {
 		if(token!=-1 && !realtime) return 0;
 		SystemClock.startTimer();
+		token = liveTier.createNewMetric();
 		incr("CallCount");		
 		Connection conn = null;
-		CallableStatement cs = null;
+		CallableStatement cs = null;		
+		PreparedStatement ps = null;
 		try {
 			conn = ds.getConnection();
 			cs = realtime ? conn.prepareCall("? = CALL TOUCH(?,?,?,?,?,?)") : conn.prepareCall("? = CALL GET_ID(?,?,?,?,?,?)");
@@ -175,9 +188,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			cs.setString(7, name);
 			cs.execute();
 			long id = cs.getLong(1);
-			if(id!=0) {
-				incr("AssignedMetricIDs");
-			}
+			incr("AssignedMetricIDs");
 			ElapsedTime et = SystemClock.endTimer();
 			elapsedTimesNs.insert(et.elapsedNs);
 			elapsedTimesMs.insert(et.elapsedMs);			
@@ -189,6 +200,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			//throw new RuntimeException("Failed to get ID", e);
 			return 0;
 		} finally {
+			if(ps!=null) try { ps.close(); } catch (Exception e) {}
 			if(cs!=null) try { cs.close(); } catch (Exception e) {}
 			if(conn!=null) try { conn.close(); } catch (Exception e) {}
 		}
@@ -421,5 +433,13 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			return result;
 		}
 		return null;
+	}
+
+	/**
+	 * Sets the chronicle time-series manager
+	 * @param chronicleManager the chronicleManager to set
+	 */
+	public void setChronicleManager(ChronicleTSManager chronicleManager) {
+		this.chronicleManager = chronicleManager;
 	}
 }

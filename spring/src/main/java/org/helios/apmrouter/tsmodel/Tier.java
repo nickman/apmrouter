@@ -54,7 +54,7 @@ import org.apache.log4j.Logger;
 public class Tier implements TierMBean {
 	/** The number of periods in this timeseries tier */
 	protected long periodCount;
-	/** The duration od one period in the timeseries tier */
+	/** The duration of one period in the timeseries tier */
 	protected Duration periodDuration;
 	/** The duration of one full tier rotation */
 	protected Duration tierDuration;

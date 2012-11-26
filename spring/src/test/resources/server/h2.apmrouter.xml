@@ -84,6 +84,11 @@
 	
 	<bean id="CatalogService" class="org.helios.apmrouter.catalog.jdbc.h2.H2JDBCMetricCatalog" depends-on="dbInit" >
 		<property name="realtime" value="false" />
+		<property name="chronicleManager" ref="chronicleTs" ></property>
+	</bean>
+	
+	<bean id="chronicleTs" class="org.helios.apmrouter.destination.chronicletimeseries.ChronicleTSManager">
+		<constructor-arg value="p=15s,t=15m" />
 	</bean>
 	
 
@@ -119,6 +124,7 @@
 		<property name="timeSeriesWidth" value="60"></property>
 		<property name="sizeTrigger" value="100"></property>
 		<property name="timeTrigger" value="15000"></property>
+		<property name="timeSeriesManager" ref="chronicleTs" />
 	</bean>
 	
 	

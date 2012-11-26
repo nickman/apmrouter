@@ -24,7 +24,9 @@
  */
 package org.helios.apmrouter;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStreamReader;
 import java.net.URL;
 import java.util.Collections;
 import java.util.HashSet;
@@ -141,7 +143,20 @@ public class APMRouter {
 				}
 			});
 			try {
-				Thread.currentThread().join();
+				//Thread.currentThread().join();
+				BufferedReader d = new BufferedReader(new InputStreamReader(System.in));
+				while(true) {
+					String line = d.readLine();
+					if(line!=null) {
+						if("exit".equals(line.trim().toLowerCase())) {
+							break;
+						}
+					}
+				}
+				LOG.info("Stopping...");
+				appContext.stop();
+				LOG.info("APMRouter Stopped. Bye.");
+				System.exit(-1);				
 			} catch (Exception e) {
 				LOG.info("Stopping...");
 				appContext.stop();

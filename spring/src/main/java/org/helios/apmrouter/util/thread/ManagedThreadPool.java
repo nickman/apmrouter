@@ -166,7 +166,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	public Thread newThread(Runnable r) {
 		Thread t = new Thread(threadGroup, r, beanName + "Thread#" + threadNameSerial.incrementAndGet());
 		t.setUncaughtExceptionHandler(this);
-		t.setDaemon(true);		
+		t.setDaemon(tpc.daemonThreads);		
 		return t;
 	}	
 

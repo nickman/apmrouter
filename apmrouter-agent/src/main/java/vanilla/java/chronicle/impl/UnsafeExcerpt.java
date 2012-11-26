@@ -27,6 +27,10 @@ import sun.nio.ch.DirectBuffer;
  * @author peter.lawrey
  */
 public class UnsafeExcerpt<C extends DirectChronicle> extends AbstractExcerpt<C> {
+	/** The address of the current excerpt */
+	long address  = -1;
+	
+	
     protected UnsafeExcerpt(C chronicle) {
         super(chronicle);
     }
@@ -37,17 +41,31 @@ public class UnsafeExcerpt<C extends DirectChronicle> extends AbstractExcerpt<C>
 
         buffer = chronicle.acquireDataBuffer(startPosition);
 
-        long address = ((DirectBuffer) buffer).address();
+        address = ((DirectBuffer) buffer).address();
         start = position = address + chronicle.positionInBuffer(startPosition);
         limit = address + chronicle.positionInBuffer(endPosition - 1) + 1;
 
         assert limit > start && position < limit && endPosition > startPosition;
     }
     
-    public void insertAndRollRight(int startingPosition, int slotsToMove) {
-    	final int currentPos = position();
-    	
+    /**
+     * Rolls the bytes in this excerpt to the right
+     * @param startingPosition The starting position of the roll
+     * @param slotsToMove The number of bytes to roll
+     */
+    public void insertAndRollRight(long startingPosition, long slotsToMove) {
+    	long address = ((DirectBuffer) buffer).address();
+    	UNSAFE.copyMemory(address + startingPosition, address + startingPosition + slotsToMove, slotsToMove);
     }
+    
+    /**
+     * Rolls the bytes in this excerpt to the right starting at position zero
+     * @param slotsToMove The number of bytes to roll
+     */
+    public void insertAndRollRight(long slotsToMove) {
+    	insertAndRollRight(0, slotsToMove);
+    }
+    
 
     // RandomDataInput
 
@@ -121,6 +139,48 @@ public class UnsafeExcerpt<C extends DirectChronicle> extends AbstractExcerpt<C>
         position += 8;
         return l;
     }
+    
+    /**
+     * Reads and returns a long array from the excerpt
+     * @param offset The offset in the excerpt to read from
+     * @param length The length of the long array to read
+     * @return the read array
+     */
+    public long[] readLongArray(int offset, int length) {
+    	long[] arr = new long[length];
+    	UNSAFE.copyMemory(null, address + offset, arr, LONGS_OFFSET, length << 3);
+    	return arr;
+    }
+    
+    /**
+     * Reads and returns a long array from the excerpt
+     * @param length The length of the long array to read
+     * @return the read array
+     */
+    public long[] readLongArray(int length) {
+    	long[] arr = new long[length];
+    	UNSAFE.copyMemory(null, position, arr, LONGS_OFFSET, length << 3);
+    	return arr;
+    }
+    
+    
+    /**
+     * Writes a long array to the specified offset in this excerpt
+     * @param offset The offset to write at
+     * @param arr The array to write
+     */
+    public void writeLongArray(int offset, long...arr) {
+    	UNSAFE.copyMemory(arr, LONGS_OFFSET, null, address + offset, arr.length << 3);
+    }
+    
+    /**
+     * Writes a long array to the current position
+     * @param arr The array to write
+     */
+    public void writeLongArray(long...arr) {
+    	UNSAFE.copyMemory(arr, LONGS_OFFSET, null, position, arr.length << 3);
+    	position += arr.length << 3;
+    }    
 
     @Override
     public long readLong(int offset) {
@@ -239,6 +299,8 @@ public class UnsafeExcerpt<C extends DirectChronicle> extends AbstractExcerpt<C>
      */
     private static final Unsafe UNSAFE;
     private static final int BYTES_OFFSET;
+    private static final int LONGS_OFFSET;
+    private static final int INTS_OFFSET;
 
     static {
         try {
@@ -246,6 +308,8 @@ public class UnsafeExcerpt<C extends DirectChronicle> extends AbstractExcerpt<C>
             theUnsafe.setAccessible(true);
             UNSAFE = (Unsafe) theUnsafe.get(null);
             BYTES_OFFSET = UNSAFE.arrayBaseOffset(byte[].class);
+            LONGS_OFFSET = UNSAFE.arrayBaseOffset(long[].class);
+            INTS_OFFSET = UNSAFE.arrayBaseOffset(int[].class);
         } catch (Exception e) {
             throw new AssertionError(e);
         }
