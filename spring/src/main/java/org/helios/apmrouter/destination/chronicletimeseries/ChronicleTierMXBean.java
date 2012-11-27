@@ -119,4 +119,11 @@ public interface ChronicleTierMXBean {
 	 */
 	public long getPeriodDurationMs();	
 	
+	/**
+	 * Returns the series for the passed metric ID
+	 * @param metricId The metric ID to get the series for
+	 * @return the series pojo
+	 */
+	public SeriesEntryMBean getSeries(long metricId);
+	
 }

@@ -104,7 +104,7 @@ public class UnsafeLongArray extends UnsafeArray {
 	 */
 	private UnsafeLongArray(int initialCapacity, boolean sorted, boolean fixed, int maxCapacity,
 			int minCapacity, int allocationIncrement, int clearedSlotsFree) {
-		super(initialCapacity, sorted, fixed, maxCapacity, minCapacity, allocationIncrement, clearedSlotsFree);
+		super(initialCapacity, sorted, fixed, fixed ? initialCapacity : maxCapacity, minCapacity, allocationIncrement, clearedSlotsFree);
 	}
 	
 	
@@ -145,6 +145,7 @@ public class UnsafeLongArray extends UnsafeArray {
 	 * @return the new UnsafeLongArray
 	 */
 	static UnsafeLongArray build(UnsafeArrayBuilder builder, Object data) {		
+		
 		UnsafeLongArray ula = new UnsafeLongArray(builder.initialCapacity(), builder.sorted(), builder.fixed(), builder.maxCapacity(), builder.minCapacity(), builder.allocationIncrement(), builder.clearedSlotsFree());
 		if(data!=null) {
 			if(data instanceof long[]) {

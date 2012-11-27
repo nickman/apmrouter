@@ -88,7 +88,7 @@
 	</bean>
 	
 	<bean id="chronicleTs" class="org.helios.apmrouter.destination.chronicletimeseries.ChronicleTSManager">
-		<constructor-arg value="p=15s,t=15m" />
+		<constructor-arg value="p=15s,t=5m" />
 	</bean>
 	
 

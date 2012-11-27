@@ -39,11 +39,16 @@ import vanilla.java.chronicle.impl.UnsafeExcerpt;
  * <p><code>org.helios.apmrouter.destination.chronicletimeseries.SeriesEntry</code></p>
  */
 
-public class SeriesEntry {
+public class SeriesEntry implements SeriesEntryMBean {
+	/** The metric ID */
 	protected final long metricId;
+	/** The start time of the first period in the window */
 	protected long startPeriod = -1;
+	/** The start time of the last period in the window */
 	protected long endPeriod = -1;
+	/** The number of periods in the window */
 	protected int periodCount = -1;
+	/** The values recorded in each period in the window keyed by the timestamp of the period */
 	protected final Map<Long, long[]> periods = new TreeMap<Long, long[]>();
 	
 	SeriesEntry(UnsafeExcerpt<IndexedChronicle> ex, long metricId, boolean includePeriods) {
@@ -81,5 +86,50 @@ public class SeriesEntry {
 			}
 		}
 		return b.toString();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.destination.chronicletimeseries.SeriesEntryMBean#getMetricId()
+	 */
+	@Override
+	public long getMetricId() {
+		return metricId;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.destination.chronicletimeseries.SeriesEntryMBean#getStartPeriod()
+	 */
+	@Override
+	public Date getStartPeriod() {
+		return new Date(startPeriod);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.destination.chronicletimeseries.SeriesEntryMBean#getEndPeriod()
+	 */
+	@Override
+	public Date getEndPeriod() {
+		return new Date(endPeriod);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.destination.chronicletimeseries.SeriesEntryMBean#getPeriodCount()
+	 */
+	@Override
+	public int getPeriodCount() {
+		return periodCount;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.destination.chronicletimeseries.SeriesEntryMBean#getPeriods()
+	 */
+	@Override
+	public Map<Long, long[]> getPeriods() {
+		return periods;
 	}
 }

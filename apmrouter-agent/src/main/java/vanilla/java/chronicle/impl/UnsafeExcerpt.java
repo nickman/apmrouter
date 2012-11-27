@@ -17,6 +17,8 @@
 package vanilla.java.chronicle.impl;
 
 import java.lang.reflect.Field;
+import java.util.Arrays;
+import java.util.Date;
 
 import org.helios.apmrouter.collections.LongSlidingWindow;
 import org.helios.apmrouter.unsafe.UnsafeAdapter;
@@ -60,22 +62,83 @@ public class UnsafeExcerpt<C extends DirectChronicle> extends AbstractExcerpt<C>
     	UNSAFE.copyMemory(address + startingPosition, address + startingPosition + rightBytes, bytesToMove);
     }
     
-    public long[] insertNewPeriod(int size, int offset, long...values) {
-    	try {
-	    	LongSlidingWindow sw = new LongSlidingWindow(size*5, readLongArray(offset, size*5));	    	
-	    	//sw.insert(readLongArray(offset, size*5));
-	    	long[] retValues = new long[5];
-	    	for(int i = 0; i < retValues.length; i++) {
-	    		retValues[i] = sw.insert(values[i]);
-	    	}
-	    	writeLongArray(offset, sw.asLongArray());
-	    	sw.destroy();
-	    	return retValues;
-    	} catch (Exception ex) {
-    		ex.printStackTrace(System.err);
-    		return null;
+//    public long[] insertNewPeriod(int entrySize, int size, int offset, long...values) {
+//    	try {
+//	    	LongSlidingWindow sw = new LongSlidingWindow(size*entrySize, readLongArray(offset, size*entrySize));	    	
+//	    	//sw.insert(readLongArray(offset, size*5));
+//	    	long[] retValues = new long[entrySize];
+//	    	for(int i = 0; i < retValues.length; i++) {
+//	    		retValues[i] = sw.insert(values[i]);
+//	    	}
+//	    	writeLongArray(offset, sw.asLongArray());
+//	    	sw.destroy();
+//	    	return retValues;
+//    	} catch (Exception ex) {
+//    		ex.printStackTrace(System.err);
+//    		return null;
+//    	}
+//    }
+    
+    // insertNewPeriod(
+    	//	SERIES_SIZE_IN_LONGS, 
+    	//	rollSize, 
+    	//	HEADER_OFFSET, 
+    	//	new long[]{period, Long.MAX_VALUE,Long.MIN_VALUE,0,0});
+    
+    
+    /**
+     * Inserts a new period at the beginning of the series, rolling the existing series to the right
+     * @param incPos If true, the position is incremented
+     * @param entrySize The number of longs being inserted
+     * @param size The number of periods to roll, which is used to calculate the number of bytes to roll
+     * @param offset The relative offset from which the bytes are rolled
+     * @param values The new values to be written into the newly created period
+     * @return the array of values in the first period that were rolled into the next period
+     */
+    public long[] insertNewPeriod(boolean incPos, int entrySize, int size, int offset, long...values) {
+    	log(String.format("INS NEW PER:inc:%s/es:%s/sz:%s/off:%s/data:%s", incPos, entrySize, size, offset, r(values)));
+    	long[] retVal = readLongArray(offset, entrySize);
+    	long _address = start;
+    	log("ROLLING\n\t\t" + r(readLongArray(offset, entrySize)) + "\n\t\tTo:" + r(readLongArray(offset + (entrySize << 3), entrySize)));
+    	long bytesToRoll = (size * entrySize) << 3;
+    	UNSAFE.copyMemory(_address + offset, _address + offset + (entrySize << 3), bytesToRoll);
+    	log("\n\tBYTES COPIED:" + bytesToRoll  + "\n\tROLLED\n\t\t" +  r(readLongArray(offset + (entrySize << 3), entrySize)));
+    	writeLongArray(offset, values);
+    	if(incPos) {
+    		position += (entrySize << 3);
+    		log("\n\tINC POS:" + (entrySize << 3));
     	}
+    	return retVal;
     }
+    
+    protected static void log(Object msg) {
+    	System.out.println(msg);
+    	System.out.flush();
+    }
+    
+	/**
+	 * Utility method to render a period value array to a readable string
+	 * @param values The period values
+	 * @return A formatted string
+	 */
+	protected static String r(long[] values) {
+		StringBuilder b = new StringBuilder("Period Values:");
+		if(values==null) {
+			b.append("null");
+		} else {
+			if(values.length!=5) {
+				b.append("Invalid Size:").append(Arrays.toString(values));
+			} else {
+				b.append(new Date(values[0])).append("[");
+				for(int i = 1; i < 5; i++) {
+					b.append(values[i]).append(",");
+				}
+				b.deleteCharAt(b.length()-1);
+				b.append("]");
+			}
+		}		
+		return b.toString();
+	}    
     
     /**
      * Rolls the bytes in this excerpt to the right starting at position zero

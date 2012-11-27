@@ -64,7 +64,7 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 	/** A map of maps of COUNTER metric providing operation names for a bean keyed by the JMX ObjectName */
 	protected final Map<ObjectName, Map<String, String>> counterMetrics = new HashMap<ObjectName, Map<String, String>>();
 	
-	private final boolean ONE_METRIC_ONLY = true;
+	private final boolean ONE_METRIC_ONLY = false;
 	
 	/**
 	 * {@inheritDoc}

@@ -178,86 +178,141 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	
 	public List<long[]> getValues(long metricId) {
 		UnsafeExcerpt<IndexedChronicle> ex = createUnsafeExcerpt(metricId);
-		int size = ex.readInt(H_SIZE);
-		List<long[]> results = new ArrayList<long[]>(size-1);
-		for(int i = 0; i < size; i++) {
-			results.add(ex.readLongArray(HEADER_OFFSET + (i*SERIES_SIZE_IN_BYTES) , SERIES_SIZE_IN_LONGS));
+		try {
+			int size = ex.readInt(H_SIZE);
+			List<long[]> results = new ArrayList<long[]>(size-1);
+			for(int i = 1; i < size; i++) {
+				results.add(ex.readLongArray(HEADER_OFFSET + (i*SERIES_SIZE_IN_BYTES) , SERIES_SIZE_IN_LONGS));
+			}
+			return results;
+		} finally {
+			ex.finish();
 		}
-		return results;
 	}
 
 	/**
 	 * Adds a new value to the corresponding series in this tier
-	 * @param metricId The metric Id to validate the series header
-	 * @param timestamp The timestamp of the metric submission
-	 * @param value The metric value to be added to the time-series
+	 * @param metric The metric add values into the series from
 	 * @return the rolled value or null if this operation updates the current period
 	 */
 	public long[] addValue(IMetric metric) {
-		long metricId = metric.getToken(), timestamp = metric.getTime(), value = metric.getLongValue();
-		if(metricId<0) throw new IllegalArgumentException("The metric ID cannot be < 0", new Throwable());
-		UnsafeExcerpt<IndexedChronicle> ex = createUnsafeExcerpt(metricId);
-		final long period = SystemClock.period(periodDurationMs, timestamp);
-		ex.readLong(); ex.readLong();
-		int pCount = ex.readInt();		
-		if(pCount==0) {
-			writeNewPeriod(period, metric);
-//			//ex.position(0);
-//			ex = createUnsafeExcerpt(metricId);
-//			ex.writeLong(period);
-//			ex.writeLong(period);
-//			ex.writeInt(1);
-//			ex.writeLong(period);
-//			ex.writeLong(value);
-//			ex.writeLong(value);
-//			ex.writeLong(value);
-//			ex.writeLong(1);
-			ex.finish();
-			tickPeriods(period, period);
-			return null;
-		}
-		int periodIndex = getPeriodIndex(metric.getToken(), period);
-		switch(periodIndex) {
-			case -1:
+		try {
+			long metricId = metric.getToken(), timestamp = metric.getTime(), value = metric.getLongValue();
+			if(metricId<0) throw new IllegalArgumentException("The metric ID cannot be < 0", new Throwable());
+			UnsafeExcerpt<IndexedChronicle> ex = createUnsafeExcerpt(metricId);
+			final long period = SystemClock.period(periodDurationMs, timestamp);
+			ex.readLong(); ex.readLong();
+			int pCount = ex.readInt();	
+			if(pCount>this.periods || pCount<0) {
+				SeriesEntry se = new SeriesEntry(createUnsafeExcerpt(), metric.getToken(), false);
+				Throwable t = new Throwable();
+				t.printStackTrace(System.err);
+				throw new RuntimeException("Read pCount was [" + pCount + "] but tier count is [" + this.periods + "] for metric [" + metric.getToken() + "/" + metric.getFQN() + "]\n\tSeries Dump:" + se , new Throwable());
+			}
+			if(pCount==0) {
+				ex.finish();
+				writeNewPeriod(period, metric);				;
+				tickPeriods(period, period);
 				return null;
-			case 0:
-				writeNewPeriod(period, metric);
-				break;				
-			case 1:
-				updateCurrentPeriod(metric);
-				break;
-			case 2:
-				// roll and update 
-				return rollAndMerge(pCount, period, metric, ex);
-				//break;
-			default:
-				log.warn("Unexpected period index ["+ periodIndex + "]");
+			}
+			int periodIndex = getPeriodIndex(metric.getToken(), period);
+			switch(periodIndex) {
+				case -1:
+					return null;
+				case 0:
+					ex.finish();
+					writeNewPeriod(period, metric);
+					break;				
+				case 1:
+					updateCurrentPeriod(ex, metric, true);
+					break;
+				case 2:
+					// roll and update 
+					return rollAndMerge(pCount, period, metric, ex);
+					//break;
+				default:
+					log.warn("Unexpected period index ["+ periodIndex + "]");
+			}
+		} catch (Throwable t) {
+			log.error("Add Value Error:", t);
 		}
 		return null;
 	}
 	
+	/**
+	 * Triggers a period roll, where the existing period data is rolled one period to the right and a new period is initialized in the current slot.
+	 * @param currentSize The current number of periods in the series
+	 * @param period The period of the incoming metric
+	 * @param metric The metric to write
+	 * @param ex The excerpt to use
+	 * @return the values of the prior period that was rolled into the next slot
+	 */
 	protected long[] rollAndMerge(int currentSize, long period, IMetric metric, UnsafeExcerpt<IndexedChronicle> ex) {
-		if(currentSize<this.periods) {
-			ex.writeInt(H_SIZE, (currentSize+1));
+		if((currentSize)>this.periods || (currentSize)<1) {
+			Throwable t = new Throwable();
+			t.printStackTrace(System.err);
+			throw new RuntimeException("Attempted to set size to [" + (currentSize+1) + "] but tier count is [" + this.periods + "]", new Throwable());
 		}
-		long[] retValues = ex.insertNewPeriod(currentSize, HEADER_OFFSET, new long[]{period, Long.MAX_VALUE,Long.MIN_VALUE,0,0});
-		log.info("Post New Period:" + Arrays.toString(ex.readLongArray(HEADER_OFFSET, currentSize+1)));
-		ex.writeLongArray(H_START, new long[]{period, period + this.periodDurationMs});
-		tickPeriods(period, period + this.periodDurationMs);
+		final int rollSize;
+		final boolean incPos;
+		if(currentSize<this.periods) {			
+			rollSize = currentSize;
+			incPos = true;
+		} else {
+			rollSize = currentSize-1;
+			incPos = false;
+		}
+		//long[] pre = ex.readLongArray(HEADER_OFFSET, SERIES_SIZE_IN_LONGS);
+		long[] retValues = ex.insertNewPeriod(incPos, SERIES_SIZE_IN_LONGS, rollSize, HEADER_OFFSET, new long[]{period, Long.MAX_VALUE,Long.MIN_VALUE,0,0});
+		//long[] post = ex.readLongArray(HEADER_OFFSET + (SERIES_SIZE_IN_BYTES), SERIES_SIZE_IN_LONGS);
+//		log.info("Post New Period:" 
+//				+ Arrays.toString(ex.readLongArray(HEADER_OFFSET, SERIES_SIZE_IN_LONGS))
+//				+ "\n\tRolled Period:" + Arrays.toString(retValues));
+		//log.info("\n==========\nRolled Period:\n\t" + Arrays.toString(pre) + "\n\t" + Arrays.toString(post));
+		ex.writeLongArray(H_START, new long[]{period, (period + this.periodDurationMs)});
+		tickPeriods(period, period + this.periodDurationMs);		
+		updateCurrentPeriod(ex, metric, false);
+		if(incPos) ex.writeInt(H_SIZE, (currentSize+1));
 		ex.finish();
-		updateCurrentPeriod(metric);
+//		StringBuilder debug = new StringBuilder("Series Roll.");
+//		debug.append("\n\tThis current period ").append(r(pre));
+//		debug.append("\n\twas rolled over to ").append(r(post));
+//		debug.append("\n\tNew current period:").append(r(ex.readLongArray(HEADER_OFFSET, SERIES_SIZE_IN_LONGS)));
+//		if(retValues!=null) {
+//			debug.append("\n\tRoll return:").append(r(retValues));
+//		}
+//		log.info(debug);
+		final int newSize = ex.readInt(H_SIZE);
+		if(newSize>this.periods || newSize<1) {
+			Throwable t = new Throwable();
+			t.printStackTrace(System.err);
+			throw new RuntimeException("Detected size set to [" + (currentSize+1) + "] but tier count is [" + this.periods + "]", new Throwable());
+		}
+		log.info("NEW SIZE:" + newSize);
 		return retValues;
 	}
 	
+	/**
+	 * Creates and writes the passed metric into a new period
+	 * @param period The period
+	 * @param metric The metric to write
+	 */
 	protected void writeNewPeriod(long period, IMetric metric) {
 		UnsafeExcerpt<IndexedChronicle> ex = createUnsafeExcerpt(metric.getToken());
 		ex.writeLongArray(new long[]{period, period + this.periodDurationMs});
 		ex.writeInt(1);
-		ex.writeLongArray(new long[]{period, metric.getLongValue(), metric.getLongValue(), metric.getLongValue(), 1});
+		long value = metric.getLongValue();
+		ex.writeLongArray(new long[]{period, value, value, value, 1});
+		ex.finish();
 	}
 	
-	protected void updateCurrentPeriod(IMetric metric) {
-		UnsafeExcerpt<IndexedChronicle> ex = createUnsafeExcerpt(metric.getToken());
+	/**
+	 * Writes the passed metric into the current period
+	 * @param ex The excerpt to use
+	 * @param metric The metric to write
+	 * @param finish If true, the write is committed, otherwise, the excerpt is left open
+	 */
+	protected void updateCurrentPeriod(UnsafeExcerpt<IndexedChronicle> ex, IMetric metric, boolean finish) {		
 		long[] values = ex.readLongArray(HEADER_OFFSET, SERIES_SIZE_IN_LONGS);
 		long val = metric.getLongValue();
 		if(val < values[MIN]) values[MIN] = val;
@@ -265,11 +320,14 @@ public class ChronicleTier implements ChronicleTierMXBean {
 		if(values[CNT]==0) {
 			values[AVG] = val;
 		} else {
-			values[AVG] = (values[AVG]+val)/2;
+			long tmpTotal = values[AVG]+val;
+			values[AVG] = tmpTotal==0 ? 0 : tmpTotal/2;
 		}
 		values[CNT]++;
 		ex.writeLongArray(HEADER_OFFSET, values);
-		ex.finish();				
+		if(finish) {
+			ex.finish();
+		}
 	}
 	
 	protected long[] getPeriodBoundaries(UnsafeExcerpt<IndexedChronicle> ex) {
@@ -285,6 +343,7 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	 * Returns the chronicle entry index that the passed period should be merged into, or -1 for a drop.
 	 * Currently only returns an index if the merge is for the current period, or the next.
 	 * At some point, may merge into earlier periods.
+	 * @param metricId The metric Id to get the period index for
 	 * @param period The period to get the index for
 	 * @return the chronicle entry index or -1 for a drop
 	 */
@@ -306,6 +365,16 @@ public class ChronicleTier implements ChronicleTierMXBean {
 		if(end>endp) endPeriod.set(end);
 		long startp = startPeriod.get();
 		if(start<startp) startPeriod.set(start);
+	}
+	
+	/**
+	 * Returns the series for the passed metric ID
+	 * @param metricId The metric ID to get the series for
+	 * @return the series pojo
+	 */
+	@Override
+	public SeriesEntryMBean getSeries(long metricId) {
+		return new SeriesEntry(createUnsafeExcerpt(), metricId, true);
 	}
 	
 	/**
@@ -674,6 +743,30 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	@Override
 	public long getPeriodDurationMs() {
 		return periodDurationMs;
+	}
+	
+	/**
+	 * Utility method to render a period value array to a readable string
+	 * @param values The period values
+	 * @return A formatted string
+	 */
+	protected static String r(long[] values) {
+		StringBuilder b = new StringBuilder("Period Values:");
+		if(values==null) {
+			b.append("null");
+		} else {
+			if(values.length!=SERIES_SIZE_IN_LONGS) {
+				b.append("Invalid Size:").append(Arrays.toString(values));
+			} else {
+				b.append(new Date(values[0])).append("[");
+				for(int i = 1; i < SERIES_SIZE_IN_LONGS; i++) {
+					b.append(values[i]).append(",");
+				}
+				b.deleteCharAt(b.length()-1);
+				b.append("]");
+			}
+		}		
+		return b.toString();
 	}
 		
 }

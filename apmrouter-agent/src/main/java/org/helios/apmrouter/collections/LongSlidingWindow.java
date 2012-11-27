@@ -48,7 +48,7 @@ public class LongSlidingWindow {
 	 * @param size The size of the sliding window
 	 */
 	public LongSlidingWindow(int size) {
-		array = UnsafeArrayBuilder.newBuilder().sorted(false).fixed(true).maxCapacity(size).buildLongArray();
+		array = UnsafeArrayBuilder.newBuilder().sorted(false).fixed(true).initialCapacity(size).maxCapacity(size).buildLongArray();
 	}
 	
 	/**
@@ -90,7 +90,7 @@ public class LongSlidingWindow {
 	 * @param values The initial values to load
 	 */
 	public LongSlidingWindow(int size, long[] values) {
-		array = UnsafeArrayBuilder.newBuilder().sorted(false).fixed(true).maxCapacity(size).buildLongArray();
+		array = UnsafeArrayBuilder.newBuilder().sorted(false).fixed(true).initialCapacity(size).maxCapacity(size).buildLongArray();
 		for(long v: values) {
 			array.rollRight(0, v);
 		}
@@ -231,6 +231,17 @@ public class LongSlidingWindow {
 		return avg(array.size);
 	}
 	
+	public static void main(String[] args) {
+		log("Long Sliding Window Test");
+		LongSlidingWindow sw = new LongSlidingWindow(5, new long[]{1,2,3,4,5});
+		for(int i = 0; i < 5; i++) {
+			Long val = sw.insert(i);
+			log("Removed:" + val);
+		}
+	}
 	
+	public static void log(Object msg) {
+		System.out.println(msg);
+	}
 
 }
