@@ -40,10 +40,12 @@ import javax.management.Attribute;
 import javax.management.AttributeList;
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
+import javax.script.Compilable;
+import javax.script.CompiledScript;
 import javax.script.Invocable;
+import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
 
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.monitor.aggregate.AggregateFunction;
@@ -63,7 +65,7 @@ public class JMXScriptHelper {
 	/** The json evaluator code template */
 	protected static final String code = "var %s = %s;";
 	/** The json evaluator compiled function */
-//	protected static final CompiledScript cs;
+	protected static final CompiledScript cs;
 	
 	/** The scripting engine */
 	protected static final ScriptEngine se;
@@ -72,8 +74,8 @@ public class JMXScriptHelper {
 		try {
 			ScriptEngineManager sem = new ScriptEngineManager();			
 			se = sem.getEngineByExtension("js");
-			se.eval("function compile(json) { var c = eval(json); }");
-//			cs = ((Compilable)se).compile("function jsonize(){return eval(json);}; jsonize();");
+			se.eval("function compile(json) { var c = eval([json]); return c;}");
+			cs = ((Compilable)se).compile("function jsonize(){return eval([json]);}; jsonize();");
 //			cs = ((Compilable)se).compile(" var json = eval(jsonx);");
 		} catch (Exception ex) {
 			throw new RuntimeException(ex);
@@ -102,9 +104,11 @@ public class JMXScriptHelper {
 		final String scoped = "t" + Thread.currentThread().getId();
 		try {
 			Object obj = null;
-//			se.getContext().setAttribute("jsonx", json, ScriptContext.ENGINE_SCOPE);			
-//			cs.eval();
-//			obj =  se.get("jsonx");
+			se.getContext().setAttribute("json", json, ScriptContext.ENGINE_SCOPE);			
+			obj = cs.eval();
+			//obj =  se.get("jsonx");
+			
+			
 			obj = ((Invocable)se).invokeFunction("compile", json);
 //			se.eval(String.format(code, scoped, json));
 //			obj = se.getContext().removeAttribute(scoped, ScriptContext.ENGINE_SCOPE);  
