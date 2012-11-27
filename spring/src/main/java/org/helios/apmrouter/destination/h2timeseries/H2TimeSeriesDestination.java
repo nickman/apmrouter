@@ -331,7 +331,7 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 			//flushQueue.put(routable);
 			SystemClock.startTimer();
 			long[] rolledPeriod = null;
-			synchronized(liveTier) {
+			synchronized(routable.getMetricId()) {
 				rolledPeriod = liveTier.addValue(routable);
 			}
 			if(rolledPeriod!=null && subCache.containsKey(routable.getToken())) sendIntervalRollEvent(rolledPeriod, routable);

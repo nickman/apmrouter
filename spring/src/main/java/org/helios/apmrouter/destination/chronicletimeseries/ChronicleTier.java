@@ -168,22 +168,34 @@ public class ChronicleTier implements ChronicleTierMXBean {
 		log.info("Initializing [" + chronicle.size() + "] entries");
 		for(long key = 0; key < chronicle.size(); key++) {
 			UnsafeExcerpt<IndexedChronicle> ex = createUnsafeExcerpt(key) ;
-			//if(!ex.index(key)) throw new RuntimeException("Failed to initialized tier [" + chronicleName + "]", new Throwable());
 			long startTime = ex.readLong();
 			long endTime = ex.readLong();		
 			tickPeriods(startTime, endTime);
+			ex.finish();
 		}
 		log.info("Initialized tier [" + chronicleName + "] with [" + chronicle.size() + "] entries");
 	}
 	
+	/**
+	 * Returns a list containing the period data arrays in this tier for the passed metric Id.
+	 * @param metricId The metric Id
+	 * @return A list of long arrays
+	 */
 	public List<long[]> getValues(long metricId) {
 		UnsafeExcerpt<IndexedChronicle> ex = createUnsafeExcerpt(metricId);
 		try {
 			int size = ex.readInt(H_SIZE);
 			List<long[]> results = new ArrayList<long[]>(size-1);
-			for(int i = 1; i < size; i++) {
-				results.add(ex.readLongArray(HEADER_OFFSET + (i*SERIES_SIZE_IN_BYTES) , SERIES_SIZE_IN_LONGS));
+			//StringBuilder b = new StringBuilder("Data series for [" + metricId + "]");
+//			int cnt = 0;
+			for(int i = size-1; i > 0; i--) {
+				long[] pData = ex.readLongArray(HEADER_OFFSET + (i*SERIES_SIZE_IN_BYTES) , SERIES_SIZE_IN_LONGS);
+				results.add(pData);
+				//b.append("\n\tRownum:").append(i).append(":").append(r(pData));
+//				cnt++;
 			}
+//			b.append("\n\tCount:").append(cnt);
+//			log.info(b);
 			return results;
 		} finally {
 			ex.finish();
@@ -197,7 +209,7 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	 */
 	public long[] addValue(IMetric metric) {
 		try {
-			long metricId = metric.getToken(), timestamp = metric.getTime(), value = metric.getLongValue();
+			long metricId = metric.getToken(), timestamp = metric.getTime();
 			if(metricId<0) throw new IllegalArgumentException("The metric ID cannot be < 0", new Throwable());
 			UnsafeExcerpt<IndexedChronicle> ex = createUnsafeExcerpt(metricId);
 			final long period = SystemClock.period(periodDurationMs, timestamp);
@@ -211,7 +223,7 @@ public class ChronicleTier implements ChronicleTierMXBean {
 			}
 			if(pCount==0) {
 				ex.finish();
-				writeNewPeriod(period, metric);				;
+				writeNewPeriod(period, metric);				
 				tickPeriods(period, period);
 				return null;
 			}
@@ -262,33 +274,12 @@ public class ChronicleTier implements ChronicleTierMXBean {
 			rollSize = currentSize-1;
 			incPos = false;
 		}
-		//long[] pre = ex.readLongArray(HEADER_OFFSET, SERIES_SIZE_IN_LONGS);
 		long[] retValues = ex.insertNewPeriod(incPos, SERIES_SIZE_IN_LONGS, rollSize, HEADER_OFFSET, new long[]{period, Long.MAX_VALUE,Long.MIN_VALUE,0,0});
-		//long[] post = ex.readLongArray(HEADER_OFFSET + (SERIES_SIZE_IN_BYTES), SERIES_SIZE_IN_LONGS);
-//		log.info("Post New Period:" 
-//				+ Arrays.toString(ex.readLongArray(HEADER_OFFSET, SERIES_SIZE_IN_LONGS))
-//				+ "\n\tRolled Period:" + Arrays.toString(retValues));
-		//log.info("\n==========\nRolled Period:\n\t" + Arrays.toString(pre) + "\n\t" + Arrays.toString(post));
 		ex.writeLongArray(H_START, new long[]{period, (period + this.periodDurationMs)});
 		tickPeriods(period, period + this.periodDurationMs);		
 		updateCurrentPeriod(ex, metric, false);
 		if(incPos) ex.writeInt(H_SIZE, (currentSize+1));
 		ex.finish();
-//		StringBuilder debug = new StringBuilder("Series Roll.");
-//		debug.append("\n\tThis current period ").append(r(pre));
-//		debug.append("\n\twas rolled over to ").append(r(post));
-//		debug.append("\n\tNew current period:").append(r(ex.readLongArray(HEADER_OFFSET, SERIES_SIZE_IN_LONGS)));
-//		if(retValues!=null) {
-//			debug.append("\n\tRoll return:").append(r(retValues));
-//		}
-//		log.info(debug);
-		final int newSize = ex.readInt(H_SIZE);
-		if(newSize>this.periods || newSize<1) {
-			Throwable t = new Throwable();
-			t.printStackTrace(System.err);
-			throw new RuntimeException("Detected size set to [" + (currentSize+1) + "] but tier count is [" + this.periods + "]", new Throwable());
-		}
-		log.info("NEW SIZE:" + newSize);
 		return retValues;
 	}
 	
@@ -330,6 +321,11 @@ public class ChronicleTier implements ChronicleTierMXBean {
 		}
 	}
 	
+	/**
+	 * Finds the starting and ending periods within the periods in the passed excerpt
+	 * @param ex The excerpt which has already been set to appropriate index
+	 * @return a long array with the starting date and ending date
+	 */
 	protected long[] getPeriodBoundaries(UnsafeExcerpt<IndexedChronicle> ex) {
 		int size = ex.readInt(H_SIZE);
 		int offset = (size-1) * SERIES_SIZE_IN_BYTES;		
@@ -487,17 +483,14 @@ public class ChronicleTier implements ChronicleTierMXBean {
 		
 		Excerpt<IndexedChronicle> ex = chronicle.createExcerpt();
 		ex.startExcerpt(entrySize);
-		//ex.startExcerpt(entrySize);		
 		long time = SystemClock.period(periodDuration);		
 		ex.writeLong(time);
 		ex.writeLong(time);
-		//ex.writeLongArray(metricId, time, time);
 		ex.writeInt(0);
-		for(int i = 0; i < periods; i++) {
+		int extendSize = periods * SERIES_SIZE_IN_LONGS;
+		for(int i = 0; i < extendSize; i++) {
 			ex.writeLong(-1L);
 		}
-//		long[] emptyData = new long[periods];
-//		ex.writeLongArray(emptyData);
 		ex.finish();		
 		return ex.index();
 	}	
@@ -536,7 +529,23 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	}
 
 
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.destination.chronicletimeseries.ChronicleTierMXBean#getPerMetricDataSize()
+	 */
+	@Override
+	public long getPerMetricDataSize() {
+		return periods * SERIES_SIZE_IN_BYTES;
+	}
 
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.destination.chronicletimeseries.ChronicleTierMXBean#getPerMetricSize()
+	 */
+	@Override
+	public long getPerMetricSize() {
+		return (periods * SERIES_SIZE_IN_BYTES) + HEADER_OFFSET;
+	}
 
 
 

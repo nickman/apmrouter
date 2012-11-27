@@ -96,17 +96,19 @@ public class UnsafeExcerpt<C extends DirectChronicle> extends AbstractExcerpt<C>
      * @return the array of values in the first period that were rolled into the next period
      */
     public long[] insertNewPeriod(boolean incPos, int entrySize, int size, int offset, long...values) {
-    	log(String.format("INS NEW PER:inc:%s/es:%s/sz:%s/off:%s/data:%s", incPos, entrySize, size, offset, r(values)));
+    	final long bytesToRoll = (size * entrySize) << 3;
+//    	log(String.format("INS NEW PER:btr:%s/inc:%s/es:%s/sz:%s/off:%s/data:%s", bytesToRoll, incPos, entrySize, size, offset, r(values)));
+//    	log(String.format("BUFFER:st:%s/pos:%s/sp:%s/lim:%s-->%s", start, position, startPosition, limit, limit-start));
     	long[] retVal = readLongArray(offset, entrySize);
     	long _address = start;
-    	log("ROLLING\n\t\t" + r(readLongArray(offset, entrySize)) + "\n\t\tTo:" + r(readLongArray(offset + (entrySize << 3), entrySize)));
-    	long bytesToRoll = (size * entrySize) << 3;
+//    	log("ROLLING\n\t\t" + r(readLongArray(offset, entrySize)) + "\n\t\tTo:" + r(readLongArray(offset + (entrySize << 3), entrySize)));
+    	
     	UNSAFE.copyMemory(_address + offset, _address + offset + (entrySize << 3), bytesToRoll);
-    	log("\n\tBYTES COPIED:" + bytesToRoll  + "\n\tROLLED\n\t\t" +  r(readLongArray(offset + (entrySize << 3), entrySize)));
+//    	log("\n\tBYTES COPIED:" + bytesToRoll  + "\n\tROLLED\n\t\t" +  r(readLongArray(offset + (entrySize << 3), entrySize)));
     	writeLongArray(offset, values);
     	if(incPos) {
     		position += (entrySize << 3);
-    		log("\n\tINC POS:" + (entrySize << 3));
+//    		log("\n\tINC POS: [" + (entrySize << 3) + "] ---> [" + position + "]");
     	}
     	return retVal;
     }

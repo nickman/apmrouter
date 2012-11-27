@@ -126,4 +126,17 @@ public interface ChronicleTierMXBean {
 	 */
 	public SeriesEntryMBean getSeries(long metricId);
 	
+	/**
+	 * Returns the storage byte size of the data segment for one metric
+	 * @return the storage byte size of the data segment for one metric
+	 */
+	public long getPerMetricDataSize();
+
+	/**
+	 * Returns the storage byte size of the full segment for one metric
+	 * @return the storage byte size of the full segment for one metric
+	 */
+	public long getPerMetricSize();
+	
+	
 }

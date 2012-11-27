@@ -27,15 +27,19 @@
 		},
 		extractSeries : function(rawData) {
 			var cnt = 0;
+			var firstTime = null;
+			var lastTime = null;
 			for(var i = 0, m = rawData.length; i < m; i++) {
 				var ts = rawData[i][0];
+				if(firstTime!=null) firstTime = ts;
+				lastTime = ts;
 				this.lastTimestamp = ts;
 				for(var x = 0; x < 4; x++) {
 					this.subSeries[x].push([ts, rawData[i][x+1]])
 				}
 				cnt++;
 			}
-			console.info("Extracted %s Values", cnt);
+			console.info("Extracted %s Values, First TS:[%s], Last TS:[%s]", cnt, new Date(firstTime), new Date(lastTime));
 		},
 		
 		
