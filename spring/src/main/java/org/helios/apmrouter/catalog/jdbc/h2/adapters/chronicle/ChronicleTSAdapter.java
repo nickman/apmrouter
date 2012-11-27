@@ -22,7 +22,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.catalog.jdbc.h2;
+package org.helios.apmrouter.catalog.jdbc.h2.adapters.chronicle;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -41,7 +41,7 @@ import static org.helios.apmrouter.destination.chronicletimeseries.ChronicleTier
  * <p>Description: H2 adaptor for integrating Chronicle time-series data into the H2 SQL domain</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.catalog.jdbc.h2.ChronicleTSAdapter</code></p>
+ * <p><code>org.helios.apmrouter.catalog.jdbc.h2.adapters.chronicle.ChronicleTSAdapter</code></p>
  */
 
 public class ChronicleTSAdapter {

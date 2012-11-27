@@ -132,7 +132,7 @@
 	    	        
 	                },    	        
 	    	        title: {
-	    	            text: this.metricDef.ns + '  [' + this.metricId + ']' 
+	    	            text: this.metricDef.ns + '/' + this.metricDef.name + '  [' + this.metricId + ']' 
 	    	        },
 	    	        series: [
 	    	            {id: 'series-Min-' + this.metricId, name: this.metricDef.name + " Min", data: this.subSeries[ChartModel.MIN], animation: false, visible: false},

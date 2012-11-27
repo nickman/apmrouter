@@ -66,6 +66,9 @@ public class ScriptContainer {
 	/** Indicates the script is disabled after n consecutive errors */
 	protected boolean disabled = false;
 	
+	/** JMX script helper */
+	protected static final JMXScriptHelper jmx = new JMXScriptHelper(); 
+	
 	
 	/**
 	 * Creates a new ScriptContainer
@@ -125,6 +128,7 @@ public class ScriptContainer {
 		checkForUpdate();
 		if(disabled) return null;
 		sharedBindings.put("args", new Object[]{});
+		sharedBindings.put("jmx", jmx);
 		return compiledScript.eval(sharedBindings);
 	}
 	
@@ -136,6 +140,7 @@ public class ScriptContainer {
 	 */
 	public Object invoke(Object...args) throws ScriptException {
 		scriptBindings.put("argsX", args);
+		scriptBindings.put("jmx", jmx);
 		return invoke(scriptBindings);
 	}
 

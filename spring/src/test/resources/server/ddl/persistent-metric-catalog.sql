@@ -128,7 +128,7 @@ CREATE VIEW IF NOT EXISTS UNSAFE_RICH_METRIC_DATA AS SELECT AGENT_ID, TYPE_ID, N
 -- =============================================================================
 
 
-CREATE ALIAS IF NOT EXISTS CV FOR "org.helios.apmrouter.catalog.jdbc.h2.ChronicleTSAdapter.getValues";
+CREATE ALIAS IF NOT EXISTS CV FOR "org.helios.apmrouter.catalog.jdbc.h2.adapters.chronicle.ChronicleTSAdapter.getValues";
 
 CREATE VIEW IF NOT EXISTS CMETRIC_DATA AS SELECT * FROM CV(0, -1);
 CREATE VIEW IF NOT EXISTS CRICH_METRIC_DATA AS SELECT AGENT_ID, TYPE_ID, NAMESPACE, NARR, NAME, D.* FROM CMETRIC_DATA D, METRIC M WHERE M.METRIC_ID = D.ID;

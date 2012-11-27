@@ -28,7 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.helios.apmrouter.catalog.jdbc.h2.ChronicleTSAdapter;
+import org.helios.apmrouter.catalog.jdbc.h2.adapters.chronicle.ChronicleTSAdapter;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.tsmodel.Tier;
 import org.helios.apmrouter.tsmodel.TimeSeriesModel;

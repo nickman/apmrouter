@@ -24,9 +24,15 @@
  */
 package org.helios.apmrouter.monitor.script;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Hashtable;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -34,9 +40,16 @@ import javax.management.Attribute;
 import javax.management.AttributeList;
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
+import javax.script.Invocable;
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
 
-import org.apache.log4j.Logger;
 import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.monitor.aggregate.AggregateFunction;
+import org.helios.apmrouter.util.SystemClock;
+import org.helios.apmrouter.util.SystemClock.ElapsedTime;
+import org.json.JSONObject;
 
 /**
  * <p>Title: JMXScriptHelper</p>
@@ -47,9 +60,144 @@ import org.helios.apmrouter.jmx.JMXHelper;
  */
 
 public class JMXScriptHelper {
-	/** Static class logger */
-	protected static final Logger LOG = Logger.getLogger(JMXScriptHelper.class);
+	/** The json evaluator code template */
+	protected static final String code = "var %s = %s;";
+	/** The json evaluator compiled function */
+//	protected static final CompiledScript cs;
 	
+	/** The scripting engine */
+	protected static final ScriptEngine se;
+	
+	static {
+		try {
+			ScriptEngineManager sem = new ScriptEngineManager();			
+			se = sem.getEngineByExtension("js");
+			se.eval("function compile(json) { var c = eval(json); }");
+//			cs = ((Compilable)se).compile("function jsonize(){return eval(json);}; jsonize();");
+//			cs = ((Compilable)se).compile(" var json = eval(jsonx);");
+		} catch (Exception ex) {
+			throw new RuntimeException(ex);
+		}
+	}
+	
+	
+	public static void main(String[] args) {
+		log("Jsonizer Test");
+		SystemClock.startTimer();
+		for(int i = 0; i < 15000; i++) {
+			jsonize(System.getenv());
+		}
+		ElapsedTime et = SystemClock.endTimer();
+		log("Elapsed:" + et + "   Avg Per:" + et.avgNs(15000));
+		
+	}
+	
+	/**
+	 * Returns a native javascript json object compiled from the passed json string
+	 * @param json The json string to compile
+	 * @return the native json object
+	 */
+	public static Object jsonize(String json) {
+		//SystemClock.startTimer();
+		final String scoped = "t" + Thread.currentThread().getId();
+		try {
+			Object obj = null;
+//			se.getContext().setAttribute("jsonx", json, ScriptContext.ENGINE_SCOPE);			
+//			cs.eval();
+//			obj =  se.get("jsonx");
+			obj = ((Invocable)se).invokeFunction("compile", json);
+//			se.eval(String.format(code, scoped, json));
+//			obj = se.getContext().removeAttribute(scoped, ScriptContext.ENGINE_SCOPE);  
+			if(obj==null) throw new RuntimeException("Null result evaluating [" + json + "]", new Throwable());
+			return obj;
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to evaluate [" + json + "]", e);			
+		} finally {
+			//log("JSON compiled in " + SystemClock.endTimer());
+		}
+	}
+	
+	/**
+	 * Returns a native javascript json object compiled from the passed json object
+	 * @param json The json object to compile
+	 * @return the native json object
+	 */
+	public static Object jsonize(JSONObject json) {
+		return jsonize(json.toString());
+	}
+	
+	/**
+	 * Returns a native javascript json object compiled from the passed map
+	 * @param map The map to compile
+	 * @return the native json object
+	 */
+	public static Object jsonize(Map<?, ?> map) {
+		return jsonize(toJSONObject(map).toString());
+	}
+	
+	
+	
+	/**
+	 * Runtime exception only map to json converter
+	 * @param map The map to convert
+	 * @return the JSON object
+	 */
+	public static JSONObject toJSONObject(Map<?, ?> map) {
+		try {
+			return new JSONObject(map);
+		} catch (Exception ex) {
+			throw new RuntimeException(ex);
+		}
+	}
+	
+	public static void log(Object msg) {
+		System.out.println(msg);
+	}
+	
+	
+	/**
+	 * Formats the passed objects into a loggable string. 
+	 * If the last object is a {@link Throwable}, it will be formatted into a stack trace.
+	 * @param msgs The objects to log
+	 * @return the loggable string
+	 */
+	public static String format(Object...msgs) {
+		if(msgs==null||msgs.length<1) return "";
+		StringBuilder b = new StringBuilder();
+		int c = msgs.length-1;
+		for(int i = 0; i <= c; i++) {
+			if(i==c && msgs[i] instanceof Throwable) {
+				b.append(formatStackTrace((Throwable)msgs[i]));
+			} else {
+				b.append(msgs[i]);
+			}
+		}
+		return b.toString();
+	}
+	
+	/**
+	 * Formats a throwable's stack trace
+	 * @param t The throwable to format
+	 * @return the formatted stack trace
+	 */
+	public static String formatStackTrace(Throwable t) {
+		if(t==null) return "";
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		t.printStackTrace(new PrintStream(baos, true));
+		try {
+			baos.flush();
+		} catch (IOException e) { /* No Op */
+		}
+		return baos.toString();
+	}
+
+	/**
+	 * Low maintenance logger
+	 * @param msgs The objects to format and log 
+	 */
+	private static void LOG(Object...msgs) {
+		System.out.println(format(msgs));
+	}
 	/**
 	 * Reads a numeric MBean attribute as a long 
 	 * @param server The MBeanServer to read from
@@ -62,7 +210,7 @@ public class JMXScriptHelper {
 		try {
 			return ((Number)server.getAttribute(JMXHelper.objectName(objectName), attribute)).longValue();
 		} catch (Exception ex) {
-			LOG.error("Failed to read numeric attribute [" + attribute + "] from ObjectName [" + objectName + "]", ex);
+			LOG("Failed to read numeric attribute [" + attribute + "] from ObjectName [" + objectName + "]", ex);
 			throw new RuntimeException("Failed to read numeric attribute [" + attribute + "] from ObjectName [" + objectName + "]", ex);
 		}
 	}
@@ -109,12 +257,12 @@ public class JMXScriptHelper {
 					long value = ((Number)attr.getValue()).longValue();
 					map.put(name, value);
 				} catch (Exception ex) {
-					LOG.warn("Failed to convert attribute [" + name + "] to a number");
+					LOG("Failed to convert attribute [" + name + "] to a number");
 				}
 			}
 			return map;
 		} catch (Exception ex) {
-			LOG.error("Failed to read numeric attributes " + Arrays.toString(attributes) + " from ObjectName [" + objectName + "]", ex);
+			LOG("Failed to read numeric attributes " + Arrays.toString(attributes) + " from ObjectName [" + objectName + "]", ex);
 			throw new RuntimeException("Failed to read numeric attributes " + Arrays.toString(attributes) + " from ObjectName [" + objectName + "]", ex);
 		}
 	}
@@ -160,21 +308,14 @@ public class JMXScriptHelper {
 			Map<String, Map<String, Long>> map = new HashMap<String, Map<String, Long>>(matches.size());
 			for(ObjectName on: matches) {
 				try {
-					StringBuilder key = new StringBuilder();
-					for(String k: objectNameKeys) {
-						String prop = on.getKeyProperty(k);
-						if(prop!=null) {
-							key.append(prop);
-						}
-					}
-					map.put(key.toString(), getNumericAttributes(server, on.toString(), attributes));
+					map.put(formatKey(on, objectNameKeys), getNumericAttributes(server, on.toString(), attributes));
 				} catch (Exception ex) {
-					LOG.warn("Failed to process ObjectName [" + on+ "]:" + ex);
+					LOG("Failed to process ObjectName [" + on+ "]:" + ex);
 				}
 			}
 			return map;
 		} catch (Exception ex) {
-			LOG.error("Failed to read numeric attributes " + Arrays.toString(attributes) + " from ObjectName [" + objectName + "]", ex);
+			LOG("Failed to read numeric attributes " + Arrays.toString(attributes) + " from ObjectName [" + objectName + "]", ex);
 			throw new RuntimeException("Failed to read numeric attributes " + Arrays.toString(attributes) + " from ObjectName [" + objectName + "]", ex);
 		}
 	}
@@ -200,6 +341,154 @@ public class JMXScriptHelper {
 	 */
 	public static Map<String, Map<String, Long>> getNumericAttributes(String mbeanServerName, CharSequence objectName, String[] objectNameKeys, String...attributes) {
 		return getNumericAttributes(JMXHelper.getLocalMBeanServer(mbeanServerName), objectName, objectNameKeys, attributes);
+	}
+	
+	/**
+	 * Retrieves the value of the named attribute from all matching MBeans by the supplied ObjectName pattern and computes an aggregate.
+	 * @param aggregateFunction The name of the aggregate function which should be one of the enumerated in {@link AggregateFunction}
+	 * @param server The MBeanServer to fetch from
+	 * @param objectName The JMX ObjectName pattern that defines the group of MBeans that values should be retrieved from
+	 * @param attributeName The name of the attribute to retrieve values from
+	 * @return The specified aggregate of all the retrieved values
+	 */
+	public static long getNumericAggregate(String aggregateFunction, MBeanServerConnection server, CharSequence objectName, String attributeName) {
+		AggregateFunction af = AggregateFunction.forName(aggregateFunction);
+		try {
+			Set<ObjectName> matches = server.queryNames(JMXHelper.objectName(objectName), null);
+			if(matches.isEmpty()) return 0;
+			List<Object> values = new ArrayList<Object>(matches.size());
+			for(ObjectName on: matches) {
+				try {
+					values.add(server.getAttribute(on, attributeName));
+				} catch (Exception ex) {/* No Op */}
+			}
+			if(values.isEmpty()) return 0;
+			Object result =  af.aggregate(values);
+			if(result instanceof Number) {
+				return ((Number)result).longValue(); 
+			}
+			throw new Exception("The aggregate function [" + af.name() + "] did not return a number but a [" + result.getClass().getName() + "]", new Throwable());
+		} catch (Exception ex) {
+			LOG("Failed to read numeric aggregate for " + attributeName + " from pattern [" + objectName + "]", ex);
+			throw new RuntimeException("Failed to read numeric aggregate for " + attributeName + " from pattern [" + objectName + "]", ex);
+		}
+	}
+
+	/**
+	 * Retrieves the value of the named attribute from all matching MBeans in the named MBeanServer by the supplied ObjectName pattern and computes an aggregate.
+	 * @param aggregateFunction The name of the aggregate function which should be one of the enumerated in {@link AggregateFunction}
+	 * @param mbeanServerName The default domain of the target MBeanServer 
+	 * @param objectName The JMX ObjectName pattern that defines the group of MBeans that values should be retrieved from
+	 * @param attributeName The name of the attribute to retrieve values from
+	 * @return The specified aggregate of all the retrieved values
+	 */
+	public static long getNumericAggregate(String aggregateFunction, String mbeanServerName, CharSequence objectName, String attributeName) {
+		return getNumericAggregate(aggregateFunction, JMXHelper.getLocalMBeanServer(mbeanServerName), objectName, attributeName);
+	}
+	
+	
+	/**
+	 * Retrieves the value of the named attribute from all matching MBeans in the default MBeanServer by the supplied ObjectName pattern and computes an aggregate.
+	 * @param aggregateFunction The name of the aggregate function which should be one of the enumerated in {@link AggregateFunction}
+	 * @param objectName The JMX ObjectName pattern that defines the group of MBeans that values should be retrieved from
+	 * @param attributeName The name of the attribute to retrieve values from
+	 * @return The specified aggregate of all the retrieved values
+	 */
+	public static long getNumericAggregate(String aggregateFunction, CharSequence objectName, String attributeName) {
+		return getNumericAggregate(aggregateFunction, JMXHelper.getHeliosMBeanServer(), objectName, attributeName);
+	}
+	
+//	/**
+//	 * Retrieves the value of the named attribute from all matching MBeans by the supplied ObjectName pattern and computes an aggregate.
+//	 * @param aggregateFunction The name of the aggregate function which should be one of the enumerated in {@link AggregateFunction}
+//	 * @param server The MBeanServer to fetch from
+//	 * @param objectName The JMX ObjectName pattern that defines the group of MBeans that values should be retrieved from
+//	 * @param attributeName The name of the attribute to retrieve values from
+//	 * @param objectNameKeys The property keys in the located matching ObjectNames that can be used to uniquely identify the MBean
+//	 * @return The specified aggregate of all the retrieved values
+//	 */
+//	public static Map<String, Long> getSummaryAggregate(String aggregateFunction, MBeanServerConnection server, CharSequence objectName, String attributeName, String...objectNameKeys) {
+//		AggregateFunction af = AggregateFunction.forName(aggregateFunction);
+//		try {
+//			Set<ObjectName> matches = server.queryNames(JMXHelper.objectName(objectName), null);
+//			if(matches.isEmpty()) return 0;
+//			List<Object> values = new ArrayList<Object>(matches.size());
+//			for(ObjectName on: matches) {
+//				try {
+//					values.add(server.getAttribute(on, attributeName));
+//				} catch (Exception ex) {/* No Op */}
+//			}
+//			if(values.isEmpty()) return 0;
+//			Object result =  af.aggregate(values);
+//			if(result instanceof Number) {
+//				return ((Number)result).longValue(); 
+//			}
+//			throw new Exception("The aggregate function [" + af.name() + "] did not return a number but a [" + result.getClass().getName() + "]", new Throwable());
+//		} catch (Exception ex) {
+//			LOG.error("Failed to read numeric aggregate for " + attributeName + " from pattern [" + objectName + "]", ex);
+//			throw new RuntimeException("Failed to read numeric aggregate for " + attributeName + " from pattern [" + objectName + "]", ex);
+//		}
+//	}
+	
+	
+	/**
+	 * Builds a key by concatenating the the passed ObjectName's key property values whose keys are in the passed keys into one string, comma separated.
+	 * @param on The object name to build a key from
+	 * @param objectNameKeys The keys of the object name's for which values should be included in the key
+	 * @return the created key
+	 */
+	public static String formatKey(ObjectName on, String...objectNameKeys) {
+		if(on==null) throw new IllegalArgumentException("The passed ObjectName was null", new Throwable());
+		if(objectNameKeys==null || objectNameKeys.length<1) throw new IllegalArgumentException("The passed ObjectNameKeys was null or empty", new Throwable());
+		StringBuilder b = new StringBuilder();
+		Hashtable<String, String> props = on.getKeyPropertyList();
+		for(String key: objectNameKeys) {
+			key = key.trim();
+			String val = props.get(key);
+			if(val!=null) {
+				b.append(val).append(",");
+			}			
+		}
+		if(b.charAt(b.length()-1)==',') b.deleteCharAt(b.length()-1);
+		return b.toString();
+		
+	}
+	
+	/**
+	 * Determines if the passed ObjectName is a registered MBean in the passed server
+	 * @param server The MBeanServer
+	 * @param objectName The ObjectName to test
+	 * @return true if the ObjectName represents at least one registered MBean
+	 */
+	public static boolean isRegistered(MBeanServerConnection server, CharSequence objectName) {
+		try {
+			ObjectName on = JMXHelper.objectName(objectName);
+			if(on.isPattern()) {
+				return !server.queryMBeans(on, null).isEmpty();
+			}
+			return server.isRegistered(JMXHelper.objectName(objectName));
+		} catch (Exception ex) {
+			throw new RuntimeException(ex);
+		}
+	}
+	
+	/**
+	 * Determines if the passed ObjectName is a registered MBean in the named server
+	 * @param mbeanServerName The default domain of the target MBeanServer 
+	 * @param objectName The ObjectName to test
+	 * @return true if the ObjectName represents at least one registered MBean
+	 */
+	public static boolean isRegistered(String mbeanServerName, CharSequence objectName) {
+		return isRegistered(JMXHelper.getLocalMBeanServer(mbeanServerName), objectName);
+	}
+	
+	/**
+	 * Determines if the passed ObjectName is a registered MBean in the default server
+	 * @param objectName The ObjectName to test
+	 * @return true if the ObjectName represents at least one registered MBean
+	 */
+	public static boolean isRegistered(CharSequence objectName) {
+		return isRegistered(JMXHelper.getHeliosMBeanServer(), objectName);
 	}
 	
 }
