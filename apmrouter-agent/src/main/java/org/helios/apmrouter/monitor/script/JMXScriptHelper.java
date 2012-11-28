@@ -53,6 +53,9 @@ import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.json.JSONObject;
 
+import sun.org.mozilla.javascript.internal.NativeArray;
+import sun.org.mozilla.javascript.internal.NativeObject;
+
 /**
  * <p>Title: JMXScriptHelper</p>
  * <p>Description: A JMXHelper for scripting JMX checks and monitors</p> 
@@ -76,6 +79,8 @@ public class JMXScriptHelper {
 			se = sem.getEngineByExtension("js");
 			se.eval("function compile(json) { var c = eval([json]); return c;}");
 			cs = ((Compilable)se).compile("function jsonize(){return eval([json]);}; jsonize();");
+			//cs = ((Compilable)se).compile("eval([json]);");
+			log("Compiled Script:" + cs.getClass().getName());
 //			cs = ((Compilable)se).compile(" var json = eval(jsonx);");
 		} catch (Exception ex) {
 			throw new RuntimeException(ex);
@@ -85,12 +90,23 @@ public class JMXScriptHelper {
 	
 	public static void main(String[] args) {
 		log("Jsonizer Test");
+		for(int i = 0; i < 15000; i++) {
+			Object ret = jsonize(System.getenv());
+		}
+		log("Warmup Complete");
 		SystemClock.startTimer();
 		for(int i = 0; i < 15000; i++) {
-			jsonize(System.getenv());
+			Object ret = jsonize(System.getenv());
 		}
 		ElapsedTime et = SystemClock.endTimer();
-		log("Elapsed:" + et + "   Avg Per:" + et.avgNs(15000));
+		log("JS Elapsed:" + et + "   Avg Per:" + et.avgNs(15000));
+//		log("Nativizer Test");
+//		SystemClock.startTimer();
+//		for(int i = 0; i < 15000; i++) {
+//			nativeize(System.getenv());
+//		}
+//		et = SystemClock.endTimer();
+//		log("Native Elapsed:" + et + "   Avg Per:" + et.avgNs(15000));
 		
 	}
 	
@@ -104,14 +120,14 @@ public class JMXScriptHelper {
 		final String scoped = "t" + Thread.currentThread().getId();
 		try {
 			Object obj = null;
-			se.getContext().setAttribute("json", json, ScriptContext.ENGINE_SCOPE);			
-			obj = cs.eval();
+//			se.getContext().setAttribute("json", json, ScriptContext.ENGINE_SCOPE);			
+//			obj = cs.eval();
 			//obj =  se.get("jsonx");
 			
 			
 			obj = ((Invocable)se).invokeFunction("compile", json);
-//			se.eval(String.format(code, scoped, json));
-//			obj = se.getContext().removeAttribute(scoped, ScriptContext.ENGINE_SCOPE);  
+			se.eval(String.format(code, scoped, json));
+			obj = se.getContext().removeAttribute(scoped, ScriptContext.ENGINE_SCOPE);  
 			if(obj==null) throw new RuntimeException("Null result evaluating [" + json + "]", new Throwable());
 			return obj;
 		} catch (Exception e) {
@@ -129,6 +145,19 @@ public class JMXScriptHelper {
 	public static Object jsonize(JSONObject json) {
 		return jsonize(json.toString());
 	}
+	
+	/**
+	 * Returns a native javascript json object compiled from the passed map
+	 * @param map The values to add to the native object
+	 * @return the native json object
+	 */
+	public static Object nativeize(Map<?, ?> map) {
+		NativeObject no = new NativeObject();
+		
+		no.putAll(map);
+		return no;
+	}
+	
 	
 	/**
 	 * Returns a native javascript json object compiled from the passed map
@@ -246,9 +275,9 @@ public class JMXScriptHelper {
 	 * @param server The MBeanServer to read from
 	 * @param objectName The ObjectName of the target MBean
 	 * @param attributes An array of attribute names
-	 * @return A map of long values of the read attributes keyed by the corresponding attribute name
+	 * @return A native javascript map of long values of the read attributes keyed by the corresponding attribute name
 	 */
-	public static Map<String, Long> getNumericAttributes(MBeanServerConnection server, CharSequence objectName, String...attributes) {
+	public static Object getNumericAttributes(MBeanServerConnection server, CharSequence objectName, String...attributes) {
 		if(server==null) throw new UnavailableMBeanServerException();
 		try {
 			if(attributes==null || attributes.length<1) throw new IllegalArgumentException("The passed attribute name array was null or zero length", new Throwable());
@@ -264,7 +293,7 @@ public class JMXScriptHelper {
 					LOG("Failed to convert attribute [" + name + "] to a number");
 				}
 			}
-			return map;
+			return jsonize(map);
 		} catch (Exception ex) {
 			LOG("Failed to read numeric attributes " + Arrays.toString(attributes) + " from ObjectName [" + objectName + "]", ex);
 			throw new RuntimeException("Failed to read numeric attributes " + Arrays.toString(attributes) + " from ObjectName [" + objectName + "]", ex);
@@ -275,9 +304,9 @@ public class JMXScriptHelper {
 	 * Reads multiple numeric MBean attributes as longs from the default MBeanServer 
 	 * @param objectName The ObjectName of the target MBean
 	 * @param attributes An array of attribute names
-	 * @return A map of long values of the read attributes keyed by the corresponding attribute name
+	 * @return A native javascript map of long values of the read attributes keyed by the corresponding attribute name
 	 */
-	public static Map<String, Long> getNumericAttributes(CharSequence objectName, String...attributes) {
+	public static Object getNumericAttributes(CharSequence objectName, String...attributes) {
 		return getNumericAttributes(JMXHelper.getHeliosMBeanServer(), objectName, attributes);
 	}
 	
@@ -288,7 +317,7 @@ public class JMXScriptHelper {
 	 * @param attributes An array of attribute names
 	 * @return A map of long values of the read attributes keyed by the corresponding attribute name
 	 */
-	public static Map<String, Long> getNumericAttributes(String mbeanServerName, CharSequence objectName, String...attributes) {
+	public static Object getNumericAttributes(String mbeanServerName, CharSequence objectName, String...attributes) {
 		return getNumericAttributes(JMXHelper.getLocalMBeanServer(mbeanServerName), objectName, attributes);
 	}
 	
@@ -300,16 +329,16 @@ public class JMXScriptHelper {
 	 * @param objectName The ObjectName of the target MBean
 	 * @param objectNameKeys The property keys in the located matching ObjectNames that can be used to uniquely identify the MBean 
 	 * @param attributes An array of attribute names
-	 * @return A map of maps containing long values of the read attributes keyed by the corresponding attribute name, in turn mapped by the comma separated key propery values
+	 * @return A native javascript map of maps containing long values of the read attributes keyed by the corresponding attribute name, in turn mapped by the comma separated key propery values
 	 */
-	public static Map<String, Map<String, Long>> getNumericAttributes(MBeanServerConnection server, CharSequence objectName, String[] objectNameKeys, String...attributes) {
+	public static Object getNumericAttributes(MBeanServerConnection server, CharSequence objectName, String[] objectNameKeys, String...attributes) {
 		if(server==null) throw new UnavailableMBeanServerException();
 		try {
 			if(attributes==null || attributes.length<1) throw new IllegalArgumentException("The passed attribute name array was null or zero length", new Throwable());
 			if(objectNameKeys==null || objectNameKeys.length<1) throw new IllegalArgumentException("The passed object Name Keys array was null or zero length", new Throwable());
 			Set<ObjectName> matches = server.queryNames(JMXHelper.objectName(objectName), null);
 			if(matches==null || matches.isEmpty()) return Collections.emptyMap();
-			Map<String, Map<String, Long>> map = new HashMap<String, Map<String, Long>>(matches.size());
+			Map<String, Object> map = new HashMap<String, Object>(matches.size());
 			for(ObjectName on: matches) {
 				try {
 					map.put(formatKey(on, objectNameKeys), getNumericAttributes(server, on.toString(), attributes));
@@ -317,7 +346,7 @@ public class JMXScriptHelper {
 					LOG("Failed to process ObjectName [" + on+ "]:" + ex);
 				}
 			}
-			return map;
+			return jsonize(map);
 		} catch (Exception ex) {
 			LOG("Failed to read numeric attributes " + Arrays.toString(attributes) + " from ObjectName [" + objectName + "]", ex);
 			throw new RuntimeException("Failed to read numeric attributes " + Arrays.toString(attributes) + " from ObjectName [" + objectName + "]", ex);
@@ -329,9 +358,9 @@ public class JMXScriptHelper {
 	 * @param objectName The ObjectName of the target MBean
 	 * @param objectNameKeys The property keys in the located matching ObjectNames that can be used to uniquely identify the MBean 
 	 * @param attributes An array of attribute names
-	 * @return A map of maps containing long values of the read attributes keyed by the corresponding attribute name, in turn mapped by the comma separated key propery values
+	 * @return A native javascript map of maps containing long values of the read attributes keyed by the corresponding attribute name, in turn mapped by the comma separated key propery values
 	 */
-	public static Map<String, Map<String, Long>> getNumericAttributes(CharSequence objectName, String[] objectNameKeys, String...attributes) {
+	public static Object getNumericAttributes(CharSequence objectName, String[] objectNameKeys, String...attributes) {
 		return getNumericAttributes(JMXHelper.getHeliosMBeanServer(), objectName, objectNameKeys, attributes);
 	}
 	
@@ -341,9 +370,9 @@ public class JMXScriptHelper {
 	 * @param objectName The ObjectName of the target MBean
 	 * @param objectNameKeys The property keys in the located matching ObjectNames that can be used to uniquely identify the MBean 
 	 * @param attributes An array of attribute names
-	 * @return A map of maps containing long values of the read attributes keyed by the corresponding attribute name, in turn mapped by the comma separated key propery values
+	 * @return A native javascript map of maps containing long values of the read attributes keyed by the corresponding attribute name, in turn mapped by the comma separated key propery values
 	 */
-	public static Map<String, Map<String, Long>> getNumericAttributes(String mbeanServerName, CharSequence objectName, String[] objectNameKeys, String...attributes) {
+	public static Object getNumericAttributes(String mbeanServerName, CharSequence objectName, String[] objectNameKeys, String...attributes) {
 		return getNumericAttributes(JMXHelper.getLocalMBeanServer(mbeanServerName), objectName, objectNameKeys, attributes);
 	}
 	
