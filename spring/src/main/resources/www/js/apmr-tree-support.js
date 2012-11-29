@@ -351,14 +351,17 @@
 						}
 					});							
 					//fixOpen(nodeArray);
-					
+					var parentPrefix = '/' + metricTree.get_path('#' + parentId).slice(4).join('/');
+					console.info("Parent Folder Prefix [%s]", parentPrefix);
 					$.apmr.findLevelFoldersForAgent(level, agentId, parent, function(data) {
 						$.each(data.msg, function(index, arr) {
 							var folder = arr[0];
 							var mlevel = arr[1];
 							var isMetricFolder = (mlevel-level==1);														
 							if(folder!=null) {
-								var uid = "folder-" + agentId + "-" + folder.replace('=', '_').replace(/\./g, '_');
+								//console.info("This node is [%s] parent path:[%o]", this, metricTree.get_path('#' + parentId));
+								var prefix = metricTree.get_path('#' + parentId).slice(4).join('_');
+								var uid = "folder-" + agentId + "-" + (prefix + '_' + folder).replace(/=/g, '_').replace(/\./g, '_');
 								if($('#' + uid).length==0) {
 									var newNode = {
 											attr: {id: uid, rel: isMetricFolder ? "metric-folder" : "folder", 'folder' : folder, 'agent' : agentId, 'level' : level},  

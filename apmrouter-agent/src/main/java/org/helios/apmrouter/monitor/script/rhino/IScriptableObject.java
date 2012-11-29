@@ -35,4 +35,6 @@ package org.helios.apmrouter.monitor.script.rhino;
 public interface IScriptableObject {
 	public Object getProperty(String name);	
 	public Object getUnderlying();
+	public boolean hasProperty(String name);
+	public boolean hasProperty(int id);
 }

@@ -142,11 +142,12 @@ public class ScriptMonitor extends AbstractMonitor {
 				sc.resetErrors();
 			} catch (UnavailableMBeanServerException uex) {
 				/* No Op */
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				int err = sc.incrementErrors();
 				if(err>=maxErrors) {
 					sc.setDisabled(true);
-					System.err.println("Monitor Script [" + sc.scriptUrl + "] has failed [" + err + "] consecutive times. It is being ignored until modified.");
+					System.err.println("Monitor Script [" + sc.scriptUrl + "] has failed [" + err + "] consecutive times. It is being ignored until modified. Last error follows:");
+					e.printStackTrace(System.err);
 				}
 			}
 		}

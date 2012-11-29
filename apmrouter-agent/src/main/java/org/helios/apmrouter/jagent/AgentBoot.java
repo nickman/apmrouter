@@ -131,7 +131,7 @@ public class AgentBoot {
 			try {
 				String name = XMLHelper.getAttributeByName(mNode, "name", null);
 				long period = XMLHelper.getLongAttributeByName(mNode, "period", 15000);
-				@SuppressWarnings("unchecked")
+				long startDelay = XMLHelper.getLongAttributeByName(mNode, "startDelay", -1L);				
 				Class<Monitor> monClass = (Class<Monitor>) Class.forName(name);
 				Monitor monitor = monClass.newInstance();
 				monitor.setCollectPeriod(period);
@@ -148,7 +148,11 @@ public class AgentBoot {
 					}
 					monitor.setProperties(cleanedProperties);
 				}
-				monitor.startMonitor();
+				if(startDelay<1) {
+					monitor.startMonitor();
+				} else {
+					monitor.startMonitor(startDelay);
+				}
 			} catch (Exception e) {
 				System.err.println("Failed to process configured monitor [" + XMLHelper.renderNode(mNode) + "]");
 			}

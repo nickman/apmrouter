@@ -25,8 +25,10 @@
 package org.helios.apmrouter.monitor.script.rhino;
 
 import java.io.File;
+import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Map;
 
 import javassist.ClassClassPath;
 import javassist.ClassPool;
@@ -92,6 +94,7 @@ public class NativeFactory {
 				arrCtor = arr.getConstructor();
 				objCtor = obj.getConstructor();				
 			} catch (Exception ex2) {
+				ex.printStackTrace(System.err);
 				throw new RuntimeException("Failed to locate the rhino classes", ex2);
 			}
 		}
@@ -116,11 +119,13 @@ public class NativeFactory {
 			cp.appendClassPath(new ClassClassPath(INativeObject.class));
 			cp.appendClassPath(new ClassClassPath(INativeArray.class));
 			cp.appendClassPath(new ClassClassPath(IScriptableObject.class));
+			cp.appendClassPath(new ClassClassPath(BaseNativeProxy.class));
 			cp.importPackage(MOZ_PACKAGE);
 			return buildProxyFactory(packageName, cp,  
 					buildNativeObject(packageName, cp), 
 					buildNativeArray(packageName, cp)
 			);
+			
 			
 			
 			/*
@@ -129,8 +134,96 @@ public class NativeFactory {
 	public IScriptableObject getUnderlying();
 			 */
 		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
 			throw new RuntimeException("Failed to build rhino proxies", ex);
 		}
+	}
+	
+	/**
+	 * <p>Title: BaseNativeProxy</p>
+	 * <p>Description: Contains static helper methods for the actual proxy classes</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.monitor.script.rhino.NativeFactory.BaseNativeProxy</code></p>
+	 */
+	public static class BaseNativeProxy {
+		/**
+		 * Inspects the passed object and if it is a mozilla native object, returns the proxy wrapper, 
+		 * otherwise returns the passed object
+		 * @param obj The object to inspect
+		 * @return a wrapper proxy or the passed object
+		 */
+		public static Object convertNative(Object obj) {
+			if(obj==null) return null;
+			if(OBJECT_CLASS.isInstance(obj)) {
+				return newNativeObject(obj);
+			} else if(ARRAY_CLASS.isInstance(obj)) {
+				return newNativeArray(obj);
+			} else {
+				return obj;
+			}
+		}
+		
+		/**
+		 * Tests the passed object to see if it a proxy, and if so, returns the underlying
+		 * @param obj The object to test
+		 * @return The underlying native or the passed value
+		 */
+		public static Object recoverNative(Object obj) {
+			if(obj==null) return null;
+			if(obj instanceof INativeObject) {
+				return ((INativeObject)obj).getUnderlying();
+			} else if(obj instanceof INativeArray) {
+				return ((INativeArray)obj).getUnderlying();
+			} else if(obj.getClass().isArray()) {
+				int len = Array.getLength(obj);
+				Object[] newArray = new Object[len];
+				for(int i = 0; i < len; i++) {
+					newArray[i] = recoverNative(Array.get(obj, i));
+				}
+				return newArray;
+			}
+			return obj;			
+		}
+		
+		public static Object[] recoverNativeArr(Object obj) {
+			return (Object[])recoverNative(obj);
+		}
+		
+		/**
+		 * Renders the contents of a map in a string.
+		 * @param map The map to render
+		 * @return the rendered string
+		 */
+		public static String mapToString(Map<?,?> map) {
+			StringBuilder b = new StringBuilder(map.getClass().getSimpleName());
+			for(Map.Entry<?, ?> m: map.entrySet()) {
+				Object value = m.getValue();
+				if(value instanceof INativeObject) {
+					b.append("\n\t").append(m.getKey()).append(":").append(mapToString((Map)((INativeObject)value).getUnderlying()));
+				} else {
+					b.append("\n\t").append(m.getKey()).append(":").append(m.getValue());
+				}
+			}
+			return b.toString();
+		}
+		
+		/**
+		 * Renders the contents of a list in a string.
+		 * @param list The list to render
+		 * @return the rendered string
+		 */
+		public static String listToString(List<?> list) {
+			StringBuilder b = new StringBuilder(list.getClass().getSimpleName());
+			for(Object value: list) {					
+				if(value instanceof INativeArray) {
+					b.append("\n\t").append(listToString((List)((INativeArray)value).getUnderlying()));
+				} else {
+					b.append("\n\t").append(value);
+				}
+			}
+			return b.toString();
+		}		
 	}
 	
 	/**
@@ -141,7 +234,7 @@ public class NativeFactory {
 	 * @throws Exception thrown on any errors building the class
 	 */
 	protected static Class<?> buildNativeObject(String packageName, ClassPool cp) throws Exception {
-		CtClass clazz = cp.makeClass(packageName + "." + "NativeObject");
+		CtClass clazz = cp.makeClass(packageName + "." + "NativeObject", cp.get(BaseNativeProxy.class.getName()));
 		CtField internalField = new CtField(cp.get(OBJECT_CLASS.getName()), "internal", clazz);
 		clazz.addField(internalField);
 		CtConstructor zeroParamCtor = new CtConstructor(new CtClass[]{}, clazz);
@@ -150,12 +243,16 @@ public class NativeFactory {
 		CtConstructor internalParamCtor = new CtConstructor(new CtClass[]{cp.get(IScriptableObject.class.getName())}, clazz);
 		internalParamCtor.setBody("internal = (" + OBJECT_CLASS.getName() + ")$1.getUnderlying();");
 		clazz.addConstructor(internalParamCtor);
+		CtConstructor internalParamCtor2 = new CtConstructor(new CtClass[]{cp.get(Object.class.getName())}, clazz);		
+		internalParamCtor2.setBody("internal = (" + OBJECT_CLASS.getName() + ")$1;");
+		clazz.addConstructor(internalParamCtor2);
+		
 		
 		CtMethod gp = new CtMethod(cp.get(Object.class.getName()), "getProperty", new CtClass[]{cp.get(String.class.getName())}, clazz);
-		gp.setBody("return internal.get($1);");
+		gp.setBody("return convertNative(" + SCRIPTABLE_CLASS.getName() + ".getProperty(internal,$1));");
 		clazz.addMethod(gp);
 		CtMethod pp = new CtMethod(CtClass.voidType, "putProperty", new CtClass[]{cp.get(String.class.getName()), cp.get(Object.class.getName())}, clazz);
-		pp.setBody("return internal.put($1, $2);");
+		pp.setBody("return " + SCRIPTABLE_CLASS.getName() + ".putProperty(internal, $1, recoverNative($2));");
 		clazz.addMethod(pp);
 		CtMethod gi = new CtMethod(cp.get(Object.class.getName()), "getUnderlying", new CtClass[]{}, clazz);
 		gi.setBody("return internal;");
@@ -163,6 +260,15 @@ public class NativeFactory {
 		CtMethod gi2 = new CtMethod(cp.get(OBJECT_CLASS.getName()), "getNativeUnderlying", new CtClass[]{}, clazz);
 		gi2.setBody("return internal;");
 		clazz.addMethod(gi2);
+		CtMethod ts = new CtMethod(cp.get(String.class.getName()), "toString", new CtClass[]{}, clazz);
+		ts.setBody("return internal.toString();");
+		clazz.addMethod(ts);
+		CtMethod hp = new CtMethod(CtClass.booleanType, "hasProperty", new CtClass[]{cp.get(String.class.getName())}, clazz);
+		hp.setBody("return " + SCRIPTABLE_CLASS.getName() + ".hasProperty(internal, $1);");
+		clazz.addMethod(hp);
+		CtMethod hp2 = new CtMethod(CtClass.booleanType, "hasProperty", new CtClass[]{CtClass.intType}, clazz);
+		hp2.setBody("return " + SCRIPTABLE_CLASS.getName() + ".hasProperty(internal, $1);");
+		clazz.addMethod(hp2);
 		
 		clazz.addInterface(cp.get(INativeObject.class.getName()));
 		if(TMP.exists() && TMP.isDirectory()) {
@@ -180,15 +286,20 @@ public class NativeFactory {
 	 * @throws Exception thrown on any errors building the class
 	 */
 	protected static Class<?> buildNativeArray(String packageName, ClassPool cp) throws Exception {
-		CtClass clazz = cp.makeClass(packageName + "." + "NativeArray");
+		CtClass clazz = cp.makeClass(packageName + "." + "NativeArray", cp.get(BaseNativeProxy.class.getName()));
 		CtField internalField = new CtField(cp.get(ARRAY_CLASS.getName()), "internal", clazz);
 		clazz.addField(internalField);
 		CtConstructor arrayParamCtor = new CtConstructor(new CtClass[]{cp.get(Object[].class.getName())}, clazz);
-		arrayParamCtor.setBody("internal = new " + ARRAY_CLASS.getName() + "($1);");
+		arrayParamCtor.setBody("internal = new " + ARRAY_CLASS.getName() + "(recoverNativeArr($1));");
 		clazz.addConstructor(arrayParamCtor);
 		CtConstructor internalParamCtor = new CtConstructor(new CtClass[]{cp.get(IScriptableObject.class.getName())}, clazz);
 		internalParamCtor.setBody("internal = (" + ARRAY_CLASS.getName() + ")$1.getUnderlying();");
 		clazz.addConstructor(internalParamCtor);
+		
+		CtConstructor internalParamCtor2 = new CtConstructor(new CtClass[]{cp.get(Object.class.getName())}, clazz);		
+		internalParamCtor2.setBody("internal = (" + ARRAY_CLASS.getName() + ")$1;");
+		clazz.addConstructor(internalParamCtor2);
+		
 		
 		CtMethod gi = new CtMethod(cp.get(Object.class.getName()), "getUnderlying", new CtClass[]{}, clazz);
 		gi.setBody("return internal;");
@@ -197,14 +308,20 @@ public class NativeFactory {
 		gi2.setBody("return internal;");
 		clazz.addMethod(gi2);
 		CtMethod ap = new CtMethod(cp.get(Object.class.getName()), "get", new CtClass[]{CtClass.intType}, clazz);
-		ap.setBody("return internal.get($1);");
+		ap.setBody("return convertNative(" + SCRIPTABLE_CLASS.getName() + ".getProperty(internal,$1));");
 		clazz.addMethod(ap);
 		CtMethod sp = new CtMethod(CtClass.intType, "size", new CtClass[]{}, clazz);
-		sp.setBody("return internal.size();");
+		sp.setBody("return (int)internal.getLength();");
 		clazz.addMethod(sp);
-		
-		// public Object get(int index);
-		// public int size();
+		CtMethod ts = new CtMethod(cp.get(String.class.getName()), "toString", new CtClass[]{}, clazz);
+		ts.setBody("return internal.toString();");
+		clazz.addMethod(ts);
+		CtMethod hp = new CtMethod(CtClass.booleanType, "hasProperty", new CtClass[]{cp.get(String.class.getName())}, clazz);
+		hp.setBody("return " + SCRIPTABLE_CLASS.getName() + ".hasProperty(internal, $1);");
+		clazz.addMethod(hp);
+		CtMethod hp2 = new CtMethod(CtClass.booleanType, "hasProperty", new CtClass[]{CtClass.intType}, clazz);
+		hp2.setBody("return " + SCRIPTABLE_CLASS.getName() + ".hasProperty(internal, $1);");
+		clazz.addMethod(hp2);
 		
 		clazz.addInterface(cp.get(INativeArray.class.getName()));
 		
@@ -213,6 +330,9 @@ public class NativeFactory {
 		}
 		return clazz.toClass();
 	}
+	
+
+	
 	
 	/**
 	 * Builds the proxy factory class
@@ -235,7 +355,12 @@ public class NativeFactory {
 		
 		f = new CtMethod(cp.get(INativeObject.class.getName()), "newNativeObject", new CtClass[]{cp.get(IScriptableObject.class.getName())}, clazz);
 		f.setBody("return new " + packageName + ".NativeObject($1);");
+		clazz.addMethod(f);
+		
+		f = new CtMethod(cp.get(INativeObject.class.getName()), "newNativeObject", new CtClass[]{cp.get(Object.class.getName())}, clazz);
+		f.setBody("return new " + packageName + ".NativeObject($1);");
 		clazz.addMethod(f);		
+		
 		
 		f = new CtMethod(cp.get(INativeArray.class.getName()), "newNativeArray", new CtClass[]{}, clazz);
 		f.setBody("return new " + packageName + ".NativeArray(new Object[0]);");
@@ -243,7 +368,12 @@ public class NativeFactory {
 		
 		f = new CtMethod(cp.get(INativeArray.class.getName()), "newNativeArray", new CtClass[]{cp.get(IScriptableObject.class.getName())}, clazz);
 		f.setBody("return new " + packageName + ".NativeArray($1);");
+		clazz.addMethod(f);
+		
+		f = new CtMethod(cp.get(INativeArray.class.getName()), "newNativeArray", new CtClass[]{cp.get(Object.class.getName())}, clazz);
+		f.setBody("return new " + packageName + ".NativeArray($1);");
 		clazz.addMethod(f);		
+		
 		
 		f = new CtMethod(cp.get(INativeArray.class.getName()), "newNativeArray", new CtClass[]{cp.get(Object[].class.getName())}, clazz);
 		f.setBody("return new " + packageName + ".NativeArray($1);");
@@ -273,10 +403,18 @@ public class NativeFactory {
 		log("Obj:" + no.getClass().getName() + "  Internal:" + no.getUnderlying().getClass().getName());
 		no.putProperty("foo", "foo");
 		no.putProperty("three", 3);
+		INativeObject no2 = newNativeObject();
+		no2.putProperty("foobar", "snafu");
+		no.putProperty("me", no2);
 		log("Foo:" + no.getProperty("foo"));
 		log("Three:" + no.getProperty("three"));
 		INativeArray na = newNativeArray();
 		log("Arr:" + na.getClass().getName() + "  Internal:" + na.getUnderlying().getClass().getName());
+		na = newNativeArray(new Object[]{"one", "two", "three", no});
+		for(int i = 0; i < na.size(); i++) {
+			log(na.get(i));
+		}
+		log("Arr toStr:" + na.toString());
 		
 	}
 	
@@ -291,14 +429,50 @@ public class NativeFactory {
 	public static INativeObject newNativeObject(IScriptableObject internal) {
 		return PROXY_FACTORY.newNativeObject(internal);
 	}
+	public static INativeObject newNativeObject(Object internal) {
+		return PROXY_FACTORY.newNativeObject(internal);
+	}
+	
 	public static INativeArray newNativeArray() {
 		return PROXY_FACTORY.newNativeArray();
 	}
 	public static INativeArray newNativeArray(IScriptableObject internal) {
 		return PROXY_FACTORY.newNativeArray(internal);
 	}
+	
+	public static INativeArray newNativeArray(Object internal) {
+		return PROXY_FACTORY.newNativeArray(internal);
+	}
+	
 	public static INativeArray newNativeArray(Object[] elements) {
 		return PROXY_FACTORY.newNativeArray(elements);
 	}
+	public static IScriptableObject newScriptable(Object obj) {
+		if(obj==null) throw new IllegalArgumentException("The passed object was null", new Throwable());
+		if(OBJECT_CLASS.isInstance(obj)) {
+			return PROXY_FACTORY.newNativeObject(obj);
+		} else if(ARRAY_CLASS.isInstance(obj)) {
+			return PROXY_FACTORY.newNativeArray(obj);
+		} else {
+			throw new IllegalArgumentException("The passed object of type [" + obj.getClass().getName() + "] was not a rhino NativeObject or Native Array", new Throwable());
+		}
+		
+	}
+	
+
+	
+	public static IScriptableObject convertToNative(Object obj) {
+		if(obj==null) throw new IllegalArgumentException("The passed object was null", new Throwable());
+		if(OBJECT_CLASS.isInstance(obj)) {
+			return newNativeObject(obj);
+		} else if(ARRAY_CLASS.isInstance(obj)) {
+			return newNativeArray(obj);
+		} else if(obj instanceof IScriptableObject) {
+			return (IScriptableObject)obj;
+		} else {
+			throw new IllegalArgumentException("The passed object of type [" + obj.getClass().getName() + "] was not a rhino NativeObject or Native Array", new Throwable());
+		}
+	}
+	
 	
 }

@@ -31,12 +31,22 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.helios.apmrouter.monitor.script.rhino.INativeArray;
+import org.helios.apmrouter.monitor.script.rhino.INativeObject;
+import org.helios.apmrouter.monitor.script.rhino.IScriptableObject;
+import org.helios.apmrouter.monitor.script.rhino.NativeFactory;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import sun.org.mozilla.javascript.internal.NativeArray;
-import sun.org.mozilla.javascript.internal.NativeObject;
-import sun.org.mozilla.javascript.internal.ScriptableObject;
+//import sun.org.mozilla.javascript.internal.NativeArray;
+//import sun.org.mozilla.javascript.internal.NativeObject;
+//import sun.org.mozilla.javascript.internal.ScriptableObject;
+
+
+//import sun.org.mozilla.javascript.internal.NativeArray;
+//import sun.org.mozilla.javascript.internal.NativeObject;
+//import sun.org.mozilla.javascript.internal.ScriptableObject;
 
 /**
  * <p>Title: JSONNativeizer</p>
@@ -53,34 +63,45 @@ public class JSONNativeizer {
 	 * @param json The JSON object to convert
 	 * @return a native Rhino javascript object
 	 */
-	public static ScriptableObject toNative(JSONObject json) {
+	public static Object toNative(JSONObject json) {
 		return toNative(json, null);
 	}
 	
 	/**
 	 * Creates a new native javascript object from the passed JSON object
 	 * @param json The JSON object to convert
-	 * @param no An existing native Rhino javascript object which is created anew if null. Used for a recusrive parse
+	 * @param jsObject An existing native Rhino javascript object which is created anew if null. Used for a recusrive parse
 	 * @return a native Rhino javascript object
 	 */
-	public static ScriptableObject toNative(JSONObject json, ScriptableObject no) {
+	public static Object toNative(JSONObject json, Object jsObject) {
+		if(json==null) return null;
 		try {
-			if(no==null) no = new NativeObject();			
+			INativeObject no = null;
+			if(jsObject==null) {
+				no = NativeFactory.newNativeObject();
+			} else {
+				no = NativeFactory.newNativeObject(jsObject);
+			}
+
 			for(String key : JSONObject.getNames(json)) {
+				
+				if(key==null) continue;
 				Object obj = json.get(key);
 				if(obj == JSONObject.NULL) {
-					ScriptableObject.putProperty( no, key, null);
+					no.putProperty(key, null);
 				} else if(obj instanceof JSONArray) {
-					ScriptableObject.putProperty( no, key, toNative((JSONArray)obj));
+					no.putProperty(key, toNative((JSONArray)obj));
 				} else if(obj instanceof JSONObject) {
-					ScriptableObject.putProperty( no, key, toNative((JSONObject)obj, null));
+					no.putProperty( key, toNative((JSONObject)obj, null));
 				} else {
-					ScriptableObject.putProperty( no, key, obj);
+					no.putProperty(key, obj);
 				}
+				
 			}
-			return no;
+			return no.getUnderlying();
 		} catch (Exception ex) {
-			throw new RuntimeException(ex);
+			//ex.printStackTrace(System.err);
+			throw new RuntimeException("Failed to convert json to native" , ex);
 		}
 	}
 	
@@ -89,7 +110,7 @@ public class JSONNativeizer {
 	 * @param json The JSON array to convert
 	 * @return a native Rhino javascript array
 	 */
-	public static NativeArray toNative(JSONArray json) {
+	public static Object toNative(JSONArray json) {
 		try {
 			Object[] vars = new Object[json.length()];
 			for(int i = 0; i < json.length(); i++) {
@@ -104,7 +125,7 @@ public class JSONNativeizer {
 					vars[i] = obj;
 				}
 			}
-			return new NativeArray(vars);
+			return NativeFactory.newNativeArray(vars).getUnderlying();
 		} catch (Exception ex) {
 			throw new RuntimeException(ex);
 		}
@@ -117,37 +138,36 @@ public class JSONNativeizer {
 	 */
 	public static JMXScriptRequest[] fromNative(Object o) {
 		if(o==null) throw new IllegalArgumentException("The passed object was null", new Throwable());
-		if(!(o instanceof ScriptableObject)) throw new IllegalArgumentException("The passed object was not a ScriptableObject but a [" + o.getClass().getName() + "]", new Throwable());
-		ScriptableObject no = (ScriptableObject)o;
+		IScriptableObject no = NativeFactory.convertToNative(o);		
 		Set<JMXScriptRequest> requests = new HashSet<JMXScriptRequest>();
-		if(no instanceof NativeArray) {
-			NativeArray na = (NativeArray)no;
+		if(no instanceof INativeArray) {
+			INativeArray na = (INativeArray)no;
 			for(int i = 0; i < na.size(); i++) {
-				Collections.addAll(requests, fromNative((ScriptableObject)na.get(i)));
+				Collections.addAll(requests, fromNative(na.get(i)));
 			}
-		} else if(no instanceof NativeObject) {
+		} else if(no instanceof INativeObject) {
 			String mbs = null;
-			if(ScriptableObject.hasProperty(no, JMXScriptRequest.KEY_MBEAN_SERVER)) {
-				mbs = ScriptableObject.getProperty(no, JMXScriptRequest.KEY_MBEAN_SERVER).toString();
+			if(no.hasProperty(JMXScriptRequest.KEY_MBEAN_SERVER)) {
+				mbs = no.getProperty(JMXScriptRequest.KEY_MBEAN_SERVER).toString();
 			}			
-			String objName = ScriptableObject.getProperty(no, JMXScriptRequest.KEY_OBJECT_NAME).toString();
+			String objName = no.getProperty(JMXScriptRequest.KEY_OBJECT_NAME).toString();
 			Set<String> attrs = new HashSet<String>();
 			Map<String, String[]> compositeNames = new HashMap<String, String[]>();
-			Object attrObj = ScriptableObject.getProperty(no, JMXScriptRequest.KEY_ATTRIBUTES);
-			if(attrObj instanceof NativeArray) {
-				NativeArray na = (NativeArray)attrObj;				
+			Object attrObj = no.getProperty(JMXScriptRequest.KEY_ATTRIBUTES);
+			if(attrObj instanceof INativeArray) {
+				INativeArray na = (INativeArray)attrObj;				
 				for(int i = 0; i < na.size(); i++) {
 					Object a = na.get(i);
-					if(a instanceof NativeObject) {
-						NativeObject co = (NativeObject)a;
-						compositeNames.put(ScriptableObject.getProperty(co, JMXScriptRequest.KEY_COMPOSITES).toString(), getPathFromNative(co));
+					if(a instanceof INativeObject) {
+						INativeObject co = (INativeObject)a;
+						compositeNames.put(co.getProperty(JMXScriptRequest.KEY_COMPOSITES).toString(), getPathFromNative(co));
 					} else {
 						attrs.add(na.get(i).toString());
 					}					
 				}
-			} else if(attrObj instanceof NativeObject) {
-				NativeObject co = (NativeObject)attrObj;
-				compositeNames.put(ScriptableObject.getProperty(co, JMXScriptRequest.KEY_COMPOSITES).toString(), getPathFromNative(co));
+			} else if(attrObj instanceof INativeObject) {
+				INativeObject co = (INativeObject)attrObj;
+				compositeNames.put(co.getProperty(JMXScriptRequest.KEY_COMPOSITES).toString(), getPathFromNative(co));
 			} else if(attrObj instanceof CharSequence) {
 				attrs.add(attrObj.toString());
 			} else {
@@ -158,8 +178,7 @@ public class JSONNativeizer {
 			throw new RuntimeException("Unexpected type in JSON request [" + no.getClass().getName() + "]", new Throwable());
 		}
 		
-		JMXScriptRequest[] done = requests.toArray(new JMXScriptRequest[requests.size()]);
-		log(Arrays.toString(done));
+		JMXScriptRequest[] done = requests.toArray(new JMXScriptRequest[requests.size()]);		
 		return done;
 	}
 	
@@ -168,23 +187,21 @@ public class JSONNativeizer {
 	 * @param no the native object
 	 * @return A string array representing the path
 	 */
-	protected static String[] getPathFromNative(NativeObject no) {
-		Object path = ScriptableObject.getProperty(no, JMXScriptRequest.KEY_PATH);
-		if(path instanceof NativeArray) {
-			NativeArray na = (NativeArray)path;
+	protected static String[] getPathFromNative(INativeObject no) {
+		Object path = no.getProperty(JMXScriptRequest.KEY_PATH);
+		if(path instanceof INativeArray) {
+			INativeArray na = (INativeArray)path;
 			String[] arr = new String[na.size()];
 			for(int i = 0; i < na.size(); i++) {
 				arr[i] = na.get(i).toString();
 			}
 			return arr;
-			
-		} else {
-			return new String[]{path.toString()};
 		}
+		return new String[]{path.toString()};
 	}
 	
-	public static void log(Object msg) {
-		System.out.println(msg);
-	}
+//	public static void log(Object msg) {
+//		System.out.println(msg);
+//	}
 	
 }

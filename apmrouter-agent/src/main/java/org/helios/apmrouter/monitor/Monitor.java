@@ -65,6 +65,13 @@ public interface Monitor {
 	public void startMonitor();
 	
 	/**
+	 * Schedules a delayed start for scheduled executions for this monitor
+	 * @param seconds The number of seconds to delay the start for
+	 */
+	public void startMonitor(long seconds);
+	
+	
+	/**
 	 * Stops scheduled executions for this monitor
 	 */
 	public void stopMonitor();

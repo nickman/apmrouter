@@ -2,7 +2,7 @@
  * Helios, OpenSource Monitoring
  * Brought to you by the Helios Development Group
  *
- * Copyright 2007, Helios Development Group and individual contributors
+ * Copyright 2012, Helios Development Group and individual contributors
  * as indicated by the @author tags. See the copyright.txt file in the
  * distribution for a full listing of individual contributors.
  *
@@ -22,23 +22,46 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.monitor.script.rhino;
+package org.helios.apmrouter.monitor;
 
 /**
- * <p>Title: INativeFactory</p>
- * <p>Description: Defines the factory that creates instances of the rhino proxies</p> 
+ * <p>Title: AbstractMonitorMXBean</p>
+ * <p>Description: </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.monitor.script.rhino.INativeFactory</code></p>
+ * <p><code>org.helios.apmrouter.monitor.AbstractMonitorMXBean</code></p>
  */
 
-public interface INativeFactory {
-	public INativeObject newNativeObject();
-	public INativeObject newNativeObject(IScriptableObject internal);
-	public INativeObject newNativeObject(Object internal);
-	public INativeArray newNativeArray();
-	public INativeArray newNativeArray(IScriptableObject internal);
-	public INativeArray newNativeArray(Object internal);
-	public INativeArray newNativeArray(Object[] elements);
+public interface AbstractMonitorMXBean {
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.Monitor#collect()
+	 */
+	public abstract void collect();
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.Monitor#getCollectPeriod()
+	 */
+	public abstract long getCollectPeriod();
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.Monitor#setCollectPeriod(long)
+	 */
+	public abstract void setCollectPeriod(long period);
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.Monitor#startMonitor()
+	 */
+	public abstract void startMonitor();
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.Monitor#stopMonitor()
+	 */
+	public abstract void stopMonitor();
 
 }

@@ -28,6 +28,7 @@ import java.util.Properties;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.jmx.ScheduledThreadPoolFactory;
@@ -44,7 +45,7 @@ import org.helios.apmrouter.util.SystemClock.ElapsedTime;
  * <p><code>org.helios.apmrouter.monitor.AbstractMonitor</code></p>
  */
 
-public abstract class AbstractMonitor implements Monitor, Runnable {
+public abstract class AbstractMonitor implements Monitor, Runnable, AbstractMonitorMXBean {
 	/** The scheduler shared amongst all monitor instances */
 	protected static final ScheduledThreadPoolExecutor scheduler = ScheduledThreadPoolFactory.newScheduler("Monitor");
 	/** The tracer instance */
@@ -57,6 +58,10 @@ public abstract class AbstractMonitor implements Monitor, Runnable {
 	protected long collectionSweep = 0;
 	/** The properties set by XML config for this monitor */
 	protected Properties configProps = new Properties();
+	/** Indicates if the monitor is started */
+	protected final AtomicBoolean started = new AtomicBoolean(false);
+	/** Indicates if the monitor is scheduled for a start */
+	protected final AtomicBoolean startScheduled = new AtomicBoolean(false);
 	
 	static {
 		Runtime.getRuntime().addShutdownHook(new Thread(){
@@ -69,7 +74,7 @@ public abstract class AbstractMonitor implements Monitor, Runnable {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.monitor.Monitor#collect()
+	 * @see org.helios.apmrouter.monitor.AbstractMonitorMXBean#collect()
 	 */
 	@Override
 	public void collect() {
@@ -94,12 +99,12 @@ public abstract class AbstractMonitor implements Monitor, Runnable {
 	 */
 	@Override
 	public void run() {
-		collect();
+		try { collect(); } catch (Throwable t) {}
 	}
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.monitor.Monitor#getCollectPeriod()
+	 * @see org.helios.apmrouter.monitor.AbstractMonitorMXBean#getCollectPeriod()
 	 */
 	@Override
 	public long getCollectPeriod() {	
@@ -111,7 +116,7 @@ public abstract class AbstractMonitor implements Monitor, Runnable {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.monitor.Monitor#setCollectPeriod(long)
+	 * @see org.helios.apmrouter.monitor.AbstractMonitorMXBean#setCollectPeriod(long)
 	 */
 	@Override
 	public void setCollectPeriod(long period) {
@@ -120,7 +125,7 @@ public abstract class AbstractMonitor implements Monitor, Runnable {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.monitor.Monitor#startMonitor()
+	 * @see org.helios.apmrouter.monitor.AbstractMonitorMXBean#startMonitor()
 	 */
 	@Override
 	public void startMonitor() {
@@ -131,7 +136,19 @@ public abstract class AbstractMonitor implements Monitor, Runnable {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.monitor.Monitor#stopMonitor()
+	 * @see org.helios.apmrouter.monitor.Monitor#startMonitor(long)
+	 */
+	@Override
+	public void startMonitor(long seconds) {
+		log("Delaying start of [" + getClass().getSimpleName() + "] for [" + seconds + "] seconds");
+		scheduler.schedule(new Runnable(){
+			public void run() { startMonitor(); }
+		}, seconds, TimeUnit.SECONDS);
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.AbstractMonitorMXBean#stopMonitor()
 	 */
 	@Override
 	public void stopMonitor() {

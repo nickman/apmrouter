@@ -72,6 +72,7 @@
     	<query-param name="agentId" type="java.lang.Integer"/>   
     	<query-param name="parent" type="java.lang.String"/>
     </sql-query>
+    <!-- select distinct narr[4] from metric where agent_id = 2 and namespace like '/platform=JBoss/category=JMS/service=wmq/type=Queue%' and narr[4] is not null -->
     <sql-query name="findLevelMetricsForAgentWithParent">select {m.*} from metric m where m.agent_id = :agentId and m.level = :level and m.narr[:level-1] = :parent
     	<query-param name="level" type="java.lang.Integer"/>
     	<query-param name="agentId" type="java.lang.Integer"/>   

@@ -67,15 +67,15 @@ import org.json.JSONObject;
 public class JMXScriptHelper {
 	
 	public static void main(String[] args) {
-		log("Testing JMXRequest Submission");
+		LOG("Testing JMXRequest Submission");
 		try {
 			ScriptEngine se = new ScriptEngineManager().getEngineByExtension("js");
 			Object obj = se.eval("function foo(){var a = {mbs:'jboss', on:'domain:foo=bar', attrs:['aaa', 'bbb']}; return a;}; foo();");			
-			log(Arrays.toString(JSONNativeizer.fromNative(obj)));
+			LOG(Arrays.toString(JSONNativeizer.fromNative(obj)));
 			obj = se.eval("function foo(){var a = [{mbs:'jboss', on:'domain:foo=bar', attrs:['aaa', 'bbb']}, {mbs:'jboss', on:'domain:foo=foo', attrs:['xxx', 'yyy']}]; return a;}; foo();");			
-			log(Arrays.toString(JSONNativeizer.fromNative(obj)));
+			LOG(Arrays.toString(JSONNativeizer.fromNative(obj)));
 			obj = se.eval("function foo(){var a = [{mbs:'jboss', on:'domain:foo=bar', attrs:['aaa', 'bbb']}, {mbs:'jboss', on:'domain:foo=foo', attrs:'xxx'}]; return a;}; foo();");			
-			log(Arrays.toString(JSONNativeizer.fromNative(obj)));
+			LOG(Arrays.toString(JSONNativeizer.fromNative(obj)));
 			// Now, actual tests
 			Bindings b = se.createBindings();
 			b.put("jmx", new JMXScriptHelper());
@@ -101,27 +101,12 @@ public class JMXScriptHelper {
 		}
 	}
 	
-	public static void perfTest(int loopCount, Map<?, ?> map) {
-		log("Jsonizer Test");
-		try {
-			log("Nativizer Test");
-			for(int i = 0; i < loopCount; i++) {
-				Object ret = toNative(new JSONObject(map));
-				if(i==0) {
-					log("Ret:" + ret.getClass().getName());
-				}
-			}
-			log("Warmup Complete");
-			SystemClock.startTimer();
-			for(int i = 0; i < loopCount; i++) {
-				Object ret = toNative(new JSONObject(map));
-			}
-			ElapsedTime et = SystemClock.endTimer();
-			log("Nativizer Elapsed:" + et + "   Avg Per:" + et.avgNs(loopCount));
-		} catch (Exception ex) {
-			ex.printStackTrace(System.err);
-		}
+	public static boolean isNumber(Object obj) {
+		if(obj==null) return false;
+		if(obj instanceof Number) return true;
+		return false;
 	}
+	
 	
 	/**
 	 * Converts the passed JSON object to a native javascript object
@@ -172,10 +157,7 @@ public class JMXScriptHelper {
 			throw new RuntimeException(ex);
 		}
 	}
-	
-	public static void log(Object msg) {
-		System.out.println(msg);
-	}
+
 	
 	
 	/**
@@ -269,73 +251,80 @@ public class JMXScriptHelper {
 		if(requests==null) {
 			throw new IllegalArgumentException("The passed object was null", new Throwable());
 		}
-		final JSONObject result = new JSONObject();
-		final JSONArray entries = new JSONArray();
-		final JSONArray errors = new JSONArray();
-			result.put("results", entries);
-		
-		JMXScriptRequest[] jmxRequests = JSONNativeizer.fromNative(requests);
-		for(JMXScriptRequest req : jmxRequests) {
-			if(req.attributeNames.length<1 && req.compositeNames.isEmpty()) continue;
-			try {
-				MBeanServerConnection conn = req.getMBeanServerConnection();
-				ObjectName on = JMXHelper.objectName(req.objectName);
-				Set<ObjectName> objectNames = new HashSet<ObjectName>();
-				if(!on.isPattern()) {
-					objectNames.add(on);
-				} else {
-					objectNames.addAll(conn.queryNames(on, null));  // TODO: Support exprs ?
-				}
-				for(ObjectName objectName: objectNames) {
-					JSONObject data = new JSONObject();
-					Map<String, Object> map = new HashMap<String, Object>();
-					map.put("d", objectName.getDomain());
-					map.put("p", new JSONObject(objectName.getKeyPropertyList()));
-					 
-					AttributeList attrs = conn.getAttributes(objectName, req.attributeNames);
-					for(Attribute attr: attrs.asList()) {
-						data.put(attr.getName(), attr.getValue());
+		try {
+			final JSONObject result = new JSONObject();
+			final JSONArray entries = new JSONArray();
+			final JSONArray errors = new JSONArray();
+				result.put("results", entries);
+			
+			JMXScriptRequest[] jmxRequests = JSONNativeizer.fromNative(requests);
+			for(JMXScriptRequest req : jmxRequests) {
+				if(req.attributeNames.length<1 && req.compositeNames.isEmpty()) continue;
+				try {
+					MBeanServerConnection conn = req.getMBeanServerConnection();
+					ObjectName on = JMXHelper.objectName(req.objectName);
+					Set<ObjectName> objectNames = new HashSet<ObjectName>();
+					if(!on.isPattern()) {
+						objectNames.add(on);
+					} else {
+						objectNames.addAll(conn.queryNames(on, null));  // TODO: Support exprs ?
 					}
-					attrs = conn.getAttributes(objectName, req.compositeNames.keySet().toArray(new String[0]));
-					for(Attribute attr: attrs.asList()) {
-						if(attr.getValue()==null) continue;
-						String[] path = req.compositeNames.get(attr.getName());						
-						if(attr.getValue() instanceof CompositeData || attr.getValue() instanceof TabularData) {							
-							Object value = attr.getValue();
-							for(int i = 0; i < path.length; i++) {
-								String cKey = path[i].trim();
-								if(i==path.length-1 && "*".equals(cKey)) {
-									value = getNext(value);
-								} else {
-									if("*".equals(cKey)) {
-										
-									} else {
-										value = getNext(value, cKey);
-									}
-								}
-							}
-							insertCompositeResult(data, attr.getName(), path, value); 							
-						} else {
+					for(ObjectName objectName: objectNames) {
+						JSONObject data = new JSONObject();
+						Map<String, Object> map = new HashMap<String, Object>();
+						map.put("d", objectName.getDomain());
+						map.put("p", new JSONObject(objectName.getKeyPropertyList()));
+						 
+						AttributeList attrs = conn.getAttributes(objectName, req.attributeNames);
+						for(Attribute attr: attrs.asList()) {
 							data.put(attr.getName(), attr.getValue());
 						}
-					}					
-					map.put("data", data);
-					entries.put(new JSONObject(map));
+						attrs = conn.getAttributes(objectName, req.compositeNames.keySet().toArray(new String[0]));
+						for(Attribute attr: attrs.asList()) {
+							if(attr.getValue()==null) continue;
+							String[] path = req.compositeNames.get(attr.getName());						
+							if(attr.getValue() instanceof CompositeData || attr.getValue() instanceof TabularData) {							
+								Object value = attr.getValue();
+								for(int i = 0; i < path.length; i++) {
+									String cKey = path[i].trim();
+									if(i==path.length-1 && "*".equals(cKey)) {
+										value = getNext(value);
+									} else {
+										if("*".equals(cKey)) {
+											/* TODO: Figure out how to implement this */
+										} else {
+											value = getNext(value, cKey);
+										}
+									}
+								}
+								insertCompositeResult(data, attr.getName(), path, value); 							
+							} else {
+								data.put(attr.getName(), attr.getValue());
+							}
+						}			
+						if(data.length()>0) {
+							map.put("data", data);
+						}
+						entries.put(new JSONObject(map));
+					}
+				} catch (Exception ex) {
+					Map<String, Object> errMap = new HashMap<String, Object>(2);
+					errMap.put("req", req.toJSON());
+					errMap.put("ex", ex.toString());
+					JSONObject err = new JSONObject(errMap);
+					errors.put(err);
+					ex.printStackTrace(System.err);
 				}
-			} catch (Exception ex) {
-				Map<String, Object> errMap = new HashMap<String, Object>(2);
-				errMap.put("req", req.toJSON());
-				errMap.put("ex", ex.toString());
-				JSONObject err = new JSONObject(errMap);
-				errors.put(err);
-				ex.printStackTrace(System.err);
 			}
+			if(errors.length()>0) {
+				result.put("errs", errors); 
+			}
+			//log(result.toString(2));
+			return JSONNativeizer.toNative(result);
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+			return null;
 		}
-		if(errors.length()>0) {
-			result.put("errs", errors);
-		}
-		log(result.toString(2));
-		return JSONNativeizer.toNative(result);
 	}
 	
 	/**
