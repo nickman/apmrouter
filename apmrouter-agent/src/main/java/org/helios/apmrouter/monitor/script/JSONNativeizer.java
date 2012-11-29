@@ -65,7 +65,7 @@ public class JSONNativeizer {
 	 */
 	public static ScriptableObject toNative(JSONObject json, ScriptableObject no) {
 		try {
-			if(no==null) no = new NativeObject();
+			if(no==null) no = new NativeObject();			
 			for(String key : JSONObject.getNames(json)) {
 				Object obj = json.get(key);
 				if(obj == JSONObject.NULL) {
