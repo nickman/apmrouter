@@ -29,8 +29,10 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
@@ -40,21 +42,21 @@ import javax.management.Attribute;
 import javax.management.AttributeList;
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
-import javax.script.Compilable;
-import javax.script.CompiledScript;
-import javax.script.Invocable;
+import javax.management.openmbean.CompositeData;
+import javax.management.openmbean.TabularData;
+import javax.script.Bindings;
 import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 
 import org.helios.apmrouter.jmx.JMXHelper;
-import org.helios.apmrouter.monitor.aggregate.AggregateFunction;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
-import sun.org.mozilla.javascript.internal.NativeArray;
-import sun.org.mozilla.javascript.internal.NativeObject;
+import sun.org.mozilla.javascript.internal.ScriptableObject;
 
 /**
  * <p>Title: JMXScriptHelper</p>
@@ -65,108 +67,98 @@ import sun.org.mozilla.javascript.internal.NativeObject;
  */
 
 public class JMXScriptHelper {
-	/** The json evaluator code template */
-	protected static final String code = "var %s = %s;";
-	/** The json evaluator compiled function */
-	protected static final CompiledScript cs;
 	
-	/** The scripting engine */
-	protected static final ScriptEngine se;
-	
-	static {
+	public static void main(String[] args) {
+		log("Testing JMXRequest Submission");
 		try {
-			ScriptEngineManager sem = new ScriptEngineManager();			
-			se = sem.getEngineByExtension("js");
-			se.eval("function compile(json) { var c = eval([json]); return c;}");
-			cs = ((Compilable)se).compile("function jsonize(){return eval([json]);}; jsonize();");
-			//cs = ((Compilable)se).compile("eval([json]);");
-			log("Compiled Script:" + cs.getClass().getName());
-//			cs = ((Compilable)se).compile(" var json = eval(jsonx);");
+			ScriptEngine se = new ScriptEngineManager().getEngineByExtension("js");
+			Object obj = se.eval("function foo(){var a = {mbs:'jboss', on:'domain:foo=bar', attrs:['aaa', 'bbb']}; return a;}; foo();");			
+			log(Arrays.toString(JSONNativeizer.fromNative((ScriptableObject)obj)));
+			obj = se.eval("function foo(){var a = [{mbs:'jboss', on:'domain:foo=bar', attrs:['aaa', 'bbb']}, {mbs:'jboss', on:'domain:foo=foo', attrs:['xxx', 'yyy']}]; return a;}; foo();");			
+			log(Arrays.toString(JSONNativeizer.fromNative((ScriptableObject)obj)));
+			obj = se.eval("function foo(){var a = [{mbs:'jboss', on:'domain:foo=bar', attrs:['aaa', 'bbb']}, {mbs:'jboss', on:'domain:foo=foo', attrs:'xxx'}]; return a;}; foo();");			
+			log(Arrays.toString(JSONNativeizer.fromNative((ScriptableObject)obj)));
+			// Now, actual tests
+			Bindings b = se.createBindings();
+			b.put("jmx", new JMXScriptHelper());
+			se.eval("var composite = {attr : 'HeapMemoryUsage', path : 'used'}");
+			se.eval("var compositeAll = {attr : 'HeapMemoryUsage', path : '*'}");
+			se.eval("var lastGC = {attr : 'LastGcInfo', path : ['memoryUsageAfterGc','PS Perm Gen','*']}");
+			se.getContext().setBindings(b, ScriptContext.GLOBAL_SCOPE);
+			obj = se.eval("function foo(){var a = {on:'java.lang:type=Memory', attrs:['ObjectPendingFinalizationCount']}; jmx.getAttributes(a);}; foo();");
+			obj = se.eval("function foo(){var a = {on:'java.lang:type=Memory', attrs:composite}; jmx.getAttributes(a);}; foo();");
+			
+			StringBuilder q = new StringBuilder();
+			for(int i = 0; i < 750000; i++) {
+				q.append("0");
+			}
+			System.gc();
+			
+			
+			obj = se.eval("function foo(){var a = {on:'java.lang:type=GarbageCollector,*', attrs:lastGC}; jmx.getAttributes(a);}; foo();");
+			
+
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+		}
+	}
+	
+	public static void perfTest(int loopCount, Map<?, ?> map) {
+		log("Jsonizer Test");
+		try {
+			log("Nativizer Test");
+			for(int i = 0; i < loopCount; i++) {
+				Object ret = toNative(new JSONObject(map));
+				if(i==0) {
+					log("Ret:" + ret.getClass().getName());
+				}
+			}
+			log("Warmup Complete");
+			SystemClock.startTimer();
+			for(int i = 0; i < loopCount; i++) {
+				Object ret = toNative(new JSONObject(map));
+			}
+			ElapsedTime et = SystemClock.endTimer();
+			log("Nativizer Elapsed:" + et + "   Avg Per:" + et.avgNs(loopCount));
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+		}
+	}
+	
+	/**
+	 * Converts the passed JSON object to a native javascript object
+	 * @param json the JSON to convert
+	 * @return a native javascript object
+	 */
+	public static Object toNative(JSONObject json) {
+		return JSONNativeizer.toNative(json);
+	}
+	
+	/**
+	 * Converts the passed JSON string value to a native javascript object
+	 * @param json the JSON to convert
+	 * @return a native javascript object
+	 */
+	public static Object toNative(CharSequence json) {
+		try {
+			return JSONNativeizer.toNative(new JSONObject(json.toString()));
 		} catch (Exception ex) {
 			throw new RuntimeException(ex);
 		}
 	}
 	
-	
-	public static void main(String[] args) {
-		log("Jsonizer Test");
-		for(int i = 0; i < 15000; i++) {
-			Object ret = jsonize(System.getenv());
-		}
-		log("Warmup Complete");
-		SystemClock.startTimer();
-		for(int i = 0; i < 15000; i++) {
-			Object ret = jsonize(System.getenv());
-		}
-		ElapsedTime et = SystemClock.endTimer();
-		log("JS Elapsed:" + et + "   Avg Per:" + et.avgNs(15000));
-//		log("Nativizer Test");
-//		SystemClock.startTimer();
-//		for(int i = 0; i < 15000; i++) {
-//			nativeize(System.getenv());
-//		}
-//		et = SystemClock.endTimer();
-//		log("Native Elapsed:" + et + "   Avg Per:" + et.avgNs(15000));
-		
-	}
-	
 	/**
-	 * Returns a native javascript json object compiled from the passed json string
-	 * @param json The json string to compile
-	 * @return the native json object
+	 * Converts the passed map to a native javascript object
+	 * @param map The map to convert
+	 * @return a native javascript object
 	 */
-	public static Object jsonize(String json) {
-		//SystemClock.startTimer();
-		final String scoped = "t" + Thread.currentThread().getId();
-		try {
-			Object obj = null;
-//			se.getContext().setAttribute("json", json, ScriptContext.ENGINE_SCOPE);			
-//			obj = cs.eval();
-			//obj =  se.get("jsonx");
-			
-			
-			obj = ((Invocable)se).invokeFunction("compile", json);
-			se.eval(String.format(code, scoped, json));
-			obj = se.getContext().removeAttribute(scoped, ScriptContext.ENGINE_SCOPE);  
-			if(obj==null) throw new RuntimeException("Null result evaluating [" + json + "]", new Throwable());
-			return obj;
-		} catch (Exception e) {
-			throw new RuntimeException("Failed to evaluate [" + json + "]", e);			
-		} finally {
-			//log("JSON compiled in " + SystemClock.endTimer());
-		}
-	}
-	
-	/**
-	 * Returns a native javascript json object compiled from the passed json object
-	 * @param json The json object to compile
-	 * @return the native json object
-	 */
-	public static Object jsonize(JSONObject json) {
-		return jsonize(json.toString());
-	}
-	
-	/**
-	 * Returns a native javascript json object compiled from the passed map
-	 * @param map The values to add to the native object
-	 * @return the native json object
-	 */
-	public static Object nativeize(Map<?, ?> map) {
-		NativeObject no = new NativeObject();
-		
-		no.putAll(map);
-		return no;
+	public static Object toNative(Map<?, ?> map) {
+		return JSONNativeizer.toNative(new JSONObject(map));
 	}
 	
 	
-	/**
-	 * Returns a native javascript json object compiled from the passed map
-	 * @param map The map to compile
-	 * @return the native json object
-	 */
-	public static Object jsonize(Map<?, ?> map) {
-		return jsonize(toJSONObject(map).toString());
-	}
+
+	
 	
 	
 	
@@ -269,167 +261,159 @@ public class JMXScriptHelper {
 		return getNumericAttribute(JMXHelper.getLocalMBeanServer(mbeanServerName), objectName, attribute);
 	}
 	
-	
 	/**
-	 * Reads multiple numeric MBean attributes as longs 
-	 * @param server The MBeanServer to read from
-	 * @param objectName The ObjectName of the target MBean
-	 * @param attributes An array of attribute names
-	 * @return A native javascript map of long values of the read attributes keyed by the corresponding attribute name
+	 * Process an array of JMX requests in the form of rhino native objects
+	 * @param requests the rhino native object
+	 * @return The native rhino result object
+	 * @throws JSONException thrown on any json exception
 	 */
-	public static Object getNumericAttributes(MBeanServerConnection server, CharSequence objectName, String...attributes) {
-		if(server==null) throw new UnavailableMBeanServerException();
-		try {
-			if(attributes==null || attributes.length<1) throw new IllegalArgumentException("The passed attribute name array was null or zero length", new Throwable());
-			AttributeList attrList = server.getAttributes(JMXHelper.objectName(objectName), attributes);
-			Map<String, Long> map = new HashMap<String, Long>(attrList.size());
-			String name = null;
-			for(Attribute attr: attrList.asList()) {
-				try {
-					name = attr.getName();
-					long value = ((Number)attr.getValue()).longValue();
-					map.put(name, value);
-				} catch (Exception ex) {
-					LOG("Failed to convert attribute [" + name + "] to a number");
+	public static Object getAttributes(Object requests) throws JSONException {
+		if(requests==null || !(requests instanceof ScriptableObject)) {
+			throw new IllegalArgumentException("The passed object was null or not a ScriptableObject", new Throwable());
+		}
+		final JSONObject result = new JSONObject();
+		final JSONArray entries = new JSONArray();
+		final JSONArray errors = new JSONArray();
+			result.put("results", entries);
+		
+		JMXScriptRequest[] jmxRequests = JSONNativeizer.fromNative((ScriptableObject)requests);
+		for(JMXScriptRequest req : jmxRequests) {
+			if(req.attributeNames.length<1 && req.compositeNames.isEmpty()) continue;
+			try {
+				MBeanServerConnection conn = req.getMBeanServerConnection();
+				ObjectName on = JMXHelper.objectName(req.objectName);
+				Set<ObjectName> objectNames = new HashSet<ObjectName>();
+				if(!on.isPattern()) {
+					objectNames.add(on);
+				} else {
+					objectNames.addAll(conn.queryNames(on, null));  // TODO: Support exprs ?
 				}
-			}
-			return jsonize(map);
-		} catch (Exception ex) {
-			LOG("Failed to read numeric attributes " + Arrays.toString(attributes) + " from ObjectName [" + objectName + "]", ex);
-			throw new RuntimeException("Failed to read numeric attributes " + Arrays.toString(attributes) + " from ObjectName [" + objectName + "]", ex);
-		}
-	}
-	
-	/**
-	 * Reads multiple numeric MBean attributes as longs from the default MBeanServer 
-	 * @param objectName The ObjectName of the target MBean
-	 * @param attributes An array of attribute names
-	 * @return A native javascript map of long values of the read attributes keyed by the corresponding attribute name
-	 */
-	public static Object getNumericAttributes(CharSequence objectName, String...attributes) {
-		return getNumericAttributes(JMXHelper.getHeliosMBeanServer(), objectName, attributes);
-	}
-	
-	/**
-	 * Reads multiple numeric MBean attributes as longs from the default MBeanServer 
-	 * @param mbeanServerName The default domain of the target MBeanServer
-	 * @param objectName The ObjectName of the target MBean
-	 * @param attributes An array of attribute names
-	 * @return A map of long values of the read attributes keyed by the corresponding attribute name
-	 */
-	public static Object getNumericAttributes(String mbeanServerName, CharSequence objectName, String...attributes) {
-		return getNumericAttributes(JMXHelper.getLocalMBeanServer(mbeanServerName), objectName, attributes);
-	}
-	
-	
-	
-	/**
-	 * Reads multiple numeric MBean attributes as longs from MBeans with ObjectNames matching the specified pattern 
-	 * @param server The MBeanServer to read from
-	 * @param objectName The ObjectName of the target MBean
-	 * @param objectNameKeys The property keys in the located matching ObjectNames that can be used to uniquely identify the MBean 
-	 * @param attributes An array of attribute names
-	 * @return A native javascript map of maps containing long values of the read attributes keyed by the corresponding attribute name, in turn mapped by the comma separated key propery values
-	 */
-	public static Object getNumericAttributes(MBeanServerConnection server, CharSequence objectName, String[] objectNameKeys, String...attributes) {
-		if(server==null) throw new UnavailableMBeanServerException();
-		try {
-			if(attributes==null || attributes.length<1) throw new IllegalArgumentException("The passed attribute name array was null or zero length", new Throwable());
-			if(objectNameKeys==null || objectNameKeys.length<1) throw new IllegalArgumentException("The passed object Name Keys array was null or zero length", new Throwable());
-			Set<ObjectName> matches = server.queryNames(JMXHelper.objectName(objectName), null);
-			if(matches==null || matches.isEmpty()) return Collections.emptyMap();
-			Map<String, Object> map = new HashMap<String, Object>(matches.size());
-			for(ObjectName on: matches) {
-				try {
-					map.put(formatKey(on, objectNameKeys), getNumericAttributes(server, on.toString(), attributes));
-				} catch (Exception ex) {
-					LOG("Failed to process ObjectName [" + on+ "]:" + ex);
+				for(ObjectName objectName: objectNames) {
+					JSONObject data = new JSONObject();
+					Map<String, Object> map = new HashMap<String, Object>();
+					map.put("d", objectName.getDomain());
+					map.put("p", new JSONObject(objectName.getKeyPropertyList()));
+					 
+					AttributeList attrs = conn.getAttributes(objectName, req.attributeNames);
+					for(Attribute attr: attrs.asList()) {
+						data.put(attr.getName(), attr.getValue());
+					}
+					attrs = conn.getAttributes(objectName, req.compositeNames.keySet().toArray(new String[0]));
+					for(Attribute attr: attrs.asList()) {
+						if(attr.getValue()==null) continue;
+						String[] path = req.compositeNames.get(attr.getName());						
+						if(attr.getValue() instanceof CompositeData || attr.getValue() instanceof TabularData) {							
+							Object value = attr.getValue();
+							for(int i = 0; i < path.length; i++) {
+								String cKey = path[i].trim();
+								if(i==path.length-1 && "*".equals(cKey)) {
+									value = getNext(value);
+								} else {
+									value = getNext(value, cKey);
+								}
+							}
+							insertCompositeResult(data, attr.getName(), path, value); 							
+						} else {
+							data.put(attr.getName(), attr.getValue());
+						}
+					}					
+					map.put("data", data);
+					entries.put(new JSONObject(map));
 				}
+			} catch (Exception ex) {
+				Map<String, Object> errMap = new HashMap<String, Object>(2);
+				errMap.put("req", req.toJSON());
+				errMap.put("ex", ex.toString());
+				JSONObject err = new JSONObject(errMap);
+				errors.put(err);
+				ex.printStackTrace(System.err);
 			}
-			return jsonize(map);
-		} catch (Exception ex) {
-			LOG("Failed to read numeric attributes " + Arrays.toString(attributes) + " from ObjectName [" + objectName + "]", ex);
-			throw new RuntimeException("Failed to read numeric attributes " + Arrays.toString(attributes) + " from ObjectName [" + objectName + "]", ex);
 		}
+		if(errors.length()>0) {
+			result.put("errs", errors);
+		}
+		log(result.toString(2));
+		return JSONNativeizer.toNative(result);
 	}
 	
 	/**
-	 * Reads multiple numeric MBean attributes as longs from MBeans with ObjectNames matching the specified pattern on the default MBeanServer 
-	 * @param objectName The ObjectName of the target MBean
-	 * @param objectNameKeys The property keys in the located matching ObjectNames that can be used to uniquely identify the MBean 
-	 * @param attributes An array of attribute names
-	 * @return A native javascript map of maps containing long values of the read attributes keyed by the corresponding attribute name, in turn mapped by the comma separated key propery values
+	 * Inserts a composite result
+	 * @param data The json object to insert into
+	 * @param topName The top attribute name
+	 * @param keys The composite path
+	 * @param value The value to insert
 	 */
-	public static Object getNumericAttributes(CharSequence objectName, String[] objectNameKeys, String...attributes) {
-		return getNumericAttributes(JMXHelper.getHeliosMBeanServer(), objectName, objectNameKeys, attributes);
-	}
-	
-	/**
-	 * Reads multiple numeric MBean attributes as longs from MBeans with ObjectNames matching the specified pattern on the default MBeanServer
-	 * @param mbeanServerName The default domain of the target MBeanServer 
-	 * @param objectName The ObjectName of the target MBean
-	 * @param objectNameKeys The property keys in the located matching ObjectNames that can be used to uniquely identify the MBean 
-	 * @param attributes An array of attribute names
-	 * @return A native javascript map of maps containing long values of the read attributes keyed by the corresponding attribute name, in turn mapped by the comma separated key propery values
-	 */
-	public static Object getNumericAttributes(String mbeanServerName, CharSequence objectName, String[] objectNameKeys, String...attributes) {
-		return getNumericAttributes(JMXHelper.getLocalMBeanServer(mbeanServerName), objectName, objectNameKeys, attributes);
-	}
-	
-	/**
-	 * Retrieves the value of the named attribute from all matching MBeans by the supplied ObjectName pattern and computes an aggregate.
-	 * @param aggregateFunction The name of the aggregate function which should be one of the enumerated in {@link AggregateFunction}
-	 * @param server The MBeanServer to fetch from
-	 * @param objectName The JMX ObjectName pattern that defines the group of MBeans that values should be retrieved from
-	 * @param attributeName The name of the attribute to retrieve values from
-	 * @return The specified aggregate of all the retrieved values
-	 */
-	public static long getNumericAggregate(String aggregateFunction, MBeanServerConnection server, CharSequence objectName, String attributeName) {
-		AggregateFunction af = AggregateFunction.forName(aggregateFunction);
+	protected static void insertCompositeResult(final JSONObject data, final String topName, final String[] keys, final Object value) {
 		try {
-			Set<ObjectName> matches = server.queryNames(JMXHelper.objectName(objectName), null);
-			if(matches.isEmpty()) return 0;
-			List<Object> values = new ArrayList<Object>(matches.size());
-			for(ObjectName on: matches) {
-				try {
-					values.add(server.getAttribute(on, attributeName));
-				} catch (Exception ex) {/* No Op */}
+			List<String> names = new ArrayList<String>(keys.length + 1);
+			names.add(topName);
+			for(int i = 0; i < keys.length-1; i++) {
+				names.add(keys[i]);
 			}
-			if(values.isEmpty()) return 0;
-			Object result =  af.aggregate(values);
-			if(result instanceof Number) {
-				return ((Number)result).longValue(); 
+			String lastName = keys[keys.length-1];
+			JSONObject current = data;
+			for(String s: names) {
+				if(!current.has(s)) {
+					current.put(s, new JSONObject());
+				}
+				current = current.getJSONObject(s);
 			}
-			throw new Exception("The aggregate function [" + af.name() + "] did not return a number but a [" + result.getClass().getName() + "]", new Throwable());
+			current.put(lastName, value);
+			
 		} catch (Exception ex) {
-			LOG("Failed to read numeric aggregate for " + attributeName + " from pattern [" + objectName + "]", ex);
-			throw new RuntimeException("Failed to read numeric aggregate for " + attributeName + " from pattern [" + objectName + "]", ex);
+			throw new RuntimeException("Failed to insety composite result", ex);
 		}
 	}
-
+	
 	/**
-	 * Retrieves the value of the named attribute from all matching MBeans in the named MBeanServer by the supplied ObjectName pattern and computes an aggregate.
-	 * @param aggregateFunction The name of the aggregate function which should be one of the enumerated in {@link AggregateFunction}
-	 * @param mbeanServerName The default domain of the target MBeanServer 
-	 * @param objectName The JMX ObjectName pattern that defines the group of MBeans that values should be retrieved from
-	 * @param attributeName The name of the attribute to retrieve values from
-	 * @return The specified aggregate of all the retrieved values
+	 * Extracts the keyed value from an instance of {@link CompositeData} or {@link TabularData} 
+	 * @param obj an instance of {@link CompositeData} or {@link TabularData}
+	 * @param key The key
+	 * @return The extracted value or null if the passed object was not an instance of {@link CompositeData} or {@link TabularData}
 	 */
-	public static long getNumericAggregate(String aggregateFunction, String mbeanServerName, CharSequence objectName, String attributeName) {
-		return getNumericAggregate(aggregateFunction, JMXHelper.getLocalMBeanServer(mbeanServerName), objectName, attributeName);
+	@SuppressWarnings("rawtypes")
+	protected static Object getNext(Object obj, String key) {
+		if(obj==null) throw new IllegalArgumentException("The passed object was null", new Throwable());
+		if(key==null || key.trim().isEmpty()) throw new IllegalArgumentException("The passed key was empty or null", new Throwable());
+		if(obj instanceof CompositeData) {
+			return ((CompositeData)obj).get(key);
+		} else if(obj instanceof TabularData) {
+			return ((TabularData)obj).get(new Object[]{key});  // TODO:  This will not work most of the time.			
+		} else if(obj instanceof Map) {
+			return ((Map)obj).get(obj);			
+		} else {
+			return null;
+		}
+	}
+	
+	protected static Map<String, Object> getNext(Object obj) {
+		if(obj==null) return Collections.emptyMap();
+		Map<String, Object> map = new HashMap<String, Object>();
+		if(obj instanceof CompositeData) {
+			CompositeData cd = (CompositeData)obj;
+			for(String key: cd.getCompositeType().keySet()) {
+				if(cd.get(key) instanceof CompositeData) {
+					return getNext(cd.get(key));
+				}
+				map.put(key, cd.get(key));
+			}
+			return map;
+		} else if(obj instanceof TabularData) {
+			TabularData td = (TabularData)obj;
+			Collection<CompositeData> data = (Collection<CompositeData>) td.values();
+			int index = 0;
+			for(CompositeData cd: data) {
+				map.put("" + index, getNext(cd));
+				index++;
+			}
+			return map;
+		} else {
+			return null;
+		}
 	}
 	
 	
-	/**
-	 * Retrieves the value of the named attribute from all matching MBeans in the default MBeanServer by the supplied ObjectName pattern and computes an aggregate.
-	 * @param aggregateFunction The name of the aggregate function which should be one of the enumerated in {@link AggregateFunction}
-	 * @param objectName The JMX ObjectName pattern that defines the group of MBeans that values should be retrieved from
-	 * @param attributeName The name of the attribute to retrieve values from
-	 * @return The specified aggregate of all the retrieved values
-	 */
-	public static long getNumericAggregate(String aggregateFunction, CharSequence objectName, String attributeName) {
-		return getNumericAggregate(aggregateFunction, JMXHelper.getHeliosMBeanServer(), objectName, attributeName);
-	}
+	
 	
 //	/**
 //	 * Retrieves the value of the named attribute from all matching MBeans by the supplied ObjectName pattern and computes an aggregate.

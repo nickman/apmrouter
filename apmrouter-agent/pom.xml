@@ -63,6 +63,7 @@
 				<configuration>
 					<source>1.6</source>
 					<target>1.6</target>
+					<executable>${JAVA_1_7_HOME}/bin/javac</executable>
 				</configuration>
 			</plugin>
 		       <plugin>
