@@ -115,8 +115,10 @@ public class JSONNativeizer {
 	 * @param no The rhino native object 
 	 * @return an array of {@link JMXScriptRequest}s
 	 */
-	public static JMXScriptRequest[] fromNative(ScriptableObject no) {
-		if(no==null) throw new IllegalArgumentException("The passed scriptable object was null", new Throwable());
+	public static JMXScriptRequest[] fromNative(Object o) {
+		if(o==null) throw new IllegalArgumentException("The passed object was null", new Throwable());
+		if(!(o instanceof ScriptableObject)) throw new IllegalArgumentException("The passed object was not a ScriptableObject but a [" + o.getClass().getName() + "]", new Throwable());
+		ScriptableObject no = (ScriptableObject)o;
 		Set<JMXScriptRequest> requests = new HashSet<JMXScriptRequest>();
 		if(no instanceof NativeArray) {
 			NativeArray na = (NativeArray)no;

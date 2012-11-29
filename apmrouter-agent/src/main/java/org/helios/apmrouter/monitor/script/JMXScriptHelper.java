@@ -56,8 +56,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import sun.org.mozilla.javascript.internal.ScriptableObject;
-
 /**
  * <p>Title: JMXScriptHelper</p>
  * <p>Description: A JMXHelper for scripting JMX checks and monitors</p> 
@@ -73,11 +71,11 @@ public class JMXScriptHelper {
 		try {
 			ScriptEngine se = new ScriptEngineManager().getEngineByExtension("js");
 			Object obj = se.eval("function foo(){var a = {mbs:'jboss', on:'domain:foo=bar', attrs:['aaa', 'bbb']}; return a;}; foo();");			
-			log(Arrays.toString(JSONNativeizer.fromNative((ScriptableObject)obj)));
+			log(Arrays.toString(JSONNativeizer.fromNative(obj)));
 			obj = se.eval("function foo(){var a = [{mbs:'jboss', on:'domain:foo=bar', attrs:['aaa', 'bbb']}, {mbs:'jboss', on:'domain:foo=foo', attrs:['xxx', 'yyy']}]; return a;}; foo();");			
-			log(Arrays.toString(JSONNativeizer.fromNative((ScriptableObject)obj)));
+			log(Arrays.toString(JSONNativeizer.fromNative(obj)));
 			obj = se.eval("function foo(){var a = [{mbs:'jboss', on:'domain:foo=bar', attrs:['aaa', 'bbb']}, {mbs:'jboss', on:'domain:foo=foo', attrs:'xxx'}]; return a;}; foo();");			
-			log(Arrays.toString(JSONNativeizer.fromNative((ScriptableObject)obj)));
+			log(Arrays.toString(JSONNativeizer.fromNative(obj)));
 			// Now, actual tests
 			Bindings b = se.createBindings();
 			b.put("jmx", new JMXScriptHelper());
@@ -268,15 +266,15 @@ public class JMXScriptHelper {
 	 * @throws JSONException thrown on any json exception
 	 */
 	public static Object getAttributes(Object requests) throws JSONException {
-		if(requests==null || !(requests instanceof ScriptableObject)) {
-			throw new IllegalArgumentException("The passed object was null or not a ScriptableObject", new Throwable());
+		if(requests==null) {
+			throw new IllegalArgumentException("The passed object was null", new Throwable());
 		}
 		final JSONObject result = new JSONObject();
 		final JSONArray entries = new JSONArray();
 		final JSONArray errors = new JSONArray();
 			result.put("results", entries);
 		
-		JMXScriptRequest[] jmxRequests = JSONNativeizer.fromNative((ScriptableObject)requests);
+		JMXScriptRequest[] jmxRequests = JSONNativeizer.fromNative(requests);
 		for(JMXScriptRequest req : jmxRequests) {
 			if(req.attributeNames.length<1 && req.compositeNames.isEmpty()) continue;
 			try {
@@ -309,7 +307,11 @@ public class JMXScriptHelper {
 								if(i==path.length-1 && "*".equals(cKey)) {
 									value = getNext(value);
 								} else {
-									value = getNext(value, cKey);
+									if("*".equals(cKey)) {
+										
+									} else {
+										value = getNext(value, cKey);
+									}
 								}
 							}
 							insertCompositeResult(data, attr.getName(), path, value); 							
