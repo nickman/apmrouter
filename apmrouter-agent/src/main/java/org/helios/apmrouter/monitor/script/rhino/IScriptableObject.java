@@ -33,8 +33,18 @@ package org.helios.apmrouter.monitor.script.rhino;
  */
 
 public interface IScriptableObject {
+	/**
+	 * Returns the named property
+	 * @param name The name of the property
+	 * @return The named property or null if the property does not exist
+	 */
 	public Object getProperty(String name);	
+	/**
+	 * Returns the underlying native object
+	 * @return the underlying native object
+	 */
 	public Object getUnderlying();
 	public boolean hasProperty(String name);
 	public boolean hasProperty(int id);
+	public Object[] getAllIds();
 }

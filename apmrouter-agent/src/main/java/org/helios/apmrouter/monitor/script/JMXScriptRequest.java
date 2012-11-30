@@ -27,7 +27,9 @@ package org.helios.apmrouter.monitor.script;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import javax.management.MBeanServerConnection;
 
@@ -52,6 +54,8 @@ public class JMXScriptRequest {
 	public final String[] attributeNames;
 	/** A map of composite data attributes */
 	public final Map<String, String[]> compositeNames;
+	/** A set of {@link JMXCalculator} requests attached to the request */
+	public final Set<JMXCalculator> calculators = new HashSet<JMXCalculator>();
 	
 	
 	/** The json key for the object name */
@@ -64,6 +68,8 @@ public class JMXScriptRequest {
 	public static final String KEY_COMPOSITES = "attr";
 	/** The json key for cpomposite attribute path */
 	public static final String KEY_PATH = "path";
+	/** The json key for an array of calculators */
+	public static final String KEY_CALCS = "calcs";
 	
 	/**
 	 * Creates a new JMXScriptRequest
@@ -86,6 +92,14 @@ public class JMXScriptRequest {
 	public MBeanServerConnection getMBeanServerConnection() {
 		if(mbeanServerName==null || mbeanServerName.trim().isEmpty()) return JMXHelper.getHeliosMBeanServer();
 		return JMXHelper.getLocalMBeanServer(mbeanServerName, false);
+	}
+	
+	/**
+	 * Adds an array of {@link JMXCalculator}s to this request
+	 * @param calcs The calculators to add
+	 */
+	public void addCalculators(JMXCalculator...calcs) {
+		Collections.addAll(calculators, calcs);
 	}
 
 

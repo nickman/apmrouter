@@ -24,7 +24,6 @@
  */
 package org.helios.apmrouter.monitor.script;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,22 +34,13 @@ import org.helios.apmrouter.monitor.script.rhino.INativeArray;
 import org.helios.apmrouter.monitor.script.rhino.INativeObject;
 import org.helios.apmrouter.monitor.script.rhino.IScriptableObject;
 import org.helios.apmrouter.monitor.script.rhino.NativeFactory;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-//import sun.org.mozilla.javascript.internal.NativeArray;
-//import sun.org.mozilla.javascript.internal.NativeObject;
-//import sun.org.mozilla.javascript.internal.ScriptableObject;
-
-
-//import sun.org.mozilla.javascript.internal.NativeArray;
-//import sun.org.mozilla.javascript.internal.NativeObject;
-//import sun.org.mozilla.javascript.internal.ScriptableObject;
 
 /**
  * <p>Title: JSONNativeizer</p>
- * <p>Description: </p> 
+ * <p>Description: Utility class to marshall between native Rhino objects and java JSON objects.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.monitor.script.JSONNativeizer</code></p>
@@ -149,7 +139,8 @@ public class JSONNativeizer {
 			String mbs = null;
 			if(no.hasProperty(JMXScriptRequest.KEY_MBEAN_SERVER)) {
 				mbs = no.getProperty(JMXScriptRequest.KEY_MBEAN_SERVER).toString();
-			}			
+			}
+			
 			String objName = no.getProperty(JMXScriptRequest.KEY_OBJECT_NAME).toString();
 			Set<String> attrs = new HashSet<String>();
 			Map<String, String[]> compositeNames = new HashMap<String, String[]>();
@@ -173,13 +164,71 @@ public class JSONNativeizer {
 			} else {
 				throw new RuntimeException("Unexpected type in JSON request Attribute array [" + attrObj.getClass().getName() + "]", new Throwable());
 			}
-			requests.add(new JMXScriptRequest(mbs, objName, compositeNames, attrs.toArray(new String[attrs.size()])));
+			JMXScriptRequest jmxRequest = new JMXScriptRequest(mbs, objName, compositeNames, attrs.toArray(new String[attrs.size()])); 
+			if(no.hasProperty(JMXScriptRequest.KEY_CALCS)) {
+				JMXCalculator[] calcs = extractCalculators((IScriptableObject)no.getProperty(JMXScriptRequest.KEY_CALCS));
+				jmxRequest.addCalculators(calcs);
+			}			
+			requests.add(jmxRequest);
 		} else {
 			throw new RuntimeException("Unexpected type in JSON request [" + no.getClass().getName() + "]", new Throwable());
 		}
 		
 		JMXScriptRequest[] done = requests.toArray(new JMXScriptRequest[requests.size()]);		
 		return done;
+	}
+	
+	/**
+	 * Extracts an array of {@link JMXCalculator}s from the passed object
+	 * @param calculatorNode The native object to extract from
+	 * @return an array of {@link JMXCalculator}s
+	 */
+	protected static JMXCalculator[] extractCalculators(IScriptableObject calculatorNode) {
+		Set<JMXCalculator> calcs = new HashSet<JMXCalculator>();
+		if(calculatorNode instanceof INativeObject) {
+			calcs.add(extractCalculator((INativeObject)calculatorNode));
+		} else if(calculatorNode instanceof INativeArray) {
+			INativeArray arr = (INativeArray)calculatorNode;
+			for(int i = 0; i < arr.size(); i++) {
+				Collections.addAll(calcs, extractCalculators((IScriptableObject)arr.get(i)));
+			}
+		} else {
+			throw new RuntimeException("Unexpected type in calculator object [" + calculatorNode.getClass().getName() + "]", new Throwable());
+		}
+		return calcs.toArray(new JMXCalculator[calcs.size()]);
+	}
+	
+	/**
+	 * Extracts a {@link JMXCalculator} from the passed object
+	 * @param no The native object proxy to extract from
+	 * @return a JMXCalculator
+	 */
+	protected static JMXCalculator extractCalculator(INativeObject no) {
+		String name = no.getProperty(JMXCalculator.KEY_NAME).toString();
+		String[] group = extractStringArray(NativeFactory.newNativeArray(no.getProperty(JMXCalculator.KEY_GROUP)));
+		String functionName = no.getProperty(JMXCalculator.KEY_FUNCTION).toString();
+		JMXCalculator calc = new JMXCalculator(name, group, functionName);
+		if(no.hasProperty(JMXCalculator.KEY_XPARAM)) {
+			INativeObject xparams = NativeFactory.newNativeObject(no.getProperty(JMXCalculator.KEY_XPARAM));
+			for(Object key: xparams.getAllIds()) {
+				calc.addXParam(key.toString(), xparams.getProperty(key.toString()).toString());
+			}
+		}
+		return calc;
+	}
+	
+	/**
+	 * Extracts a string array from a native array
+	 * @param array The native array
+	 * @return an array of strings
+	 */
+	public static String[] extractStringArray(INativeArray array) {
+		int size = array.size();
+		String[] arr = new String[size];
+		for(int i = 0; i < size; i++) {
+			arr[i] = array.get(i).toString();
+		}
+		return arr;
 	}
 	
 	/**

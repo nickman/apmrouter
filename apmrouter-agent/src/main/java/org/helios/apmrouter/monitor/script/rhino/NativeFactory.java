@@ -111,6 +111,8 @@ public class NativeFactory {
 		PROXY_FACTORY = buildProxies();
 	}
 	
+	
+	
 	private static INativeFactory buildProxies() {
 		try {
 			String packageName = NativeFactory.class.getPackage().getName();
@@ -147,6 +149,19 @@ public class NativeFactory {
 	 * <p><code>org.helios.apmrouter.monitor.script.rhino.NativeFactory.BaseNativeProxy</code></p>
 	 */
 	public static class BaseNativeProxy {
+		
+		/**
+		 * Scans the passed array and converts any entries that are native objects into proxies.
+		 * @param arr The array to convert
+		 * @return the new array
+		 */
+		public static Object[] convertNatives(Object[] arr) {
+			Object[] newArr = new Object[arr.length];
+			for(int i = 0; i < arr.length; i++) {
+				newArr[i] = convertNative(arr[i]);
+			}
+			return newArr;
+		}
 		/**
 		 * Inspects the passed object and if it is a mozilla native object, returns the proxy wrapper, 
 		 * otherwise returns the passed object
@@ -269,6 +284,11 @@ public class NativeFactory {
 		CtMethod hp2 = new CtMethod(CtClass.booleanType, "hasProperty", new CtClass[]{CtClass.intType}, clazz);
 		hp2.setBody("return " + SCRIPTABLE_CLASS.getName() + ".hasProperty(internal, $1);");
 		clazz.addMethod(hp2);
+		CtMethod gai = new CtMethod(cp.get(Object[].class.getName()), "getAllIds", new CtClass[]{}, clazz);
+		gai.setBody("return convertNatives(internal.getAllIds());");
+		clazz.addMethod(gai);
+		
+		
 		
 		clazz.addInterface(cp.get(INativeObject.class.getName()));
 		if(TMP.exists() && TMP.isDirectory()) {
@@ -322,6 +342,9 @@ public class NativeFactory {
 		CtMethod hp2 = new CtMethod(CtClass.booleanType, "hasProperty", new CtClass[]{CtClass.intType}, clazz);
 		hp2.setBody("return " + SCRIPTABLE_CLASS.getName() + ".hasProperty(internal, $1);");
 		clazz.addMethod(hp2);
+		CtMethod gai = new CtMethod(cp.get(Object[].class.getName()), "getAllIds", new CtClass[]{}, clazz);
+		gai.setBody("return convertNatives(internal.getAllIds());");
+		clazz.addMethod(gai);
 		
 		clazz.addInterface(cp.get(INativeArray.class.getName()));
 		
@@ -378,6 +401,7 @@ public class NativeFactory {
 		f = new CtMethod(cp.get(INativeArray.class.getName()), "newNativeArray", new CtClass[]{cp.get(Object[].class.getName())}, clazz);
 		f.setBody("return new " + packageName + ".NativeArray($1);");
 		clazz.addMethod(f);		
+		
 
 		clazz.addInterface(cp.get(INativeFactory.class.getName()));
 		if(TMP.exists() && TMP.isDirectory()) {

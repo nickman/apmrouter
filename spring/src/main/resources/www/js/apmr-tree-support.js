@@ -304,7 +304,7 @@
 					});							
 					
 					
-					$.apmr.findLevelFoldersForAgent(level, agentId, parent, function(data) {
+					$.apmr.findLevelFoldersForAgent(level, agentId, parent || '%', function(data) {
 						$.each(data.msg, function(index, arr) {
 							var folder = arr[0];
 							var mlevel = arr[1];
@@ -328,8 +328,9 @@
 				var agentId = $(node).attr('agent');
 				var level = parseInt($(node).attr('level')) +1;
 				var parent = $(node).attr('folder');
+				
 				//console.info("Populating Level Metrics and Folder [%s]", parent);
-				$.apmr.findLevelMetricsForAgentWithParent(level, agentId, parent, function(data) {							
+				$.apmr.findLevelMetricsForAgentWithParent(level, agentId, parent || '%', function(data) {							
 					$.each(data.msg, function(index, metric) {
 						var uid = "metric-" + metric.id;
 						if($('#' + uid).length==0) {
@@ -353,7 +354,7 @@
 					//fixOpen(nodeArray);
 					var parentPrefix = '/' + metricTree.get_path('#' + parentId).slice(4).join('/');
 					console.info("Parent Folder Prefix [%s]", parentPrefix);
-					$.apmr.findLevelFoldersForAgent(level, agentId, parent, function(data) {
+					$.apmr.findLevelFoldersForAgent(level, agentId, parentPrefix + '%', function(data) {
 						$.each(data.msg, function(index, arr) {
 							var folder = arr[0];
 							var mlevel = arr[1];
