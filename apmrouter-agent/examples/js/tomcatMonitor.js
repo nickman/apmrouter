@@ -1,8 +1,4 @@
-/**
- * Monitoring script to monitor JBoss 4.x Tomcat Stats
- * Whitehead, Oct 1, 2012
- */
-
+//if(!state.get().get('inited')) 
 
 var tomcatCalcs = [ {
 	  name: "TotalRequestProcessingTime",
@@ -16,29 +12,27 @@ var tomcatCalcs = [ {
 }];
 
 
-if(jmx.isRegistered('jboss.web:type=RequestProcessor,*')) {
+if(jmx.isRegistered('jboss', 'jboss.web:type=RequestProcessor,*')) {
 	var r = jmx.jmxCalc(tomcatCalcs);    
 	if(r!=null) {
-		pout.println("R:" + r.length);
 		for(var i = 0, m = r.length; i < m; i++) {
-			pout.println("Processing " + i);
 			var c = r[i];
-			pout.println("\tName:" + c.name);
 			for(key in c.calcs) {
 				var val = c.calcs[key];
 				var splits = key.split("-");
 				var port = splits[2];
 				var protocol = splits[0];
 				var bindAddress = splits[1];
-				pout.println("\t\tProtocol:" + protocol + " BindAddress:" + bindAddress + " Port:" + port + " Value:" + val);
+				//pout.println("\t\tProtocol:" + protocol + " BindAddress:" + bindAddress + " Port:" + port + " Value:" + val);
 				tracer.traceDeltaGauge(val, "RequestTimeRate", ["platform=JBoss", "category=Tomcat", "service=RequestProcessors", "protocol=" + protocol, "listener=" + bindAddress, "port=" + port]);
 				
 			}
-			pout.println("Processed " + i); 
 		}
 	} else {
 		pout.println("R was null");
 	}
+} else {
+	pout.println("No MBeans matching jboss.web:type=RequestProcessor,*");
 }
 
 pout.println("Tomcat Monitor OK" );  

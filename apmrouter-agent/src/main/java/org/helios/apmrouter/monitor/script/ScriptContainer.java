@@ -31,8 +31,10 @@ import java.util.Date;
 import javax.script.Bindings;
 import javax.script.Compilable;
 import javax.script.CompiledScript;
+import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
+import javax.script.SimpleScriptContext;
 
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
@@ -55,23 +57,29 @@ public class ScriptContainer {
 	protected CompiledScript compiledScript;
 	/** The timestamp of the compiled script */
 	protected long sourceTimestamp;
-	/** A thread local binding so individual scripts can keep repeatable state */
-	protected static final ThreadLocal<Bindings> scriptState = new ThreadLocal<Bindings>();
-	/** The thread state bindings */
-	protected final Bindings state;
 	
 	/** This script container's script engine/compiler */
 	protected final ScriptEngine scriptEngine;
 	/** The script monitor supplied script bindings */
 	protected final Bindings scriptBindings;
+	/** The local script bindings */
+	protected final Bindings localBindings;
+	
 	/** The number of times this script has thrown an exception */
 	protected int errorCount = 0;
 	/** Indicates the script is disabled after n consecutive errors */
 	protected boolean disabled = false;
 	
+	/** The context for this script */
+	protected final ScriptContext ctx = new SimpleScriptContext();
+	
 	/** JMX script helper */
 	protected static final JMXScriptHelper jmx = new JMXScriptHelper(); 
 	
+	/** Source prepended to the read file */
+	public static final String SRC_HEADER = "if(!inited) pout.println('\\n\\t[<< %s >>] Initializing');\n";
+	/** Source appended to the read file */
+	public static final String SRC_FOOTER = "\nif(!inited) { pout.println('\\n\\t[<< %s >>] Monitor OK'); inited = true;}";
 	
 	/**
 	 * Creates a new ScriptContainer
@@ -82,16 +90,17 @@ public class ScriptContainer {
 	 */
 	public ScriptContainer(ScriptEngine se, Bindings scriptBindings, URL url) throws ScriptException {
 		scriptEngine = se;
-		state = se.createBindings();		
-		
-		this.scriptBindings = scriptBindings;
+		localBindings = se.createBindings();
+		ctx.setBindings(localBindings, ScriptContext.ENGINE_SCOPE);
+		this.scriptBindings = scriptBindings;		
 		this.scriptUrl = url;
-		name = new File(url.getFile()).getName().toLowerCase();
-		state.put("scriptname", name);
-		String src = URLHelper.getTextFromURL(scriptUrl);
+		name = new File(url.getFile()).getName().replace(".js", "");
+		String src = String.format(SRC_HEADER, name) + URLHelper.getTextFromURL(scriptUrl) + String.format(SRC_FOOTER, name);
 		try {
 			compiledScript = ((Compilable)scriptEngine).compile(src);
 			sourceTimestamp = URLHelper.getLastModified(scriptUrl);
+			localBindings.put("inited", false);
+			
 		} catch (Exception e) {
 			System.err.println("Failed to compile script [" + url + "]. Will be ignored until modified.");
 			disabled = true;
@@ -121,7 +130,7 @@ public class ScriptContainer {
 	 */
 	public void resetErrors() {
 		errorCount=0;
-	}
+	} 
 	
 	
 	/**
@@ -135,15 +144,14 @@ public class ScriptContainer {
 		if(disabled) return null;
 		sharedBindings.put("args", new Object[]{});
 		sharedBindings.put("jmx", jmx);
-		scriptState.set(state);
-		sharedBindings.put("state", scriptState);
 		SystemClock.startTimer();
+		ctx.setBindings(sharedBindings, ScriptContext.GLOBAL_SCOPE);
 		try {
-			Object response = compiledScript.eval(sharedBindings);		
+			Object response = compiledScript.eval(ctx);		
 			return response;
 		} finally {
 			ElapsedTime et = SystemClock.endTimer();
-			state.put("lastelapsed", et);
+			localBindings.put("lastelapsed", et);
 		}
 		
 	}
@@ -154,18 +162,16 @@ public class ScriptContainer {
 	 * @return the return value of the script execution
 	 * @throws ScriptException thrown on any error during invocation
 	 */
-	public Object invoke(Object...args) throws ScriptException {
-		scriptBindings.put("argsX", args);
+	public Object invoke(Object...args) throws ScriptException {		
 		scriptBindings.put("jmx", jmx);
-		scriptState.set(state);
-		scriptBindings.put("state", scriptState);		
 		SystemClock.startTimer();
 		try {
-			Object response = invoke(scriptBindings);		
+			Object response = invoke(ctx);		
 			return response;
 		} finally {
 			ElapsedTime et = SystemClock.endTimer();
-			state.put("lastelapsed", et);
+			localBindings.put("lastelapsed", et);
+			//state.put("lastelapsed", et);
 		}
 	}
 
@@ -178,16 +184,24 @@ public class ScriptContainer {
 		if(URLHelper.resolves(scriptUrl)) {
 			long ts = URLHelper.getLastModified(scriptUrl);
 			if(ts>sourceTimestamp) {				
-				String src = URLHelper.getTextFromURL(scriptUrl);
+				String src = String.format(SRC_HEADER, name) + URLHelper.getTextFromURL(scriptUrl) + String.format(SRC_FOOTER, name);
 				sourceTimestamp = ts;
-				compiledScript = ((Compilable)scriptEngine).compile(src);
-				if(disabled) {
-					disabled = false;
-					System.out.println("Reloaded and re-enabled [" + scriptUrl + "]");
-				} else {
-					System.out.println("Reloaded Script [" + scriptUrl + "]");
+				try {
+					compiledScript = ((Compilable)scriptEngine).compile(src);
+					if(disabled) {
+						disabled = false;
+						System.out.println("Reloaded and re-enabled [" + scriptUrl + "]");
+					} else {
+						System.out.println("Reloaded Script [" + scriptUrl + "]");
+					}									
+				} catch (ScriptException se) {
+					
+					System.err.println("Failed to compile Script [" + scriptUrl + "]");
+					System.err.println(src);
+					se.printStackTrace(System.err);
 				}
-			}
+				localBindings.put("inited", false);
+			}			
 		}
 	}
 

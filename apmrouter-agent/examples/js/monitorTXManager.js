@@ -6,7 +6,7 @@
 
 	var on = 'jboss:service=TransactionManager';
 	var ns = ["platform=JBoss", "category=JTA", "service=TXManager" ];
-	if(jmx.isRegistered(on)) {
+	if(jmx.isRegistered('jboss', on)) {
 		tracer.traceDeltaGauge(jmx.getNumericAttribute("jboss", on, "TransactionCount") , "TransactionCount", ns);
 		tracer.traceDeltaGauge(jmx.getNumericAttribute("jboss", on, "CommitCount") , "CommitCount", ns);
 		tracer.traceDeltaGauge(jmx.getNumericAttribute("jboss", on, "RollbackCount") , "RollbackCount", ns);

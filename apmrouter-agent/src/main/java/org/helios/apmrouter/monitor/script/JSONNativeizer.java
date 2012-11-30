@@ -201,7 +201,20 @@ public class JSONNativeizer {
 	 */
 	protected static JMXCalculator extractCalculator(INativeObject no) {
 		String name = no.getProperty(JMXCalculator.KEY_NAME).toString();
-		String[] group = extractStringArray(NativeFactory.newNativeArray(no.getProperty(JMXCalculator.KEY_GROUP)));
+		Object groupObject = no.getProperty(JMXCalculator.KEY_GROUP);
+		
+		String[] group = null;
+		if(groupObject==null || groupObject.getClass().getSimpleName().equals("UniqueTag")) {
+			group = new String[0];
+		} else if(groupObject instanceof CharSequence) {
+			group = new String[]{groupObject.toString()};
+		} else if(groupObject.getClass().getSimpleName().equals("NativeArray") ) {
+			INativeArray narr = NativeFactory.newNativeArray(groupObject);
+			group = extractStringArray(narr);
+		} else {
+			throw new RuntimeException("Type of group not recognized [" + group.getClass().getName() + "]", new Throwable());
+		}
+		
 		String functionName = no.getProperty(JMXCalculator.KEY_FUNCTION).toString();
 		JMXScriptRequest[] queries = fromNative(no.getProperty(JMXCalculator.KEY_QUERY));
 		JMXCalculator calc = new JMXCalculator(name, group, functionName, queries);

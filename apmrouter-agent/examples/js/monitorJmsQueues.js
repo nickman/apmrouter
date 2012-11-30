@@ -9,7 +9,7 @@ var query = {mbs:'jboss', on:'com.ecs.jms.destinations:*', attrs:[
 	/* wmq queues */	 'QueueDepth', 'QueueName', 'OpenOutputCount', 'OpenInputCount'
 ]};
 	
-if(jmx.isRegistered('com.ecs.jms.destinations:*')) {	
+if(jmx.isRegistered('jboss', 'com.ecs.jms.destinations:*')) {	
 	var r = jmx.getAttributes(query);	
 	if(r!=null) {		
 		for(var i = 0, m = r.results.length; i < m; i++) {

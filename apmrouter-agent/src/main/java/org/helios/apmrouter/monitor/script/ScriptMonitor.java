@@ -27,18 +27,17 @@ package org.helios.apmrouter.monitor.script;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.net.URL;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.script.Bindings;
-import javax.script.Compilable;
-import javax.script.CompiledScript;
+import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 import javax.script.SimpleBindings;
+import javax.script.SimpleScriptContext;
 
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.jmx.JMXHelper;
@@ -77,6 +76,8 @@ public class ScriptMonitor extends AbstractMonitor {
 	/** The JMXHelper to bind. JMXHelper is all static but JS will not accept straight classes */
 	protected final JMXHelper jmxHelper = new JMXHelper();
 	
+	
+	
 	/** The system propety that specifies the maximum number of times a script can fail before it is ignored */
 	public static final String SCRIPT_ERRCNT_PROP = "org.helios.agent.monitor.script.maxerr";
 	/** The default maximum number of times a script can fail before it is ignored */
@@ -102,12 +103,28 @@ public class ScriptMonitor extends AbstractMonitor {
 	/** The binding name for the {@link APMSigar} instance */
 	public static final String APM_SIGAR = "sigar";
 	
+	/** Supporting scripts */
+	public static final String[] supportScripts = {
+		"function isNumber(v) {try { var i = parseInt(v); return !isNaN(i); } catch (e) { return false; }}"
+	};
+	/*
+	 * set inited
+	 * state-control   (state.get().get('inited') + ":" + state.get().get('lastelapsed'))
+	 */
+	
 	/**
 	 * Creates a new ScriptMonitor
 	 */
 	public ScriptMonitor() {
 		maxErrors = ConfigurationHelper.getIntSystemThenEnvProperty(SCRIPT_ERRCNT_PROP, DEFAULT_SCRIPT_ERRCNT);
 		scriptEngine = new ScriptEngineManager().getEngineByExtension("js");
+		for(String script: supportScripts) {
+			try {
+				scriptEngine.eval(script);
+			} catch (Exception ex) {
+				ex.printStackTrace(System.err);
+			}
+		}
 		tracer = TracerFactory.getTracer();
 		scriptBindings.put(TRACER_BINDING_KEY, tracer);
 		scriptBindings.put(BINDINGS_BINDING_KEY, scriptBindings);
@@ -143,6 +160,7 @@ public class ScriptMonitor extends AbstractMonitor {
 			} catch (UnavailableMBeanServerException uex) {
 				/* No Op */
 			} catch (Throwable e) {
+				e.printStackTrace(System.err);
 				int err = sc.incrementErrors();
 				if(err>=maxErrors) {
 					sc.setDisabled(true);

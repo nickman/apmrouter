@@ -60,6 +60,8 @@ public class JMXCalculator {
 	public static final String KEY_XPARAM = "xparams";
 	/** The json key for the driver request */
 	public static final String KEY_QUERY = "query";
+	/** The json key for the calc responses */
+	public static final String KEY_CALCS = "calcs";
 	
 
 	

@@ -249,6 +249,7 @@ public class JMXScriptHelper {
 	 * @return a calculator key or null if any of the grouping keys do not resolve to a value in the available keys.
 	 */
 	protected static String buildCalcKey(Map<String, String> availableKeys, String...groupingKeys) {
+		if(groupingKeys==null || groupingKeys.length<1) return null;
 		StringBuilder b = new StringBuilder();
 		for(String gkey: groupingKeys) {
 			String val = availableKeys.get(gkey);
@@ -256,7 +257,7 @@ public class JMXScriptHelper {
 			b.append(val).append("/");
 		}
 		if(b.length()>0) b.deleteCharAt(b.length()-1);
-		return b;
+		return b.toString();
 	}
 	
 	/**
@@ -271,10 +272,10 @@ public class JMXScriptHelper {
 		}
 		JMXCalculator[] calculators = JSONNativeizer.extractCalculators(NativeFactory.newScriptable(calculator));
 		if(calculators==null || calculators.length<1) throw new IllegalArgumentException("No calculators found in submitted object", new Throwable());
-		final JSONObject results = new JSONObject();
+		final JSONArray results = new JSONArray();
 		
 		for(JMXCalculator calc: calculators) {
-			Map<String, List<Object>> accumulator = new Map<String, List<Object>>();
+			Map<String, List<Object>> accumulator = new HashMap<String, List<Object>>();
 			for(JMXScriptRequest req: calc.jmxRequests) {
 				try {
 					MBeanServerConnection conn = req.getMBeanServerConnection();
@@ -291,6 +292,7 @@ public class JMXScriptHelper {
 						Map<String, String> keys = new HashMap<String, String>(calc.xParams.size() + objectNameKeys.size());
 						keys.putAll(calc.xParams); keys.putAll(objectNameKeys);
 						String calcKey = buildCalcKey(keys, calc.group);
+						if(calcKey==null) calcKey = calc.aggregateFunction.name();
 						AttributeList attrs = conn.getAttributes(objectName, req.attributeNames);
 						Map<String, Object> attrMap = new HashMap<String, Object>(attrs.size());
 						for(Attribute attr: attrs.asList()) {
@@ -314,11 +316,21 @@ public class JMXScriptHelper {
 					ex.printStackTrace(System.err);
 				}
 			}
+			// Aggregate the accumulator here.
+			final JSONObject result = new JSONObject();
+			final JSONObject calcResults = new JSONObject();
+			result.put(JMXCalculator.KEY_NAME, calc.name);
+			result.put(JMXCalculator.KEY_CALCS, calcResults);
+			for(Map.Entry<String, List<Object>> entry: accumulator.entrySet()) {
+				Object aggregated = calc.aggregateFunction.aggregate(entry.getValue());
+				calcResults.put(entry.getKey(), aggregated);
+			}
+			results.put(result);			
 		}
-		// Aggregate the accumulator here.
 		
-		
-		return JSONNativeizer.toNative(results);
+		Object nativeResult = JSONNativeizer.toNative(results);
+		//LOG("RESULTS:" + results + "\n\tNative Object Result:" + nativeResult.getClass().getName());
+		return nativeResult;
 	}
 	
 	

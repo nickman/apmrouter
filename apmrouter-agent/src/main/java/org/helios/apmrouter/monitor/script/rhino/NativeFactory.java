@@ -371,7 +371,7 @@ public class NativeFactory {
 		cp.appendClassPath(new ClassClassPath(naClass));
 		cp.importPackage(new StringBuilder(packageName).deleteCharAt(packageName.length()-1).toString());
 		
-		CtClass clazz = cp.makeClass(packageName + "." + "ProxyFactory");
+		CtClass clazz = cp.makeClass(packageName + "." + "ProxyFactory", cp.get(BaseNativeProxy.class.getName()));
 		CtMethod f = new CtMethod(cp.get(INativeObject.class.getName()), "newNativeObject", new CtClass[]{}, clazz);
 		f.setBody("return new " + packageName + ".NativeObject();");
 		clazz.addMethod(f);
@@ -394,7 +394,7 @@ public class NativeFactory {
 		clazz.addMethod(f);
 		
 		f = new CtMethod(cp.get(INativeArray.class.getName()), "newNativeArray", new CtClass[]{cp.get(Object.class.getName())}, clazz);
-		f.setBody("return new " + packageName + ".NativeArray($1);");
+		f.setBody("return new " + packageName + ".NativeArray(recoverNative($1));");
 		clazz.addMethod(f);		
 		
 		
@@ -439,6 +439,9 @@ public class NativeFactory {
 			log(na.get(i));
 		}
 		log("Arr toStr:" + na.toString());
+		log("=======================================");
+		Object foo = na.getUnderlying();
+		newNativeArray(foo);
 		
 	}
 	
@@ -466,6 +469,16 @@ public class NativeFactory {
 	
 	public static INativeArray newNativeArray(Object internal) {
 		return PROXY_FACTORY.newNativeArray(internal);
+	}
+	
+	/**
+	 * Determines if the passed object is an instance of the rhino NativeArray class
+	 * @param obj The object to test
+	 * @return true if the object is an instance of the rhino NativeArray class, false otherwise
+	 */
+	public static boolean isNativeArray(Object obj) {
+		if(obj==null) return false;
+		return ARRAY_CLASS.isInstance(obj);
 	}
 	
 	public static INativeArray newNativeArray(Object[] elements) {
