@@ -165,10 +165,6 @@ public class JSONNativeizer {
 				throw new RuntimeException("Unexpected type in JSON request Attribute array [" + attrObj.getClass().getName() + "]", new Throwable());
 			}
 			JMXScriptRequest jmxRequest = new JMXScriptRequest(mbs, objName, compositeNames, attrs.toArray(new String[attrs.size()])); 
-			if(no.hasProperty(JMXScriptRequest.KEY_CALCS)) {
-				JMXCalculator[] calcs = extractCalculators((IScriptableObject)no.getProperty(JMXScriptRequest.KEY_CALCS));
-				jmxRequest.addCalculators(calcs);
-			}			
 			requests.add(jmxRequest);
 		} else {
 			throw new RuntimeException("Unexpected type in JSON request [" + no.getClass().getName() + "]", new Throwable());
@@ -207,7 +203,8 @@ public class JSONNativeizer {
 		String name = no.getProperty(JMXCalculator.KEY_NAME).toString();
 		String[] group = extractStringArray(NativeFactory.newNativeArray(no.getProperty(JMXCalculator.KEY_GROUP)));
 		String functionName = no.getProperty(JMXCalculator.KEY_FUNCTION).toString();
-		JMXCalculator calc = new JMXCalculator(name, group, functionName);
+		JMXScriptRequest[] queries = fromNative(no.getProperty(JMXCalculator.KEY_QUERY));
+		JMXCalculator calc = new JMXCalculator(name, group, functionName, queries);
 		if(no.hasProperty(JMXCalculator.KEY_XPARAM)) {
 			INativeObject xparams = NativeFactory.newNativeObject(no.getProperty(JMXCalculator.KEY_XPARAM));
 			for(Object key: xparams.getAllIds()) {

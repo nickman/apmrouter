@@ -45,6 +45,8 @@ public class JMXCalculator {
 	public final String[] group;
 	/** The aggregate function to use */
 	public final AggregateFunction aggregateFunction;
+	/** The drivers for the calculator */
+	public final JMXScriptRequest[] jmxRequests;
 	/** Additional parameters key/values provided for grouping by values not in the ObjectName */
 	public final Map<String, String> xParams = new HashMap<String, String>();
 	
@@ -56,6 +58,8 @@ public class JMXCalculator {
 	public static final String KEY_FUNCTION = "aggr";
 	/** The json key for the additional parameters */
 	public static final String KEY_XPARAM = "xparams";
+	/** The json key for the driver request */
+	public static final String KEY_QUERY = "query";
 	
 
 	
@@ -64,11 +68,13 @@ public class JMXCalculator {
 	 * @param name The designated name for this calculation
 	 * @param group The grouping keys for the calculation
 	 * @param aggregateFunction The name of the aggregate function to use
+	 * @param jmxRequest The jmx request that drives the calculator
 	 */
-	public JMXCalculator(String name, String[] group, String aggregateFunction) {
+	public JMXCalculator(String name, String[] group, String aggregateFunction, JMXScriptRequest[] jmxRequests) {
 		this.name = name;
 		this.group = group;
 		this.aggregateFunction = AggregateFunction.forName(aggregateFunction);
+		this.jmxRequests = jmxRequests;
 	}
 	
 	/**

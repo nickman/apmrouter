@@ -50,6 +50,7 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 
 import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.monitor.script.rhino.NativeFactory;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.json.JSONArray;
@@ -242,6 +243,86 @@ public class JMXScriptHelper {
 	}
 	
 	/**
+	 * Builds a calculator response key
+	 * @param availableKeys The available key/values
+	 * @param groupingKeys The requested keys
+	 * @return a calculator key or null if any of the grouping keys do not resolve to a value in the available keys.
+	 */
+	protected static String buildCalcKey(Map<String, String> availableKeys, String...groupingKeys) {
+		StringBuilder b = new StringBuilder();
+		for(String gkey: groupingKeys) {
+			String val = availableKeys.get(gkey);
+			if(val==null) return null;  // TODO: BAD KEY. Can we handle this better ?
+			b.append(val).append("/");
+		}
+		if(b.length()>0) b.deleteCharAt(b.length()-1);
+		return b;
+	}
+	
+	/**
+	 * Process an array of JMX calculators in the form of rhino native objects
+	 * @param calculator the rhino native object
+	 * @return The native rhino result object
+	 * @throws JSONException thrown on any json exception
+	 */
+	public static Object jmxCalc(Object calculator) throws JSONException {
+		if(calculator==null) {
+			throw new IllegalArgumentException("The passed calculator was null", new Throwable());
+		}
+		JMXCalculator[] calculators = JSONNativeizer.extractCalculators(NativeFactory.newScriptable(calculator));
+		if(calculators==null || calculators.length<1) throw new IllegalArgumentException("No calculators found in submitted object", new Throwable());
+		final JSONObject results = new JSONObject();
+		
+		for(JMXCalculator calc: calculators) {
+			Map<String, List<Object>> accumulator = new Map<String, List<Object>>();
+			for(JMXScriptRequest req: calc.jmxRequests) {
+				try {
+					MBeanServerConnection conn = req.getMBeanServerConnection();
+					ObjectName on = JMXHelper.objectName(req.objectName);
+					Set<ObjectName> objectNames = new HashSet<ObjectName>();
+					if(!on.isPattern()) {
+						objectNames.add(on);
+					} else {
+						objectNames.addAll(conn.queryNames(on, null));  // TODO: Support exprs ?
+					}
+					 
+					for(ObjectName objectName: objectNames) {
+						Map<String, String> objectNameKeys = objectName.getKeyPropertyList();
+						Map<String, String> keys = new HashMap<String, String>(calc.xParams.size() + objectNameKeys.size());
+						keys.putAll(calc.xParams); keys.putAll(objectNameKeys);
+						String calcKey = buildCalcKey(keys, calc.group);
+						AttributeList attrs = conn.getAttributes(objectName, req.attributeNames);
+						Map<String, Object> attrMap = new HashMap<String, Object>(attrs.size());
+						for(Attribute attr: attrs.asList()) {
+							attrMap.put(attr.getName(), attr.getValue());
+						}
+						for(String attrName: req.attributeNames) {
+							Object value = attrMap.get(attrName);
+							if(value!=null) {
+								List<Object> objList = accumulator.get(calcKey);
+								if(objList==null) {
+									objList = new ArrayList<Object>();
+									accumulator.put(calcKey, objList);
+								}
+								objList.add(value);
+							}
+						}
+
+					}
+				
+				} catch (Exception ex) {
+					ex.printStackTrace(System.err);
+				}
+			}
+		}
+		// Aggregate the accumulator here.
+		
+		
+		return JSONNativeizer.toNative(results);
+	}
+	
+	
+	/**
 	 * Process an array of JMX requests in the form of rhino native objects
 	 * @param requests the rhino native object
 	 * @return The native rhino result object
@@ -269,6 +350,7 @@ public class JMXScriptHelper {
 					} else {
 						objectNames.addAll(conn.queryNames(on, null));  // TODO: Support exprs ?
 					}
+					
 					for(ObjectName objectName: objectNames) {
 						JSONObject data = new JSONObject();
 						Map<String, Object> map = new HashMap<String, Object>();
@@ -324,6 +406,17 @@ public class JMXScriptHelper {
 		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
 			return null;
+		}
+	}
+	
+	protected void processCalculators(final Collection<JMXCalculator> calculators, final JSONObject results, final MBeanServerConnection conn, final ObjectName objectName) {
+		if(calculators.isEmpty()) return;
+		for(JMXCalculator calc: calculators) {
+			try {
+				
+			} catch (Exception ex) {
+				ex.printStackTrace(System.err);
+			}
 		}
 	}
 	
