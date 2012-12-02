@@ -155,6 +155,7 @@ public class AgentBoot {
 				}
 			} catch (Exception e) {
 				System.err.println("Failed to process configured monitor [" + XMLHelper.renderNode(mNode) + "]");
+				e.printStackTrace(System.err);
 			}
 		}		
 	}
