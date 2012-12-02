@@ -27,6 +27,8 @@ package org.helios.apmrouter.util;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
@@ -171,4 +173,144 @@ public class URLHelper {
 		}
 	}
 	
+	/**
+	 * Determines if this URL represents a writable resource.
+	 * For now, only <b><code>file:</code></b> protocol will return true 
+	 * (if the file exists and is writable). 
+	 * @param url The URL to test for writability
+	 * @return true if this URL represents a writable resource, false otherwise.
+	 */
+	public static boolean isWritable(CharSequence url) {
+		return isWritable(toURL(url));
+	}
+	
+	/**
+	 * Determines if this URL represents a writable resource.
+	 * For now, only <b><code>file:</code></b> protocol will return true 
+	 * (if the file exists and is writable). 
+	 * @param url The URL to test for writability
+	 * @return true if this URL represents a writable resource, false otherwise.
+	 */
+	public static boolean isWritable(URL url) {
+		if(url==null) return false;
+		if("file".equals(url.getProtocol())) {
+			File file = new File(url.getFile());
+			return file.exists() && file.isFile() && file.canWrite();
+		}
+		return false;
+	}
+	
+	/**
+	 * Writes the passed byte content to the URL origin.
+	 * @param url The URL to write to
+	 * @param content The content to write
+	 * @param append true to append, false to replace
+	 */
+	public static void writeToURL(URL url, byte[] content, boolean append) {
+		if(!isWritable(url)) throw new RuntimeException("The url [" + url + "] is not writable", new Throwable());
+		if(content==null) throw new RuntimeException("The passed content was null", new Throwable());
+		File file = new File(url.getFile());
+		FileOutputStream fos = null;
+		try {
+			fos = new FileOutputStream(file, append);
+			fos.write(content);
+			fos.flush();
+			fos.close();
+			fos = null;			
+		} catch (IOException ioe) {
+			throw new RuntimeException("Failed to write to the url [" + url + "].", ioe);
+		} finally {
+			if(fos!=null) {
+				try { fos.flush(); } catch (Exception ex) {}
+				try { fos.close(); } catch (Exception ex) {}
+			}
+		}
+	}
+	
+	/**
+	 * Returns the extension of the passed URL's file
+	 * @param url The URL to get the extension of
+	 * @return the file extension, or null if the file has no extension
+	 */
+	public static String getExtension(URL url) {
+		return getExtension(url, null);
+	}
+	
+	/**
+	 * Returns the extension of the passed URL's file
+	 * @param url The URL to get the extension of
+	 * @param defaultValue The default value to return if there is no extension
+	 * @return the file extension, or the default value if the file has no extension
+	 */
+	public static String getExtension(URL url, String defaultValue) {
+		if(url==null) throw new RuntimeException("The passed url was null", new Throwable());
+		String file = url.getFile();
+		if(file.lastIndexOf(".")==-1) {
+			return defaultValue;
+		}
+		return file.substring(file.lastIndexOf(".")+1);
+	}
+	
+	/**
+	 * Returns the extension of the passed URL's file
+	 * @param url The URL to get the extension of
+	 * @return the file extension, or null if the file has no extension
+	 */
+	public static String getExtension(CharSequence url) {
+		return getExtension(url, null);
+	}
+	
+	/**
+	 * Returns the extension of the passed URL's file
+	 * @param url The URL to get the extension of
+	 * @param defaultValue The default value to return if there is no extension
+	 * @return the file extension, or the default value if the file has no extension
+	 */
+	public static String getExtension(CharSequence url, String defaultValue) {
+		if(url==null) throw new RuntimeException("The passed url was null", new Throwable());
+		return getExtension(toURL(url), defaultValue);
+	}
+	
+	/**
+	 * Returns the extension of the passed file
+	 * @param f The file to get the extension of
+	 * @return the file extension, or null if the file has no extension
+	 */
+	public static String getFileExtension(File f) {
+		return getFileExtension(f, null);
+	}
+	
+	
+	/**
+	 * Returns the extension of the passed file
+	 * @param f The file to get the extension of
+	 * @param defaultValue The default value to return if there is no extension
+	 * @return the file extension, or the default value if the file has no extension
+	 */
+	public static String getFileExtension(File f, String defaultValue) {
+		if(f==null) throw new RuntimeException("The passed file was null", new Throwable());
+		return getExtension(toURL(f), defaultValue);		
+	}
+	
+	/**
+	 * Returns the extension of the passed file name
+	 * @param f The file name to get the extension of
+	 * @return the file extension, or null if the file has no extension
+	 */
+	public static String getFileExtension(String f) {
+		return getFileExtension(f, null);
+	}
+	
+	/**
+	 * Returns the extension of the passed file name
+	 * @param f The file name to get the extension of
+	 * @param defaultValue The default value to return if there is no extension
+	 * @return the file extension, or the default value if the file has no extension
+	 */
+	public static String getFileExtension(String f, String defaultValue) {
+		if(f==null) throw new RuntimeException("The passed file was null", new Throwable());
+		return getExtension(toURL(new File(f)), defaultValue);		
+	}
+	
+
 }
