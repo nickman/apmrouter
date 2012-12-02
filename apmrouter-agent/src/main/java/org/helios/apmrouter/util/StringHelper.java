@@ -35,8 +35,12 @@ import java.lang.reflect.Array;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
@@ -761,6 +765,67 @@ public class StringHelper {
 			}
 		}
 		return buff;
+	}
+	
+	/**
+	 * Creates a new Unformatter
+	 * @param pattern the Unformatter's pattern
+	 * @return a new Unformatter
+	 */
+	public static Unformatter unformatter(CharSequence pattern) {
+		return new Unformatter(pattern.toString());
+	}
+	
+	/**
+	 * <p>Title: Unformatter</p>
+	 * <p>Description: A utility class which performs an extract of values from a string described by a regular expression
+	 * and a set of named keys. Hence, it acts a bit like the reverse of {@link String#format(String, Object...)} </p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.util.StringHelper.Unformatter</code></p>
+	 */
+	public static class Unformatter {
+		/** The parsing regex pattern */
+		protected final Pattern pattern;
+		/** The keys to key the returned map with */
+		protected final String[] keys;
+		/**
+		 * Creates a new Unformatter
+		 * @param pattern The regex pattern
+		 * @param options The match flags bit mask
+		 * @param keys The keys to key the returned map with
+		 */
+		public Unformatter(CharSequence pattern, int options, String...keys) {
+			this.pattern = Pattern.compile(pattern.toString(), options);	
+			this.keys = keys;
+		}
+		/**
+		 * Creates a new Unformatter with no options
+		 * @param pattern The regex pattern
+		 * @param keys The keys to key the returned map with
+		 */
+		public Unformatter(CharSequence pattern, String...keys) {
+			this(pattern, 0, keys);
+		}
+		
+		/**
+		 * Unformats the passed string value into a map of key/values
+		 * @param str The string value to parse
+		 * @return A map of the extracted values keyed by the positional string keys
+		 */
+		public Map<String, String> unformat(CharSequence str) {
+			if(str==null || str.toString().trim().isEmpty()) return Collections.emptyMap();
+			Matcher matcher = pattern.matcher(str);
+			final int grpCount = matcher.groupCount(); 
+			if(grpCount!=keys.length) throw new IllegalArgumentException("The group count of the expression [" + str + "] does not match the number of keys " + Arrays.toString(keys), new Throwable());
+			if(!matcher.matches()) throw new IllegalArgumentException("The expression [" + str + "] is not matched with the pattern [" + pattern.toString() + "]", new Throwable());
+			Map<String, String> map = new HashMap<String, String>(grpCount);
+			for(int i = 1; i <= grpCount; i++) {
+				map.put(keys[i-1], matcher.group(i));
+			}
+			return map;
+		}
+		
 	}
 
 }
