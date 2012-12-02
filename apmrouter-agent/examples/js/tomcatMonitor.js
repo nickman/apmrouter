@@ -11,6 +11,11 @@ var tomcatCalcs = [ {
     }
 }];
 
+var workerUnformatter;
+if(workerUnformatter==null) {
+	workerUnformatter = jmx.unformatter("(.*?)-(.*?)-(.*?)", ["protocol", "address", "port"]);
+}
+
 
 if(jmx.isRegistered('jboss', 'jboss.web:type=RequestProcessor,*')) {
 	var r = jmx.jmxCalc(tomcatCalcs);    
@@ -19,12 +24,9 @@ if(jmx.isRegistered('jboss', 'jboss.web:type=RequestProcessor,*')) {
 			var c = r[i];
 			for(key in c.calcs) {
 				var val = c.calcs[key];
-				var splits = key.split("-");
-				var port = splits[2];
-				var protocol = splits[0];
-				var bindAddress = splits[1];
-				//pout.println("\t\tProtocol:" + protocol + " BindAddress:" + bindAddress + " Port:" + port + " Value:" + val);
-				tracer.traceDeltaGauge(val, "RequestTimeRate", ["platform=JBoss", "category=Tomcat", "service=RequestProcessors", "protocol=" + protocol, "listener=" + bindAddress, "port=" + port]);
+				var worker = workerUnformatter.jsunformat(key);
+				var ns = ["platform=JBoss", "category=Tomcat", "service=RequestProcessors", "protocol=" + worker.protocol, "listener=" + worker.address, "port=" + worker.port];				
+				tracer.traceDeltaGauge(val, "RequestTimeRate", ns);
 				
 			}
 		}
@@ -32,7 +34,7 @@ if(jmx.isRegistered('jboss', 'jboss.web:type=RequestProcessor,*')) {
 		pout.println("R was null");
 	}
 } else {
-	pout.println("No MBeans matching jboss.web:type=RequestProcessor,*");
+	//pout.println("No MBeans matching jboss.web:type=RequestProcessor,*");
 }
 
-pout.println("Tomcat Monitor OK" );  
+
