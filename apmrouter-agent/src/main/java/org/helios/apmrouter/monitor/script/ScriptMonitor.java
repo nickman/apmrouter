@@ -27,20 +27,18 @@ package org.helios.apmrouter.monitor.script;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.script.Bindings;
-import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 import javax.script.SimpleBindings;
-import javax.script.SimpleScriptContext;
 
 import org.helios.apmrouter.jmx.ConfigurationHelper;
-import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.monitor.AbstractMonitor;
 import org.helios.apmrouter.nativex.APMSigar;
 import org.helios.apmrouter.trace.ITracer;
@@ -63,8 +61,8 @@ import org.helios.apmrouter.util.URLHelper;
  */
 
 public class ScriptMonitor extends AbstractMonitor {
-	/** The script engine that manages the monitoring scripts */
-	protected final ScriptEngine scriptEngine;
+	/** The script engine manager that creates the monitoring script engines */
+	protected final ScriptEngineManager scriptEngineManager;
 	/** A map of compiled scripts keyed by the script URL resource */
 	protected static final Map<String, ScriptContainer> compiledScripts = new ConcurrentHashMap<String, ScriptContainer>();
 	/** The bindings that are passed to each script */
@@ -74,7 +72,7 @@ public class ScriptMonitor extends AbstractMonitor {
 	/** The tracer to bind */
 	protected final ITracer tracer;
 	/** The JMXHelper to bind. JMXHelper is all static but JS will not accept straight classes */
-	protected final JMXHelper jmxHelper = new JMXHelper();
+	protected final JMXScriptHelper jmxHelper = new JMXScriptHelper();;
 	
 	
 	
@@ -111,23 +109,28 @@ public class ScriptMonitor extends AbstractMonitor {
 	 * set inited
 	 * state-control   (state.get().get('inited') + ":" + state.get().get('lastelapsed'))
 	 */
-	
 	/**
 	 * Creates a new ScriptMonitor
 	 */
 	public ScriptMonitor() {
-		maxErrors = ConfigurationHelper.getIntSystemThenEnvProperty(SCRIPT_ERRCNT_PROP, DEFAULT_SCRIPT_ERRCNT);
-		scriptEngine = new ScriptEngineManager().getEngineByExtension("js");
-		for(String script: supportScripts) {
-			try {
-				scriptEngine.eval(script);
-			} catch (Exception ex) {
-				ex.printStackTrace(System.err);
-			}
+		this(null);
+	}
+	
+	/**
+	 * Creates a new ScriptMonitor
+	 * @param scriptLibs An optional array of URLs for additional scripting libraries
+	 */
+	public ScriptMonitor(URL...scriptLibs) {
+		if(scriptLibs!=null && scriptLibs.length>0) {
+			URLClassLoader ucl = new URLClassLoader(scriptLibs, getClass().getClassLoader());
+			scriptEngineManager = new ScriptEngineManager(ucl);
+		} else {
+			scriptEngineManager = new ScriptEngineManager();
 		}
+		maxErrors = ConfigurationHelper.getIntSystemThenEnvProperty(SCRIPT_ERRCNT_PROP, DEFAULT_SCRIPT_ERRCNT);
 		tracer = TracerFactory.getTracer();
 		scriptBindings.put(TRACER_BINDING_KEY, tracer);
-		scriptBindings.put(BINDINGS_BINDING_KEY, scriptBindings);
+		//scriptBindings.put(BINDINGS_BINDING_KEY, scriptBindings);
 		scriptBindings.put(JMXHELPER_BINDING_KEY, jmxHelper);
 		scriptBindings.put(STD_OUT, System.out);
 		scriptBindings.put(STD_ERR, System.err);
@@ -155,13 +158,11 @@ public class ScriptMonitor extends AbstractMonitor {
 			ScriptContainer sc = iter.next();
 			try {
 				scriptBindings.put(COLLECTION_SWEEP, collectionSweep);
-				sc.invoke(scriptBindings);
-				sc.resetErrors();
+				sc.invoke();
 			} catch (UnavailableMBeanServerException uex) {
 				/* No Op */
 			} catch (Throwable e) {
-				e.printStackTrace(System.err);
-				int err = sc.incrementErrors();
+				long err = sc.getConsecutiveErrors();
 				if(err>=maxErrors) {
 					sc.setDisabled(true);
 					System.err.println("Monitor Script [" + sc.scriptUrl + "] has failed [" + err + "] consecutive times. It is being ignored until modified. Last error follows:");
@@ -208,7 +209,9 @@ public class ScriptMonitor extends AbstractMonitor {
 	 * @throws ScriptException rethrows any exception thrown from the container
 	 */
 	private void processHttpScript(URL scriptURL) throws ScriptException {
-		ScriptContainer sc = new ScriptContainer(scriptEngine, scriptBindings, scriptURL);
+		ScriptEngine se = scriptEngineManager.getEngineByExtension(URLHelper.getExtension(scriptURL, "").toLowerCase());
+		if(se==null) throw new RuntimeException("No script engine found for [" + scriptURL + "]", new Throwable());
+		ScriptContainer sc = new ScriptContainer(se, scriptBindings, scriptURL);
 		compiledScripts.put(sc.getName(), sc);
 	}
 
@@ -224,19 +227,22 @@ public class ScriptMonitor extends AbstractMonitor {
 		File file = new File(fileName);
 		if(!file.exists()) return;
 		if(file.isFile()) {
-			ScriptContainer sc = new ScriptContainer(scriptEngine, scriptBindings, scriptURL);
-			compiledScripts.put(sc.getName(), sc);
+			ScriptEngine se = scriptEngineManager.getEngineByExtension(URLHelper.getFileExtension(file, "").toLowerCase());
+			if(se!=null) {
+				ScriptContainer sc = new ScriptContainer(se, scriptBindings, scriptURL);
+				compiledScripts.put(sc.getName(), sc);
+			}
 		} else if(file.isDirectory()) {
 			// FIXME: Start periodic scan of the directory for new scripts
-			// FIXME: Currently hard coded to support js only. Need to extend to discover supported extensions 
+			
 			for(File scriptFile: file.listFiles(new FilenameFilter(){
 				@Override
 				public boolean accept(File dir, String name) {
-					String lcName = name.toLowerCase();					
-					return lcName.endsWith(".js"); 
+					return scriptEngineManager.getEngineByExtension(URLHelper.getFileExtension(name, "").toLowerCase())!=null;
 				}})) {
 				try {
-					ScriptContainer sc = new ScriptContainer(scriptEngine, scriptBindings, scriptFile.toURI().toURL());
+					ScriptEngine se = scriptEngineManager.getEngineByExtension(URLHelper.getFileExtension(scriptFile, "").toLowerCase());
+					ScriptContainer sc = new ScriptContainer(se, scriptBindings, scriptFile.toURI().toURL());
 					compiledScripts.put(sc.getName(), sc);
 				} catch (Exception e) {
 					crap(e);

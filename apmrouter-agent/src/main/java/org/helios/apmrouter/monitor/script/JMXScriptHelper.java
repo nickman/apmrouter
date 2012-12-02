@@ -50,9 +50,9 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 
 import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.monitor.script.rhino.INativeObject;
 import org.helios.apmrouter.monitor.script.rhino.NativeFactory;
-import org.helios.apmrouter.util.SystemClock;
-import org.helios.apmrouter.util.SystemClock.ElapsedTime;
+import org.helios.apmrouter.util.StringHelper.Unformatter;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -602,6 +602,71 @@ public class JMXScriptHelper {
 	 */
 	public static boolean isRegistered(CharSequence objectName) {
 		return isRegistered(JMXHelper.getHeliosMBeanServer(), objectName);
+	}
+	
+	/**
+	 * Cretaes a new NativeUnformatter
+	 * @param pattern The unformatter's pattern
+	 * @param keys The unformatter's keys
+	 * @return a new NativeUnformatter
+	 */
+	public static NativeUnformatter unformatter(CharSequence pattern, String...keys) {
+		return new NativeUnformatter(pattern, keys);
+	}
+	
+	/**
+	 * Cretaes a new NativeUnformatter
+	 * @param pattern The unformatter's pattern
+	 * @param options The match flags bit mask
+	 * @param keys The unformatter's keys
+	 * @return a new NativeUnformatter
+	 */
+	public static NativeUnformatter unformatter(CharSequence pattern, int options, String...keys) {
+		return new NativeUnformatter(pattern, options, keys);
+	}
+	
+	
+	/**
+	 * <p>Title: NativeUnformatter</p>
+	 * <p>Description: An extension of {@link Unformatter} that return rhino native objects</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.monitor.script.JMXScriptHelper.NativeUnformatter</code></p>
+	 */
+	public static class NativeUnformatter extends Unformatter {
+
+		/**
+		 * Creates a new NativeUnformatter
+		 * @param pattern The regex pattern
+		 * @param options The match flags bit mask
+		 * @param keys The keys to key the returned map with
+		 */
+		public NativeUnformatter(CharSequence pattern, int options, String[] keys) {
+			super(pattern, options, keys);
+		}
+
+		/**
+		 * Creates a new NativeUnformatter
+		 * @param pattern The regex pattern
+		 * @param keys The keys to key the returned map with
+		 */
+		public NativeUnformatter(CharSequence pattern, String... keys) {
+			super(pattern, keys);
+		}
+		
+		/**
+		 * Unformats the passed string value into a rhino native object
+		 * @param str The string value to parse
+		 * @return A rhino native object of the extracted values keyed by the positional string keys
+		 */
+		public Object jsunformat(CharSequence str) {
+			INativeObject obj = NativeFactory.newNativeObject();
+			for(Map.Entry<String, String> entry : super.unformat(str).entrySet()) {
+				obj.putProperty(entry.getKey(), entry.getValue());
+			}
+			return obj.getUnderlying();			
+		}
+		
 	}
 	
 }

@@ -70,7 +70,7 @@ public class JMXCalculator {
 	 * @param name The designated name for this calculation
 	 * @param group The grouping keys for the calculation
 	 * @param aggregateFunction The name of the aggregate function to use
-	 * @param jmxRequest The jmx request that drives the calculator
+	 * @param jmxRequests The jmx requests that drive the calculator
 	 */
 	public JMXCalculator(String name, String[] group, String aggregateFunction, JMXScriptRequest[] jmxRequests) {
 		this.name = name;

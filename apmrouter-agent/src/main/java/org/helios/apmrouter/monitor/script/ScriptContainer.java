@@ -24,20 +24,27 @@
  */
 package org.helios.apmrouter.monitor.script;
 
-import java.io.File;
 import java.net.URL;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
+import javax.management.NotificationBroadcasterSupport;
+import javax.management.ObjectName;
 import javax.script.Bindings;
 import javax.script.Compilable;
 import javax.script.CompiledScript;
 import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
+import javax.script.ScriptEngineFactory;
 import javax.script.ScriptException;
 import javax.script.SimpleScriptContext;
 
+import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
+import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.util.SystemClock;
-import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.helios.apmrouter.util.URLHelper;
 
 /**
@@ -47,31 +54,55 @@ import org.helios.apmrouter.util.URLHelper;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.monitor.script.ScriptContainer</code></p>
  */
-public class ScriptContainer {
+public class ScriptContainer extends NotificationBroadcasterSupport implements ScriptContainerMBean {
 	/** The source URL */
 	protected final URL scriptUrl;
 	/** The source name */
 	protected final String name;
+	/** The script source */
+	protected volatile String source;
 	
 	/** The compiled script */
 	protected CompiledScript compiledScript;
-	/** The timestamp of the compiled script */
+	/** The timestamp highwater mark of the compiled script */
 	protected long sourceTimestamp;
 	
 	/** This script container's script engine/compiler */
 	protected final ScriptEngine scriptEngine;
+	/** This script container's script engine factory */
+	protected final ScriptEngineFactory scriptEngineFactory;
+	
 	/** The script monitor supplied script bindings */
-	protected final Bindings scriptBindings;
+	protected final Bindings globalBindings;
 	/** The local script bindings */
 	protected final Bindings localBindings;
+	/** Indicates if the source URL is writable and modified source can be saved */
+	protected final boolean writable;
 	
-	/** The number of times this script has thrown an exception */
-	protected int errorCount = 0;
 	/** Indicates the script is disabled after n consecutive errors */
 	protected boolean disabled = false;
+	/** The JMX ObjectName for this container */
+	protected final ObjectName objectName;
 	
 	/** The context for this script */
 	protected final ScriptContext ctx = new SimpleScriptContext();
+	/** The overriden timestamp of the last change to the source  */
+	protected final AtomicLong lastChangeOverride = new AtomicLong(-1L);
+
+	
+	// ========================
+	// 	Counters
+	// ========================
+	/** The number of consecutive times the script has executed with errors */
+	protected final AtomicLong consecutiveErrors = new AtomicLong(0L);
+	/** The total number of times the script has executed with errors */
+	protected final AtomicLong totalErrors = new AtomicLong(0L);
+	/** The total number of times the script has executed  */
+	protected final AtomicLong totalInvocations = new AtomicLong(0L);
+	/** The script invocation time recorder */
+	protected final ConcurrentLongSlidingWindow invocationTimes = new ConcurrentLongSlidingWindow(100);
+	/** The script compilation time recorder */
+	protected final ConcurrentLongSlidingWindow compilationTimes = new ConcurrentLongSlidingWindow(20);
 	
 	/** JMX script helper */
 	protected static final JMXScriptHelper jmx = new JMXScriptHelper(); 
@@ -84,77 +115,118 @@ public class ScriptContainer {
 	/**
 	 * Creates a new ScriptContainer
 	 * @param se This script container's script engine/compiler
-	 * @param scriptBindings The monitor supplied script bindings
+	 * @param globalBindings The monitor supplied script bindings
 	 * @param url The source URL
 	 * @throws ScriptException thrown if the script cannot be compiled
 	 */
-	public ScriptContainer(ScriptEngine se, Bindings scriptBindings, URL url) throws ScriptException {
+	public ScriptContainer(ScriptEngine se, Bindings globalBindings, URL url) throws ScriptException {
 		scriptEngine = se;
+		scriptEngineFactory = se.getFactory();
 		localBindings = se.createBindings();
+		//localBindings.put("jmx", jmx);
+		this.globalBindings = globalBindings;
 		ctx.setBindings(localBindings, ScriptContext.ENGINE_SCOPE);
-		this.scriptBindings = scriptBindings;		
-		this.scriptUrl = url;
-		name = new File(url.getFile()).getName().replace(".js", "");
-		String src = String.format(SRC_HEADER, name) + URLHelper.getTextFromURL(scriptUrl) + String.format(SRC_FOOTER, name);
-		try {
-			compiledScript = ((Compilable)scriptEngine).compile(src);
-			sourceTimestamp = URLHelper.getLastModified(scriptUrl);
-			localBindings.put("inited", false);
-			
-		} catch (Exception e) {
-			System.err.println("Failed to compile script [" + url + "]. Will be ignored until modified.");
-			disabled = true;
-		}
+		ctx.setBindings(globalBindings, ScriptContext.GLOBAL_SCOPE);
 				
+		this.scriptUrl = url;
+		try {
+			String cleanedUrl = this.scriptUrl.toURI().toString();
+			cleanedUrl = cleanedUrl.substring(cleanedUrl.indexOf(":")+1);
+			System.out.println("Creating ObjectName [" + String.format(OBJECT_NAME_TEMPLATE, cleanedUrl, scriptEngineFactory.getLanguageName()) + "]");
+			objectName = JMXHelper.objectName(String.format(OBJECT_NAME_TEMPLATE, cleanedUrl, scriptEngineFactory.getLanguageName()));
+			JMXHelper.getHeliosMBeanServer().registerMBean(this, objectName);
+		} catch (Exception ex) {
+			throw new RuntimeException("Failed to register JMX interface for [" + this.scriptUrl + "]", ex);
+		}
+		
+		writable = URLHelper.isWritable(this.scriptUrl);
+		String urlName = url.getFile();
+		if(urlName.lastIndexOf(".")!=-1) {
+			name = urlName.substring(0, urlName.lastIndexOf("."));
+		} else {
+			name = urlName;
+		}			
+		sourceTimestamp = URLHelper.getLastModified(scriptUrl);
+		acquireScript();
+		compileScript();
+		
 	}
 	
 	/**
-	 * Returns the number of consecutive errors
-	 * @return the number of consecutive errors
+	 * Acquires the script source and compiles it.
 	 */
-	public int getErrorCount() {
-		return errorCount;
+	protected void acquireScript() {
+		source = URLHelper.getTextFromURL(scriptUrl);
 	}
+	
+	/**
+	 *  Compiles the acquired source
+	 */
+	protected void compileScript() {
+		try {			
+			SystemClock.startTimer();
+			compiledScript = ((Compilable)scriptEngine).compile(String.format(SRC_HEADER, name) + source + String.format(SRC_FOOTER, name));
+			localBindings.put("inited", false);
+		} catch (Exception e) {
+			System.err.println("Failed to compile script [" + scriptUrl + "]. Will be ignored until modified.");
+			disabled = true;
+		} finally {
+			compilationTimes.insert(SystemClock.endTimer().elapsedMs);
+		}
+	}
+	
 	
 	/**
 	 * Increments the consecutive error count
 	 * @return The new error count
 	 */
-	public int incrementErrors() {
-		errorCount++;
-		return errorCount;
+	public long incrementErrors() {
+		return consecutiveErrors.incrementAndGet();
 	}
 	
 	/**
-	 * Resets the consecutive error count
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#invoke()
 	 */
-	public void resetErrors() {
-		errorCount=0;
-	} 
-	
-	
-	/**
-	 * Invokes the script passing in the passed bindings
-	 * @param sharedBindings the shared bindings
-	 * @return the return value of the script execution
-	 * @throws ScriptException thrown on any error during invocation
-	 */
-	public Object invoke(Bindings sharedBindings) throws ScriptException {
+	@Override
+	public Object invoke() throws ScriptException {
 		checkForUpdate();
 		if(disabled) return null;
-		sharedBindings.put("args", new Object[]{});
-		sharedBindings.put("jmx", jmx);
+		boolean completed = false;
 		SystemClock.startTimer();
-		ctx.setBindings(sharedBindings, ScriptContext.GLOBAL_SCOPE);
 		try {
-			Object response = compiledScript.eval(ctx);		
+			Object response = compiledScript.eval(ctx);			
+			totalInvocations.incrementAndGet();
+			consecutiveErrors.set(0);
+			invocationTimes.insert(SystemClock.endTimer().elapsedMs);
+			completed=true;
 			return response;
+		} catch (Exception ex) {
+			consecutiveErrors.incrementAndGet();
+			totalErrors.incrementAndGet();
+			if(ex instanceof ScriptException) {
+				ScriptException se = (ScriptException)ex;
+				throw new ScriptException(String.format("Script execution exception on [%s]\n\tFileName:%s\n\tErrorMessage:%s\n\tLineNumber:%s\n\tColNumber:%s", name, se.getMessage(), se.getFileName(), se.getLineNumber(), se.getColumnNumber()));
+			}
+			throw new RuntimeException("Script execution exception on [" + name + "]", ex);
 		} finally {
-			ElapsedTime et = SystemClock.endTimer();
-			localBindings.put("lastelapsed", et);
-		}
-		
+			if(!completed) SystemClock.endTimer();			
+		}		
 	}
+	
+//	/**
+//	 * {@inheritDoc}
+//	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#invoke()
+//	 */
+//	@Override
+//	public void invoke() {
+//		try {
+//			invoke(globalBindings);
+//		} catch (ScriptException e) {
+//			throw new RuntimeException("Script Exception on [" + name + "]", e);
+//		}
+//	}
+
 	
 	/**
 	 * Invokes the script its own bindings
@@ -163,16 +235,8 @@ public class ScriptContainer {
 	 * @throws ScriptException thrown on any error during invocation
 	 */
 	public Object invoke(Object...args) throws ScriptException {		
-		scriptBindings.put("jmx", jmx);
-		SystemClock.startTimer();
-		try {
-			Object response = invoke(ctx);		
-			return response;
-		} finally {
-			ElapsedTime et = SystemClock.endTimer();
-			localBindings.put("lastelapsed", et);
-			//state.put("lastelapsed", et);
-		}
+		localBindings.put(ScriptEngine.ARGV, args);
+		return invoke(ctx);
 	}
 
 	
@@ -181,27 +245,35 @@ public class ScriptContainer {
 	 * @throws ScriptException thrown if the script cannot be recompiled
 	 */
 	protected void checkForUpdate() throws ScriptException {
-		if(URLHelper.resolves(scriptUrl)) {
-			long ts = URLHelper.getLastModified(scriptUrl);
-			if(ts>sourceTimestamp) {				
-				String src = String.format(SRC_HEADER, name) + URLHelper.getTextFromURL(scriptUrl) + String.format(SRC_FOOTER, name);
-				sourceTimestamp = ts;
-				try {
-					compiledScript = ((Compilable)scriptEngine).compile(src);
-					if(disabled) {
-						disabled = false;
-						System.out.println("Reloaded and re-enabled [" + scriptUrl + "]");
-					} else {
-						System.out.println("Reloaded Script [" + scriptUrl + "]");
-					}									
-				} catch (ScriptException se) {
-					
-					System.err.println("Failed to compile Script [" + scriptUrl + "]");
-					System.err.println(src);
-					se.printStackTrace(System.err);
-				}
-				localBindings.put("inited", false);
+		boolean changed = false;
+		final long inMemTs = lastChangeOverride.get();
+		if(inMemTs>sourceTimestamp) {			
+			changed = true;
+			sourceTimestamp = inMemTs;
+		} else {
+			// this means we can reload the script from the URL source
+			if(URLHelper.getLastModified(scriptUrl)>sourceTimestamp) {					
+				sourceTimestamp = URLHelper.getLastModified(scriptUrl);
+				acquireScript();
+				changed = true;
 			}			
+		}
+		if(changed) {
+			try {
+				compileScript();
+				if(disabled) {
+					disabled = false;
+					System.out.println("Reloaded and re-enabled [" + scriptUrl + "]");
+				} else {
+					System.out.println("Reloaded Script [" + scriptUrl + "]");
+				}									
+			} catch (Exception se) {
+				disabled = true;
+				System.err.println("Failed to compile Script [" + scriptUrl + "]. Script has been disabled.");
+				System.err.println("\n\t=================================================\n" + source + "\n\t=================================================\n");
+				se.printStackTrace(System.err);
+			}
+			localBindings.put("inited", false);
 		}
 	}
 
@@ -266,17 +338,30 @@ public class ScriptContainer {
 	 * Returns the source file's file name
 	 * @return the source file's file name
 	 */
+	@Override
 	public String getName() {
 		return name;
 	}
 
 	/**
-	 * Indicates the script is disabled after n consecutive errors
-	 * @return true if disabled, false otherwise
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#isEnabled()
 	 */
-	public boolean isDisabled() {
-		return disabled;
+	@Override
+	public boolean isEnabled() {
+		return !disabled;
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#setEnabled(boolean)
+	 */
+	@Override
+	public void setEnabled(boolean enabled) {
+		disabled = !enabled;
+		
+	}
+	
 
 	/**
 	 * Sets the disabled state of this script
@@ -284,6 +369,276 @@ public class ScriptContainer {
 	 */
 	public void setDisabled(boolean disabled) {
 		this.disabled = disabled;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getSource()
+	 */
+	@Override
+	public String getSource() {
+		return source;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#setSource(java.lang.String)
+	 */
+	@Override
+	public void setSource(String src) {
+		source = src;
+		if(isWritable()) {
+			URLHelper.writeToURL(scriptUrl, source.getBytes(), false);
+		} else {
+			lastChangeOverride.set(SystemClock.time());
+		}
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getScriptURL()
+	 */
+	@Override
+	public URL getScriptURL() {
+		return scriptUrl;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getConsecutiveErrors()
+	 */
+	@Override
+	public long getConsecutiveErrors() {
+		return consecutiveErrors.get();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getTotalErrors()
+	 */
+	@Override
+	public long getTotalErrors() {		
+		return totalErrors.get();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getTotalInvocations()
+	 */
+	@Override
+	public long getTotalInvocations() {
+		return totalInvocations.get();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getLastElapsedTimeMs()
+	 */
+	@Override
+	public long getLastElapsedTimeMs() {
+		return invocationTimes.isEmpty() ? -1L : invocationTimes.get(0);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getRollingElapsedTimeMs()
+	 */
+	@Override
+	public long getRollingElapsedTimeMs() {
+		return invocationTimes.avg();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getLocalBindings()
+	 */
+	@Override
+	public Map<String, String> getLocalBindings() {
+		Map<String, String> b = new HashMap<String, String>(localBindings.size());
+		for(Map.Entry<String, Object> e: localBindings.entrySet()) {
+			Object val = e.getValue();
+			b.put(e.getKey(), val==null ? "" : val.toString());
+		}
+		return b;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getGlobalBindings()
+	 */
+	@Override
+	public Map<String, String> getGlobalBindings() {
+		Map<String, String> b = new HashMap<String, String>(globalBindings.size());
+		for(Map.Entry<String, Object> e: globalBindings.entrySet()) {
+			Object val = e.getValue();
+			b.put(e.getKey(), val==null ? "" : val.toString());
+		}
+		return b;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getSourceTimestamp()
+	 */
+	@Override
+	public long getSourceTimestamp() {
+		if(lastChangeOverride.get()<1) {
+			return URLHelper.getLastModified(scriptUrl);
+		}
+		return lastChangeOverride.get();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getSourceDate()
+	 */
+	@Override
+	public Date getSourceDate() {
+		return new Date(getSourceTimestamp());
+	}
+
+
+
+
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#reset()
+	 */
+	@Override
+	public void reset() {
+		invocationTimes.clear();
+		consecutiveErrors.set(0);
+		totalErrors.set(0);
+		totalInvocations.set(0);
+		acquireScript();
+		compileScript();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getEngineName()
+	 */
+	@Override
+	public String getEngineName() {
+		return scriptEngineFactory.getEngineName();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getEngineVersion()
+	 */
+	@Override
+	public String getEngineVersion() {
+		return scriptEngineFactory.getEngineVersion();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getExtensions()
+	 */
+	@Override
+	public List<String> getExtensions() {
+		return scriptEngineFactory.getExtensions();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getMimeTypes()
+	 */
+	@Override
+	public List<String> getMimeTypes() {
+		return scriptEngineFactory.getMimeTypes();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getNames()
+	 */
+	@Override
+	public List<String> getNames() {
+		return scriptEngineFactory.getNames();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getLanguageName()
+	 */
+	@Override
+	public String getLanguageName() {
+		return scriptEngineFactory.getLanguageName();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getLanguageVersion()
+	 */
+	@Override
+	public String getLanguageVersion() {
+		return scriptEngineFactory.getLanguageVersion();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getParameter(java.lang.String)
+	 */
+	@Override
+	public Object getParameter(String key) {
+		return scriptEngineFactory.getParameter(key);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getMethodCallSyntax(java.lang.String, java.lang.String, java.lang.String[])
+	 */
+	@Override
+	public String getMethodCallSyntax(String obj, String m, String... args) {
+		return scriptEngineFactory.getMethodCallSyntax(obj, m, args);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getOutputStatement(java.lang.String)
+	 */
+	@Override
+	public String getOutputStatement(String toDisplay) {
+		return scriptEngineFactory.getOutputStatement(toDisplay);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getProgram(java.lang.String[])
+	 */
+	@Override
+	public String getProgram(String... statements) {
+		return scriptEngineFactory.getProgram(statements);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#isWritable()
+	 */
+	@Override
+	public boolean isWritable() {
+		return writable;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getLastCompileTimeMs()
+	 */
+	@Override
+	public long getLastCompileTimeMs() {
+		return compilationTimes.isEmpty() ? -1L : compilationTimes.get(0);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getRollingCompileTimeMs()
+	 */
+	@Override
+	public long getRollingCompileTimeMs() {
+		return compilationTimes.avg();
 	}
 	
 }
