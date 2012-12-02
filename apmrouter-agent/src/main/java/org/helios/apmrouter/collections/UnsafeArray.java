@@ -306,8 +306,9 @@ public abstract class UnsafeArray {
      */
     protected int extend(boolean allowTruncate, int items) {
     	assert items > 0;
-    	if(fixed && capacity==maxCapacity) throw new ArrayOverflowException("Capacity cannot be extended:" + (fixed ? "Array is fixed capacity" : "Array is at maximum capacity"), new Throwable());    	
-    	if(Integer.MAX_VALUE-items > maxCapacity) throw new ArrayOverflowException("Capacity cannot be extended by [" + items + "] as it would overflow Integer.MAX_ITEMS", new Throwable());
+    	if(fixed && capacity==maxCapacity) throw new ArrayOverflowException("Capacity cannot be extended:" + (fixed ? "Array is fixed capacity" : "Array is at maximum capacity"), new Throwable());
+    	long targetCap = (long)capacity + (long)items;
+    	if(targetCap > Integer.MAX_VALUE) throw new ArrayOverflowException("Capacity cannot be extended by [" + items + "] as it would overflow Integer.MAX_ITEMS", new Throwable());
 
     	int targetCapacity = size + items;
     	if(fixed && targetCapacity > maxCapacity) { 		
@@ -408,7 +409,7 @@ public abstract class UnsafeArray {
 	         Delete               
 		</pre><b>After</b><pre>
 	     +--+ +--+ +--+ +--+ +--+               Size:      5
-	     |23| |47| |19| |67| |42|               Capacity:  6
+	     |23| |19| |67| |42| |89|               Capacity:  6
 	     +--+ +--+ +--+ +--+ +--+ +--+	 
 	     </pre> 
      */
