@@ -38,6 +38,10 @@ public enum MetricType  implements IMetricDataAccessor {
 	DELTA_COUNTER(new DeltaMDA()),
 	/** Locally maintained delta numeric metricId type, conflation is averaging */
 	DELTA_GAUGE(new DeltaMDA()),
+	/** Increments a server managed global counter */
+	INCREMENTOR(new LongMDA()),
+	/** Increments a server managed global counter which is flushed and zeroed out at the end of the interval */
+	INTERVAL_INCREMENTOR(new LongMDA()),
 	/** A throwable handler metricId type */	
 	ERROR(new ErrorMDA()),
 	/** A char sequence type message metricId type */
@@ -45,11 +49,8 @@ public enum MetricType  implements IMetricDataAccessor {
 	/** An SNMP PDU */
 	PDU(new PduMDA()),	
 	/** A catch all metricId type in the form of a byte array for everything else */
-	BLOB(new BlobMDA()),
-	/** Increments a server managed global counter */
-	INCREMENTOR(new LongMDA()),
-	/** Increments a server managed global counter which is flushed and zeroed out at the end of the interval */
-	INTERVAL_INCREMENTOR(new LongMDA());
+	BLOB(new BlobMDA());
+
 	
 	
 	/** Map of MetricTypes keyed by the ordinal */
@@ -88,8 +89,17 @@ public enum MetricType  implements IMetricDataAccessor {
 	 * @return true if this metricId type is long based, false otherwise
 	 */
 	public boolean isLong() {
-		return ordinal() <= DELTA_GAUGE.ordinal();
+		return ordinal() <= INTERVAL_INCREMENTOR.ordinal();
 	}
+	
+	/**
+	 * Determines if this metricId type is an incrementor
+	 * @return true if this metricId type is an incrementor, false otherwise
+	 */
+	public boolean isIncrementor() {
+		return this == INTERVAL_INCREMENTOR || this == INCREMENTOR;
+	}
+	
 	
 	/**
 	 * Determines if this metricId type is a gauge

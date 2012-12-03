@@ -424,4 +424,54 @@ public class TracerImpl implements ITracer {
 		return submitter;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceIncrement(long, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceIncrement(long value, CharSequence name, CharSequence... namespace) {
+		try {				
+			ICEMetric metric = ICEMetric.trace(value, host, agent, name, MetricType.INCREMENTOR, namespace);
+			submitter.submit(metric);
+			return metric;
+		} catch (Throwable t) {
+			t.printStackTrace(System.err);
+			return null;
+		}				
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceIncrement(java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceIncrement(CharSequence name, CharSequence... namespace) {
+		return traceIncrement(1L, name, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceIntervalIncrement(long, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceIntervalIncrement(long value, CharSequence name, CharSequence... namespace) {
+		try {				
+			ICEMetric metric = ICEMetric.trace(value, host, agent, name, MetricType.INTERVAL_INCREMENTOR, namespace);
+			submitter.submit(metric);
+			return metric;
+		} catch (Throwable t) {
+			t.printStackTrace(System.err);
+			return null;
+		}				
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceIntervalIncrement(java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceIntervalIncrement(CharSequence name, CharSequence... namespace) {
+		return traceIntervalIncrement(1L, name, namespace);
+	}
+
 }

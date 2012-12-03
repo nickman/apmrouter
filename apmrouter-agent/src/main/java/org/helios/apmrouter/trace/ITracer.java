@@ -110,6 +110,42 @@ public interface ITracer {
 	public ICEMetric traceCounter(long value, CharSequence name, CharSequence...namespace);
 	
 	/**
+	 * Traces an incrementor type by the passed value
+	 * @param value The long value to increment by
+	 * @param name The name of the metric
+	 * @param namespace The optional namespace of the metric
+	 * @return the created {@link ICEMetric}
+	 */
+	public ICEMetric traceIncrement(long value, CharSequence name, CharSequence...namespace);
+	
+	/**
+	 * Traces an incrementor type by <b><code>+1</code></b>.
+	 * @param name The name of the metric
+	 * @param namespace The optional namespace of the metric
+	 * @return the created {@link ICEMetric}
+	 */
+	public ICEMetric traceIncrement(CharSequence name, CharSequence...namespace);
+	
+	/**
+	 * Traces an interval incrementor type by the passed value
+	 * @param value The long value to increment by
+	 * @param name The name of the metric
+	 * @param namespace The optional namespace of the metric
+	 * @return the created {@link ICEMetric}
+	 */
+	public ICEMetric traceIntervalIncrement(long value, CharSequence name, CharSequence...namespace);
+	
+	/**
+	 * Traces an interval incrementor type by <b><code>+1</code></b>.
+	 * @param name The name of the metric
+	 * @param namespace The optional namespace of the metric
+	 * @return the created {@link ICEMetric}
+	 */
+	public ICEMetric traceIntervalIncrement(CharSequence name, CharSequence...namespace);	
+	
+	
+	
+	/**
 	 * Traces a long gauge type
 	 * @param value The long value
 	 * @param name The name of the metric
