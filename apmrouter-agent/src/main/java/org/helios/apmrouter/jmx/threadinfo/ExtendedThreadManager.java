@@ -42,14 +42,14 @@ import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.util.SystemClock;
 
 /**
- * <p>Title: NotifyingThreadMXBean</p>
+ * <p>Title: ExtendedThreadManager</p>
  * <p>Description: </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.jmx.threadinfo.NotifyingThreadMXBean</code></p>
+ * <p><code>org.helios.apmrouter.jmx.threadinfo.ExtendedThreadManager</code></p>
  */
 
-public class NotifyingThreadMXBean extends NotificationBroadcasterSupport implements ThreadMXBean {
+public class ExtendedThreadManager extends NotificationBroadcasterSupport implements ExtendedThreadManagerMXBean {
 	private static final MBeanNotificationInfo[] notificationInfo = createMBeanInfo();
 	/** The delegate ThreadMXBean */
 	protected final ThreadMXBean delegate;
@@ -77,6 +77,9 @@ public class NotifyingThreadMXBean extends NotificationBroadcasterSupport implem
 	/** Indicates if thread cpu timing monitoring is supported */
 	public static final boolean TCT_SUPPORTED = original.isThreadCpuTimeSupported();
 	
+	/** The default max depth to get thread Infos with */
+	private int maxDepth = Integer.MAX_VALUE;
+	
 	// record initial tct and tcm states, store in statics
 	
 	public static void main(String[] args) {
@@ -91,7 +94,7 @@ public class NotifyingThreadMXBean extends NotificationBroadcasterSupport implem
 	
 	public static void install() {
 		if(!installed.get()) {
-			NotifyingThreadMXBean mxb = new NotifyingThreadMXBean(ManagementFactory.getThreadMXBean());
+			ExtendedThreadManager mxb = new ExtendedThreadManager(ManagementFactory.getThreadMXBean());
 			try {
 				server.unregisterMBean(THREAD_MX_NAME);
 				server.registerMBean(mxb, THREAD_MX_NAME);
@@ -111,10 +114,10 @@ public class NotifyingThreadMXBean extends NotificationBroadcasterSupport implem
 	}
 	
 	/**
-	 * Creates a new NotifyingThreadMXBean
+	 * Creates a new ExtendedThreadManager
 	 * @param delegate the ThreadMXBean delegate
 	 */
-	private NotifyingThreadMXBean(ThreadMXBean delegate) {
+	private ExtendedThreadManager(ThreadMXBean delegate) {
 		super(Executors.newFixedThreadPool(1, new ThreadFactory(){
 			@Override
 			public Thread newThread(Runnable r) {
@@ -230,5 +233,32 @@ public class NotifyingThreadMXBean extends NotificationBroadcasterSupport implem
 			new MBeanNotificationInfo(new String[]{NOTIF_TCM_ENABLED, NOTIF_TCM_DISABLED}, Notification.class.getName(), "Notification indicating if ThreadContentionMonitoring (tcm) enablement has changed"),
 			new MBeanNotificationInfo(new String[]{NOTIF_TCT_ENABLED, NOTIF_TCT_DISABLED}, Notification.class.getName(), "Notification indicating if ThreadContentionMonitoring (tcm) enablement has changed"),
 		};		
+	}
+	
+	
+
+	/**
+	 * Returns the max depth used for getting thread infos
+	 * @return the max depth used for getting thread infos
+	 */
+	public int getMaxDepth() {
+		return maxDepth;
+	}
+
+	/**
+	 * Sets the max depth used for getting thread infos
+	 * @param maxDepth the max depth used for getting thread infos
+	 */
+	public void setMaxDepth(int maxDepth) {
+		this.maxDepth = maxDepth;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.jmx.threadinfo.ExtendedThreadManagerMXBean#getThreadInfo()
+	 */
+	@Override
+	public ExtendedThreadInfo[] getThreadInfo() {
+		return ExtendedThreadInfo.wrapThreadInfos(delegate.getThreadInfo(delegate.getAllThreadIds(), maxDepth));
 	}
 }
