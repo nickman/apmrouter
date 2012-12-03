@@ -33,6 +33,12 @@ package org.helios.apmrouter.collections;
  */
 
 public interface ILongStack {
+	
+	/**
+	 * De-allocates this LongStack 
+	 */
+	public void destroy();
+
 	/**
 	 * Pushes an array of longs into the beginning of the stack
 	 * @param values The longs to push onto the stack

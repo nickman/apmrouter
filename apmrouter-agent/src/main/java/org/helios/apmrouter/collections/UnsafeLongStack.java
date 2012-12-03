@@ -37,6 +37,13 @@ public class UnsafeLongStack implements ILongStack {
 	protected final UnsafeLongArray array;
 	
 	/**
+	 * De-allocates this UnsafeLongStack 
+	 */
+	public void destroy() {
+		array.destroy();
+	}
+	
+	/**
 	 * Creates a new UnsafeLongStack
 	 */
 	public UnsafeLongStack() {

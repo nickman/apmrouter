@@ -43,6 +43,20 @@ public class ConcurrentLongStack extends UnsafeLongStack {
 	private final ReadLock readLock;
 	/** The exclusive write lock */
 	private final WriteLock writeLock;
+	
+	/**
+	 * De-allocates this LongStack 
+	 */
+	@Override
+	public void destroy() {
+		writeLock.lock();
+		try {
+			super.destroy();
+		} finally {
+			writeLock.unlock();
+		}
+	}
+
 
 	/**
 	 * Creates a new ConcurrentLongStack
