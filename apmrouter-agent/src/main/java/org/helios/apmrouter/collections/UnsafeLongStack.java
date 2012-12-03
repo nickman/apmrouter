@@ -39,6 +39,7 @@ public class UnsafeLongStack implements ILongStack {
 	/**
 	 * De-allocates this UnsafeLongStack 
 	 */
+	@Override
 	public void destroy() {
 		array.destroy();
 	}
@@ -56,6 +57,16 @@ public class UnsafeLongStack implements ILongStack {
 				.clearedSlotsFree(1)
 				.buildLongArray();
 		
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongStack#get(int)
+	 */
+	@Override
+	public long get(int index) {
+		if(index<0 || index+1 > size()) throw new IllegalArgumentException("Invalid index requested [" + index + "] for stack with size [" + size() + "]", new Throwable());
+		return array.get(index);
 	}
 
 	/**

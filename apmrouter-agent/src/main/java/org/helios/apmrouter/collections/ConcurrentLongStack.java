@@ -80,6 +80,20 @@ public class ConcurrentLongStack extends UnsafeLongStack {
 			writeLock.unlock();
 		}
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.collections.ILongStack#get(int)
+	 */
+	@Override
+	public long get(int index) {
+		readLock.lock();
+		try {
+			return super.get(index);
+		} finally {
+			readLock.unlock();
+		}		
+	}
 
 	/**
 	 * {@inheritDoc}

@@ -45,6 +45,14 @@ public interface ILongStack {
 	 * @return this ILongStack instance
 	 */
 	public ILongStack push(long...values);
+	
+	/**
+	 * Returns the long value at the specified index
+	 * @param index The index to retrieve the long from
+	 * @return the long value
+	 */
+	public long get(int index);
+	
 	/**
 	 * Removes and returns the first long value from the stack
 	 * @return the removed long value
