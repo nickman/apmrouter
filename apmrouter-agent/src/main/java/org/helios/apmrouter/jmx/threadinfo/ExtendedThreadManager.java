@@ -43,7 +43,7 @@ import org.helios.apmrouter.util.SystemClock;
 
 /**
  * <p>Title: ExtendedThreadManager</p>
- * <p>Description: </p> 
+ * <p>Description: A drop in replacement for the standard {@link ThreadMXBean} that adds additional functionality and notifications.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.jmx.threadinfo.ExtendedThreadManager</code></p>

@@ -31,7 +31,7 @@ import java.lang.management.ThreadInfo;
 
 /**
  * <p>Title: ExtendedThreadInfo</p>
- * <p>Description: </p> 
+ * <p>Description: Wrapper adding additional functionality for standard {@link ThreadInfo}s </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.jmx.threadinfo.ExtendedThreadInfo</code></p>

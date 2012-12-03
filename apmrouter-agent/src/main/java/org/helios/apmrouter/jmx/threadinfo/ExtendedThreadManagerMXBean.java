@@ -28,7 +28,7 @@ import java.lang.management.ThreadMXBean;
 
 /**
  * <p>Title: ExtendedThreadManagerMXBean</p>
- * <p>Description: </p> 
+ * <p>Description: JMX MXBean interface for {@link ExtendedThreadManager}</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.jmx.threadinfo.ExtendedThreadManagerMXBean</code></p>

@@ -30,7 +30,7 @@ import java.lang.management.MonitorInfo;
 
 /**
  * <p>Title: ExtendedThreadInfoMBean</p>
- * <p>Description: </p> 
+ * <p>Description: MXBean compatibility interface to expose {@link ExtendedThreadInfo}s as composite data instances.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.jmx.threadinfo.ExtendedThreadInfoMBean</code></p>
