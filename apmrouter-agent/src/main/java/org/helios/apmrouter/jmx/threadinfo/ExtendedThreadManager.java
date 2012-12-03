@@ -67,7 +67,8 @@ public class ExtendedThreadManager extends NotificationBroadcasterSupport implem
 	public static final String NOTIF_TCT_ENABLED = "threadmxbean.tct.enabled";
 	/** The JMX notification type emitted when Thread Timing is disabled */
 	public static final String NOTIF_TCT_DISABLED = "threadmxbean.tct.disabled";
-	
+	/** The extended thread manager instance */
+	private static ExtendedThreadManager mxb = null;
 	/** JMX notification serial number generator */
 	private static final AtomicLong serial = new AtomicLong(0L);
 	/** The original ThreadMXBean */
@@ -92,17 +93,23 @@ public class ExtendedThreadManager extends NotificationBroadcasterSupport implem
 		System.out.println(msg);
 	}
 	
-	public static void install() {
+	/**
+	 * Installs and return the ExtendedThreadManager
+	 * @return the ExtendedThreadManager instance
+	 */
+	public static ExtendedThreadManager install() {
 		if(!installed.get()) {
-			ExtendedThreadManager mxb = new ExtendedThreadManager(ManagementFactory.getThreadMXBean());
+			mxb = new ExtendedThreadManager(ManagementFactory.getThreadMXBean());
 			try {
 				server.unregisterMBean(THREAD_MX_NAME);
 				server.registerMBean(mxb, THREAD_MX_NAME);
 				installed.set(true);
 			} catch (Exception ex) {
 				ex.printStackTrace(System.err);
+				throw new RuntimeException("Failed to install ExtendedThreadManager", ex);
 			}
 		}
+		return mxb;
 	}
 	public static void remove() {
 		if(installed.get()) {

@@ -96,8 +96,6 @@ public class ScriptMonitor extends AbstractMonitor {
 	public static final String STD_OUT = "pout";
 	/** The binding name for the stderr stream */
 	public static final String STD_ERR = "perr";
-	/** The binding name for the collection sweep */
-	public static final String COLLECTION_SWEEP = "sweep";
 	/** The binding name for the {@link APMSigar} instance */
 	public static final String APM_SIGAR = "sigar";
 	
@@ -156,8 +154,7 @@ public class ScriptMonitor extends AbstractMonitor {
 	protected void doCollect(long collectionSweep) {		
 		for(Iterator<ScriptContainer> iter = compiledScripts.values().iterator(); iter.hasNext();) {
 			ScriptContainer sc = iter.next();
-			try {
-				scriptBindings.put(COLLECTION_SWEEP, collectionSweep);
+			try {				
 				sc.invoke();
 			} catch (UnavailableMBeanServerException uex) {
 				/* No Op */

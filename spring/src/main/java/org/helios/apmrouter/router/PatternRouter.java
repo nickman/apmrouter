@@ -270,7 +270,8 @@ public class PatternRouter extends ServerComponentBean implements UncaughtExcept
 	 * @param metrics The routables to route
 	 */
 	public void route(IMetric...metrics) {
-		conflator.queue(metrics);
+		//conflator.queue(metrics);   // TODO: Only use conflator in actual destinations that need it.
+		queue(metrics);
 	}
 	
 //	/**

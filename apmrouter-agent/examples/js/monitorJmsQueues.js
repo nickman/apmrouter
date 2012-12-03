@@ -23,4 +23,4 @@ if(jmx.isRegistered('jboss', 'com.ecs.jms.destinations:*')) {
 	}
 }
 
-pout.println("JMS Monitor OK");
+

@@ -304,7 +304,7 @@
 						// ==================================================================================
 						//  Adding new domain if not present into the tree
 						// ==================================================================================
-						/*
+						
 						if($(domainId).length<1) {
 							var uid = 'domain-' + (e.userData.d.join('_'));
 							$("#metricTree").jstree("create", $('#root'), "inside" , {
@@ -312,7 +312,7 @@
 								data : {title: e.userData.d.join('.')}
 							}, false, true);
 						}
-						*/
+						
 						// ==================================================================================
 						//  Adding a new host into the tree
 						// ==================================================================================						
@@ -330,18 +330,19 @@
 						console.info("Marking host [%s] UP", e.userData.h);
 						$('#host-' + e.userData.hi).attr('rel', 'server').removeAttr('apmr_dnode_downTime');
 					}
-					if($('#agent-' + e.userData.ai).length==0) {
+					var hostId = '#host-' + e.userData.hi;
+					var agentId = "agent-" + e.userData.ai;
+					if($('#' + agentId).length==0 && !parentContainsChild(hostId, agentId)) {
 						// ==================================================================================
 						//  Adding a new agent into the tree
 						// ==================================================================================
-						var hostId = '#host-' + e.userData.hi;
 						$("#metricTree").jstree("create", $(hostId), "inside" , {
-							attr: {id: "agent-" + e.userData.ai, rel: "online-agent", agent : e.userData.ai},  
+							attr: {id: agentId, rel: "online-agent", agent : e.userData.ai},  
 							data : {title: e.userData.a}
 						}, function(){
-							$("#agent-" + e.userData.ai).removeClass('jstree-leaf').addClass('jstree-closed');
+							$("#" + agentId).removeClass('jstree-leaf').addClass('jstree-closed');
 						}, true);
-																		
+						console.info("Added Agent [%s]", agentId);
 					} else {
 						// ==================================================================================
 						//  Marking an agent in the tree as UP

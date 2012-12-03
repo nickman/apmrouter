@@ -27,6 +27,7 @@ package org.helios.apmrouter.destination.opentsdb;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -316,7 +317,14 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 	      return dp;
 	    }
 	    dp = tsClient.newDataPoints();
-	    dp.setSeries(metric.replace("\\", ""), tags);
+	    try {
+	    	String _metric = metric.replace("\\", "");
+	    	dp.setSeries(_metric, tags);
+	    } catch (Exception ex) {
+	    	//ex.printStackTrace(System.err);
+	    	System.err.println("Failed to get data points for [" + metric + "]:" + tags);
+	    	return null;
+	    }
 	    dp.setBatchImport(true);
 	    datapoints.put(key, dp);
 	    return dp;
@@ -453,6 +461,10 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 		//validate(recording.name, recording.tags, recording.value, recording.timestamp);
 		//tsClient.addPoint(recording.name, recording.timestamp,  recording.value, recording.tags);
         final WritableDataPoints dp = getDataPoints(recording.name, recording.tags);
+        if(dp==null) {
+        	dropCounter.incrementAndGet();
+        	return;
+        }
         Deferred<Object> d;
         try {
         	d = dp.addPoint(recording.timestamp, recording.value);

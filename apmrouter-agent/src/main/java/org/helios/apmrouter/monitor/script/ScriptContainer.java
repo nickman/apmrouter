@@ -99,6 +99,9 @@ public class ScriptContainer extends NotificationBroadcasterSupport implements S
 	protected final AtomicLong totalErrors = new AtomicLong(0L);
 	/** The total number of times the script has executed  */
 	protected final AtomicLong totalInvocations = new AtomicLong(0L);
+	/** The local collection sweep, starting at 0 and incrementing each period */
+	protected long localCollectionSweep = 0;
+	
 	/** The script invocation time recorder */
 	protected final ConcurrentLongSlidingWindow invocationTimes = new ConcurrentLongSlidingWindow(100);
 	/** The script compilation time recorder */
@@ -111,6 +114,9 @@ public class ScriptContainer extends NotificationBroadcasterSupport implements S
 	public static final String SRC_HEADER = "if(!inited) pout.println('\\n\\t[<< %s >>] Initializing');\n";
 	/** Source appended to the read file */
 	public static final String SRC_FOOTER = "\nif(!inited) { pout.println('\\n\\t[<< %s >>] Monitor OK'); inited = true;}";
+	/** The binding name for the collection sweep */
+	public static final String COLLECTION_SWEEP = "localsweep";
+	
 	
 	/**
 	 * Creates a new ScriptContainer
@@ -132,6 +138,9 @@ public class ScriptContainer extends NotificationBroadcasterSupport implements S
 		try {
 			String cleanedUrl = this.scriptUrl.toURI().toString();
 			cleanedUrl = cleanedUrl.substring(cleanedUrl.indexOf(":")+1);
+			cleanedUrl = cleanedUrl.substring(cleanedUrl.indexOf(":")+1);
+			cleanedUrl = cleanedUrl.replace(':', ';');
+			
 			System.out.println("Creating ObjectName [" + String.format(OBJECT_NAME_TEMPLATE, cleanedUrl, scriptEngineFactory.getLanguageName()) + "]");
 			objectName = JMXHelper.objectName(String.format(OBJECT_NAME_TEMPLATE, cleanedUrl, scriptEngineFactory.getLanguageName()));
 			JMXHelper.getHeliosMBeanServer().registerMBean(this, objectName);
@@ -167,6 +176,7 @@ public class ScriptContainer extends NotificationBroadcasterSupport implements S
 			SystemClock.startTimer();
 			compiledScript = ((Compilable)scriptEngine).compile(String.format(SRC_HEADER, name) + source + String.format(SRC_FOOTER, name));
 			localBindings.put("inited", false);
+			localCollectionSweep = 0L;
 		} catch (Exception e) {
 			System.err.println("Failed to compile script [" + scriptUrl + "]. Will be ignored until modified.");
 			disabled = true;
@@ -191,10 +201,15 @@ public class ScriptContainer extends NotificationBroadcasterSupport implements S
 	@Override
 	public Object invoke() throws ScriptException {
 		checkForUpdate();
+		localCollectionSweep++;
+		if(localCollectionSweep==Long.MAX_VALUE) {
+			localCollectionSweep=0L;
+		}
 		if(disabled) return null;
 		boolean completed = false;
 		SystemClock.startTimer();
 		try {
+			localBindings.put(COLLECTION_SWEEP, localCollectionSweep);
 			Object response = compiledScript.eval(ctx);			
 			totalInvocations.incrementAndGet();
 			consecutiveErrors.set(0);
@@ -507,6 +522,7 @@ public class ScriptContainer extends NotificationBroadcasterSupport implements S
 	 */
 	@Override
 	public void reset() {
+		localCollectionSweep = 0L;
 		invocationTimes.clear();
 		consecutiveErrors.set(0);
 		totalErrors.set(0);

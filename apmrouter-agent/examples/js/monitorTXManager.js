@@ -12,6 +12,6 @@
 		tracer.traceDeltaGauge(jmx.getNumericAttribute("jboss", on, "RollbackCount") , "RollbackCount", ns);
 	}
 
-	pout.println("TXManager Monitor OK");
+	
 	
  
