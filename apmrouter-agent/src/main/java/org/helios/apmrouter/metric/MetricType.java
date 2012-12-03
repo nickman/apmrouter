@@ -45,7 +45,11 @@ public enum MetricType  implements IMetricDataAccessor {
 	/** An SNMP PDU */
 	PDU(new PduMDA()),	
 	/** A catch all metricId type in the form of a byte array for everything else */
-	BLOB(new BlobMDA());
+	BLOB(new BlobMDA()),
+	/** Increments a server managed global counter */
+	INCREMENTOR(new LongMDA()),
+	/** Increments a server managed global counter which is flushed and zeroed out at the end of the interval */
+	INTERVAL_INCREMENTOR(new LongMDA());
 	
 	
 	/** Map of MetricTypes keyed by the ordinal */
