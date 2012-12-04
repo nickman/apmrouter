@@ -36,10 +36,12 @@ import com.yammer.metrics.core.Counter;
 import com.yammer.metrics.core.Gauge;
 import com.yammer.metrics.core.Histogram;
 import com.yammer.metrics.core.Metered;
+import com.yammer.metrics.core.Metric;
 import com.yammer.metrics.core.MetricName;
 import com.yammer.metrics.core.MetricPredicate;
 import com.yammer.metrics.core.MetricProcessor;
 import com.yammer.metrics.core.MetricsRegistry;
+import com.yammer.metrics.core.MetricsRegistryListener;
 import com.yammer.metrics.core.Sampling;
 import com.yammer.metrics.core.Summarizable;
 import com.yammer.metrics.core.Timer;
@@ -54,7 +56,7 @@ import com.yammer.metrics.stats.Snapshot;
  * <p><code>org.helios.apmrouter.codahale.helios.HeliosReporter</code></p>
  */
 
-public class HeliosReporter extends AbstractPollingReporter implements MetricProcessor<Long> {
+public class HeliosReporter extends AbstractPollingReporter implements MetricProcessor<Long>, MetricsRegistryListener {
 	/** The tracer used by this reporter */
 	protected final ITracer tracer;
 	/** The provided metric predicate */
@@ -71,7 +73,9 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
      * @param predicate       filters metrics to be reported
      */
     public static void enable(MetricsRegistry metricsRegistry, long period, TimeUnit unit, MetricPredicate predicate) {
-            new HeliosReporter(metricsRegistry, predicate, DEFAULT_NAME).start(period, unit);
+    	HeliosReporter reporter = new HeliosReporter(metricsRegistry, predicate, DEFAULT_NAME);
+    	reporter.start(period, unit);
+    	metricsRegistry.addListener(reporter);
     }
 	
 	
@@ -209,6 +213,28 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 	 */
 	@Override
 	public void run() {
+		// TODO Auto-generated method stub
+		
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 * @see com.yammer.metrics.core.MetricsRegistryListener#onMetricAdded(com.yammer.metrics.core.MetricName, com.yammer.metrics.core.Metric)
+	 */
+	@Override
+	public void onMetricAdded(MetricName name, Metric metric) {
+		// TODO Auto-generated method stub
+		
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 * @see com.yammer.metrics.core.MetricsRegistryListener#onMetricRemoved(com.yammer.metrics.core.MetricName)
+	 */
+	@Override
+	public void onMetricRemoved(MetricName name) {
 		// TODO Auto-generated method stub
 		
 	}
