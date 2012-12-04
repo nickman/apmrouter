@@ -29,6 +29,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import javassist.bytecode.annotation.AnnotationImpl;
+import javassist.bytecode.annotation.EnumMemberValue;
+import javassist.bytecode.annotation.StringMemberValue;
+
 import org.helios.apmrouter.codahale.annotation.Timed;
 
 /**
@@ -39,7 +43,7 @@ import org.helios.apmrouter.codahale.annotation.Timed;
  * <p><code>org.helios.apmrouter.codahale.agent.AnnotationType</code></p>
  */
 
-public enum AnnotationType {
+public enum AnnotationType implements AnnotationValuesExtractor {
 //    /** Represents the annotation that meters exception on a join-point */
 //    EXCEPTION_METERED,
 //    /** Represents the annotation that counts invocations of a join-point */
@@ -47,18 +51,18 @@ public enum AnnotationType {
 //    /** Represents the annotation that computes statistics regarding a join-point */
 //    HISTOGRAM,
     /** Represents the annotation that computes timings of executions of a join-point */
-    TIMED(Timed.class);
+    TIMED(Timed.class, new TimedAnnotationExtractor());
   
     /** Maps annotation classes to the annotation type enum */
-    public static final Map<Class<? extends Annotation>, AnnotationType> CLASS2TYPE;
+    public static final Map<String, AnnotationType> CLASS2TYPE;
     /** Maps annotation type enums to annotation classes */
     public static final Map<AnnotationType, Class<? extends Annotation>> TYPE2CLASS;
     
     static {
-    	Map<Class<? extends Annotation>, AnnotationType> toType = new HashMap<Class<? extends Annotation>, AnnotationType>(10);
+    	Map<String, AnnotationType> toType = new HashMap<String, AnnotationType>(10);
     	Map<AnnotationType, Class<? extends Annotation>> toClass = new HashMap<AnnotationType, Class<? extends Annotation>>(10);
     	for(AnnotationType ann: AnnotationType.values()) {
-    		toType.put(ann.annotationClazz, ann);
+    		toType.put(ann.annotationClazz.getName(), ann);
     		toClass.put(ann, ann.annotationClazz);
     	}
     	CLASS2TYPE = Collections.unmodifiableMap(toType);
@@ -70,9 +74,9 @@ public enum AnnotationType {
      * @param clazz The annotation class to get the annotation type enum for
      * @return the annotation type enum 
      */
-    public static AnnotationType getTypeForAnnotation(Class<? extends Annotation> clazz) {
+    public static AnnotationType getTypeForAnnotation(Class<?> clazz) {
     	if(clazz==null) throw new IllegalArgumentException("The passed class was null", new Throwable());
-    	AnnotationType ann = CLASS2TYPE.get(clazz);
+    	AnnotationType ann = CLASS2TYPE.get(clazz.getName());
     	if(ann==null) throw new IllegalArgumentException("The passed class [" + clazz.getName() + "] is not a supported annotation", new Throwable());
     	return ann;
     }
@@ -94,17 +98,78 @@ public enum AnnotationType {
      * @param ann The annotation instance to test
      * @return true if the instance's type is supported, false if it not supported or was null
      */
-    public static boolean isSupportedAnnotation(Annotation ann) {
+    public static boolean isSupportedAnnotation(Object ann) {
     	if(ann==null) return false;
-    	return CLASS2TYPE.get(ann.annotationType())!=null;
+    	return CLASS2TYPE.get(ann.getClass().getName())!=null;
     }
     
     
     // GAUGE ?  Not appropriate for byte code instrumentation ?
     
-    private AnnotationType(Class<? extends Annotation> annotationClazz) {
+    private AnnotationType(Class<? extends Annotation> annotationClazz, AnnotationValuesExtractor extractor) {
     	this.annotationClazz = annotationClazz;
+    	this.extractor = extractor;
     }
     
     private final Class<? extends Annotation> annotationClazz;
+    private final AnnotationValuesExtractor extractor;
+
+	/**
+	 * Returns this enum instance's annotation type
+	 * @return this enum instance's annotation type
+	 */
+	public Class<? extends Annotation> getAnnotationClazz() {
+		return annotationClazz;
+	}
+	
+	/**
+	 * Returns this enum instance's {@link AnnotationValuesExtractor}
+	 * @return this enum instance's {@link AnnotationValuesExtractor}
+	 */
+	public AnnotationValuesExtractor getExtractor() {
+		return extractor;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.codahale.agent.AnnotationValuesExtractor#extract(javassist.bytecode.annotation.AnnotationImpl)
+	 */
+	@Override
+	public Map<String, ?> extract(AnnotationImpl annotation) {
+		return this.extractor.extract(annotation);
+	}
+	
+	/**
+	 * <p>Title: TimedAnnotationExtractor</p>
+	 * <p>Description: Extractor for Timed annotation instances</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.codahale.agent.AnnotationType.TimedAnnotationExtractor</code></p>
+	 */
+	public static class TimedAnnotationExtractor implements AnnotationValuesExtractor {
+
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.codahale.agent.AnnotationValuesExtractor#extract(javassist.bytecode.annotation.AnnotationImpl)
+		 */
+		@Override
+		public Map<String, ?> extract(AnnotationImpl annotation) {
+			Map<String, Object> map = new HashMap<String, Object>();
+			javassist.bytecode.annotation.Annotation ann = annotation.getAnnotation();
+			map.put("group", ((StringMemberValue)ann.getMemberValue("group")).getValue());
+			map.put("type", ((StringMemberValue)ann.getMemberValue("type")).getValue());
+			map.put("scope", ((StringMemberValue)ann.getMemberValue("scope")).getValue());
+			map.put("name", ((StringMemberValue)ann.getMemberValue("name")).getValue());
+			map.put("rateUnit", ((EnumMemberValue)ann.getMemberValue("rateUnit")).getValue());
+			map.put("durationUnit", ((EnumMemberValue)ann.getMemberValue("durationUnit")).getValue());
+			return map;
+		}
+		
+
+
+		
+	}
+
+
+
 }

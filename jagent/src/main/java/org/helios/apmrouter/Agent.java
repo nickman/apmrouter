@@ -72,8 +72,8 @@ public class Agent {
 		try {
 			Thread.currentThread().setContextClassLoader(coreClassLoader);
 			Class<?> bootClass = Class.forName(BOOT_CLASS, true, coreClassLoader);
-			Method method = bootClass.getDeclaredMethod("boot", String.class, Instrumentation.class);
-			method.invoke(null, args.length==0 ? null : args[0], instrumentation);
+			Method method = bootClass.getDeclaredMethod("boot", URLClassLoader.class, String.class, Instrumentation.class);
+			method.invoke(null, args.length==0 ? null : coreClassLoader, args[0], instrumentation);
 			log("\n\t=============================\n\tAPMRouter JavaAgent v " + version(Agent.class) + " Successfully Started\n\t=============================\n");
 		} catch (Exception e) {
 			System.err.println("Failed to load apmrouter java-agent core. Stack trace follows:");
@@ -158,6 +158,16 @@ public class Agent {
 	public static void elog(Object msg) {
 		System.err.println(msg);
 	}
+	
+	/**
+	 * Error logger
+	 * @param msg The error message
+	 * @param t The throwable to print the stack trace for
+	 */
+	public static void loge(Object msg, Throwable t) {
+		System.err.println(msg);
+		t.printStackTrace(System.err);
+	}	
 	
 
 }

@@ -116,6 +116,14 @@ public class JarClassLoader extends URLClassLoader {
 	   }
 	  }
 	 }
+	 
+	 /**
+	 * {@inheritDoc}
+	 * @see java.net.URLClassLoader#addURL(java.net.URL)
+	 */
+	public void addURL(URL url) {
+		 super.addURL(url);
+	 }
 	  
 	 /**
 	 * {@inheritDoc}

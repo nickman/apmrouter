@@ -50,11 +50,17 @@ public @interface Timed {
      * The type of the timer.
      */
     String type() default "";
+    
+    /**
+     * The scope of the timer.
+     */
+    String scope() default "";
+    
 
     /**
      * The name of the timer.
      */
-    String name() default "";
+    String name();
 
     /**
      * The time unit of the timer's rate.
