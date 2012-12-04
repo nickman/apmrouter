@@ -10,6 +10,7 @@
 		<module>apmrouter-agent</module>		
 		<module>spring</module>
 		<module>jagent</module>
+		<module>codahale</module>
 		<module>apmrouter-web</module>
 		<module>apmrouter-cl</module>
 	</modules>
@@ -47,6 +48,7 @@
 		<spring-mongo.version>1.0.4.RELEASE</spring-mongo.version>
 		<flapdoodle.version>1.26</flapdoodle.version>
 		<jfree.version>1.0.9</jfree.version>
+		<yammer.version>3.0.0-SNAPSHOT</yammer.version>
 		
 	</properties>
 	<dependencyManagement>
@@ -278,6 +280,13 @@
 		      <artifactId>rrd4j</artifactId>
 		      <version>${rrd4j.version}</version>
 		    </dependency>
+
+		<!--  Yammer Codahale Extension -->
+		  <dependency>
+		      <groupId>com.yammer.metrics</groupId>
+		      <artifactId>metrics-core</artifactId>
+		      <version>${yammer.version}</version>
+		  </dependency>
 
 			
 		</dependencies>
