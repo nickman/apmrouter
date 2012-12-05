@@ -150,9 +150,10 @@ public class AgentBoot {
 			//addURLToClassLoader(url);
 //			URL thirdParty = new URL("file:/C:/users/nwhitehe/.m2/repository/com/yammer/metrics/metrics-core/3.0.0-SNAPSHOT/metrics-core-3.0.0-SNAPSHOT.jar");
 //			addURLToClassLoader(thirdParty);
-			instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(url.getFile()));
-			//instrumentation.appendToSystemClassLoaderSearch(new JarFile(url.getFile()));
-			Class<?> bootClazz = classLoader.loadClass(CODAHALE_BOOT_CLASS);
+			//instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(url.getFile()));
+			instrumentation.appendToSystemClassLoaderSearch(new JarFile(url.getFile()));
+			//Class<?> bootClazz = classLoader.loadClass(CODAHALE_BOOT_CLASS);
+			Class<?> bootClazz = ClassLoader.getSystemClassLoader().loadClass(CODAHALE_BOOT_CLASS);
 			Method bootMethod = bootClazz.getDeclaredMethod(CODAHALE_BOOT_METHOD, CODAHALE_BOOT_SIG);
 			bootMethod.invoke(null, agentArgs, instrumentation, codahaleNode);
 		} catch (Exception ex) {			

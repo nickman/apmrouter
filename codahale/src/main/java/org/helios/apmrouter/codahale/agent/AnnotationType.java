@@ -29,11 +29,14 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.yammer.metrics.annotation.Timed;
+
 import javassist.bytecode.annotation.AnnotationImpl;
 import javassist.bytecode.annotation.EnumMemberValue;
 import javassist.bytecode.annotation.StringMemberValue;
 
-import org.helios.apmrouter.codahale.annotation.Timed;
+
+
 
 /**
  * <p>Title: AnnotationType</p>

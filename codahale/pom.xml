@@ -114,7 +114,9 @@
 	              <artifactSet>
 	                <excludes>
 	                  <exclude>log4j:*</exclude>
-	                  <exclude>ch.qos.logback:*</exclude>	                                
+	                  <exclude>ch.qos.logback:*</exclude>	  
+	                  <exclude>org.javassist:*</exclude>
+	                                                
 	                </excludes>
 	              </artifactSet>
 				    <addDefaultImplementationEntries>true</addDefaultImplementationEntries>

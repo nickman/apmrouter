@@ -112,11 +112,13 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 	/**
 	 * Sanitizes a metric name
 	 * @param name The name to sanitize
+	 * @param subNames An optional array of additional sub-names to be appended to the returned array
 	 * @return the helios tracer namespace
 	 */
-	public static String[] ns(MetricName name) {
+	public static String[] ns(MetricName name, String...subNames) {
 		boolean scope = name.hasScope();
-		String[] ns = new String[scope ? 4 : 3];
+		int baseLength = scope ? 4 : 3;
+		String[] ns = new String[baseLength+subNames.length];
 		ns[0] = name.getDomain();
 		ns[1] = name.getType();
 		if(scope) {
@@ -124,6 +126,9 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 			ns[3] = name.getName();
 		} else {
 			ns[2] = name.getName();
+		}
+		for(int i = 0; i < subNames.length; i++) {
+			ns[i+baseLength] = subNames[i];
 		}
         return ns;		
 	}
@@ -134,9 +139,9 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 	 */
 	@Override
 	public void processMeter(MetricName name, Metered meter, Long epoch) throws Exception {
-        final String[] namespace = ns(name);
-        tracer.traceGauge(meter.getCount(), "count", namespace);
-        tracer.traceGauge((long)meter.getMeanRate(), "meanRate", namespace);
+        final String[] namespace = ns(name, "Meter");
+        tracer.traceGauge(meter.getCount(), "Count", namespace);
+        tracer.traceGauge((long)meter.getMeanRate(), "MeanRate", namespace);
         tracer.traceGauge((long)meter.getOneMinuteRate(), "1MinuteRate", namespace);
         tracer.traceGauge((long)meter.getFiveMinuteRate(), "5MinuteRate", namespace);
         tracer.traceGauge((long)meter.getFifteenMinuteRate(), "15MinuteRate", namespace);
@@ -148,7 +153,8 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 	 */
 	@Override
 	public void processCounter(MetricName name, Counter counter, Long context) throws Exception {
-		tracer.traceIncrement(counter.getCount(), "count", ns(name));		
+		//tracer.traceIncrement(counter.getCount(), "count", ns(name));
+		//tracer.traceGauge(counter.getCount(), "Count", ns(name));
 	}
 
 	/**
@@ -157,7 +163,7 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 	 */
 	@Override
 	public void processHistogram(MetricName name, Histogram histogram, Long context) throws Exception {
-        final String[] ns = ns(name);
+        final String[] ns = ns(name, "Histogram");
         sendSummarizable(ns, histogram);
         sendSummarizable(ns, histogram);
         sendSampling(ns, histogram);
@@ -169,10 +175,9 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 	 */
 	@Override
 	public void processTimer(MetricName name, Timer timer, Long epoch) throws Exception {
-        processMeter(name, timer, epoch);
-        final String[] ns = ns(name);
-        sendSummarizable(ns, timer);
-        sendSampling(ns, timer);
+        processMeter(name, timer, epoch);        
+        sendSummarizable(ns(name), timer);
+        sendSampling(ns(name, "Sampling"), timer);
 	}
 	
     /**
@@ -182,10 +187,10 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
      * @throws IOException thrown on any tracing error
      */
     protected void sendSummarizable(String[] namespace, Summarizable metric) throws IOException {
-    	tracer.traceGauge((long)metric.getMin(), "min", namespace);
-    	tracer.traceGauge((long)metric.getMax(), "max", namespace);
-    	tracer.traceGauge((long)metric.getMean(), "mean", namespace);
-    	tracer.traceGauge((long)metric.getStdDev(), "stddev", namespace);
+    	tracer.traceGauge((long)metric.getMin(), "Min", namespace);
+    	tracer.traceGauge((long)metric.getMax(), "Max", namespace);
+    	tracer.traceGauge((long)metric.getMean(), "Mean", namespace);
+    	tracer.traceGauge((long)metric.getStdDev(), "Stddev", namespace);
     }
     
     /**
@@ -196,7 +201,7 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
      */
     protected void sendSampling(String[] namespace, Sampling metric) throws IOException {
         final Snapshot snapshot = metric.getSnapshot();
-        tracer.traceGauge((long)snapshot.getMedian(), "median", namespace);
+        tracer.traceGauge((long)snapshot.getMedian(), "Median", namespace);
         tracer.traceGauge((long)snapshot.get75thPercentile(), "75percentile", namespace);
         tracer.traceGauge((long)snapshot.get95thPercentile(), "95percentile", namespace);
         tracer.traceGauge((long)snapshot.get98thPercentile(), "98percentile", namespace);
@@ -225,7 +230,7 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 		if(!metricMap.isEmpty()) {
 	        for (Map.Entry<String,SortedMap<MetricName,Metric>> entry : metricMap.entrySet()) {
 	            for (Entry<MetricName, Metric> subEntry : entry.getValue().entrySet()) {
-	            	System.out.println("Processing MetricName [" + subEntry.getKey() + "]");
+	            	//System.out.println("Processing MetricName [" + subEntry.getKey() + "]");
 	                final Metric metric = subEntry.getValue();
 	                if (metric != null) {
 	                    try {

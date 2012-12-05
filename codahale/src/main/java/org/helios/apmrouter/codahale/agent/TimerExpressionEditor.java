@@ -24,7 +24,10 @@
  */
 package org.helios.apmrouter.codahale.agent;
 
+import com.yammer.metrics.annotation.Timed;
+
 import javassist.CannotCompileException;
+import javassist.ClassClassPath;
 import javassist.ClassPool;
 import javassist.CtMethod;
 import javassist.NotFoundException;
@@ -60,6 +63,7 @@ public class TimerExpressionEditor extends ExprEditor {
 		try {			
 			CtMethod method = m.getMethod();
 			ClassPool cp = method.getDeclaringClass().getClassPool();
+			cp.appendClassPath(new ClassClassPath(Timed.class));
 			String fieldName = method.getDeclaringClass().makeUniqueName("timerContext"); 
 			method.addLocalVariable(fieldName, cp.get("com.yammer.metrics.core.TimerContext"));
 			method.insertBefore(fieldName + "=" + timerFieldName + ".time();");

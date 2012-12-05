@@ -74,6 +74,7 @@
                 <excludes>
                   <exclude>log4j:*</exclude>
                   <exclude>ch.qos.logback:*</exclude>
+                  <exclude>org.javassist:*</exclude>
                 </excludes>
               </artifactSet>
               <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
@@ -109,6 +110,12 @@
       <artifactId>junit</artifactId>
       <version>4.8.2</version>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.javassist</groupId>
+      <artifactId>javassist</artifactId>
+      <version>3.16.1-GA</version>
+      <scope>compile</scope>
     </dependency>
   </dependencies>
   <properties>

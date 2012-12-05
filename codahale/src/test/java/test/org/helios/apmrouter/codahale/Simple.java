@@ -26,7 +26,9 @@ package test.org.helios.apmrouter.codahale;
 
 import java.util.Random;
 
-import org.helios.apmrouter.codahale.annotation.Timed;
+import com.yammer.metrics.annotation.Timed;
+
+
 
 /**
  * <p>Title: Simple</p>

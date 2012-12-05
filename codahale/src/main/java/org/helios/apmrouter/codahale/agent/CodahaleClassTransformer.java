@@ -33,6 +33,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.TimeUnit;
 
 import javassist.ByteArrayClassPath;
 import javassist.CannotCompileException;
@@ -44,11 +45,18 @@ import javassist.CtMethod;
 import javassist.LoaderClassPath;
 import javassist.Modifier;
 import javassist.NotFoundException;
+import javassist.bytecode.AnnotationDefaultAttribute;
+import javassist.bytecode.AnnotationsAttribute;
+import javassist.bytecode.MethodInfo;
 import javassist.bytecode.annotation.AnnotationImpl;
+import javassist.bytecode.annotation.EnumMemberValue;
 import javassist.bytecode.annotation.NoSuchClassError;
+import javassist.bytecode.annotation.StringMemberValue;
 
-import org.helios.apmrouter.codahale.annotation.Timed;
 
+import org.helios.apmrouter.codahale.annotation.TimedImpl;
+
+import com.yammer.metrics.annotation.Timed;
 import com.yammer.metrics.core.Timer;
 
 
@@ -153,7 +161,10 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 			cp.appendClassPath(new LoaderClassPath(Thread.currentThread().getContextClassLoader()));
 			cp.appendClassPath(new LoaderClassPath(Timer.class.getClassLoader()));
 			cp.appendClassPath(new ByteArrayClassPath(toName(className), original));
-			cp.appendClassPath(new ClassClassPath(org.helios.apmrouter.codahale.annotation.Timed.class));
+			cp.appendClassPath(new LoaderClassPath(Timed.class.getClassLoader()));
+			
+			cp.get(Timer.class.getName());
+			//cp.appendSystemPath();
 			
 			clazz = cp.get(toName(className));
 			log("Loaded CtClass [" + clazz.getName() + "]");
@@ -198,9 +209,9 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 			AnnotationType annotationType = AnnotationType.CLASS2TYPE.get(ai.getTypeName());
 			if(annotationType==null) continue;
 			//Object rebuiltAnnotation = AnnotationImpl.make(annotationType.getAnnotationClazz().getClassLoader(), annotationType.getAnnotationClazz(), classPool.get(), ai.getAnnotation());
-			Annotation typedAnnotation = (Annotation) Proxy.newProxyInstance(annotationType.getAnnotationClazz().getClassLoader(), new Class[]{annotationType.getAnnotationClazz()}, ai);	
+			//Annotation typedAnnotation = (Annotation) Proxy.newProxyInstance(annotationType.getAnnotationClazz().getClassLoader(), new Class[]{annotationType.getAnnotationClazz()}, ai);	
 			try {
-				instrumentMethod(method, typedAnnotation, annotationType);
+				instrumentMethodSwitch(method, annotationType);
 				cnt++;
 			} catch (Exception ex) {
 				log("Failed to instrument method [" + method.getName() + "] with annotation [" + annotationType.name() + "]. Stack trace follows...");
@@ -213,16 +224,16 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 	
 	/**
 	 * Basically a switch block to direct the method to the correct instrumentation method according to the type of annotation
-	 * @param method The method to instrument
-	 * @param typedAnnotation The rebuilt typed annotation 
+	 * @param method The method to instrument 
 	 * @param annotationType The annotation type to switch on
 	 * @throws CannotCompileException possibly thrown by the delegated instrumentation methods
 	 * @throws NotFoundException thrown if supporting classes cannot be found
+	 * @throws ClassNotFoundException thrown if supporting classes cannot be found
 	 */
-	protected void instrumentMethod(CtMethod method, Annotation typedAnnotation, AnnotationType annotationType) throws CannotCompileException, NotFoundException {
+	protected void instrumentMethodSwitch(CtMethod method, AnnotationType annotationType) throws CannotCompileException, NotFoundException, ClassNotFoundException {
 		switch (annotationType) {
 			case TIMED:
-				instrumentMethodTimed(method, (Timed)typedAnnotation);
+				instrumentMethodTimed(method);
 				break;
 			default:
 				break;
@@ -237,29 +248,25 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 	/**
 	 * Instruments a method with a {@link Timed} annotation
 	 * @param method The method to instrument
-	 * @param timed The @Timed annotation instance
 	 * @throws CannotCompileException thrown on javassist compilation errors
 	 * @throws NotFoundException thrown if supporting classes cannot be found
+	 * @throws ClassNotFoundException thrown if supporting classes cannot be found
 	 */
-	protected void instrumentMethodTimed(CtMethod method, Timed timed) throws CannotCompileException, NotFoundException {
+	protected void instrumentMethodTimed(CtMethod method) throws CannotCompileException, NotFoundException, ClassNotFoundException {
 		final boolean staticMethod = Modifier.isStatic(method.getModifiers());
 		CtClass clazz = method.getDeclaringClass();
 		String fieldName = (staticMethod ? "static" : "") + "Timer_" + clazz.makeUniqueName(method.getName());
-		boolean scoped = !"".equals(timed.scope());
-		String initer = scoped ? 
-//				String.format(SCOPED_TIMER_TEMPLATE, fieldName, clazz.getName(), timed.name(), timed.scope(), timed.durationUnit(), timed.rateUnit()) :				
-//				String.format(TIMER_TEMPLATE, fieldName, clazz.getName(), timed.name(), timed.durationUnit(), timed.rateUnit())
-				String.format(SCOPED_TIMER_TEMPLATE, clazz.getName(), timed.name(), timed.scope(), timed.durationUnit(), timed.rateUnit()) :				
-				String.format(TIMER_TEMPLATE, clazz.getName(), timed.name(), timed.durationUnit(), timed.rateUnit())
-								
-		;
+		TimedImpl timedImpl = new TimedImpl(method);
+		log("CREATED TIMED IMPL:" + timedImpl);
+		String initer = timedImpl.getTimerInitializer(clazz.getName());
+		
 		log("Timer init for [" + method.toString() + "]\n[" + initer + "]");
-		CtField timerField = new CtField(classPool.get().get("com.yammer.metrics.core.Timer"), fieldName, clazz);
+		CtField timerField = new CtField(classPool.get().get(Timer.class.getName()), fieldName, clazz);
 		timerField.setModifiers(timerField.getModifiers() | Modifier.PRIVATE | Modifier.FINAL );
 		if(staticMethod) timerField.setModifiers(timerField.getModifiers() | Modifier.STATIC );		
-		clazz.addField(timerField, CtField.Initializer.byExpr(initer));
-		
+		clazz.addField(timerField, CtField.Initializer.byExpr(initer));		
 		method.instrument(new TimerExpressionEditor(fieldName));		
+		log("Instrumented method [" + clazz.getSimpleName() + "." + method.getName() + "]");
 	}
 		
 //	protected void instrumentMethodTimed(CtMethod method, Map<String, ?> av) throws CannotCompileException {
