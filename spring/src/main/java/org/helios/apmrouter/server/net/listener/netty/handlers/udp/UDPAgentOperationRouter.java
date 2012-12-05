@@ -37,6 +37,7 @@ import org.helios.apmrouter.server.services.session.DecoratedChannel;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.helios.apmrouter.util.ValueFilteredTimeoutListener;
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelEvent;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -219,6 +220,13 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 			dc.setWho(host, agent);
 			SharedChannelGroup.getInstance().sendIdentifiedChannelEvent(dc);
 			info("Agent at [", remoteAddress, "] identified itself as [", host, "/", agent, "]");
+		} else if(opCode==OpCode.HELLO) {
+			getChannelForRemote(channel, remoteAddress);
+			info("Agent at [", remoteAddress, "] sent HELLO");
+			ChannelBuffer cb = ChannelBuffers.directBuffer(1);
+			cb.writeByte(OpCode.WHO_RESPONSE.op());
+			channel.write(cb, remoteAddress);
+			sendWho(channel, remoteAddress);
 		}
 	}
 	
@@ -228,7 +236,7 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 	 */
 	@Override
 	public OpCode[] getHandledOpCodes() {
-		return new OpCode[]{OpCode.WHO_RESPONSE, OpCode.BYE};
+		return new OpCode[]{OpCode.WHO_RESPONSE, OpCode.BYE, OpCode.HELLO};
 	}
 	
 	/**
