@@ -271,6 +271,17 @@ public class UDPSender extends AbstractSender  {
 		return pipeline;
 	}
 	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.AbstractSender#doSendHello()
+	 */
+	@Override
+	public void doSendHello() {
+		ChannelBuffer cb = ChannelBuffers.buffer(1);
+		cb.writeByte(OpCode.HELLO.op());
+		senderChannel.write(cb, socketAddress);
+	}
 
 	/**
 	 * {@inheritDoc}

@@ -41,6 +41,10 @@ import org.jboss.netty.channel.ChannelStateEvent;
  */
 
 public class TCPSender extends AbstractSender {
+	
+	public void doSendHello() {
+		
+	}
 
 	/**
 	 * Creates a new TCPSender
