@@ -81,6 +81,8 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 		}
 		handlers.put(OpCode.WHO_RESPONSE, this);
 		handlers.put(OpCode.BYE, this);
+		handlers.put(OpCode.HELLO, this);
+		handlers.put(OpCode.HELLO_CONFIRM, this);
 	}
 	/**
 	 * {@inheritDoc}
@@ -115,7 +117,16 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 					}
 				}
 				try {
-					handlers.get(opCode).processAgentRequest(opCode, buff, ((MessageEvent) e).getRemoteAddress(), e.getChannel());
+					
+					AgentRequestHandler handler = handlers.get(opCode);
+					if(handler==null) {
+						error("No handler registered for OpCode [", opCode, "]");
+						return;
+					}
+					handler.processAgentRequest(opCode, 
+							buff, 
+							((MessageEvent) e).getRemoteAddress(), 
+							e.getChannel());
 					incr("RequestsCompleted");
 				} catch (Throwable t) {
 					incr("RequestsFailed");
@@ -224,9 +235,11 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 			getChannelForRemote(channel, remoteAddress);
 			info("Agent at [", remoteAddress, "] sent HELLO");
 			ChannelBuffer cb = ChannelBuffers.directBuffer(1);
-			cb.writeByte(OpCode.WHO_RESPONSE.op());
+			cb.writeByte(OpCode.HELLO_CONFIRM.op());
 			channel.write(cb, remoteAddress);
 			sendWho(channel, remoteAddress);
+		} else if(opCode==OpCode.HELLO_CONFIRM) {
+			warn("Received HELLO_CONFIRM ????");
 		}
 	}
 	

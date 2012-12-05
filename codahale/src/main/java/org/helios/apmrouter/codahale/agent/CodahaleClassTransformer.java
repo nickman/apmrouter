@@ -31,12 +31,12 @@ import java.lang.reflect.Proxy;
 import java.security.ProtectionDomain;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 import javassist.ByteArrayClassPath;
 import javassist.CannotCompileException;
+import javassist.ClassClassPath;
 import javassist.ClassPool;
 import javassist.CtClass;
 import javassist.CtField;
@@ -143,7 +143,7 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 		
 		String packageName = getBinaryPackage(className);
 		if(!targetPackages.contains(packageName) || prohibitedPackages.contains(packageName)) {
-			log("Skipped [" + className + "]");
+			//log("Skipped [" + className + "]");
 			return original;
 		}
 		log("Examining [" + className + "]");
@@ -153,6 +153,8 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 			cp.appendClassPath(new LoaderClassPath(Thread.currentThread().getContextClassLoader()));
 			cp.appendClassPath(new LoaderClassPath(Timer.class.getClassLoader()));
 			cp.appendClassPath(new ByteArrayClassPath(toName(className), original));
+			cp.appendClassPath(new ClassClassPath(org.helios.apmrouter.codahale.annotation.Timed.class));
+			
 			clazz = cp.get(toName(className));
 			log("Loaded CtClass [" + clazz.getName() + "]");
 			int totalInstrumentations = 0;
@@ -186,8 +188,8 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 	 * @param method The method to instrument
 	 * @param annotations The annotations describing the type of instrumentation to apply
 	 * @return the number of successfully applied annotations
-	 * @throws NoSuchClassError 
-	 * @throws ClassNotFoundException 
+	 * @throws NoSuchClassError thrown if supporting classes cannot be found
+	 * @throws ClassNotFoundException thrown if supporting classes cannot be found
 	 */
 	protected int instrumentMethod(CtMethod method, Object...annotations) throws ClassNotFoundException, NoSuchClassError {
 		int cnt = 0;
@@ -215,7 +217,7 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 	 * @param typedAnnotation The rebuilt typed annotation 
 	 * @param annotationType The annotation type to switch on
 	 * @throws CannotCompileException possibly thrown by the delegated instrumentation methods
-	 * @throws NotFoundException 
+	 * @throws NotFoundException thrown if supporting classes cannot be found
 	 */
 	protected void instrumentMethod(CtMethod method, Annotation typedAnnotation, AnnotationType annotationType) throws CannotCompileException, NotFoundException {
 		switch (annotationType) {
@@ -228,18 +230,16 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 	}
 	
 	/** Scoped CtMethod template for a codahale timer */
-	//public static final String SCOPED_TIMER_TEMPLATE = "com.yammer.metrics.core.Timer %s = com.yammer.metrics.core.Metrics.newTimer(%s.class, \"%s\", \"%s\", java.util.concurrent.TimeUnit.%s, java.util.concurrent.TimeUnit.%s);";
-	public static final String SCOPED_TIMER_TEMPLATE = "com.yammer.metrics.Metrics.newTimer(%s.class, \"%s\", \"%s\", java.util.concurrent.TimeUnit.%s, java.util.concurrent.TimeUnit.%s);";
+	public static final String SCOPED_TIMER_TEMPLATE = "com.yammer.metrics.Metrics.defaultRegistry().newTimer(%s.class, \"%s\", \"%s\", java.util.concurrent.TimeUnit.%s, java.util.concurrent.TimeUnit.%s);";
 	/** No Scope CtMethod template for a codahale timer */
-	//public static final String TIMER_TEMPLATE = "com.yammer.metrics.core.Timer %s = com.yammer.metrics.core.Metrics.newTimer(%s.class, \"%s\",  java.util.concurrent.TimeUnit.%s, java.util.concurrent.TimeUnit.%s);";
-	public static final String TIMER_TEMPLATE = "com.yammer.metrics.Metrics.newTimer(%s.class, \"%s\",  java.util.concurrent.TimeUnit.%s, java.util.concurrent.TimeUnit.%s);";
+	public static final String TIMER_TEMPLATE = "com.yammer.metrics.Metrics.defaultRegistry().newTimer(%s.class, \"%s\",  java.util.concurrent.TimeUnit.%s, java.util.concurrent.TimeUnit.%s);";
 	
 	/**
 	 * Instruments a method with a {@link Timed} annotation
 	 * @param method The method to instrument
 	 * @param timed The @Timed annotation instance
 	 * @throws CannotCompileException thrown on javassist compilation errors
-	 * @throws NotFoundException 
+	 * @throws NotFoundException thrown if supporting classes cannot be found
 	 */
 	protected void instrumentMethodTimed(CtMethod method, Timed timed) throws CannotCompileException, NotFoundException {
 		final boolean staticMethod = Modifier.isStatic(method.getModifiers());

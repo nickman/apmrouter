@@ -120,7 +120,14 @@ public class UDPSender extends AbstractSender  {
 							ping.writeByte(OpCode.PING_RESPONSE.op());
 							ping.writeLong(pingKey);
 							senderChannel.write(ping,e.getRemoteAddress());							
-							break;							
+							break;
+						case HELLO_CONFIRM:
+							latch = timeoutMap.remove("Hello");
+							log("Confirmed HELLO");
+							if(latch!=null) {
+								latch.countDown();
+							}							
+							break;
 						case WHO:
 							byte[] hostBytes = AgentIdentity.ID.getHostName().getBytes();
 							byte[] agentBytes = AgentIdentity.ID.getAgentName().getBytes();
@@ -229,6 +236,7 @@ public class UDPSender extends AbstractSender  {
 		
 		
 		//socketAddress = new InetSocketAddress("239.192.74.66", 25826);
+		sendHello();
 	}
 	
 	

@@ -60,6 +60,10 @@ public class TracerFactory {
 	
 	/** The collection funnel */
 	private static final CollectionFunnel funnel;
+	/** The server tracer factory (if we're on the server) */
+	/** The server tracer */
+	protected static final ITracerFactory serverTracerFactory;
+
 	
 	/** The property name to override the default direct trace confirmation timeout */
 	public static final String DIRECT_TIMEOUT_PROP = "org.helios.apmrouter.direct.timeout";
@@ -77,9 +81,10 @@ public class TracerFactory {
 	private static final Map<String, ITracer> tracers = new ConcurrentHashMap<String, ITracer>();
 	
 	static {
-		funnel = CollectionFunnel.getInstance();
-		ITracer serverTracer = checkForServerTracer();
-		defaultTracer = serverTracer!=null ? serverTracer : new TracerImpl(AgentIdentity.ID.getHostName(), AgentIdentity.ID.getAgentName(), funnel);
+		
+		serverTracerFactory = checkForServerTracer();
+		funnel = serverTracerFactory!=null ? null : CollectionFunnel.getInstance();
+		defaultTracer = serverTracerFactory!=null ? serverTracerFactory.getTracer() : new TracerImpl(AgentIdentity.ID.getHostName(), AgentIdentity.ID.getAgentName(), funnel);
 		registerMBean((TracerImpl)defaultTracer);
 		try {
 			DIRECT_TIMEOUT = Long.parseLong(System.getProperty(DIRECT_TIMEOUT_PROP, "" + DEFAULT_DIRECT_TIMEOUT));
@@ -118,19 +123,17 @@ public class TracerFactory {
 	
 	/**
 	 * Checks to see if we're running on the server, in which case, we want the in-vm tracer
-	 * @return the in-vm tracer or null if it could not be loaded (perhaps because we're not on the server ?)
+	 * @return the in-vm tracer factory or null if it could not be loaded (perhaps because we're not on the server ?)
 	 */
-	protected static ITracer checkForServerTracer() {
-		ITracer tracer = null;
+	protected static ITracerFactory checkForServerTracer() {		
 		try {
 			Class<?> clazz = Class.forName(SERVER_TRACER_NAME);
-			Method meth = clazz.getDeclaredMethod("getInstance");
-			ITracerFactory itf = (ITracerFactory)meth.invoke(null);
-			return itf.getTracer();
+			Method meth = clazz.getDeclaredMethod("getInstance");			
+			ITracerFactory itf = (ITracerFactory)meth.invoke(null);			
+			return itf;
 		} catch (Exception ex) {
-			tracer = null;
-		}
-		return tracer;
+			return null;
+		}		
 	}
 	
 	/**
@@ -162,6 +165,7 @@ public class TracerFactory {
 	 * @return a tracer instance
 	 */
 	public static ITracer getTracer(String host, String agent) {
+		if(serverTracerFactory!=null) return serverTracerFactory.getTracer(host, agent);
 		String key = nvl(host, "Host Name").trim() + ":" + nvl(agent, "Agent Name").trim();
 		ITracer tracer = tracers.get(key);
 		if(tracer==null) {

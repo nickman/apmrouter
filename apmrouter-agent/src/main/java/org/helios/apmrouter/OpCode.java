@@ -55,6 +55,10 @@ public enum OpCode {
 	WHO,
 	/** Response as to the identity of a connecting agent */
 	WHO_RESPONSE,
+	/** Indicates a client has started and is announcing itself */
+	HELLO,
+	/** A HELLO handshake from the server */
+	HELLO_CONFIRM,		
 	/** Indicates a client is about to disconnect */
 	BYE,
 	/** Directive from the server to flush metric catalog because a reset has occured */

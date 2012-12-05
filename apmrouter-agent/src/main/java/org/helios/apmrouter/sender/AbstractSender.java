@@ -180,7 +180,7 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 					log("Attempted to send Bye");
 				} catch (Exception ex) {}
 			}
-		});
+		});		
 	}
 	
 	/**
@@ -520,6 +520,8 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	 */
 	@Override
 	public abstract void send(final DirectMetricCollection dcm);
+	
+	public abstract void doSendHello();
 
 	/**
 	 * {@inheritDoc}
@@ -529,6 +531,31 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	@Override
 	public void submitDirect(IMetric metric, long timeout) throws TimeoutException {
 		send(metric, timeout);
+		
+	}
+	
+	/**
+	 * Sends a HELLO op to the server
+	 */
+	public void sendHello() {
+		log("Sending HELLO");
+		CountDownLatch latch = new CountDownLatch(1);
+		String key = "Hello";
+		doSendHello();
+		timeoutMap.put(key, latch, 5000);
+		try {
+			if(!latch.await(5000, TimeUnit.MILLISECONDS)) {
+				timeoutMap.remove("Hello");
+				scheduler.execute(new Runnable(){
+					@Override
+					public void run() {
+						sendHello();
+					}
+				});
+			}
+		} catch (InterruptedException e) {
+			//throw new RuntimeException("Thread interrupted while waiting for Direct Metric Trace confirm for " + timeout + " ms. [" + metric + "]", e);
+		}
 		
 	}
 

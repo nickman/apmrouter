@@ -25,11 +25,15 @@
 package org.helios.apmrouter.codahale.helios;
 
 import java.io.IOException;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.SortedMap;
 import java.util.concurrent.TimeUnit;
 
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.TracerFactory;
+import org.helios.apmrouter.util.SystemClock;
 
 import com.yammer.metrics.Metrics;
 import com.yammer.metrics.core.Counter;
@@ -46,6 +50,7 @@ import com.yammer.metrics.core.Sampling;
 import com.yammer.metrics.core.Summarizable;
 import com.yammer.metrics.core.Timer;
 import com.yammer.metrics.reporting.AbstractPollingReporter;
+import com.yammer.metrics.reporting.MetricDispatcher;
 import com.yammer.metrics.stats.Snapshot;
 
 /**
@@ -61,6 +66,8 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 	protected final ITracer tracer;
 	/** The provided metric predicate */
 	protected final MetricPredicate predicate;
+	/** The metric dispatcher */
+	protected final MetricDispatcher dispatcher = new MetricDispatcher();	
 	
 	/** The default reporter name */
 	public static final String DEFAULT_NAME = "helios-reporter";
@@ -99,6 +106,7 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 		super(registry==null ? Metrics.defaultRegistry() : registry, name);
 		tracer = TracerFactory.getTracer();
 		this.predicate = predicate==null ? MetricPredicate.ALL : predicate;
+		this.getMetricsRegistry().addListener(this);
 	}
 
 	/**
@@ -213,8 +221,23 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 	 */
 	@Override
 	public void run() {
-		// TODO Auto-generated method stub
-		
+		final Map<String,SortedMap<MetricName,Metric>> metricMap = getMetricsRegistry().getGroupedMetrics(predicate);
+		if(!metricMap.isEmpty()) {
+	        for (Map.Entry<String,SortedMap<MetricName,Metric>> entry : metricMap.entrySet()) {
+	            for (Entry<MetricName, Metric> subEntry : entry.getValue().entrySet()) {
+	            	System.out.println("Processing MetricName [" + subEntry.getKey() + "]");
+	                final Metric metric = subEntry.getValue();
+	                if (metric != null) {
+	                    try {
+	                        dispatcher.dispatch(subEntry.getValue(), subEntry.getKey(), this, SystemClock.unixTime());
+	                    } catch (Exception ignored) {
+	                    	System.err.println("Error printing regular metrics. Stack trace follows");
+	                    	ignored.printStackTrace(System.err);
+	                    }
+	                }
+	            }
+	        }
+		}
 	}
 
 
@@ -224,7 +247,15 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 	 */
 	@Override
 	public void onMetricAdded(MetricName name, Metric metric) {
-		// TODO Auto-generated method stub
+        if (metric != null) {
+            try {
+                dispatcher.dispatch(metric, name, this, SystemClock.unixTime());
+            } catch (Exception e) {
+                System.err.println("Error processing " + name + ". Stack trace fillows:");
+                e.printStackTrace(System.err);
+            }
+        }
+
 		
 	}
 

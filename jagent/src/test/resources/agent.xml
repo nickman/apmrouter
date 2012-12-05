@@ -23,7 +23,7 @@
 		<trace-annotated>
 			<packages>org.helios.test,org.helios.test2,org.helios.apmrouter.jagent</packages>
 		</trace-annotated>
-		<codahale  jar="file:/c:/hprojects/apmrouter/codahale/target/codahale-1.0-SNAPSHOT.jar">
+		<codahale  jar="file:/home/nwhitehead/hprojects/apmrouter/codahale/target/codahale-1.0-SNAPSHOT.jar">
 			<annotations/>
 			<packages>codahale</packages>
 		</codahale>		
