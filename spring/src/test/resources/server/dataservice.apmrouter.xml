@@ -149,6 +149,8 @@
  				<value>/jolokia/</value>
  				<value>/jmx/</value>
  				<value>/jmx/</value>
+ 				<value>/highcharts/</value>
+ 				<value>/highcharts</value>
  				
  			</set>
  		</property>

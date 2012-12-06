@@ -55,7 +55,7 @@ import com.yammer.metrics.stats.Snapshot;
 
 /**
  * <p>Title: HeliosReporter</p>
- * <p>Description: </p> 
+ * <p>Description: Codahale metrics reporter for Helios APMRouter</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.codahale.helios.HeliosReporter</code></p>
@@ -68,6 +68,8 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 	protected final MetricPredicate predicate;
 	/** The metric dispatcher */
 	protected final MetricDispatcher dispatcher = new MetricDispatcher();	
+	/** Indicates if metrics should be mapped */
+	protected final boolean mappedMetrics;
 	
 	/** The default reporter name */
 	public static final String DEFAULT_NAME = "helios-reporter";
@@ -78,9 +80,10 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
      * @param period          the period between successive outputs
      * @param unit            the time unit of {@code period}
      * @param predicate       filters metrics to be reported
+     * @param mappedMetrics	  if true, metrics will be mapped, if false, they will be flat
      */
-    public static void enable(MetricsRegistry metricsRegistry, long period, TimeUnit unit, MetricPredicate predicate) {
-    	HeliosReporter reporter = new HeliosReporter(metricsRegistry, predicate, DEFAULT_NAME);
+    public static void enable(MetricsRegistry metricsRegistry, long period, TimeUnit unit, MetricPredicate predicate, boolean mappedMetrics) {
+    	HeliosReporter reporter = new HeliosReporter(metricsRegistry, predicate, DEFAULT_NAME, mappedMetrics);
     	reporter.start(period, unit);
     	metricsRegistry.addListener(reporter);
     }
@@ -90,7 +93,7 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 	 * Creates a new HeliosReporter
 	 */
 	public HeliosReporter() {
-		this(Metrics.defaultRegistry(), null, DEFAULT_NAME);
+		this(Metrics.defaultRegistry(), null, DEFAULT_NAME, true);
 	}
 	
 	
@@ -101,12 +104,15 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 	 * @param registry the {@link MetricsRegistry} containing the metrics this reporter will report
 	 * @param predicate The metric filter
 	 * @param name The name of this reporter
+	 * @param mappedMetrics If true, metrics will be mapped, if false, they will be flat
 	 */
-	public HeliosReporter(MetricsRegistry registry, MetricPredicate predicate, String name) {
+	public HeliosReporter(MetricsRegistry registry, MetricPredicate predicate, String name, boolean mappedMetrics) {
 		super(registry==null ? Metrics.defaultRegistry() : registry, name);
+		this.mappedMetrics = mappedMetrics;
 		tracer = TracerFactory.getTracer();
 		this.predicate = predicate==null ? MetricPredicate.ALL : predicate;
 		this.getMetricsRegistry().addListener(this);
+		
 	}
 
 	/**
@@ -115,7 +121,17 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 	 * @param subNames An optional array of additional sub-names to be appended to the returned array
 	 * @return the helios tracer namespace
 	 */
-	public static String[] ns(MetricName name, String...subNames) {
+	public String[] ns(MetricName name, String...subNames) {
+        return mappedMetrics ? nsMapped(name, subNames) : nsFlat(name, subNames);		
+	}
+	
+	/**
+	 * Sanitizes a metric name to flat metric names
+	 * @param name The name to sanitize
+	 * @param subNames An optional array of additional sub-names to be appended to the returned array
+	 * @return the helios tracer namespace
+	 */
+	public String[] nsFlat(MetricName name, String...subNames) {
 		boolean scope = name.hasScope();
 		int baseLength = scope ? 4 : 3;
 		String[] ns = new String[baseLength+subNames.length];
@@ -132,6 +148,33 @@ public class HeliosReporter extends AbstractPollingReporter implements MetricPro
 		}
         return ns;		
 	}
+	
+	/**
+	 * Sanitizes a metric name to mapped metric names
+	 * @param name The name to sanitize
+	 * @param subNames An optional array of additional sub-names to be appended to the returned array, 
+	 * although for mapped, only the first subName is appended to the metric name.
+	 * @return the helios tracer namespace
+	 */
+	public String[] nsMapped(MetricName name, String...subNames) {
+		boolean scope = name.hasScope();
+		int baseLength = scope ? 4 : 3;
+		String[] ns = new String[baseLength+(subNames.length==0 ? 0 : 1)];
+		ns[0] = "domain=" + name.getDomain();
+		ns[1] = "type=" + name.getType();
+		if(scope) {
+			ns[2] = "scope=" + name.getScope();
+			ns[3] = "name=" + name.getName();
+		} else {
+			ns[2] = "name=" + name.getName();
+		}
+		if(subNames.length>0) {
+			ns[baseLength] = "aggregate=" + subNames[0];
+		}
+        return ns;		
+	}
+	
+	
 
 	/**
 	 * {@inheritDoc}

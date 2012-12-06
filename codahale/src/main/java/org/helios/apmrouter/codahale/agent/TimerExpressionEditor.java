@@ -67,7 +67,7 @@ public class TimerExpressionEditor extends ExprEditor {
 			String fieldName = method.getDeclaringClass().makeUniqueName("timerContext"); 
 			method.addLocalVariable(fieldName, cp.get("com.yammer.metrics.core.TimerContext"));
 			method.insertBefore(fieldName + "=" + timerFieldName + ".time();");
-			method.insertAfter("{" + fieldName + ".stop();}", false);
+			method.insertAfter("{" + fieldName + ".stop();}", true);
 		} catch (NotFoundException e) {
 			throw new CannotCompileException("Failed to get method for method call", e);
 		}

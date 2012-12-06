@@ -134,6 +134,14 @@ public class SimpleLogger {
 	}
 	
 	/**
+	 * Returns the SimpleLogger's current level
+	 * @return the SimpleLogger's current level
+	 */
+	public static Level getLevel() {
+		return level;
+	}	
+	
+	/**
 	 * Issues a trace level logging request
 	 * @param msgs The objects to format into a log message
 	 */

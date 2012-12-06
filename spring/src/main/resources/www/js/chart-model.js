@@ -94,11 +94,21 @@
 	    		this.treeClickChart = new Highcharts.Chart({
 	    	        chart: {
 	    	            renderTo: cont,
-	    	            animation: false
+	    	            animation: false,
+	    	            zoomType: 'xy'
 	    	        },
 	    	        xAxis: {
-	    	            type: 'datetime'
+	    	            type: 'datetime',
+	    	            minRange: 15000
 	    	        },
+	    	        credits: {
+	    	            enabled: false
+	    	        },	    
+	    	        exporting: {
+	    	            enabled: true,
+	    	            //url: 'http://' + window.document.domain + ':8161/highcharts'
+	    	            url : 'http://10.230.13.67:8161/highcharts/'
+	    	        },	    	        
 	    	        yAxis: [
 	    	            {title: ''},
 	    	            {title: {text : 'Invocations'}, opposite: true}

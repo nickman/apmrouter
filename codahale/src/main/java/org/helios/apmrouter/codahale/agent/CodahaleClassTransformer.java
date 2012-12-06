@@ -24,6 +24,11 @@
  */
 package org.helios.apmrouter.codahale.agent;
 
+import static org.helios.apmrouter.codahale.SimpleLogger.debug;
+import static org.helios.apmrouter.codahale.SimpleLogger.info;
+import static org.helios.apmrouter.codahale.SimpleLogger.trace;
+import static org.helios.apmrouter.codahale.SimpleLogger.warn;
+
 import java.lang.annotation.Annotation;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
@@ -42,14 +47,16 @@ import javassist.ClassPool;
 import javassist.CtClass;
 import javassist.CtField;
 import javassist.CtMethod;
+import javassist.CtNewMethod;
 import javassist.LoaderClassPath;
 import javassist.Modifier;
 import javassist.NotFoundException;
 import javassist.bytecode.annotation.AnnotationImpl;
 import javassist.bytecode.annotation.NoSuchClassError;
 
+import org.helios.apmrouter.codahale.SimpleLogger;
 import org.helios.apmrouter.codahale.annotation.TimedImpl;
-import static org.helios.apmrouter.codahale.SimpleLogger.*;
+
 import com.yammer.metrics.annotation.Timed;
 import com.yammer.metrics.core.Timer;
 
@@ -74,7 +81,7 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 	protected final ThreadLocal<ClassPool> classPool = new ThreadLocal<ClassPool>() {
 		@Override
 		protected ClassPool initialValue() {
-			return new ClassPool();
+			return new ClassPool(true);
 		}
 	};
 	protected final String jarUrl;
@@ -93,6 +100,7 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 				targetPackages.add(s.trim());
 			}			
 		}
+		info("SimpleLogger Level:" + SimpleLogger.getLevel());
 	}
 	
 	/**
@@ -168,13 +176,17 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 				Object[] annotations = method.getAvailableAnnotations();
 				if(annotations.length>0) {
 					cp.importPackage("com.yammer.metrics.core");
+					debug("Attempting to instrument [", clazz.getName(), ".", method.getLongName(), "]");
 					totalInstrumentations += instrumentMethod(method, annotations);
+					debug("Instrumented [", clazz.getName(), ".", method.getName(), "]");
 				}
 			}
 			if(totalInstrumentations>0) {
 				debug("Completed [", totalInstrumentations, "] joinpoint instrumentations on  [" ,clazz.getName(),  "]");
 				byte[] instrumentedByteCode = clazz.toBytecode();
 				classInfo.add(new InstrumentedClassInfo(className, classLoader, protectionDomain, original, instrumentedByteCode));
+				clazz.writeFile("c:\\temp\\apmclasses");
+				info("Wrote file");
 				return instrumentedByteCode;
 			}		
 			return original;			
@@ -203,12 +215,13 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 			AnnotationType annotationType = AnnotationType.CLASS2TYPE.get(ai.getTypeName());
 			if(annotationType==null) continue;
 			//Object rebuiltAnnotation = AnnotationImpl.make(annotationType.getAnnotationClazz().getClassLoader(), annotationType.getAnnotationClazz(), classPool.get(), ai.getAnnotation());
-			//Annotation typedAnnotation = (Annotation) Proxy.newProxyInstance(annotationType.getAnnotationClazz().getClassLoader(), new Class[]{annotationType.getAnnotationClazz()}, ai);	
+			//Annotation typedAnnotation = (Annotation) Proxy.newProxyInstance(annotationType.getAnnotationClazz().getClassLoader(), new Class[]{annotationType.getAnnotationClazz()}, ai);
+			final String mName = method.getName();
 			try {
 				instrumentMethodSwitch(method, annotationType);
 				cnt++;
 			} catch (Exception ex) {
-				warn("Failed to instrument method [", method.getName(), "] with annotation [" ,annotationType.name() , "]", ex); 
+				warn("Failed to instrument method [", mName, "] with annotation [" ,annotationType.name() , "]", ex); 
 			}
 			
 		}
@@ -252,9 +265,38 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 		CtField timerField = new CtField(classPool.get().get(Timer.class.getName()), fieldName, clazz);
 		timerField.setModifiers(timerField.getModifiers() | Modifier.PRIVATE | Modifier.FINAL );
 		if(staticMethod) timerField.setModifiers(timerField.getModifiers() | Modifier.STATIC );		
-		clazz.addField(timerField, CtField.Initializer.byExpr(initer));		
-		method.instrument(new TimerExpressionEditor(fieldName));		
-		debug("Instrumented method [" , clazz.getSimpleName() , "." ,method.getName() , "]");
+		clazz.addField(timerField, CtField.Initializer.byExpr(initer));	
+		String rename = clazz.makeUniqueName(method.getName());
+		String originalName = method.getName();
+		method.setName(rename);
+		method.setModifiers(method.getModifiers() & ~Modifier.PROTECTED);
+		method.setModifiers(method.getModifiers() & ~Modifier.PUBLIC);
+		method.setModifiers(method.getModifiers() | Modifier.PRIVATE);		
+		CtMethod replacement = CtNewMethod.copy(method, originalName, method.getDeclaringClass(), null);
+		
+		
+		StringBuilder delegateCode = new StringBuilder("{ com.yammer.metrics.core.TimerContext timerContext = ").append(fieldName).append(".time(); try {");
+		delegateCode.append("return ").append(rename).append("($$);");
+		delegateCode.append("} finally { timerContext.stop(); }");
+		delegateCode.append("}");
+		replacement.setBody(delegateCode.toString());
+		clazz.addMethod(replacement);
+		
+		// === Code using Cflow 
+		/*
+		String cflowName = clazz.makeUniqueName(method.getName() + "_cflow");
+		replacement.useCflow(cflowName);
+		StringBuilder delegateCode = new StringBuilder("{ com.yammer.metrics.core.TimerContext timerContext = null; ");
+		delegateCode.append("boolean notRecursive = $cflow(").append(cflowName).append(")==0;");
+		delegateCode.append("if(notRecursive) timerContext = ").append(fieldName).append(".time();");
+		delegateCode.append(" try {");
+		delegateCode.append("return ").append(rename).append("($$);");
+		delegateCode.append("} finally { if(notRecursive) timerContext.stop(); }");
+		delegateCode.append("}");
+
+		 */
+		
+
 	}
 		
 //	protected void instrumentMethodTimed(CtMethod method, Map<String, ?> av) throws CannotCompileException {

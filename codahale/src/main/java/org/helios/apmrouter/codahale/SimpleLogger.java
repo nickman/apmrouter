@@ -55,6 +55,15 @@ public class SimpleLogger {
 	}
 	
 	/**
+	 * Returns the SimpleLogger's current level
+	 * @return the SimpleLogger's current level
+	 */
+	public static Level getLevel() {
+		return level;
+	}
+	
+	
+	/**
 	 * <p>Title: Level</p>
 	 * <p>Description: Enumerates the verbosity levels of the {@link SimpleLogger}</p> 
 	 * <p>Company: Helios Development Group LLC</p>
@@ -76,6 +85,7 @@ public class SimpleLogger {
 		DEBUG(System.out),
 		/** Logs everything to System.out */
 		TRACE(System.out);
+		
 		
 		/**
 		 * Determines if the passed level enables logging vs. this level

@@ -27,6 +27,7 @@ package org.helios.apmrouter.codahale.metrics;
 import java.util.concurrent.TimeUnit;
 
 import org.helios.apmrouter.codahale.helios.HeliosReporter;
+import org.helios.apmrouter.jmx.ConfigurationHelper;
 
 import com.yammer.metrics.core.MetricPredicate;
 import com.yammer.metrics.core.MetricsRegistry;
@@ -42,12 +43,16 @@ import com.yammer.metrics.core.MetricsRegistry;
 public class Metrics {
 	private static final MetricsRegistry DEFAULT_REGISTRY;// = new MetricsRegistry();
 	
+	/** The system property indicating if metrics should be mapped (value should be "true" or "false") Default is true */
+	public static final String MAPPED_PROP = "org.helios.codahale.mapped";
+	
 	static {
 		System.out.println("======= Initializing Default Metrics Registry =======");
 		System.out.flush();
 		try {
 			DEFAULT_REGISTRY = new MetricsRegistry();
-			HeliosReporter.enable(DEFAULT_REGISTRY, 15000, TimeUnit.MILLISECONDS, MetricPredicate.ALL); 
+			boolean mapped = ConfigurationHelper.getBooleanSystemThenEnvProperty(MAPPED_PROP, true);
+			HeliosReporter.enable(DEFAULT_REGISTRY, 15000, TimeUnit.MILLISECONDS, MetricPredicate.ALL, mapped); 
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
 			throw new RuntimeException("Failed to initialize Metrics", t);
