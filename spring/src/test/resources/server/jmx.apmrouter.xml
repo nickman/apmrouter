@@ -39,8 +39,6 @@
 	</bean>
 	
 	<bean id="gconsole" class="org.helios.apmrouter.GroovyService" />
-	
-	
 
 	 
 	<bean id="exporter" class="org.springframework.jmx.export.MBeanExporter">

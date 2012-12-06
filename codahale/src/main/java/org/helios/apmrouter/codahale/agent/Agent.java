@@ -27,14 +27,10 @@ package org.helios.apmrouter.codahale.agent;
 import java.lang.instrument.Instrumentation;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.TimeUnit;
-
-import org.helios.apmrouter.codahale.helios.HeliosReporter;
+import static org.helios.apmrouter.codahale.SimpleLogger.*;
 import org.helios.apmrouter.jmx.XMLHelper;
 import org.w3c.dom.Node;
 
-import com.yammer.metrics.Metrics;
-import com.yammer.metrics.core.MetricPredicate;
 
 
 
@@ -85,6 +81,7 @@ public class Agent {
 	 */
 	public static void heliosBoot(String agentArgs, Instrumentation inst, Node codahaleNode) {
 		premain(agentArgs, inst);
+		inst.addTransformer(new InitializerLoggingAgent(), true);
 		//packageNames
 		Node packageNode = XMLHelper.getChildNodeByName(codahaleNode, "packages", false);
 		if(packageNode!=null) {
@@ -94,47 +91,43 @@ public class Agent {
 				packageNames.add(s.trim());
 			}
 		}
-		codahaleTransformer = new CodahaleClassTransformer(packageNames);
+		String jarUrl = XMLHelper.getAttributeByName(codahaleNode, "jar", null);
+		codahaleTransformer = new CodahaleClassTransformer(packageNames, jarUrl);
 		if(XMLHelper.getChildNodeByName(codahaleNode, "annotations", false)!=null) {
-			codahaleTransformer = new CodahaleClassTransformer(packageNames);
+			codahaleTransformer = new CodahaleClassTransformer(packageNames, jarUrl);
 			instrumentation.addTransformer(codahaleTransformer, instrumentation.isRetransformClassesSupported());
-			log("CodahaleClassTransformer Installed");
+			info("CodahaleClassTransformer Installed");
+		}
+//		final ClassLoader current = Thread.currentThread().getContextClassLoader();
+//		log("Current CL:" + current);
+//		try {
+//			Thread.currentThread().setContextClassLoader(ClassLoader.getSystemClassLoader());
+//			log("MR loaded from CL [" + MetricsRegistry.class.getClassLoader() + "] source [" + MetricsRegistry.class.getProtectionDomain().getCodeSource().getLocation() + "]");
+//			MetricsRegistry mr = Metrics.defaultRegistry();
+//			//HeliosReporter reporter = new HeliosReporter(Metrics.defaultRegistry(), MetricPredicate.ALL, "helios");
+//			HeliosReporter.enable(mr, 15000, TimeUnit.MILLISECONDS, MetricPredicate.ALL); 
+//			//Metrics.defaultRegistry().addListener(reporter);
+//			//mr.addListener(new JmxReporter(mr));
+//			log("Metric Registry [" + System.identityHashCode(mr) + "]");
+//		} finally {
+//			Thread.currentThread().setContextClassLoader(current);
+//		}
+		
+		try {
+			//Class.forName("org.helios.apmrouter.codahale.metrics.Metrics", true, ClassLoader.getSystemClassLoader());
+			Class.forName("org.helios.apmrouter.codahale.metrics.Metrics");
+		} catch (Throwable t) {
+			error("Failed to load metric registry", t);
 		}
 		
-		//HeliosReporter reporter = new HeliosReporter(Metrics.defaultRegistry(), MetricPredicate.ALL, "helios");
-		HeliosReporter.enable(Metrics.defaultRegistry(), 15000, TimeUnit.MILLISECONDS, MetricPredicate.ALL); 
-		//Metrics.defaultRegistry().addListener(reporter);
-		
-		
 		
 	}
-	
-	
-	
-	
+
 	/**
-	 * Simple out logger
-	 * @param msg the message
+	 * Returns 
+	 * @return the instrumentation
 	 */
-	public static void log(Object msg) {
-		System.out.println(msg);
-	}
-	
-	/**
-	 * Simple err logger
-	 * @param msg the message
-	 */
-	public static void elog(Object msg) {
-		System.err.println(msg);
-	}
-	
-	/**
-	 * Error logger
-	 * @param msg The error message
-	 * @param t The throwable to print the stack trace for
-	 */
-	public static void loge(Object msg, Throwable t) {
-		System.err.println(msg);
-		t.printStackTrace(System.err);
+	public static Instrumentation getInstrumentation() {
+		return instrumentation;
 	}	
 }

@@ -50,7 +50,14 @@
 		<dependency>
 		  <groupId>org.snmp4j</groupId>
 		  <artifactId>snmp4j</artifactId>
-		</dependency>			
+		</dependency>	
+		
+		<!-- JMXMP Server and Client Protocols -->
+		<dependency>
+		  <groupId>com.sun.jdmk</groupId>
+		  <artifactId>jmx-optional</artifactId>
+		</dependency>
+				
 		
 	</dependencies>
 	<build>

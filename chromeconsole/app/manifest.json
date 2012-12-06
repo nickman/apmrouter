@@ -1,0 +1,36 @@
+{
+     "name": "HeliosConsole",
+     "description": "A web top console for the Helios Performance Manager",
+     "version": "1.0",
+     "app": {
+          "urls": [
+               "www.heliosdev.org"
+          ],
+          "launch": {
+               "local_path": "app/appstart.html"
+          },
+          "container": "panel",
+          "height": 300,
+          "width": 300
+     },
+     "icons": {
+          "128": "helios_128.png",
+          "16": "helios_16.png"
+     },
+     "permissions": [
+          "clipboardRead",
+          "clipboardWrite",
+          "notifications",
+          "unlimitedStorage",
+          "cookies",
+          "contextMenus",
+          "experimental",
+          "fileBrowserHandler",
+          "history",
+          "idle",
+          "management",
+          "tts",
+          "ttsEngine"
+     ],
+     "manifest_version": 2
+}

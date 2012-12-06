@@ -538,25 +538,28 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	 * Sends a HELLO op to the server
 	 */
 	public void sendHello() {
-		log("Sending HELLO");
-		CountDownLatch latch = new CountDownLatch(1);
-		String key = "Hello";
-		doSendHello();
-		timeoutMap.put(key, latch, 5000);
-		try {
-			if(!latch.await(5000, TimeUnit.MILLISECONDS)) {
-				timeoutMap.remove("Hello");
-				scheduler.execute(new Runnable(){
-					@Override
-					public void run() {
-						sendHello();
+		scheduler.execute(new Runnable(){
+			public void run() {
+				//log("Sending HELLO");
+				CountDownLatch latch = new CountDownLatch(1);
+				String key = "Hello";
+				doSendHello();
+				timeoutMap.put(key, latch, 5000);
+				try {
+					if(!latch.await(5000, TimeUnit.MILLISECONDS)) {
+						timeoutMap.remove("Hello");
+						scheduler.execute(new Runnable(){
+							@Override
+							public void run() {
+								sendHello();
+							}
+						});
 					}
-				});
+				} catch (InterruptedException e) {
+					//throw new RuntimeException("Thread interrupted while waiting for Direct Metric Trace confirm for " + timeout + " ms. [" + metric + "]", e);
+				}				
 			}
-		} catch (InterruptedException e) {
-			//throw new RuntimeException("Thread interrupted while waiting for Direct Metric Trace confirm for " + timeout + " ms. [" + metric + "]", e);
-		}
-		
+		});		
 	}
 
 	/**

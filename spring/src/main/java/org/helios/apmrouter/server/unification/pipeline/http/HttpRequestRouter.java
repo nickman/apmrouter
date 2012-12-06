@@ -240,6 +240,9 @@ public class HttpRequestRouter extends ServerComponentBean  implements ChannelUp
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
         Channel ch = e.getChannel();
         Throwable cause = e.getCause();
+        if(cause != null && cause instanceof TooLongFrameException) {
+        	
+        }
         error("Uncaught exception", cause);
         if (cause instanceof TooLongFrameException) {
             sendError(ctx, BAD_REQUEST);

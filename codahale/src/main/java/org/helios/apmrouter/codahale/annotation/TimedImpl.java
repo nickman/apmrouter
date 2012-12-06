@@ -66,9 +66,9 @@ public class TimedImpl {
     protected final TimeUnit durationUnit;
     
 	/** Scoped CtMethod template for a codahale timer */
-	public static final String SCOPED_TIMER_TEMPLATE = "com.yammer.metrics.Metrics.defaultRegistry().newTimer(%s.class, \"%s\", \"%s\", java.util.concurrent.TimeUnit.%s, java.util.concurrent.TimeUnit.%s);";
+	public static final String SCOPED_TIMER_TEMPLATE = "org.helios.apmrouter.codahale.metrics.Metrics.defaultRegistry().newTimer(%s.class, \"%s\", \"%s\", java.util.concurrent.TimeUnit.%s, java.util.concurrent.TimeUnit.%s);";
 	/** No Scope CtMethod template for a codahale timer */
-	public static final String TIMER_TEMPLATE = "com.yammer.metrics.Metrics.defaultRegistry().newTimer(%s.class, \"%s\",  java.util.concurrent.TimeUnit.%s, java.util.concurrent.TimeUnit.%s);";
+	public static final String TIMER_TEMPLATE = "org.helios.apmrouter.codahale.metrics.Metrics.defaultRegistry().newTimer(%s.class, \"%s\",  java.util.concurrent.TimeUnit.%s, java.util.concurrent.TimeUnit.%s);";
     
 	/** A map of named default values since we're having issues getting them from javassist */
 	public static final Map<String, String> DEFAULT_VALUES;

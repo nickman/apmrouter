@@ -28,16 +28,16 @@ import java.lang.annotation.Annotation;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.reflect.Proxy;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.security.ProtectionDomain;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.TimeUnit;
 
 import javassist.ByteArrayClassPath;
 import javassist.CannotCompileException;
-import javassist.ClassClassPath;
 import javassist.ClassPool;
 import javassist.CtClass;
 import javassist.CtField;
@@ -45,17 +45,11 @@ import javassist.CtMethod;
 import javassist.LoaderClassPath;
 import javassist.Modifier;
 import javassist.NotFoundException;
-import javassist.bytecode.AnnotationDefaultAttribute;
-import javassist.bytecode.AnnotationsAttribute;
-import javassist.bytecode.MethodInfo;
 import javassist.bytecode.annotation.AnnotationImpl;
-import javassist.bytecode.annotation.EnumMemberValue;
 import javassist.bytecode.annotation.NoSuchClassError;
-import javassist.bytecode.annotation.StringMemberValue;
-
 
 import org.helios.apmrouter.codahale.annotation.TimedImpl;
-
+import static org.helios.apmrouter.codahale.SimpleLogger.*;
 import com.yammer.metrics.annotation.Timed;
 import com.yammer.metrics.core.Timer;
 
@@ -83,12 +77,13 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 			return new ClassPool();
 		}
 	};
-	
+	protected final String jarUrl;
 	/**
 	 * Creates a new CodahaleClassTransformer
 	 * @param packageNames An array of package names to instrument
 	 */
-	public CodahaleClassTransformer(String...packageNames) {
+	public CodahaleClassTransformer(String jarUrl, String...packageNames) {
+		this.jarUrl = jarUrl;
 		for(String s: packageNames) {
 			if(s.indexOf('.')!=-1) {
 				targetPackages.add(s.replace('.', '/').trim());
@@ -104,8 +99,8 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 	 * Creates a new CodahaleClassTransformer
 	 * @param packageNames A collection of package names to instrument
 	 */
-	public CodahaleClassTransformer(Collection<String> packageNames) {
-		this(packageNames.toArray(new String[0]));
+	public CodahaleClassTransformer(Collection<String> packageNames, String jarUrl) {
+		this(jarUrl, packageNames.toArray(new String[0]));
 	}
 	
 	/**
@@ -148,16 +143,16 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 			ProtectionDomain protectionDomain, byte[] classFileBuffer) throws IllegalClassFormatException {
 		final byte[] original = classFileBuffer;		
 		CtClass clazz = null;
-		
 		String packageName = getBinaryPackage(className);
 		if(!targetPackages.contains(packageName) || prohibitedPackages.contains(packageName)) {
-			//log("Skipped [" + className + "]");
+			trace("Skipped [", className,"]");
 			return original;
 		}
-		log("Examining [" + className + "]");
+		debug("Examining [", className, "]");
 		//cp.appendClassPath(new LoaderClassPath(classLoader));
 		ClassPool cp = classPool.get();
 		try {
+			cp.appendClassPath(new LoaderClassPath(new URLClassLoader(new URL[]{new URL(jarUrl)}, Thread.currentThread().getContextClassLoader())));
 			cp.appendClassPath(new LoaderClassPath(Thread.currentThread().getContextClassLoader()));
 			cp.appendClassPath(new LoaderClassPath(Timer.class.getClassLoader()));
 			cp.appendClassPath(new ByteArrayClassPath(toName(className), original));
@@ -167,25 +162,24 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 			//cp.appendSystemPath();
 			
 			clazz = cp.get(toName(className));
-			log("Loaded CtClass [" + clazz.getName() + "]");
+			debug("Loaded CtClass [", clazz.getName(), "]");
 			int totalInstrumentations = 0;
 			for(CtMethod method: clazz.getDeclaredMethods()) {
 				Object[] annotations = method.getAvailableAnnotations();
 				if(annotations.length>0) {
 					cp.importPackage("com.yammer.metrics.core");
-					log("Found [" + annotations.length + "] annotations on [" + clazz.toString() + "]");
 					totalInstrumentations += instrumentMethod(method, annotations);
 				}
 			}
 			if(totalInstrumentations>0) {
-				log("Completed [" + totalInstrumentations + "] joinpoint instrumentations on  [" + clazz.toString() + "]");
+				debug("Completed [", totalInstrumentations, "] joinpoint instrumentations on  [" ,clazz.getName(),  "]");
 				byte[] instrumentedByteCode = clazz.toBytecode();
 				classInfo.add(new InstrumentedClassInfo(className, classLoader, protectionDomain, original, instrumentedByteCode));
 				return instrumentedByteCode;
 			}		
 			return original;			
 		} catch (Exception ex) {
-			log("Failed to instrument class [" + className + "]:" + ex + ". Stack trace follows.");
+			warn("Failed to instrument class [", className, "]", ex);
 			ex.printStackTrace(System.err);
 			return original;
 		} finally {
@@ -214,8 +208,7 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 				instrumentMethodSwitch(method, annotationType);
 				cnt++;
 			} catch (Exception ex) {
-				log("Failed to instrument method [" + method.getName() + "] with annotation [" + annotationType.name() + "]. Stack trace follows...");
-				ex.printStackTrace(System.err);
+				warn("Failed to instrument method [", method.getName(), "] with annotation [" ,annotationType.name() , "]", ex); 
 			}
 			
 		}
@@ -240,10 +233,6 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 		}
 	}
 	
-	/** Scoped CtMethod template for a codahale timer */
-	public static final String SCOPED_TIMER_TEMPLATE = "com.yammer.metrics.Metrics.defaultRegistry().newTimer(%s.class, \"%s\", \"%s\", java.util.concurrent.TimeUnit.%s, java.util.concurrent.TimeUnit.%s);";
-	/** No Scope CtMethod template for a codahale timer */
-	public static final String TIMER_TEMPLATE = "com.yammer.metrics.Metrics.defaultRegistry().newTimer(%s.class, \"%s\",  java.util.concurrent.TimeUnit.%s, java.util.concurrent.TimeUnit.%s);";
 	
 	/**
 	 * Instruments a method with a {@link Timed} annotation
@@ -257,16 +246,15 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 		CtClass clazz = method.getDeclaringClass();
 		String fieldName = (staticMethod ? "static" : "") + "Timer_" + clazz.makeUniqueName(method.getName());
 		TimedImpl timedImpl = new TimedImpl(method);
-		log("CREATED TIMED IMPL:" + timedImpl);
 		String initer = timedImpl.getTimerInitializer(clazz.getName());
 		
-		log("Timer init for [" + method.toString() + "]\n[" + initer + "]");
+		debug("Timer init for [", method.toString() , "]\n[" , initer , "]");
 		CtField timerField = new CtField(classPool.get().get(Timer.class.getName()), fieldName, clazz);
 		timerField.setModifiers(timerField.getModifiers() | Modifier.PRIVATE | Modifier.FINAL );
 		if(staticMethod) timerField.setModifiers(timerField.getModifiers() | Modifier.STATIC );		
 		clazz.addField(timerField, CtField.Initializer.byExpr(initer));		
 		method.instrument(new TimerExpressionEditor(fieldName));		
-		log("Instrumented method [" + clazz.getSimpleName() + "." + method.getName() + "]");
+		debug("Instrumented method [" , clazz.getSimpleName() , "." ,method.getName() , "]");
 	}
 		
 //	protected void instrumentMethodTimed(CtMethod method, Map<String, ?> av) throws CannotCompileException {
@@ -319,31 +307,6 @@ public class CodahaleClassTransformer implements ClassFileTransformer {
 		return annotations.toArray(new Annotation[annotations.size()]);
 	}
 	
-	/**
-	 * Simple out logger
-	 * @param msg the message
-	 */
-	public static void log(Object msg) {
-		System.out.println(msg);
-	}
-	
-	/**
-	 * Simple err logger
-	 * @param msg the message
-	 */
-	public static void elog(Object msg) {
-		System.err.println(msg);
-	}
-	
-	/**
-	 * Error logger
-	 * @param msg The error message
-	 * @param t The throwable to print the stack trace for
-	 */
-	public static void loge(Object msg, Throwable t) {
-		System.err.println(msg);
-		t.printStackTrace(System.err);
-	}	
 		
 
 }

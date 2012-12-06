@@ -34,9 +34,11 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.jar.JarFile;
 
+import static org.helios.apmrouter.util.SimpleLogger.*;
 import org.helios.apmrouter.instrumentation.Trace;
 import org.helios.apmrouter.instrumentation.TraceClassFileTransformer;
 import org.helios.apmrouter.jmx.XMLHelper;
+import org.helios.apmrouter.jmx.threadinfo.ExtendedThreadManager;
 import org.helios.apmrouter.monitor.Monitor;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -86,6 +88,7 @@ public class AgentBoot {
 	 * @param instrumentation The instrumentation which may be null
 	 */
 	public static void boot(URLClassLoader classLoader, String agentArgs, Instrumentation instrumentation) {
+		ExtendedThreadManager.install();
 		AgentBoot.agentArgs = agentArgs;
 		AgentBoot.instrumentation = instrumentation;
 		AgentBoot.classLoader = classLoader;
@@ -146,18 +149,24 @@ public class AgentBoot {
 		}
 		try {
 			URL url = new URL(jarUrl);
-			log("Codahale jar:[" + url + "]");
+			info("Codahale jar:[", url ,"]");
 			//addURLToClassLoader(url);
 //			URL thirdParty = new URL("file:/C:/users/nwhitehe/.m2/repository/com/yammer/metrics/metrics-core/3.0.0-SNAPSHOT/metrics-core-3.0.0-SNAPSHOT.jar");
 //			addURLToClassLoader(thirdParty);
-			//instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(url.getFile()));
-			instrumentation.appendToSystemClassLoaderSearch(new JarFile(url.getFile()));
+			instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(url.getFile()));
+			//instrumentation.appendToSystemClassLoaderSearch(new JarFile(url.getFile()));
 			//Class<?> bootClazz = classLoader.loadClass(CODAHALE_BOOT_CLASS);
 			Class<?> bootClazz = ClassLoader.getSystemClassLoader().loadClass(CODAHALE_BOOT_CLASS);
 			Method bootMethod = bootClazz.getDeclaredMethod(CODAHALE_BOOT_METHOD, CODAHALE_BOOT_SIG);
 			bootMethod.invoke(null, agentArgs, instrumentation, codahaleNode);
 		} catch (Exception ex) {			
-			loge("Failed to process codahale node. Stack trace follows", ex);
+			String xml = null;
+			try {
+				xml = XMLHelper.renderNode(codahaleNode);
+			} catch (Exception e) {
+				xml = "== Failed to render ==";
+			}
+			warn("Failed to process codahale AOP configuration. XML was [\n", xml, "\n]  Stack Trace follows.", ex);
 		}
 	}
 	
@@ -172,7 +181,7 @@ public class AgentBoot {
 		try {
 			addUrlMethod.invoke(classLoader, url);
 		} catch (Exception ex) {
-			loge("Failed to add URL [" + url + "] to classloader", ex);
+			error("Failed to add URL [",  url,  "] to classloader", ex);
 			throw new RuntimeException("Failed to add URL [" + url + "] to classloader", ex);
 			
 		}
@@ -202,7 +211,7 @@ public class AgentBoot {
 		if(!packages.isEmpty()) {
 			TraceClassFileTransformer tcf = new TraceClassFileTransformer(packages);
 			instrumentation.addTransformer(tcf, true);
-			log("Added TraceClassFileTransformer for packages " + packages);
+			debug("Added TraceClassFileTransformer for packages ", packages);
 		}
 		
 	}
@@ -240,48 +249,17 @@ public class AgentBoot {
 					monitor.startMonitor(startDelay);
 				}
 			} catch (Exception e) {
-				loge("Failed to process configured monitor [" + XMLHelper.renderNode(mNode) + "]", e);
+				String xml = null;
+				try {
+					xml = XMLHelper.renderNode(mNode);
+				} catch (Exception ex) {
+					xml = "== Failed to render ==";
+				}
+				warn("Failed to process configured monitor. XML was [\n", xml, "\n]  Stack Trace follows.", e);
 			}
 		}		
 	}
 	
-	/**
-	 * Out logger
-	 * @param msg The message
-	 */
-	public static void log(Object msg) {
-		System.out.println(msg);
-	}
-	
-	/**
-	 * Error logger
-	 * @param msg The error message
-	 */
-	public static void loge(Object msg) {
-		System.err.println(msg);
-	}
-	
-	/**
-	 * Error logger
-	 * @param msg The error message
-	 * @param t The throwable to print the stack trace for
-	 */
-	public static void loge(Object msg, Throwable t) {
-		System.err.println(msg);
-		t.printStackTrace(System.err);
-	}
-	
-	/*
-<agent>
-	<props>
-		<prop name="org.helios.agent" value="eggs-cellent"/>
-		<prop name="org.helios.agent.monitor.script.url" value="eggs-cellent"/>
-	</props>
-	<monitors>
-		<monitor name="org.helios.apmrouter.monitor.jvm.JVMMonitor" period="5000"/>
-	</monitors>
-</agent>
-	 */
 	
 	/**
 	 * Loads XML defined properties
