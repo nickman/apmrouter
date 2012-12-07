@@ -49,7 +49,8 @@
 		<flapdoodle.version>1.26</flapdoodle.version>
 		<jfree.version>1.0.9</jfree.version>
 		<yammer.version>3.0.0-SNAPSHOT</yammer.version>
-		<jmx-optiona.version>1.0-b02-SNAPSHOT</jmx-optiona.version>
+		<jmx-optional.version>1.0-b02-SNAPSHOT</jmx-optional.version>
+		<asm.version>4.0</asm.version>
 		
 	</properties>
 	<dependencyManagement>
@@ -86,6 +87,13 @@
 			  <artifactId>jfreechart</artifactId>
 			  <version>${jfree.version}</version>
 			</dependency>
+			
+			<dependency>
+			  <groupId>org.ow2.asm</groupId>
+			  <artifactId>asm-all</artifactId>
+			  <version>${asm.version}</version>
+			</dependency>
+			
 			
 			<dependency>
 				<groupId>vanilla.java</groupId>
@@ -162,7 +170,7 @@
 			<dependency>
 			  <groupId>com.sun.jdmk</groupId>
 			  <artifactId>jmx-optional</artifactId>
-			  <version>${jmx-optiona.version}</version>			  
+			  <version>${jmx-optional.version}</version>			  
 			</dependency>
 			
 			

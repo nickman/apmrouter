@@ -36,6 +36,7 @@ import javax.management.ObjectName;
 import javax.script.Bindings;
 import javax.script.Compilable;
 import javax.script.CompiledScript;
+import javax.script.Invocable;
 import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineFactory;
@@ -66,6 +67,9 @@ public class ScriptContainer extends NotificationBroadcasterSupport implements S
 	protected CompiledScript compiledScript;
 	/** The timestamp highwater mark of the compiled script */
 	protected long sourceTimestamp;
+	
+	/** Custom invocation frequency determined by a var called <b><code>customFrequency</code></b> that contains the frequency in ms. */
+	protected long customFrequency = -1L;
 	
 	/** This script container's script engine/compiler */
 	protected final ScriptEngine scriptEngine;
@@ -149,16 +153,24 @@ public class ScriptContainer extends NotificationBroadcasterSupport implements S
 		}
 		
 		writable = URLHelper.isWritable(this.scriptUrl);
-		String urlName = url.getFile();
-		if(urlName.lastIndexOf(".")!=-1) {
-			name = urlName.substring(0, urlName.lastIndexOf("."));
-		} else {
-			name = urlName;
-		}			
+		name = urlToName(url);
 		sourceTimestamp = URLHelper.getLastModified(scriptUrl);
 		acquireScript();
 		compileScript();
 		
+	}
+	
+	/**
+	 * Generates the script's logical name for the passed URL
+	 * @param url The script's URL
+	 * @return the script's logical name
+	 */
+	public static String urlToName(URL url) {
+		String urlName = url.getFile();
+		if(urlName.lastIndexOf(".")!=-1) {
+			return urlName.substring(0, urlName.lastIndexOf("."));
+		}
+		return urlName;							
 	}
 	
 	/**
@@ -175,10 +187,17 @@ public class ScriptContainer extends NotificationBroadcasterSupport implements S
 		try {			
 			SystemClock.startTimer();
 			compiledScript = ((Compilable)scriptEngine).compile(String.format(SRC_HEADER, name) + source + String.format(SRC_FOOTER, name));
+			if(localBindings.containsKey("customFrequency")) {
+				try {				
+					Long f = ((Number)localBindings.get("customFrequency")).longValue();
+					customFrequency = f;
+				} catch (Exception e) { /* No Op */ }
+			}
 			localBindings.put("inited", false);
 			localCollectionSweep = 0L;
 		} catch (Exception e) {
 			System.err.println("Failed to compile script [" + scriptUrl + "]. Will be ignored until modified.");
+			e.printStackTrace(System.err);
 			disabled = true;
 		} finally {
 			compilationTimes.insert(SystemClock.endTimer().elapsedMs);
@@ -655,6 +674,24 @@ public class ScriptContainer extends NotificationBroadcasterSupport implements S
 	@Override
 	public long getRollingCompileTimeMs() {
 		return compilationTimes.avg();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#getCustomFrequency()
+	 */
+	@Override
+	public long getCustomFrequency() {
+		return customFrequency;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.monitor.script.ScriptContainerMBean#setCustomFrequency(long)
+	 */
+	@Override
+	public void setCustomFrequency(long customFrequency) {
+		this.customFrequency = customFrequency;
 	}
 	
 }

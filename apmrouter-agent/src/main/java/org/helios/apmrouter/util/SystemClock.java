@@ -478,7 +478,7 @@ public enum SystemClock {
 	 * <p>Title: Clock</p>
 	 * <p>Description: Defines a clock impl.</p> 
 	 */
-	private static interface Clock {
+	public static interface Clock {
 		/**
 		 * Returns the current time in ms.
 		 * @return the current time in ms.

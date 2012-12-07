@@ -28,6 +28,7 @@
 <!-- Mongo DB Factory -->
 <mongo:db-factory id="mongodbFactory" dbname="apmrouter" mongo-ref="mongodb"/>
 
+
 <!-- Mongo Template -->
 <bean id="mongoTemplate" class="org.springframework.data.mongodb.core.MongoTemplate">
 <constructor-arg name="mongoDbFactory" ref="mongodbFactory" />

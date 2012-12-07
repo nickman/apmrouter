@@ -64,7 +64,7 @@
     </query>    
     <query name="findLevelMetricsForAgent">from metric m where m.level = :level and m.agent.agentId = :agentId
     	<query-param name="level" type="java.lang.Integer"/>
-    	<query-param name="agentId" type="java.lang.Integer"/>
+    	<query-param name="agentId" type="java.lang.Integer"/>    	
     </query>
     <!-- and m.narr[:level] is not null -->
     <sql-query name="findLevelFoldersForAgent">select distinct narr[:level], m.level-a.min_level  from metric m, agent a  where a.agent_id = m.agent_id and a.agent_id = :agentId and namespace like :parent and narr[:level] is not null 
@@ -73,11 +73,12 @@
     	<query-param name="parent" type="java.lang.String"/>
     </sql-query>
     <!-- select distinct narr[1], m.level-a.min_level  from metric m, agent a  where a.agent_id = m.agent_id and a.agent_id = 1 and namespace like '/platform=APMRouter%' and narr[1] is not null  -->
-    <sql-query name="findLevelMetricsForAgentWithParent">select {m.*} from metric m where m.agent_id = :agentId and m.level = :level and m.narr[:level-1] = :parent
+    <sql-query name="findLevelMetricsForAgentWithParent">select {m.*} from metric m where m.agent_id = :agentId and m.level = :level and namespace like :parent
     	<query-param name="level" type="java.lang.Integer"/>
     	<query-param name="agentId" type="java.lang.Integer"/>   
     	<query-param name="parent" type="java.lang.String"/>
     	<return alias="m" entity-name="metric" ></return>
+    	<!--  select {m.*} from metric m where m.agent_id = :agentId and m.level = :level and m.narr[:level-1] = :parent -->
     </sql-query>
     
 </hibernate-mapping>

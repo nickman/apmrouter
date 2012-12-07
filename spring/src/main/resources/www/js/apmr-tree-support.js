@@ -328,9 +328,9 @@
 				var agentId = $(node).attr('agent');
 				var level = parseInt($(node).attr('level')) +1;
 				var parent = $(node).attr('folder');
-				
+				var parentPrefix = '/' + metricTree.get_path('#' + parentId).slice(4).join('/');
 				//console.info("Populating Level Metrics and Folder [%s]", parent);
-				$.apmr.findLevelMetricsForAgentWithParent(level, agentId, parent || '%', function(data) {							
+				$.apmr.findLevelMetricsForAgentWithParent(level, agentId, parentPrefix + '%', function(data) {							
 					$.each(data.msg, function(index, metric) {
 						var uid = "metric-" + metric.id;
 						if($('#' + uid).length==0) {
@@ -351,9 +351,9 @@
 							});
 						}
 					});							
-					//fixOpen(nodeArray);
-					var parentPrefix = '/' + metricTree.get_path('#' + parentId).slice(4).join('/');
+					//fixOpen(nodeArray);					
 					console.info("Parent Folder Prefix [%s]", parentPrefix);
+					//console.info("SQL:  select distinct narr[%s], m.level-a.min_level  from metric m, agent a  where a.agent_id = m.agent_id and a.agent_id = %s and namespace like '%s' and narr[%s] is not null", level, agentId, parentPrefix + '%', level);
 					$.apmr.findLevelFoldersForAgent(level, agentId, parentPrefix + '%', function(data) {
 						$.each(data.msg, function(index, arr) {
 							var folder = arr[0];

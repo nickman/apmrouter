@@ -10,6 +10,7 @@
 		<module>apmrouter-agent</module>		
 		<module>spring</module>
 		<module>jagent</module>
+		<module>codahale</module>
 		<module>apmrouter-web</module>
 		<module>apmrouter-cl</module>
 	</modules>
@@ -47,6 +48,8 @@
 		<spring-mongo.version>1.0.4.RELEASE</spring-mongo.version>
 		<flapdoodle.version>1.26</flapdoodle.version>
 		<jfree.version>1.0.9</jfree.version>
+		<yammer.version>3.0.0-SNAPSHOT</yammer.version>
+		<jmx-optiona.version>1.0-b02-SNAPSHOT</jmx-optiona.version>
 		
 	</properties>
 	<dependencyManagement>
@@ -78,6 +81,12 @@
 			  </dependency>	
 			
 			<!--   COMPILE/RUNTIME   -->
+			<dependency>
+			  <groupId>jfree</groupId>
+			  <artifactId>jfreechart</artifactId>
+			  <version>${jfree.version}</version>
+			</dependency>
+			
 			<dependency>
 				<groupId>vanilla.java</groupId>
 				<artifactId>chronicle</artifactId>
@@ -147,6 +156,16 @@
 				<artifactId>camel-netty</artifactId>
 				<version>${camel.version}</version>
 			</dependency>
+			
+			
+			<!-- JMXMP Server and Client Protocols -->
+			<dependency>
+			  <groupId>com.sun.jdmk</groupId>
+			  <artifactId>jmx-optional</artifactId>
+			  <version>${jmx-optiona.version}</version>			  
+			</dependency>
+			
+			
 			
 			
 		      <dependency>
@@ -272,6 +291,13 @@
 		      <artifactId>rrd4j</artifactId>
 		      <version>${rrd4j.version}</version>
 		    </dependency>
+
+		<!--  Yammer Codahale Extension -->
+		  <dependency>
+		      <groupId>com.yammer.metrics</groupId>
+		      <artifactId>metrics-core</artifactId>
+		      <version>${yammer.version}</version>
+		  </dependency>
 
 			
 		</dependencies>

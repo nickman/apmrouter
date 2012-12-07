@@ -327,4 +327,16 @@ public interface ScriptContainerMBean extends NotificationBroadcaster {
 	 */
 	public void reset();
 	
+	/**
+	 * Returns the custom frequency of the invocations of this script in ms.
+	 * @return the custom frequency of the invocations of this script or -1 if it is the monitor default.
+	 */
+	public long getCustomFrequency();
+
+	/**
+	 * Sets the custom frequency of the invocations of this script in ms.
+	 * @param customFrequency the custom frequency in ms. or -1 to assume the default
+	 */
+	public void setCustomFrequency(long customFrequency);	
+	
 }

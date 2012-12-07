@@ -38,7 +38,9 @@
 		/** The amount of time in ms. that downed nodes (hosts and agents) will linger in the tree before being unloaded */
 		downedNodeLingerTime: 15000,
 		/** The handle of the downed node reaper */
-		downedNodeReaper: -1
+		downedNodeReaper: -1,
+		/** The last sequence number received */
+		lastSequence: -1
 		
 	},
 	
@@ -291,6 +293,8 @@
 	},
 	// apmrouter.h2timeseries.intervalroll
 	$.apmr.stateChange = function(event) {
+		if(event.msg.sequenceNumber<=$.apmr.config.lastSequence) return;
+		$.apmr.config.lastSequence = event.msg.sequenceNumber; 
 		console.info("Sub Response [%o]", event);
 		var e = event.msg;
 		if(e.userData==null) return;
@@ -298,7 +302,8 @@
 			switch(e.type) {
 				case "apmrouter.session.start":
 					break;  // nuthin'
-				case "apmrouter.session.identified":
+				case "apmrouter.session.identified":	
+					$.jGrowl('[' + e.userData.h + ' / ' + e.userData.a + ']', { header: 'Agent Started' }); 
 					if($('#host-' + e.userData.hi).length==0) {
 						var domainId = '#domain-' + (e.userData.d.join('_'));
 						// ==================================================================================
@@ -352,6 +357,7 @@
 					}
 					break;
 				case "apmrouter.session.end":
+					$.jGrowl('[' + e.userData.h + ' / ' + e.userData.a + ']', { header: 'Agent Stopped' });
 					var ts = new Date().getTime();
 					if($('#host-' + e.userData.hi).length==1 && e.userData.hc) {
 						// ==================================================================================

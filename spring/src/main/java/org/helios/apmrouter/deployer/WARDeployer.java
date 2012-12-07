@@ -71,8 +71,9 @@ public class WARDeployer {
 		Map<Object,Object> values = new HashMap<Object, Object>();
 		values.put("contextPath", "/" + warFile.getName().toLowerCase().replace(".war", ""));
 		values.put("extractWAR", !exploded);
-		values.put("war", warFile.getAbsolutePath());
+		values.put("war", warFile.getAbsolutePath());		
 		values.put("server", new RuntimeBeanReference("HttpServer"));
+		values.put("configurations", new RuntimeBeanReference("JettyConfigs"));
 		values.put("logUrlOnStart", true);
 		beanDef.setPropertyValues(new MutablePropertyValues(values));
 		appCtx.registerBeanDefinition(warFile.getName().toLowerCase(), beanDef);

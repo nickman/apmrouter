@@ -28,9 +28,13 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import javax.script.Bindings;
 import javax.script.ScriptEngine;
@@ -133,7 +137,8 @@ public class ScriptMonitor extends AbstractMonitor {
 		scriptBindings.put(STD_OUT, System.out);
 		scriptBindings.put(STD_ERR, System.err);
 		scriptBindings.put(APM_SIGAR, APMSigar.getInstance());
-		scriptLoad();
+		//scriptLoad();
+		scheduleNewScriptCheck();
 	}
 	
 	/**
@@ -154,8 +159,10 @@ public class ScriptMonitor extends AbstractMonitor {
 	protected void doCollect(long collectionSweep) {		
 		for(Iterator<ScriptContainer> iter = compiledScripts.values().iterator(); iter.hasNext();) {
 			ScriptContainer sc = iter.next();
-			try {				
-				sc.invoke();
+			try {			
+				if(sc.getCustomFrequency()==-1L) {
+					sc.invoke();
+				}
 			} catch (UnavailableMBeanServerException uex) {
 				/* No Op */
 			} catch (Throwable e) {
@@ -176,6 +183,7 @@ public class ScriptMonitor extends AbstractMonitor {
 	protected void scriptLoad() {
 		URL scriptURL = null;
 		String url = ConfigurationHelper.getSystemThenEnvProperty(SCRIPT_URL_PROP, null);
+		Set<URL> deployed = new HashSet<URL>();
 		if(url==null) {
 			File scriptDir = new File(DEFAULT_SCRIPT_URL.getFile());
 			if(scriptDir.exists() && scriptDir.isDirectory()) {
@@ -188,29 +196,53 @@ public class ScriptMonitor extends AbstractMonitor {
 				scriptURL = URLHelper.toURL(url);
 			}
 			if(scriptURL.getProtocol().equals("file")) {
-				processFileScripts(scriptURL);
+				Collections.addAll(deployed, processFileScripts(scriptURL));
 			} else if(scriptURL.getProtocol().equals("http")) {
-				processHttpScript(scriptURL);
+				Collections.addAll(deployed, processHttpScript(scriptURL));
 			}
 		} catch (Exception e) {
 			System.err.println("Failed to resolve monitor scripts from [" + url + "]");
 		}
-		if(compiledScripts.size()>0) {
-			System.out.println("Prepared [" + compiledScripts.size() + "] compiled monitor scripts");
+		if(!deployed.isEmpty()) {
+			StringBuilder b = new StringBuilder("\n\tDeployed Monitoring Scripts:\n\t============================");
+			for(URL u: deployed) {
+				b.append("\n\t\t").append(u);
+			}
+			b.append("\n");
+			System.out.println(b);
 		}
 	}
+	
+	/**
+	 * Schedules a task to check for new script files
+	 */
+	protected void scheduleNewScriptCheck() {
+		scheduler.scheduleWithFixedDelay(new Runnable(){
+			public void run() {
+				scriptLoad();
+			}
+		}, 15000, 5000, TimeUnit.MILLISECONDS);
+	}
+	
 	
 	/**
 	 * Attempts to load a monitor script from the passed URL
 	 * @param scriptURL the monitor script URL
 	 * @throws ScriptException rethrows any exception thrown from the container
+	 * @return The URL of the deployed script or null if one was not deployed
 	 */
-	private void processHttpScript(URL scriptURL) throws ScriptException {
+	private URL processHttpScript(URL scriptURL) throws ScriptException {
+		if(compiledScripts.containsKey(ScriptContainer.urlToName(scriptURL))) return null;
 		ScriptEngine se = scriptEngineManager.getEngineByExtension(URLHelper.getExtension(scriptURL, "").toLowerCase());
 		if(se==null) throw new RuntimeException("No script engine found for [" + scriptURL + "]", new Throwable());
 		ScriptContainer sc = new ScriptContainer(se, scriptBindings, scriptURL);
+		if(sc.getCustomFrequency()>0) scheduleCustomFrequencyScript(sc, -1L);
 		compiledScripts.put(sc.getName(), sc);
+		return scriptURL;
 	}
+	
+	/** An empty URL array */
+	protected static final URL[] EMPTY_URL_ARR = new URL[0];
 
 	/**
 	 * Attempts to load file based monitor scripts from the passed URL.
@@ -218,34 +250,71 @@ public class ScriptMonitor extends AbstractMonitor {
 	 * Otherwise, if the extension of the file is [case insensitive] JS, that single file will be loaded.
 	 * @param scriptURL The file based script URL
 	 * @throws ScriptException rethrows any exception thrown from the container
+	 * @return The URLs of the deployed scripts
 	 */
-	private void processFileScripts(URL scriptURL) throws ScriptException {
+	private URL[] processFileScripts(URL scriptURL) throws ScriptException {
+		if(compiledScripts.containsKey(ScriptContainer.urlToName(scriptURL))) return EMPTY_URL_ARR;
 		String fileName = scriptURL.getFile();
 		File file = new File(fileName);
-		if(!file.exists()) return;
+		if(!file.exists()) return EMPTY_URL_ARR;
 		if(file.isFile()) {
 			ScriptEngine se = scriptEngineManager.getEngineByExtension(URLHelper.getFileExtension(file, "").toLowerCase());
 			if(se!=null) {
 				ScriptContainer sc = new ScriptContainer(se, scriptBindings, scriptURL);
-				compiledScripts.put(sc.getName(), sc);
+				if(sc.getCustomFrequency()>0) scheduleCustomFrequencyScript(sc, -1L);
+				compiledScripts.put(sc.getName(), sc);				
+				return new URL[]{scriptURL};
 			}
+			return EMPTY_URL_ARR;
 		} else if(file.isDirectory()) {
-			// FIXME: Start periodic scan of the directory for new scripts
-			
+			Set<URL> deployed = new HashSet<URL>();
 			for(File scriptFile: file.listFiles(new FilenameFilter(){
 				@Override
 				public boolean accept(File dir, String name) {
 					return scriptEngineManager.getEngineByExtension(URLHelper.getFileExtension(name, "").toLowerCase())!=null;
 				}})) {
 				try {
+					URL fileURL = scriptFile.toURI().toURL();
+					if(compiledScripts.containsKey(ScriptContainer.urlToName(fileURL))) continue;
 					ScriptEngine se = scriptEngineManager.getEngineByExtension(URLHelper.getFileExtension(scriptFile, "").toLowerCase());
-					ScriptContainer sc = new ScriptContainer(se, scriptBindings, scriptFile.toURI().toURL());
+					ScriptContainer sc = new ScriptContainer(se, scriptBindings, fileURL);
+					if(sc.getCustomFrequency()>0) scheduleCustomFrequencyScript(sc, -1L);
 					compiledScripts.put(sc.getName(), sc);
+					deployed.add(fileURL);
 				} catch (Exception e) {
 					crap(e);
 				}
-			}		
+			}
+			return deployed.toArray(new URL[deployed.size()]);
 		}
+		return EMPTY_URL_ARR;
+	}
+	
+	/**
+	 * Schedules the passed ScriptContainer for recurring invocations at custom intervals
+	 * @param sc The script container to schedule invocations for
+	 * @param frequency The delay until the next execution. If zero or less, ignored.
+	 */
+	protected void scheduleCustomFrequencyScript(final ScriptContainer sc, long frequency) {
+		scheduler.schedule(new Runnable(){
+			public void run() {
+				long nextFrequency = sc.getCustomFrequency();
+				try {
+					sc.invoke();
+				} catch (UnavailableMBeanServerException umx) {
+					/* No Op */					
+				} catch (Exception ex) {
+					nextFrequency = nextFrequency * 5;
+					long err = sc.getConsecutiveErrors();
+					if(err>=maxErrors) {
+						sc.setDisabled(true);
+						System.err.println("Monitor Script [" + sc.scriptUrl + "] has failed [" + err + "] consecutive times. It is being ignored until modified. Last error follows:");
+						ex.printStackTrace(System.err);
+					}
+				}
+				scheduleCustomFrequencyScript(sc, nextFrequency);
+			}
+		}, frequency<0 ? sc.getCustomFrequency() : frequency, TimeUnit.MILLISECONDS);
 	}
 	
 	/**

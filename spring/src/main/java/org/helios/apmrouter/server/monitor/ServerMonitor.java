@@ -66,17 +66,6 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 	
 	private final boolean ONE_METRIC_ONLY = false;
 	
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
-	 */
-	@Override
-	protected void doStart() throws Exception {
-		if(!ONE_METRIC_ONLY) {
-			new JVMMonitor().startMonitor();
-			new NativeMonitor().startMonitor();
-		}
-	}
 	
 	/**
 	 * {@inheritDoc}
@@ -84,6 +73,10 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 	 */
 	@Override
 	public void onApplicationContextRefresh(ContextRefreshedEvent event) {
+		if(!ONE_METRIC_ONLY) {
+			new JVMMonitor().startMonitor();
+			new NativeMonitor().startMonitor();
+		}		
 		info("Collecting instances of ServerComponentBean....");
 		Map<String, ServerComponentBean> beans = applicationContext.getBeansOfType(ServerComponentBean.class, false, false);
 		info("Located [", beans.size(), "] instances of ServerComponentBean....");

@@ -25,11 +25,11 @@
 package org.helios.apmrouter.deployer;
 
 import java.io.File;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import javax.management.ObjectName;
 
@@ -107,6 +107,7 @@ public class ApplicationContextDeployer {
 				ObjectName on = JMXHelper.objectName(ApplicationContextService.HOT_OBJECT_NAME_PREF + ObjectName.quote(f.getAbsolutePath()));
 				ApplicationContextService.register(on, appCtx);			
 				appCtx.refresh();
+				//jimmyTheJettyWebApps(appCtx, cl);
 				return appCtx;
 			} finally {
 				Thread.currentThread().setContextClassLoader(current);
@@ -114,6 +115,35 @@ public class ApplicationContextDeployer {
 		} catch (Throwable ex) {
 			log.error("Failed to deploy application context [" + fe + "]", ex);
 			throw new RuntimeException("Failed to deploy application context [" + fe + "]", ex);
+		}
+	}
+	
+	protected void jimmyTheJettyWebApps(GenericXmlApplicationContext appCtx, ClassLoader cl) {
+		final ClassLoader current = Thread.currentThread().getContextClassLoader();
+		try {
+			Thread.currentThread().setContextClassLoader(cl);
+			//Class<?> webAppClazz = Class.forName("org.eclipse.jetty.annotations.AnnotationConfiguration", true, cl);
+			if(!appCtx.containsBean("JettyAnnotations")) return;
+			Object annotationConfiguration = appCtx.getBean("JettyAnnotations");
+			if(annotationConfiguration!=null) {
+				Method configMethod = null;  //annotationConfiguration.getClass().getDeclaredMethod("configure", webAppClazz);
+				Class<?> webAppClass = null;
+				for(Method m: annotationConfiguration.getClass().getDeclaredMethods()) {
+					if(m.getName().equals("configure")) {
+						configMethod = m;
+						webAppClass = configMethod.getParameterTypes()[0];
+						break;
+					}
+				}
+				if(configMethod==null) throw new Exception("No Config Method Found");
+				for(Object webApp: appCtx.getBeansOfType(webAppClass).values()) {
+					configMethod.invoke(annotationConfiguration, webApp);
+				}
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+		} finally {
+			Thread.currentThread().setContextClassLoader(current);
 		}
 	}
 	
