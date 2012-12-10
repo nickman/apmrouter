@@ -172,6 +172,8 @@
 		if(args!=null) {
 			req['args'] = args;
 		}
+		console.debug("Request Object:[%o]", req);
+		console.debug("JSON Request:[%s]", JSON.stringify(req));
 		return $.apmr.send(req, callback);
 	},
 	

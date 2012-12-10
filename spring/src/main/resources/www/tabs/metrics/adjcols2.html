@@ -1,0 +1,81 @@
+    <script src="js/highcharts/highcharts.js"></script>
+    <script src="js/highcharts/highcharts-more.js"></script>
+    <script src="js/highcharts/exporting.js"></script>
+    
+    <style type="text/css">
+      div.column1 {
+        position: absolute; /* Pulls it out of the normal flow */
+        left: 0px;          /* Places it on the top-left       */
+        top: 45px;
+        width: 300px;       /* Width is exactly 300px          */
+        height: 100%;
+        overflow: auto;
+				border-bottom: 2px solid #e5eff8;
+				border-top: 2px solid #e5eff8;
+				border-left: 2px solid #e5eff8;
+				border-right: 2px solid #e5eff8;
+        
+      }
+      div.column-divider {
+        position: absolute;
+        background-color: #AAA;
+        height: 100%;
+        top: 0px;
+        left: 300px;
+        width: 2px;
+        cursor: col-resize;
+                
+      }
+      div.toolbar {
+        position: relative;
+        background-color: #F3F2C6;
+        height: 60px;
+        top: 0px;
+        margin-left: 285px;
+				border-bottom: 2px solid #e5eff8;
+				border-top: 2px solid #e5eff8;
+				border-left: 2px solid #e5eff8;
+				border-right: 2px solid #e5eff8;
+				border-width: thick;                
+      }
+      
+      div.column2 {
+      	
+        position: relative; /* Leave in normal flow so the     */
+                            /* width can be full width         */
+        /* right: 0px;         Places it on the top-right      */
+                            /* (leaving left also works)       */
+        /* top: 0px; */
+        height: 90%;
+        margin-left: 285px; /* Left margin pushes over for the */
+                            /* other columns to have space     */
+        overflow-y: auto;
+      }
+    </style>
+    <div id="metricTree" class="column1">
+      
+    </div>
+    <div class="column-divider">
+    
+      <script>
+        $(document).ready(function() {
+        	Highcharts.setOptions({
+                global: {
+                    useUTC: false
+                }
+            });	
+          $('#metricTree').height(parseInt($('#metricTree').parent().parent().parent().height()));
+          $('#metricDisplay').height(parseInt($('#metricTree').parent().parent().parent().height()));
+          $('#metricToolbar').width(parseInt($('#metricDisplay').width()));
+          $('div.column-divider').height(parseInt($('div.column-divider').parent().parent().parent().height()));
+          initResizes();
+        });
+      </script>
+    </div>
+    <!-- <div class="column2, ui-icon ui-icon-circle-triangle-s ui-widget-header"> -->
+	      
+	      <div style="background-color: #F2F2E6;" class="column2" id="metricDisplay">
+	        <div class="toolbar" id="metricToolbar"></div>
+	      	<div id="chartContainer" style="height: 400px"></div>
+	      </div>
+      

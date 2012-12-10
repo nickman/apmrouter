@@ -128,7 +128,7 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 		final List<Metric> metrics = new ArrayList<Metric>();
 		long loopTime = SystemClock.time() + 5000;
 		while(true) {
-			try {
+			try {				
 				Notification notif = notificationQueue.poll(1000, TimeUnit.MILLISECONDS);
 				try {
 					if(notif!=null) {
