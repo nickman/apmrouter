@@ -30,13 +30,13 @@
         position: relative;
         background-color: #F3F2C6;
         height: 60px;
-        top: 0px;
-        margin-left: 285px;
+        top: 0px;        
 				border-bottom: 2px solid #e5eff8;
 				border-top: 2px solid #e5eff8;
 				border-left: 2px solid #e5eff8;
 				border-right: 2px solid #e5eff8;
-				border-width: thick;                
+				border-width: medium;
+				border-style: ridge;                
       }
       
       div.column2 {
@@ -66,7 +66,7 @@
             });	
           $('#metricTree').height(parseInt($('#metricTree').parent().parent().parent().height()));
           $('#metricDisplay').height(parseInt($('#metricTree').parent().parent().parent().height()));
-          $('#metricToolbar').width(parseInt($('#metricDisplay').width()));
+          //$('#metricToolbar').width(parseInt($('#metricDisplay').width()));
           $('div.column-divider').height(parseInt($('div.column-divider').parent().parent().parent().height()));
           initResizes();
         });
@@ -75,7 +75,9 @@
     <!-- <div class="column2, ui-icon ui-icon-circle-triangle-s ui-widget-header"> -->
 	      
 	      <div style="background-color: #F2F2E6;" class="column2" id="metricDisplay">
-	        <div class="toolbar" id="metricToolbar"></div>
+	        <div class="toolbar" id="metricToolbar">
+	        
+	        </div>
 	      	<div id="chartContainer" style="height: 400px"></div>
 	      </div>
       
