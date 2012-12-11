@@ -32,6 +32,7 @@ import org.apache.log4j.Logger;
 import org.springframework.beans.MutablePropertyValues;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.RuntimeBeanReference;
+import org.springframework.beans.factory.config.TypedStringValue;
 import org.springframework.beans.factory.support.GenericBeanDefinition;
 import org.springframework.beans.factory.support.ManagedList;
 import org.springframework.context.support.GenericApplicationContext;
@@ -67,9 +68,10 @@ public class WARDeployer {
 		
 		GenericBeanDefinition beanDef = new GenericBeanDefinition();
 		beanDef.setBeanClassName("org.eclipse.jetty.webapp.WebAppContext");
-		beanDef.setDescription(warFile.getName());
+		beanDef.setDescription(warFile.getName());		
 		Map<Object,Object> values = new HashMap<Object, Object>();
-		values.put("contextPath", "/" + warFile.getName().toLowerCase().replace(".war", ""));
+		final String webAppName = warFile.getName().toLowerCase().replace(".war", "");
+		values.put("contextPath", "/" + webAppName);
 		values.put("extractWAR", !exploded);
 		values.put("war", warFile.getAbsolutePath());		
 		values.put("server", new RuntimeBeanReference("HttpServer"));
@@ -79,10 +81,15 @@ public class WARDeployer {
 		values.put("logUrlOnStart", true);
 		beanDef.setPropertyValues(new MutablePropertyValues(values));
 		appCtx.registerBeanDefinition(warFile.getName().toLowerCase(), beanDef);
-		// need to add the war beanDef to the handlers list
-		@SuppressWarnings("unchecked")
+		// need to add the war beanDef to the handlers list		
 		ManagedList<RuntimeBeanReference> managedList = (ManagedList<RuntimeBeanReference>)handlers.getPropertyValues().getPropertyValue("handlers").getValue();
-		managedList.add(new RuntimeBeanReference(warFile.getName().toLowerCase()));
+		managedList.add(new RuntimeBeanReference(warFile.getName().toLowerCase()));		
+		// add webapp reference to JMX Exporter so we can manage the webpp through JMX 		
+		if(appCtx.containsBeanDefinition("JettyJMXExporter")) {
+			BeanDefinition jettyJmxEx = appCtx.getBeanDefinition("JettyJMXExporter");
+			Map<TypedStringValue,RuntimeBeanReference> map = (Map<TypedStringValue,RuntimeBeanReference>) jettyJmxEx.getPropertyValues().getPropertyValue("beans").getValue();
+			map.put(new TypedStringValue("org.helios.apmrouter.jetty:service=WebApp,name=" + webAppName), new RuntimeBeanReference(warFile.getName().toLowerCase()));
+		}
 		
 	}
 
