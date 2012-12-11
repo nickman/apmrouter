@@ -1,17 +1,12 @@
- 	div.bar {
+	div.bar {
 		padding-bottom:​ 0px;​
 		vertical-align:​ middle;​
 		left:​ 0px;​
 		top:​ 0px;​
-		height:​ 30px;​
+		height:​ 48px;​
 		position:​ absolute;
 		background-color: #3F3F3F;
-		display: inline-block;
-		overflow: hidden;
-	}
-	
-	div.initclosed {
-		initClosed:            true
+		display: inline-block;​
 	}
 
 
@@ -24,14 +19,14 @@
 	
 	.helioslight {
 		color: #e4c953;
-		font-size: 1.5em;		
+		font-size: 1em;		
 		font-weight: bold;
 		font-family: Verdana,Arial,sans-serif;
 	}
 	
 	.tool-widget {
 	    font-family: Verdana,Arial,sans-serif;
-	    font-size: 1.1em;
+	    font-size: 0.8em;
 	    color: white;		
 	    height: 2em;	  
 	    padding-right: 20px;  
@@ -39,11 +34,6 @@
 
 	a {
 		color: lightblue;
-	}
-	
-	#top-body {
-    	font-size: 10px;
-    	font-family: Verdana,Arial,sans-serif;
 	}
 
 <!-- -->
@@ -78,18 +68,6 @@
 		padding: 0;
 		display: inline-block;		
 	}
-<!-- ===================================================== -->
-
-      div.column1 {
-        position: absolute; /* Pulls it out of the normal flow */
-        left: 0px;          /* Places it on the top-left       */
-        top: 45px;
-        width: 300px;       /* Width is exactly 300px          */
-        height: 380%;
-        overflow: auto;
-				border-bottom: 2px solid #e5eff8;
-				border-top: 2px solid #e5eff8;
-				border-left: 2px solid #e5eff8;
-				border-right: 2px solid #e5eff8;
-        
-      }
+<!--
+=====================================================
+-->

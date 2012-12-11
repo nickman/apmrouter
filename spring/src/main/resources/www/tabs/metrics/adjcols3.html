@@ -1,8 +1,16 @@
 <script src="js/highcharts/highcharts.js"></script>
 <script src="js/highcharts/highcharts-more.js"></script>
 <script src="js/highcharts/exporting.js"></script>
+<script type="text/javascript">
+       $(document).ready(function() {
+       		topLayouts.metricTab = $("#metricstab").layout({ applyDefaultStyles: false });
+       		$("#metricstab > .ui-layout-center").layout();
+       		console.info("MetricTab Layout Complete");
+       });
+</script>
 
 <div id="metricstab" >
-	<div class="ui-layout-east">East</div>
-	<div class="ui-layout-west">West</div>
+	<div id="metricTree" class="ui-layout-west column1">
+	</div>
+	<div class="ui-layout-center">Center</div>
 </div>
