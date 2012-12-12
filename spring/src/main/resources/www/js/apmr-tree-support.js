@@ -65,9 +65,9 @@
               $('div.column1').width($(this).offset().left);
               //$('div.column2').css('margin-left', $(this).offset().left + cwidth);
               //$('#chartContainer').css('width',cwidth);
-              console.info("Resizing %s Charts", $('#chartContainer>.ChartModel').length);              
-              $('#chartContainer>.ChartModel').css('width',(cwidth-$(this).offset().left));
-              $('#chartContainer>.ChartModel').resize();
+              console.info("Resizing %s Charts", $('#metricDisplayChart>.ChartModel').length);              
+              $('#metricDisplayChart>.ChartModel').css('width',(cwidth-$(this).offset().left));
+              $('#metricDisplayChart>.ChartModel').resize();
               //treeClickChart.setSize($('#chartContainer').parent().width(), 400, false);
               
             }

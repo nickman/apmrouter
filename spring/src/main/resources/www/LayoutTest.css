@@ -13,6 +13,11 @@
 	div.initclosed {
 		initClosed:            true
 	}
+	
+	div.nopad {
+		padding: 0;
+		overflow: auto;
+	}
 
 
 <!-- FONTS -->

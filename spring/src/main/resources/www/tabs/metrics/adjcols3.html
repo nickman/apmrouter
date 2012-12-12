@@ -1,16 +1,20 @@
 <script src="js/highcharts/highcharts.js"></script>
 <script src="js/highcharts/highcharts-more.js"></script>
 <script src="js/highcharts/exporting.js"></script>
-<script type="text/javascript">
-       $(document).ready(function() {
-       		topLayouts.metricTab = $("#metricstab").layout({ applyDefaultStyles: false });
-       		$("#metricstab > .ui-layout-center").layout();
-       		console.info("MetricTab Layout Complete");
-       });
-</script>
+
+		<script type="text/javascript">
+	        $(document).ready(function() {
+	        	
+	        	topLayouts.main = $("#top-body").layout({ applyDefaultStyles: false }); 
+	        	topLayouts.main.toggle("east");
+	        	topLayouts.main.toggle("west");
+	        	$('#top-toolbar').children().css('vertical-align', 'middle');
+	        	$('#maintabs').tabs();
+	        	
+	        });
+		</script>
 
 <div id="metricstab" >
-	<div id="metricTree" class="ui-layout-west column1">
-	</div>
-	<div class="ui-layout-center">Center</div>
+	<div class="ui-layout-east">East</div>
+	<div class="ui-layout-west">West</div>
 </div>

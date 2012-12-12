@@ -86,8 +86,8 @@
     		//metricModelCache
     		if(this.treeClickChart == null ) {
     			this.container = 'chart-container-metric-' + this.metricId;
-    			$('#chartContainer>.ChartModel').hide();
-    			$('#chartContainer').append(
+    			$('#metricDisplayChart>.ChartModel').hide();
+    			$('#metricDisplayChart').append(
     					$('<div id="' + this.container + '" class="ChartModel"></div>')
     			);
     			var cont = this.container;
@@ -162,8 +162,12 @@
 	    			this.subscription = $.apmr.subMetricOn(this.metricId, this.acceptLiveUpdate(this));
 	    			console.info("Subscribed to Metric [%s]", this.metricId);
 	    		}
+				topLayouts.metricDisplayLayout.close('center')
+				topLayouts.metricDisplayLayout.close('north')
+
 	    		var chartie = this.treeClickChart;
 	    		var parent = $('#' + this.container).parent();
+	    		chartie.setSize(parent.width(), parent.height());
 	    		$('#' + this.container).resizable({
 	                handles: 's',
 	                stop: function(event, ui) {
@@ -178,7 +182,7 @@
 	    			//chartie.redraw();
 	    		});
 			} else {
-				$('#chartContainer>.ChartModel').hide();
+				$('#metricDisplayChart>.ChartModel').hide();
 				$('#' + this.container).show();
 			}
 		}, 

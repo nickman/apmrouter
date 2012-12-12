@@ -16,7 +16,9 @@ function initMain() {
     	$('#maintabs').tabs({
     		show: function() {
     			topLayouts.metricLayout = $('#metricLayout').layout();
-    			topLayouts.metricDisplayLayout = $('#metricDisplayLayout').layout();
+    			topLayouts.metricDisplayLayout = $('#metricDisplayLayout').layout({    				
+    				center__onresize : "metricDisplayLayout.resizeAll"
+    			});
     			topLayouts.metricDisplayLayout.sizePane('south', '50%');
     			$('#metricSearchButton').button().bind('click', function(e) {
     				console.debug("Searching......");
@@ -27,27 +29,36 @@ function initMain() {
     			});
     			metricDisplayGrid = $("#metricDisplayTable").jqGrid({    			   	
     				datatype: "json",
-    			   	colNames:['Inv No','Date', 'Client', 'Amount','Tax','Total','Notes'],
+    			   	//colNames:['Inv No','Date', 'Client', 'Amount','Tax','Total','Notes'],
+    			   	colNames:['Time','Domain', 'Host', 'Agent', 'Namespace', 'Name', 'Min', 'Max', 'Avg', 'Cnt'],
     			   	colModel:[
-    			   		{name:'id',index:'id', width:55},
-    			   		{name:'invdate',index:'invdate', width:90},
-    			   		{name:'name',index:'name asc, invdate', width:100},
-    			   		{name:'amount',index:'amount', width:80, align:"right"},
-    			   		{name:'tax',index:'tax', width:80, align:"right"},		
-    			   		{name:'total',index:'total', width:80,align:"right"},		
-    			   		{name:'note',index:'note', width:150, sortable:false}		
+    			   		{name:'Time',index:'time', width:55},
+    			   		{name:'Domain',index:'domain', width:90},
+    			   		{name:'Host',index:'host', width:100},
+    			   		{name:'Agent',index:'agent', width:80, align:"right"},
+    			   		{name:'NS',index:'ns', width:80, align:"right"},		
+    			   		{name:'Name',index:'name', width:80,align:"right"},		
+    			   		{name:'Min',index:'min', width:15},		
+    			   		{name:'Max',index:'max', width:15},
+    			   		{name:'Avg',index:'avg', width:15},
+    			   		{name:'Cnt',index:'cnt', width:15}
     			   	],
-    			   	rowNum:10,
-    			   	rowList:[10,20,30],
-    			   	pager: '#metricDisplayPager',
+    			   	rowNum:1,
+    			   	//rowList:[10,20,30],
+    			   	//pager: '#metricDisplayPager',
     			   	sortname: 'id',
     			    viewrecords: true,
     			    sortorder: "desc"
     			});    			
-    			$("#metricDisplayTable").css('float', 'left');
-    			$("#metricDisplayTable").css('height', '100%');
-    			$("#metricDisplayTable").css('width', '100%');
-    			
+    			$('#metricDisplayGrid')
+    			metricDisplayGrid.setGridHeight($('#metricDisplayGrid').height()-25, true);
+    			metricDisplayGrid.setGridWidth($('#metricDisplayGrid').width()-10, true);
+//    			$('#metricDisplayLayout').resize( function(e){
+//    				console.info("Resized jqGrid:%s,%s,%o",$('#metricDisplayLayout').width(), $('#metricDisplayLayout').height(), e);
+//    				metricDisplayGrid.setGridHeight($('#metricDisplayGrid').height()-2, true);
+//        			metricDisplayGrid.setGridWidth($('#metricDisplayGrid').width()-2, true);
+//        			
+//    			});
     			/*
     			metricDisplayGrid.setGridWidth(parseInt($('#metricDisplayGrid').width())-10, true);
     			$('window').bind('resize', function(e){
