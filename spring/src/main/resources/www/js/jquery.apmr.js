@@ -295,7 +295,7 @@
 	},
 	// apmrouter.h2timeseries.intervalroll
 	$.apmr.stateChange = function(event) {
-		if(event.msg.sequenceNumber<=$.apmr.config.lastSequence) return;
+		if(event.resubmit!=true && event.msg.sequenceNumber<=$.apmr.config.lastSequence) return;
 		$.apmr.config.lastSequence = event.msg.sequenceNumber; 
 		console.info("Sub Response [%o]", event);
 		var e = event.msg;
@@ -305,19 +305,33 @@
 				case "apmrouter.session.start":
 					break;  // nuthin'
 				case "apmrouter.session.identified":	
-					$.jGrowl('[' + e.userData.h + ' / ' + e.userData.a + ']', { header: 'Agent Started' }); 
+					if(!event.resubmit) {
+						$.jGrowl('[' + e.userData.h + ' / ' + e.userData.a + ']', { header: 'Agent Started' });
+					}
 					if($('#host-' + e.userData.hi).length==0) {
 						var domainId = '#domain-' + (e.userData.d.join('_'));
+						var dId = 'domain-' + (e.userData.d.join('_'));
 						// ==================================================================================
 						//  Adding new domain if not present into the tree
 						// ==================================================================================
 						
-						if($(domainId).length<1) {
+						if($(domainId).length<1 && !rootContainsDomain(dId)) {
+							if(!metricTree.is_open('#root')) {
+								metricTree.open_node('#root', function(){
+									event.resubmit=true;									
+									$.apmr.stateChange(event);
+								}, true);
+							}
 							var uid = 'domain-' + (e.userData.d.join('_'));
 							$("#metricTree").jstree("create", $('#root'), "inside" , {
 								attr: {id: uid, rel: "domain", 'domain' : e.userData.d.join('.')},  
 								data : {title: e.userData.d.join('.')}
-							}, false, true);
+							}, function(){
+								event.resubmit=true; 
+								$.apmr.stateChange(event);
+							} , true);
+							break;
+							//if(event.resubmit) metricTree.close_node('#root', false, true);
 						}
 						
 						// ==================================================================================
@@ -340,6 +354,14 @@
 					var hostId = '#host-' + e.userData.hi;
 					var agentId = "agent-" + e.userData.ai;
 					if($('#' + agentId).length==0 && !parentContainsChild(hostId, agentId)) {
+						if(!metricTree.is_open($(hostId))) {
+							metricTree.open_node($(hostId), function(){
+								event.resubmit=true;
+								event.hostOpened=hostId;
+								$.apmr.stateChange(event);
+							}, true);
+						}
+
 						// ==================================================================================
 						//  Adding a new agent into the tree
 						// ==================================================================================
@@ -349,6 +371,7 @@
 						}, function(){
 							$("#" + agentId).removeClass('jstree-leaf').addClass('jstree-closed');
 						}, true);
+						//if(event.resubmit && event.hostOpened!=null) metricTree.close_node($(event.hostOpened), false, true);
 						console.info("Added Agent [%s]", agentId);
 					} else {
 						// ==================================================================================
