@@ -19,6 +19,17 @@
 					
 	</monitors>
 	-->
+	<jmx-connector>
+		<connectorclass>javax.management.remote.jmxmp.JMXMPConnectorServer</connectorclass>
+		<serviceurl>service:jmx:jmxmp://0.0.0.0:8007</serviceurl>		
+	</jmx-connector>
+	<javaagents>
+		<javaagent jar="/home/nwhitehead/hprojects/byteman/agent/target/byteman-2.1.1-SNAPSHOT.jar">
+			<args>
+				script:/home/nwhitehead/hprojects/byteman/sample/scripts/SocketMonitor.btm
+			</args>
+		</javaagent>
+	</javaagents>
 	<aop>
 		<trace-annotated>
 			<packages>org.helios.test,org.helios.test2,org.helios.apmrouter.jagent</packages>

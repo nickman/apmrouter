@@ -24,22 +24,38 @@
  */
 package org.helios.apmrouter.jagent;
 
+import static org.helios.apmrouter.util.SimpleLogger.debug;
+import static org.helios.apmrouter.util.SimpleLogger.error;
+import static org.helios.apmrouter.util.SimpleLogger.info;
+import static org.helios.apmrouter.util.SimpleLogger.warn;
+
+import java.io.File;
 import java.io.StringReader;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.jar.Attributes;
 import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 
-import static org.helios.apmrouter.util.SimpleLogger.*;
+import javax.management.ObjectName;
+import javax.management.remote.JMXConnectorServer;
+import javax.management.remote.JMXConnectorServerFactory;
+import javax.management.remote.JMXServiceURL;
+
 import org.helios.apmrouter.instrumentation.Trace;
 import org.helios.apmrouter.instrumentation.TraceClassFileTransformer;
+import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.jmx.XMLHelper;
 import org.helios.apmrouter.jmx.threadinfo.ExtendedThreadManager;
 import org.helios.apmrouter.monitor.Monitor;
+import org.helios.apmrouter.util.SimpleLogger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 
@@ -112,19 +128,171 @@ public class AgentBoot {
 				return;
 			}			
 			loadProps(XMLHelper.getChildNodeByName(configNode, "props", false));
-			loadMonitors(XMLHelper.getChildNodeByName(configNode, "monitors", false));
+			loadJavaAgents(XMLHelper.getChildNodeByName(configNode, "javaagents", false));
 			Node aopNode = XMLHelper.getChildNodeByName(configNode, "aop", false);
 			loadTraceAnnotated(aopNode);
 			loadCodahale(XMLHelper.getChildNodeByName(aopNode, "codahale", false));
+			loadJmxConnectors(XMLHelper.getChildNodeByName(configNode, "jmx-connector", false));
+			loadMonitors(XMLHelper.getChildNodeByName(configNode, "monitors", false));
+			
+			
+			
+			
+			
 		}		
 	}
 	
-	/*
-	 * 	<aop>
-		<trace-annotated>
-			<packages>org.helios.test,org.helios.test2</packages>
+/*
+	<jmx-connector>
+		<connectorclass>javax.management.remote.jmxmp.JMXMPConnectorServer</connectorclass>
+		<serviceurl>service:jmx:jmxmp://0.0.0.0:8006</serviceurl>		
+		<env>
+			<prop name="" value=""/>
+			<prop name="" value=""/>
+		</env>
+		<register-domains>
+			<domain></domain>
+		</register-domains>
+	</jmx-connector>
+	<javaagents>
+		<javaagent jar="/home/nwhitehead/.m2/repository/org/jboss/byteman/byteman/2.1.1-SNAPSHOT/byteman-2.1.1-SNAPSHOT.jar">
+			<args>
+			
+			</args>
+		</javaagent>
+	</javaagents>
 
+ */
+	/** The pre-main manifest key */
+	public static final String PRE_MAIN = "Premain-Class";
+	/** The agent-main manifest key */
+	public static final String AGENT_MAIN = "Agent-Class";
+	
+	/** The pre-main method name */
+	public static final String PRE_MAIN_METHOD = "premain";
+	/** The agent-main method name */
+	public static final String AGENT_MAIN_METHOD = "agentmain";
+	
+	
+	/** The method signature when providing instrumentation */
+	protected static final Class<?>[] INSTR_SIG = new Class[]{String.class, Instrumentation.class};
+	/** The method signature when not providing instrumentation */
+	protected static final Class<?>[] NO_INSTR_SIG = new Class[]{String.class};
+	
+	 
+	
+	/**
+	 * Attempts to initialize the java-agent in the passed agent jar file
+	 * @param file The jar file that the java agent is in
+	 * @param agentArgs The configured agent arguments
+	 * @return The name of the java agent class
+	 * @throws Exception thrown on any error
 	 */
+	protected static String initAgent(File file, String agentArgs) throws Exception {
+		JarFile jarFile = new JarFile(file);
+		Manifest manifest = jarFile.getManifest();
+		Attributes attrs = manifest.getMainAttributes();
+		String className = attrs.getValue(PRE_MAIN);
+		if(className==null) {
+			className = attrs.getValue(AGENT_MAIN);
+		}
+		if(className==null) {
+			throw new Exception("Could not find pre-main or agent-main classname in the jar manifest", new Throwable());
+		}
+		URLClassLoader classLoader = new URLClassLoader(new URL[]{file.toURI().toURL()});
+		Class<?> clazz = Class.forName(className, true, classLoader);
+		LinkedHashMap<String, Class<?>[]>  map = new LinkedHashMap<String, Class<?>[]> (4);
+		map.put(PRE_MAIN_METHOD, INSTR_SIG);
+		map.put(AGENT_MAIN_METHOD, INSTR_SIG);
+		map.put(PRE_MAIN_METHOD.toUpperCase(), NO_INSTR_SIG);
+		map.put(AGENT_MAIN_METHOD.toUpperCase(), NO_INSTR_SIG);
+		Method method = null;
+		for(Map.Entry<String, Class<?>[]> entry: map.entrySet()) {
+			method = getMethod(clazz, entry.getKey().toLowerCase(), entry.getValue());
+			if(method!=null) break;
+		}
+		if(method==null) {
+			throw new Exception("Could not find premain or agentmain methods in the class [" + clazz.getName() + "]", new Throwable());
+		}
+		//instrumentation.appendToSystemClassLoaderSearch(jarFile);
+		instrumentation.appendToBootstrapClassLoaderSearch(jarFile);
+		if(method.getParameterTypes().length==2) {
+			method.invoke(null, agentArgs, instrumentation);
+		} else {
+			method.invoke(null, agentArgs);
+		}
+		return clazz.getName();
+		
+	}
+	
+	protected static Method getMethod(Class<?> clazz, String methodName, Class<?>...sig) {
+		try {
+			return clazz.getDeclaredMethod(methodName, sig);
+		} catch (Exception ex) {
+			return null;
+		}
+	}
+	
+	/**
+	 * Loads the configured chained java-agents
+	 * @param agentsNode The java-agent configuration node
+	 */
+	protected static void loadJavaAgents(Node agentsNode) {
+		if(agentsNode==null) return;
+		SimpleLogger.info("Loading Chanined Java Agents");
+		for(Node agentNode: XMLHelper.getChildNodesByName(agentsNode, "javaagent", false)) {
+			String jarName = XMLHelper.getAttributeByName(agentNode, "jar", "null");
+			String args = XMLHelper.getNodeTextValue(XMLHelper.getChildNodeByName(agentNode, "args", false));
+			args = args.trim();
+			if(args.isEmpty()) {
+				args = null;
+			}
+			try {
+				File file = new File(jarName.trim());
+				if(!file.canRead()) {
+					throw new Exception("Cannot read the file [" + file + "]");
+				}
+				String className = initAgent(file, args);
+				SimpleLogger.info("Loaded Java Agent from [", className, "]"); 
+			} catch (Throwable ex) {
+				SimpleLogger.warn("Failed to load and configure java agent [", jarName, "]", ex);
+			}
+		}
+	}
+	
+	/**
+	 * Loads the configured JMX Connector Server
+	 * @param jmxNode The jmx connector configuration node
+	 */
+	protected static void loadJmxConnectors(Node jmxNode) {
+		if(jmxNode==null) return;
+		SimpleLogger.info("Loading JMXConnectorServer");
+		String connectorClass = XMLHelper.getNodeTextValue(XMLHelper.getChildNodeByName(jmxNode, "connectorclass", false));
+		String serviceUrl = XMLHelper.getNodeTextValue(XMLHelper.getChildNodeByName(jmxNode, "serviceurl", false));
+		
+		try {
+			JMXServiceURL xurl = new JMXServiceURL(serviceUrl);			
+			final ObjectName objectName = new ObjectName(String.format("org.helios.jmx:service=JMXConnectorServer,protocol=%s", xurl.getProtocol()));
+			final JMXConnectorServer server = JMXConnectorServerFactory.newJMXConnectorServer(xurl, null, JMXHelper.getHeliosMBeanServer());
+			JMXHelper.registerMBean(objectName, server);
+			Thread shutdown = new Thread("JMXConnectorServerShutdownThread") {
+				@Override
+				public void run() {
+					SimpleLogger.info("Stopping JMXConnectorServer [", objectName, "]");
+					try {
+						server.stop();
+					} catch (Exception ex) {
+						SimpleLogger.warn("Failed to stop JMXConnectorServer [", objectName, "]", ex);
+					}
+				}
+			};
+			Runtime.getRuntime().addShutdownHook(shutdown);
+			server.start();
+		} catch (Exception ex) {
+			SimpleLogger.warn("Failed to load JMX Connector", ex);
+		}
+	}
+	
 	
 	/**
 	 * Loads and processes the codahale node
