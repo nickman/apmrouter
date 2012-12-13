@@ -2,6 +2,7 @@ var topLayouts = {};
 var metricDisplayGrid = null;
 function initMain() {
     $(document).ready(function() {
+    	addThemeSwitcher();
     	topLayouts.main = $("#top-body").layout({ 
     			applyDefaultStyles: false,
     			west: {
@@ -17,7 +18,35 @@ function initMain() {
     		show: function() {
     			topLayouts.metricLayout = $('#metricLayout').layout();
     			topLayouts.metricDisplayLayout = $('#metricDisplayLayout').layout({    				
-    				center__onresize : "metricDisplayLayout.resizeAll"
+    				//center__onresize : "metricDisplayLayout.resizeAll",
+    				east__onresize : function() {
+    					metricDisplayLayout.resizeAll();
+    	    			metricDisplayGrid.setGridHeight($('#metricDisplayGrid').height()-25, true);
+    	    			metricDisplayGrid.setGridWidth($('#metricDisplayGrid').width()-10, true);
+    					
+    					console.info("East Resized");
+    					return true;    					
+    				},
+					north__onresize : function() {
+						metricDisplayLayout.resizeAll();
+						console.info("North Resized");
+					},
+    				south__onresize : function() {
+    					metricDisplayLayout.resizeAll();
+    					console.info("South Resized");
+    				},
+    				south__onresize_end : function() {},
+    				east__onresize_end : function() {
+    				},
+    			
+    				center__spacing_closed: 0,
+    				center__spacing_open: 0,
+    				//east__spacing_closed: 0,
+    				//east__spacing_open: 0,
+    				
+    				east__size: '100%'
+    				
+    					
     			});
     			topLayouts.metricDisplayLayout.sizePane('south', '50%');
     			$('#metricSearchButton').button().bind('click', function(e) {
@@ -68,8 +97,43 @@ function initMain() {
     			*/
     			
     			//$('#tab0').height($('#tab0').parent().parent().height() - parseInt($('#tab0').parent().parent().children('ul').height()));
+    			
+    			// //$("#metricBrowserGrid").jqGrid('addRowData',v.fqn, v);
+    			var defaultColor = $('#metricSearchEntry').css('background');
+    			$('#metricSearchEntry').keydown(function (e) {
+    				var target = this;
+    				var subscribedColor = '#FFF68F'; 
+    				
+    				if (e.keyCode == 13) {
+    					metricDisplayGrid.clearGridData();
+    					var expr = $("#metricSearchEntry").val();
+    					$.cookie('metric_browser.gridMaskInput', expr, { expires: 365 });
+    					// Retrieve Latest
+    					
+    					if(e.ctrlKey) {
+    						console.info("Ctrl-Enter [%s]", expr);
+    						$('#metricSearchEntry').css('background', subscribedColor);
+    					} else {
+    						console.info("Enter [%s]", expr);
+    						$('#metricSearchEntry').css('background', defaultColor);
+    					}
+    				}
+    				
+    			});
     		}
+    	});
+    	$( "#metricSearchEntry" ).autocomplete({
+    	    source: function( request, response ) {
+    	            var matcher = new RegExp( "^" + $.ui.autocomplete.escapeRegex( request.term ), "i" );
+    	            response( $.grep( tags, function( item ){
+    	                return matcher.test( item );
+    	            }) );
+    	        }
     	});
     	
     });
+    
+    function handleMetricSearchAutoComplete(request, response) {
+    	
+    }
 }

@@ -1,4 +1,5 @@
 	var metricTree = null;		
+	var treePendingInserts = {};
 	var metricModelCache = {};
 	function rebuildNamespace(value) {
 		value.shift(); value.shift(); value.shift(); value.shift();
@@ -199,6 +200,21 @@
 		return false;
 	}
 	
+	function rootContainsDomain(domainId) {		
+		var _domains = {};
+		metricTree._get_children('#root').each(function(index, node) {
+			_domains[$(node).attr('id')]=$(node).attr('id');
+		});
+		if(_domains[domainId]!=null) {
+			console.info("Domain [%s] is in the root", domainId);
+			return true;
+		} else {
+			console.info("Domain [%s] is NOT in the root", domainId);
+			return false;			
+		}		
+	}
+	
+	
 	function populateNode(node, callback) {
 		//console.info("Populating Node [%o]", node);
 		var parentId = $(node).attr('id');
@@ -216,20 +232,19 @@
 		switch(rel) {
 			case 'root':
 				$.apmr.allDomains(function(data) {
+					var pushedDomains = [];
 					$.each(data.msg, function(index, domain) {
 						var uid = "domain-" + domain.replace('.', '_');
-						if($('#' + uid).length==0) {
+						if($('#' + uid).length==0 && !rootContainsDomain(uid)) {
 							nodeArray.push({
 								attr: {id: uid, rel: "domain", 'domain' : domain},  
 								data : {title: domain}									
-							});
+							});							
 						}
 					});
 					callback(nodeArray); fixOpen(nodeArray);
-					//$.jstree._reference('#metricTree').open_all(); 
-					//$.jstree._reference('#metricTree').open_all(); 
-					//$.jstree._reference('#metricTree').open_all();
-					$.jstree._reference('#metricTree').open_node ( $('#root'));
+					$.jstree._reference('#metricTree').open_node ( $('#root'), function(){
+					}, true);
 
 				});
 				break;

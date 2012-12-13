@@ -162,7 +162,7 @@
 	    			this.subscription = $.apmr.subMetricOn(this.metricId, this.acceptLiveUpdate(this));
 	    			console.info("Subscribed to Metric [%s]", this.metricId);
 	    		}
-				topLayouts.metricDisplayLayout.close('center')
+				topLayouts.metricDisplayLayout.close('east')
 				topLayouts.metricDisplayLayout.close('north')
 
 	    		var chartie = this.treeClickChart;
