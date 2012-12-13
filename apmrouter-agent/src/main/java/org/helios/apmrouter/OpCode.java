@@ -64,7 +64,14 @@ public enum OpCode {
 	/** Directive from the server to flush metric catalog because a reset has occured */
 	RESET,
 	/** Confirm from the agent that the reset is complete */
-	RESET_CONFIRM;
+	RESET_CONFIRM,
+	/** A JMX request to the agent's MBeanServer */
+	JMX_REQUEST,
+	/** A response to a JMX request */
+	JMX_RESPONSE,
+	/** A JMX notification to a server listener */
+	JMX_NOTIFICATION;
+	
 	
 	/** Map of OpCodes keyed by the ordinal */
 	private static final Map<Byte, OpCode> ORD2ENUM;

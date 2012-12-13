@@ -1,6 +1,13 @@
 <agent>
 	<props>
 		<prop name="org.helios.agent" value="simple"/>
+		<prop name="org.jboss.byteman.allow.config.update" value="true"/>
+		<prop name="org.jboss.byteman.verbose" value="true"/>
+		<prop name="org.jboss.byteman.debug" value="true"/>
+		<prop name="org.jboss.byteman.compile.to.bytecode" value="true"/>
+		<prop name="org.jboss.byteman.dump.generated.classes" value="true"/>		
+		<prop name="org.jboss.byteman.dump.generated.classes.directory" value="c:/temp/byteman"/>
+		
 		<!-- <prop name="org.helios.agent.monitor.script.url" value="eggs-cellent"/> -->
 		
 	</props>
@@ -24,20 +31,28 @@
 		<serviceurl>service:jmx:jmxmp://0.0.0.0:8007</serviceurl>		
 	</jmx-connector>
 	<javaagents>
-		<javaagent jar="/home/nwhitehead/hprojects/byteman/agent/target/byteman-2.1.1-SNAPSHOT.jar">
-			<args>
-				script:/home/nwhitehead/hprojects/byteman/sample/scripts/SocketMonitor.btm
+		<!-- TODO: Add inclusion of additonal jars -->
+	
+		<!-- <javaagent jar="/home/nwhitehead/hprojects/byteman/agent/target/byteman-2.1.1-SNAPSHOT.jar"> -->
+		<javaagent jar="c:/hprojects/byteman/agent/target/byteman-2.1.1-SNAPSHOT.jar">
+			<!-- script:/home/nwhitehead/hprojects/byteman/sample/scripts/SocketMonitor.btm -->
+			<!-- script:c:/hprojects/byteman/sample/scripts/SocketMonitor.btm -->
+			<args>				
+				script:C:/hprojects/byteman/sample/scripts/ThreadMonitor.btm
 			</args>
 		</javaagent>
 	</javaagents>
+	<!-- 
 	<aop>
 		<trace-annotated>
 			<packages>org.helios.test,org.helios.test2,org.helios.apmrouter.jagent</packages>
 		</trace-annotated>
-		<!-- <codahale  jar="file:c:/hprojects/apmrouter/codahale/target/codahale-1.0-SNAPSHOT.jar"> -->
+		
 		<codahale  jar="file:/home/nwhitehead/hprojects/apmrouter/codahale/target/codahale-1.0-SNAPSHOT.jar">
 			<annotations/>
 			<packages>com.theice.agent,codahale</packages>
 		</codahale>		
 	</aop>
+	-->
+	<!-- <codahale  jar="file:c:/hprojects/apmrouter/codahale/target/codahale-1.0-SNAPSHOT.jar"> -->
 </agent>

@@ -130,8 +130,10 @@ public class AgentBoot {
 			loadProps(XMLHelper.getChildNodeByName(configNode, "props", false));
 			loadJavaAgents(XMLHelper.getChildNodeByName(configNode, "javaagents", false));
 			Node aopNode = XMLHelper.getChildNodeByName(configNode, "aop", false);
-			loadTraceAnnotated(aopNode);
-			loadCodahale(XMLHelper.getChildNodeByName(aopNode, "codahale", false));
+			if(aopNode!=null) {
+				loadTraceAnnotated(aopNode);
+				loadCodahale(XMLHelper.getChildNodeByName(aopNode, "codahale", false));
+			}
 			loadJmxConnectors(XMLHelper.getChildNodeByName(configNode, "jmx-connector", false));
 			loadMonitors(XMLHelper.getChildNodeByName(configNode, "monitors", false));
 			
