@@ -33,14 +33,14 @@ import javax.management.ObjectInstance;
 import javax.management.ObjectName;
 
 /**
- * <p>Title: AsynchJMXResponse</p>
+ * <p>Title: AsynchJMXResponseListener</p>
  * <p>Description: Defines a listener for receiving responses from asynchronous {@link MBeanServerConnection} invocations.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse</code></p>
+ * <p><code>org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener</code></p>
  */
 
-public interface AsynchJMXResponse {
+public interface AsynchJMXResponseListener {
 
 	/**
 	 * Asynch callback for a response for {@link MBeanServerConnection#invoke(javax.management.ObjectName, String, Object[], String[])}

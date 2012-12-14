@@ -32,220 +32,220 @@ import javax.management.ObjectInstance;
 import javax.management.ObjectName;
 
 /**
- * <p>Title: EmptyAsynchJMXResponse</p>
- * <p>Description: An empty implementation of {@link AsynchJMXResponse} for simple extending implementations.</p> 
+ * <p>Title: EmptyAsynchJMXResponseListener</p>
+ * <p>Description: An empty implementation of {@link AsynchJMXResponseListener} for simple extending implementations.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.jmx.mbeanserver.EmptyAsynchJMXResponse</code></p>
+ * <p><code>org.helios.apmrouter.jmx.mbeanserver.EmptyAsynchJMXResponseListener</code></p>
  */
 
-public class EmptyAsynchJMXResponse implements AsynchJMXResponse {
+public class EmptyAsynchJMXResponseListener implements AsynchJMXResponseListener {
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#onClose()
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#onClose()
 	 */
 	@Override
 	public void onClose() {
-		
+		/* No Op */
 	}
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#onTimeout(int, long)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#onTimeout(int, long)
 	 */
 	@Override
 	public void onTimeout(int requestId, long timeout) {
-		
+		/* No Op */
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#invokeResponse(int, java.lang.Object)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#invokeResponse(int, java.lang.Object)
 	 */
 	@Override
 	public void invokeResponse(int requestId, Object result) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#getDefaultDomainResponse(int, java.lang.String)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#getDefaultDomainResponse(int, java.lang.String)
 	 */
 	@Override
 	public void getDefaultDomainResponse(int requestId, String result) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#isRegisteredResponse(int, boolean)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#isRegisteredResponse(int, boolean)
 	 */
 	@Override
 	public void isRegisteredResponse(int requestId, boolean result) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#getAttributesResponse(int, javax.management.AttributeList)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#getAttributesResponse(int, javax.management.AttributeList)
 	 */
 	@Override
 	public void getAttributesResponse(int requestId, AttributeList result) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#getAttributeResponse(int, java.lang.Object)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#getAttributeResponse(int, java.lang.Object)
 	 */
 	@Override
 	public void getAttributeResponse(int requestId, Object result) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#isInstanceOfResponse(int, boolean)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#isInstanceOfResponse(int, boolean)
 	 */
 	@Override
 	public void isInstanceOfResponse(int requestId, boolean result) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#setAttributeResponse(int)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#setAttributeResponse(int)
 	 */
 	@Override
 	public void setAttributeResponse(int requestId) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#setAttributesResponse(int, javax.management.AttributeList)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#setAttributesResponse(int, javax.management.AttributeList)
 	 */
 	@Override
 	public void setAttributesResponse(int requestId, AttributeList result) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#addNotificationListenerResponse(int)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#addNotificationListenerResponse(int)
 	 */
 	@Override
 	public void addNotificationListenerResponse(int requestId) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#createMBeanResponse(int, javax.management.ObjectInstance)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#createMBeanResponse(int, javax.management.ObjectInstance)
 	 */
 	@Override
 	public void createMBeanResponse(int requestId, ObjectInstance result) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#getDomainsResponse(int, java.lang.String[])
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#getDomainsResponse(int, java.lang.String[])
 	 */
 	@Override
 	public void getDomainsResponse(int requestId, String[] result) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#getMBeanCountResponse(int, java.lang.Integer)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#getMBeanCountResponse(int, java.lang.Integer)
 	 */
 	@Override
 	public void getMBeanCountResponse(int requestId, Integer result) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#getMBeanInfoResponse(int, javax.management.MBeanInfo)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#getMBeanInfoResponse(int, javax.management.MBeanInfo)
 	 */
 	@Override
 	public void getMBeanInfoResponse(int requestId, MBeanInfo result) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#getObjectInstanceResponse(int, javax.management.ObjectInstance)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#getObjectInstanceResponse(int, javax.management.ObjectInstance)
 	 */
 	@Override
 	public void getObjectInstanceResponse(int requestId, ObjectInstance result) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#queryMBeansResponse(int, java.util.Set)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#queryMBeansResponse(int, java.util.Set)
 	 */
 	@Override
 	public void queryMBeansResponse(int requestId, Set<ObjectInstance> result) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#queryNamesResponse(int, java.util.Set)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#queryNamesResponse(int, java.util.Set)
 	 */
 	@Override
 	public void queryNamesResponse(int requestId, Set<ObjectName> result) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#removeNotificationListenerResponse(int)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#removeNotificationListenerResponse(int)
 	 */
 	@Override
 	public void removeNotificationListenerResponse(int requestId) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#unregisterMBeanResponse(int)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#unregisterMBeanResponse(int)
 	 */
 	@Override
 	public void unregisterMBeanResponse(int requestId) {
-		
+		/* No Op */
 
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponse#onException(int, java.lang.Throwable)
+	 * @see org.helios.apmrouter.jmx.mbeanserver.AsynchJMXResponseListener#onException(int, java.lang.Throwable)
 	 */
 	@Override
 	public void onException(int requestId, Throwable t) {
-		
+		/* No Op */
 
 	}
 

@@ -33,6 +33,8 @@ import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CountDownLatch;
 
 import org.helios.apmrouter.OpCode;
+import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.jmx.mbeanserver.MBeanServerConnectionMarshaller;
 import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.sender.AbstractSender;
 import org.helios.apmrouter.trace.DirectMetricCollection;
@@ -95,6 +97,9 @@ public class UDPSender extends AbstractSender  {
 					ChannelBuffer buff = (ChannelBuffer)msg;
 					OpCode opCode = OpCode.valueOf(buff.readByte());	
 					switch (opCode) {
+						case JMX_REQUEST:
+							MBeanServerConnectionMarshaller.handleJMXRequest(e.getChannel(), e.getRemoteAddress(), buff, JMXHelper.getHeliosMBeanServer());
+							break;
 						case RESET:
 							metricCatalog.resetTokens();
 							ChannelBuffer rsetConfirm = ChannelBuffers.buffer(1);
@@ -203,7 +208,7 @@ public class UDPSender extends AbstractSender  {
 		bstrap.setOption("broadcast", true);
 		bstrap.setOption("localAddress", new InetSocketAddress(0));
 		bstrap.setOption("remoteAddress", new InetSocketAddress(serverURI.getHost(), serverURI.getPort()));
-		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(MAXSIZE));
+		bstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(2048));
 		
 		listeningSocketAddress = new InetSocketAddress("0.0.0.0", 0);
 		//listeningSocketAddress = new InetSocketAddress("127.0.0.1", 0);

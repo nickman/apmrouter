@@ -49,7 +49,7 @@ public class TimeoutQueueMap<K, V>  implements Runnable, Map<K, V> {
 	/** The timeout queue */
 	protected final DelayQueue<TimeoutQueueMapKey<K, V>> timeOutQueue = new DelayQueue<TimeoutQueueMapKey<K, V>>();  
 	/** The reference map */
-	protected final Map<K, V> referenceMap;
+	protected final ConcurrentHashMap<K, V> referenceMap;
 	/** The default delay time */
 	protected final long defaultDelayTime;
 	/** The timeout thread */
@@ -169,6 +169,24 @@ public class TimeoutQueueMap<K, V>  implements Runnable, Map<K, V> {
 		return oldValue;
 	}
 	
+	/**
+	 * Registers a name/value binding if the passed key has not already been registered which will timeout in the passed delay time unless removed before the delay time
+	 * @param key The key to retrieve the value by
+	 * @param value The value to delay
+	 * @param delayTime The timeout delay time in ms.
+	 * @return Null if the registration occured, otherwise the value already associated with the key
+	 */
+	public synchronized V putIfAbsent(K key, V value, long delayTime) {
+		if(!running) throw new IllegalStateException("This TimeoutQueueMap has been shutdown", new Throwable());
+		V oldValue = referenceMap.putIfAbsent(key, value);
+		if(oldValue==null) {
+			timeOutQueue.add(getKeyFor(key, value, delayTime));
+			return null;			
+		}
+		return oldValue;
+	}
+	
+	
 	
 	/**
 	 * @param key
@@ -188,6 +206,16 @@ public class TimeoutQueueMap<K, V>  implements Runnable, Map<K, V> {
 	public V put(K key, V value) {
 		if(!running) throw new IllegalStateException("This TimeoutQueueMap has been shutdown", new Throwable());
 		return put(key, value, defaultDelayTime);
+	}
+	
+	/**
+	 * Registers a name/value binding if the passed key has not already been registered which will timeout in the default delay time unless removed before the delay time
+	 * @param key The key to retrieve the value by
+	 * @param value The value to delay
+	 * @return Null if the registration occured, otherwise the value already associated with the key
+	 */
+	public V putIfAbsent(K key, V value) {
+		return putIfAbsent(key, value, defaultDelayTime);
 	}
 	
 	/**

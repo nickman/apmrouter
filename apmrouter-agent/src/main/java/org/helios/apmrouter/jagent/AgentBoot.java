@@ -55,6 +55,7 @@ import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.jmx.XMLHelper;
 import org.helios.apmrouter.jmx.threadinfo.ExtendedThreadManager;
 import org.helios.apmrouter.monitor.Monitor;
+import org.helios.apmrouter.sender.SenderFactory;
 import org.helios.apmrouter.util.SimpleLogger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -108,6 +109,7 @@ public class AgentBoot {
 		AgentBoot.agentArgs = agentArgs;
 		AgentBoot.instrumentation = instrumentation;
 		AgentBoot.classLoader = classLoader;
+		SenderFactory.getInstance();
 		//DefaultMonitorBoot.boot();
 		configure();
 	}
