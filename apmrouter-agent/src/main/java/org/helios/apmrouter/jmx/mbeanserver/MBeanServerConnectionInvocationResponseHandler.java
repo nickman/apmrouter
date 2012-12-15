@@ -26,6 +26,8 @@ package org.helios.apmrouter.jmx.mbeanserver;
 
 import java.lang.reflect.Method;
 
+import javax.management.Notification;
+
 import org.helios.apmrouter.OpCode;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -58,6 +60,7 @@ public class MBeanServerConnectionInvocationResponseHandler extends SimpleChanne
 	 * {@inheritDoc}
 	 * @see org.jboss.netty.channel.SimpleChannelUpstreamHandler#messageReceived(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.MessageEvent)
 	 */
+	@Override
 	public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {				
 		Object message = e.getMessage();
 		if(message instanceof ChannelBuffer) {
@@ -65,18 +68,18 @@ public class MBeanServerConnectionInvocationResponseHandler extends SimpleChanne
 			byte op = cb.getByte(0);
 			if(OpCode.JMX_RESPONSE.op()==op) {				
 				int reqId=cb.getInt(1);
-				AsynchJMXResponseListener waitingListener = MBeanServerConnectionMarshaller.asynchTimeoutMap.remove(reqId);
+				AsynchJMXResponseListener waitingListener = AgentMBeanServerConnectionFactory.asynchTimeoutMap.remove(reqId);
 				cb.skipBytes(5);  // skipping op code and request id.
 				final byte methodId = cb.readByte();
 				final int payloadSize = cb.readInt(); 
 				final byte[] bytes = new byte[payloadSize];
 				cb.readBytes(bytes);
-				Object[] resp =MBeanServerConnectionMarshaller.getInput(bytes);
+				Object[] resp =AgentMBeanServerConnectionFactory.getInput(bytes);
 				if(waitingListener!=null) {
 					if(resp.length==1 && resp[0]!=null && resp[0] instanceof Throwable) {
 						waitingListener.onException(reqId, (Throwable)resp[0]);
 					} else {
-						Method responseMethod = MBeanServerConnectionMarshaller.keyToAsynchMethod.get(methodId);
+						Method responseMethod = AgentMBeanServerConnectionFactory.keyToAsynchMethod.get(methodId);
 						Object[] responseMethodParams = null;
 						if(responseMethod.getParameterTypes().length==1) {
 							responseMethodParams = new Object[]{reqId};
@@ -88,6 +91,17 @@ public class MBeanServerConnectionInvocationResponseHandler extends SimpleChanne
 				} else {
 					connectionAdmin.onSynchronousResponse(reqId, resp.length==1 ? resp[0] : null);
 				}
+			} else if(OpCode.JMX_NOTIFICATION.op()==op) {
+				// Notification Write Procedure
+//				cb.writeByte(OpCode.JMX_NOTIFICATION.op());
+//				cb.writeInt(requestId);
+//				cb.writeInt(payload.length);
+//				cb.writeBytes(payload);
+				final int reqId=cb.readInt();
+				final int payloadSize = cb.readInt();
+				byte[] payload = new byte[payloadSize];
+				Object[] notifValues = AgentMBeanServerConnectionFactory.getInput(payload);
+				connectionAdmin.onNotification(reqId, (Notification)notifValues[0], notifValues[1]);
 			}
 		}				
 		ctx.sendUpstream(e);

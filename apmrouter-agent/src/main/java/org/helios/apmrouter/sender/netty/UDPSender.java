@@ -34,7 +34,7 @@ import java.util.concurrent.CountDownLatch;
 
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.jmx.JMXHelper;
-import org.helios.apmrouter.jmx.mbeanserver.MBeanServerConnectionMarshaller;
+import org.helios.apmrouter.jmx.mbeanserver.AgentMBeanServerConnectionFactory;
 import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.sender.AbstractSender;
 import org.helios.apmrouter.trace.DirectMetricCollection;
@@ -98,7 +98,7 @@ public class UDPSender extends AbstractSender  {
 					OpCode opCode = OpCode.valueOf(buff.readByte());	
 					switch (opCode) {
 						case JMX_REQUEST:
-							MBeanServerConnectionMarshaller.handleJMXRequest(e.getChannel(), e.getRemoteAddress(), buff, JMXHelper.getHeliosMBeanServer());
+							AgentMBeanServerConnectionFactory.handleJMXRequest(e.getChannel(), e.getRemoteAddress(), buff);
 							break;
 						case RESET:
 							metricCatalog.resetTokens();

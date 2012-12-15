@@ -25,6 +25,8 @@
 package org.helios.apmrouter.jmx.mbeanserver;
 
 import javax.management.MBeanServerConnection;
+import javax.management.Notification;
+import javax.management.NotificationListener;
 
 /**
  * <p>Title: MBeanServerConnectionAdmin</p>
@@ -53,4 +55,25 @@ public interface MBeanServerConnectionAdmin {
 	 * @param value The return value of an invocation
 	 */
 	public void onSynchronousResponse(int requestId, Object value);
+	
+	/**
+	 * Adds a registered listener for tracking and callbacks
+	 * @param requestId The id of the request that registered the listener 
+	 * @param listener The listener that was registered
+	 */
+	public void addRegisteredListener(int requestId, NotificationListener listener);
+	
+	/**
+	 * Removes a registered listener from tracking
+	 * @param listener The listener to remove
+	 */
+	public void removeRegisteredListener(NotificationListener listener);
+	
+	/**
+	 * Callback from the JMX Op channel handler when a notification is received
+	 * @param requestId The id of the request that registered the the listener that the notification is intended for
+	 * @param notification The delivered notification
+	 * @param handback The contextual handback
+	 */
+	public void onNotification(int requestId, Notification notification, Object handback);
 }
