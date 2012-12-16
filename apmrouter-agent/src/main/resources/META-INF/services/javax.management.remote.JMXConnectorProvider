@@ -1,1 +1,2 @@
 org.helios.apmrouter.jmx.connector.local.ClientProvider
+org.helios.apmrouter.jmx.connector.mxl.ClientProvider

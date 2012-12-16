@@ -33,7 +33,8 @@ import javax.management.remote.JMXServiceURL;
 
 /**
  * <p>Title: ClientProvider</p>
- * <p>Description: </p> 
+ * <p>Description: A {@link JMXConnectorProvider} for local in VM connections.</p>
+ * <p>Sample {@link JMXServiceURL}: <b><code>service:jmx:local://DefaultDomain</code></b></p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.jmx.connector.local.ClientProvider</code></p>

@@ -26,6 +26,8 @@ package org.helios.apmrouter.jmx.connector.mxl;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.management.MBeanServerConnection;
 import javax.management.remote.JMXConnector;
@@ -34,23 +36,41 @@ import javax.management.remote.JMXServiceURL;
 
 /**
  * <p>Title: ClientProvider</p>
- * <p>Description: JMX remoting client provider for acquiring {@link MBeanServerConnection}s to agents from within the APMRouter server.</p> 
+ * <p>Description: JMX remoting client provider for acquiring {@link MBeanServerConnection}s to agents from within the APMRouter server.</p>
+ * <p>{@link JMXServiceURL} format is: <b><code>service:jmx:mxl://[&lt;protocol//&gt;][agent-name]@[host]</code></b></p>
+ * <p>Sample {@link JMXServiceURL}: <b><code>service:jmx:mxl://udp//myagent@myhost</code></b></p> 
+ * <p>Sample {@link JMXServiceURL}: <b><code>service:jmx:mxl://myagent@myhost</code></b></p>
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.jmx.connector.mxl.ClientProvider</code></p>
  */
 
 public class ClientProvider implements JMXConnectorProvider {
-
+	/** The MXL protocol URI parser */
+	public static final Pattern MXL_PATTERN = Pattern.compile("/(.*?)@(.*?);protocol=(.*?)|/(.*?)@(.*?)");
 	/**
 	 * {@inheritDoc}
 	 * @see javax.management.remote.JMXConnectorProvider#newJMXConnector(javax.management.remote.JMXServiceURL, java.util.Map)
 	 */
 	@Override
-	public JMXConnector newJMXConnector(JMXServiceURL serviceURL,
-			Map<String, ?> environment) throws IOException {
-		// TODO Auto-generated method stub
-		return null;
+	public JMXConnector newJMXConnector(JMXServiceURL serviceURL, Map<String, ?> environment) throws IOException {
+		if(serviceURL==null) throw new IllegalArgumentException("The passed serviceURL was null", new Throwable());
+		try {
+			String urlPath = serviceURL.getURLPath();
+			Matcher m = MXL_PATTERN.matcher(urlPath);
+			
+			if(!m.matches()) throw new Exception("Failed to match expected pattern [" + MXL_PATTERN.pattern() + "]");
+			String[] args = new String[m.groupCount()];
+			for(int i = 1; i <= m.groupCount(); i++) {
+				args[i-1] = m.group(i);
+			}
+			if(args[0]==null) {
+				return new MXLocalJMXConnector(args[4], args[3]);
+			}
+			return new MXLocalJMXConnector(args[1], args[0], args[2]);
+		} catch (Exception ex) {
+			throw new IOException("Failed to connect with JMXServiceURL [" + serviceURL + "]", ex);
+		}
 	}
 
 }

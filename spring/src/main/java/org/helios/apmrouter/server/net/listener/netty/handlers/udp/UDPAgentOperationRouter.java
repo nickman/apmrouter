@@ -238,6 +238,7 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 			cb.writeByte(OpCode.HELLO_CONFIRM.op());
 			channel.write(cb, remoteAddress);
 			sendWho(channel, remoteAddress);
+			xx
 		} else if(opCode==OpCode.HELLO_CONFIRM) {
 			warn("Received HELLO_CONFIRM ????");
 		}

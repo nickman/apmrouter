@@ -174,6 +174,10 @@ public abstract class AbstractAgentRequestHandler extends ServerComponentBean im
 		});			
 	}
 	
+	protected void registerProxyMBeanServerConnection(String protocol, Channel channel, SocketAddress remoteAddress) {
+		
+	}
+	
 	
 	
 	
@@ -226,5 +230,7 @@ public abstract class AbstractAgentRequestHandler extends ServerComponentBean im
 		CountDownLatch latch = timeoutMap.remove(key);
 		if(latch!=null) latch.countDown();
 	}
+	
+	
 
 }
