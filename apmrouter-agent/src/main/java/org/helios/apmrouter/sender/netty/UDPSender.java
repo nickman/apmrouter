@@ -100,6 +100,9 @@ public class UDPSender extends AbstractSender  {
 						case JMX_REQUEST:
 							AgentMBeanServerConnectionFactory.handleJMXRequest(e.getChannel(), e.getRemoteAddress(), buff);
 							break;
+						case JMX_MBS_INQUIRY:
+							AgentMBeanServerConnectionFactory.sendMBeanServerDomains(e.getChannel(), e.getRemoteAddress());
+							break;
 						case RESET:
 							metricCatalog.resetTokens();
 							ChannelBuffer rsetConfirm = ChannelBuffers.buffer(1);
@@ -145,6 +148,7 @@ public class UDPSender extends AbstractSender  {
 							SocketAddress sa = e.getRemoteAddress();
 							log("Sending WHO Response to [" + sa + "]");
 							e.getChannel().write(cb, sa);
+							//AgentMBeanServerConnectionFactory.sendMBeanServerDomains(e.getChannel(), e.getRemoteAddress());
 							break;
 						case SEND_METRIC_TOKEN:
 							int fqnLength = buff.readInt();

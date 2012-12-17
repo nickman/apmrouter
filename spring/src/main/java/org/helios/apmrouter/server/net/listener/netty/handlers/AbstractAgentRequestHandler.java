@@ -64,7 +64,7 @@ public abstract class AbstractAgentRequestHandler extends ServerComponentBean im
 	protected static final TimeoutQueueMap<String, SocketAddress> sessionTimeoutMap = new TimeoutQueueMap<String, SocketAddress>(15000);	
 	
 	/** Logging handler */
-	private static final LoggingHandler clientConnLogHandler = new LoggingHandler("org.helios.AgentMetricHandler", InternalLogLevel.DEBUG, true);
+	protected static final LoggingHandler clientConnLogHandler = new LoggingHandler("org.helios.AgentMetricHandler", InternalLogLevel.DEBUG, true);
 	
 	/** A timeout map of socket addresses to which OpCodes such as {@link OpCode#WHO} requests have been sent to but for which a response has not been received */
 	private static final TimeoutQueueMap<String, OpCode> pendingOps = new TimeoutQueueMap<String, OpCode>(5000); 
@@ -174,9 +174,9 @@ public abstract class AbstractAgentRequestHandler extends ServerComponentBean im
 		});			
 	}
 	
-	protected void registerProxyMBeanServerConnection(String protocol, Channel channel, SocketAddress remoteAddress) {
-		
-	}
+//	protected void registerProxyMBeanServerConnection(String protocol, Channel channel, SocketAddress remoteAddress) {
+//		
+//	}
 	
 	
 	

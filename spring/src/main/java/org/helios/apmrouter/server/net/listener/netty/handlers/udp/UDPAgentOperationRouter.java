@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.helios.apmrouter.OpCode;
+import org.helios.apmrouter.jmx.mbeanserver.AgentMBeanServerConnectionFactory;
 import org.helios.apmrouter.server.net.listener.netty.handlers.AbstractAgentRequestHandler;
 import org.helios.apmrouter.server.net.listener.netty.handlers.AgentRequestHandler;
 import org.helios.apmrouter.server.services.session.DecoratedChannel;
@@ -83,6 +84,7 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 		handlers.put(OpCode.BYE, this);
 		handlers.put(OpCode.HELLO, this);
 		handlers.put(OpCode.HELLO_CONFIRM, this);
+		handlers.put(OpCode.JMX_MBS_INQUIRY_RESPONSE, this);
 	}
 	/**
 	 * {@inheritDoc}
@@ -230,6 +232,7 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 			DecoratedChannel dc = (DecoratedChannel) SharedChannelGroup.getInstance().getByRemote(remoteAddress);
 			dc.setWho(host, agent);
 			SharedChannelGroup.getInstance().sendIdentifiedChannelEvent(dc);
+			
 			info("Agent at [", remoteAddress, "] identified itself as [", host, "/", agent, "]");
 		} else if(opCode==OpCode.HELLO) {
 			getChannelForRemote(channel, remoteAddress);
@@ -238,9 +241,22 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 			cb.writeByte(OpCode.HELLO_CONFIRM.op());
 			channel.write(cb, remoteAddress);
 			sendWho(channel, remoteAddress);
-			xx
+			
 		} else if(opCode==OpCode.HELLO_CONFIRM) {
 			warn("Received HELLO_CONFIRM ????");
+		} else if(opCode==OpCode.JMX_MBS_INQUIRY_RESPONSE) {
+			buff.readByte();
+			int arrSize = buff.readInt();
+			String[] domains = new String[arrSize];
+			for(int i = 0; i < arrSize; i++) {
+				byte[] bytes = new byte[buff.readInt()];
+				buff.readBytes(bytes);
+				domains[i] = new String(bytes);
+			}
+			DecoratedChannel dc = (DecoratedChannel) SharedChannelGroup.getInstance().getByRemote(remoteAddress);
+			String agent = dc.getAgent();
+			String host = dc.getHost();
+			AgentMBeanServerConnectionFactory.registerRemoteMBeanServerConnections(channel, remoteAddress, host, agent, "udp", domains);
 		}
 	}
 	
@@ -250,7 +266,7 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 	 */
 	@Override
 	public OpCode[] getHandledOpCodes() {
-		return new OpCode[]{OpCode.WHO_RESPONSE, OpCode.BYE, OpCode.HELLO};
+		return new OpCode[]{OpCode.WHO_RESPONSE, OpCode.BYE, OpCode.HELLO, OpCode.JMX_MBS_INQUIRY_RESPONSE};
 	}
 	
 	/**

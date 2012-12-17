@@ -95,6 +95,8 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 	protected final Map<ChannelType, Set<DecoratedChannel>> channelsByType = Collections.synchronizedMap(new EnumMap<ChannelType, Set<DecoratedChannel>>(ChannelType.class));
 	/** A map of remotely connected channels keyed by remote socket address */
 	protected final Map<SocketAddress, DecoratedChannel> channelsByRemote = new ConcurrentHashMap<SocketAddress, DecoratedChannel>();
+	/** A map of remotely connected channels keyed by host/agent */
+	protected final Map<String, DecoratedChannel> channelsByHostAgent = new ConcurrentHashMap<String, DecoratedChannel>();
 	
 	/** The core delegate channel group */
 	protected ChannelGroup channelGroup = new DefaultChannelGroup("APMRouterChannelGroup");

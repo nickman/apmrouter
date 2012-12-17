@@ -59,6 +59,8 @@ public class MXLocalJMXConnector implements JMXConnector {
 	protected final String agent;
 	/** The protocol to use to communicate with the agent */
 	protected final String protocol;
+	/** The default domain of the target MBeanServer */
+	protected final String domain;
 	/** The ObjectName query used to find a protocol adaptor for the represented agent */
 	protected final ObjectName mbeanQuery;
 	/** A set of registered connector listeners */
@@ -83,14 +85,17 @@ public class MXLocalJMXConnector implements JMXConnector {
 	 * @param host The agent's host name
 	 * @param agent The agent name
 	 * @param protocol The protocol to use to communicate with the agent
+	 * @param domain The default domain of the target MBeanServer
 	 */
-	public MXLocalJMXConnector(String host, String agent, String protocol) {
+	public MXLocalJMXConnector(String host, String agent, String protocol, String domain) {
 		this.host = host;
 		this.agent = agent;
 		this.protocol = protocol;
-		Hashtable<String, String> props = new Hashtable<String, String>(3);
+		this.domain = domain;
+		Hashtable<String, String> props = new Hashtable<String, String>(4);
 		props.put("host", this.host);
 		props.put("agent", this.agent);
+		props.put("domain", this.domain);
 		props.put("protocol", this.protocol==null ? "*" : this.protocol);
 		mbeanQuery = JMXHelper.objectName(JMX_PROXY_DOMAIN, props);
 		String connectionIdPrefix = this.protocol==null ? (agent + "@" + host) : (this.protocol + "://" + agent + "@" + host);
@@ -102,9 +107,10 @@ public class MXLocalJMXConnector implements JMXConnector {
 	 * Creates a new MXLocalJMXConnector
 	 * @param host The agent's host name
 	 * @param agent The agent name
+	 * @param domain The default domain of the target MBeanServer
 	 */
-	public MXLocalJMXConnector(String host, String agent) {
-		this(host, agent, null);
+	public MXLocalJMXConnector(String host, String agent, String domain) {
+		this(host, agent, null, domain);
 	}
 	
 
@@ -116,7 +122,7 @@ public class MXLocalJMXConnector implements JMXConnector {
 	public void connect() throws IOException {		
 		if(protocol==null) {
 			Set<ObjectName> adapters = JMXHelper.getHeliosMBeanServer().queryNames(mbeanQuery, null);
-			if(adapters.isEmpty()) throw new IOException("Failed to find protocol adapter to acquire connection to [" + agent + "@" + host + "]", new Throwable());
+			if(adapters.isEmpty()) throw new IOException("Failed to find protocol adapter to acquire connection to [" + agent + "@" + host + "]\n\tUsing search filter [" + mbeanQuery + "]", new Throwable());
 			protocolAdapter = adapters.iterator().next();
 		} else {
 			protocolAdapter = mbeanQuery;

@@ -112,11 +112,19 @@ public enum AgentIdentity {
 	 */
 	private void setAgent() {
 		// Try system props, then env for the agent name property
-		agentName = ConfigurationHelper.getEnvThenSystemProperty("org.helios.agent", null); 
+		agentName = ConfigurationHelper.getEnvThenSystemProperty("org.helios.agent", null);
+		if(agentName!=null && !agentName.trim().isEmpty()) {
+			System.setProperty("org.helios.agent", agentName);
+			return;
+		}		
 				//System.getProperty("theice.agent.name", System.getenv("theice.agent.name"));
 		if(agentName==null) {
 			// Perhaps we're running in a jboss server
 			agentName = System.getProperty("jboss.server.name");
+			if(agentName!=null && !agentName.trim().isEmpty()) {
+				System.setProperty("org.helios.agent", agentName);
+				return;
+			}
 		}
 		if(agentName==null) {
 			// Ok, we'll use the PID until we implement agent naming plugins

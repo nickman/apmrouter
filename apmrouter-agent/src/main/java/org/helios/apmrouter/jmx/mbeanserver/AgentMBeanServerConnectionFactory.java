@@ -37,7 +37,9 @@ import java.net.SocketAddress;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -46,13 +48,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
+import javax.management.MBeanServer;
 import javax.management.MBeanServerConnection;
+import javax.management.MBeanServerFactory;
 import javax.management.Notification;
 import javax.management.NotificationListener;
 import javax.management.ObjectName;
+import javax.management.remote.JMXConnector;
 
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.jmx.connector.mxl.MXLocalJMXConnector;
+import org.helios.apmrouter.jmx.mbeanserver.proxy.MBeanServerConnectionProxy;
 import org.helios.apmrouter.util.SimpleLogger;
 import org.helios.apmrouter.util.TimeoutListener;
 import org.helios.apmrouter.util.TimeoutQueueMap;
@@ -105,6 +112,8 @@ public class AgentMBeanServerConnectionFactory  implements InvocationHandler, MB
 	protected final AsynchJMXResponseListener listener;
 	/** The jmx domain of the target MBeanServer */
 	protected final String domain;
+	/** The byte encoded domain name */
+	protected final byte[] domainInfoData;
 	/** The channel handler to capture and process JMX responses */
 	protected final MBeanServerConnectionInvocationResponseHandler responseHandler = new MBeanServerConnectionInvocationResponseHandler(this);
 	/** A map of listener registration request Ids keyed by the registered notification that was registered */
@@ -285,6 +294,14 @@ public class AgentMBeanServerConnectionFactory  implements InvocationHandler, MB
 		this.timeout = builder.timeout;
 		this.listener = builder.listener;
 		this.domain = builder.domain;
+		if("DefaultDomain".equals(domain)) {
+			domainInfoData = new byte[]{0};
+		} else {
+			byte[] domainBytes = domain.getBytes();
+			domainInfoData = new byte[domainBytes.length + 1];
+			domainInfoData[0] = (byte) domainBytes.length;
+			System.arraycopy(domainBytes, 0, domainInfoData, 1, domainBytes.length);
+		}
 		if(channel.getPipeline().get(getClass().getSimpleName())==null) {
 			this.channel.getPipeline().addFirst(getClass().getSimpleName(), responseHandler);
 			LoggingHandler logg = new LoggingHandler(InternalLogLevel.ERROR, true);
@@ -344,11 +361,8 @@ public class AgentMBeanServerConnectionFactory  implements InvocationHandler, MB
 		if(channel.getPipeline().get(getClass().getSimpleName())==null) {
 			throw new IOException("This MBeanServerConnection has been closed", new Throwable());
 		}
-		byte[] sargs = getOutput(args);
-		SimpleLogger.debug("MBeanServerConnection [", method.getName(), "] Payload Size [", sargs.length+6+4, "]");
-		ChannelBuffer cb = ChannelBuffers.directBuffer(sargs.length+6+4);
+		//SimpleLogger.debug("MBeanServerConnection [", method.getName(), "] Payload Size [", sargs.length+6+4, "]");
 		final int reqId = requestId.incrementAndGet();
-		cb.writeByte(OpCode.JMX_REQUEST.op());
 		if("addNotificationListener".equals(method.getName()) && !method.getParameterTypes()[1].equals(ObjectName.class)) {
 			NotificationListener listener = (NotificationListener)args[1]; 
 			args[1] = reqId;
@@ -357,16 +371,14 @@ public class AgentMBeanServerConnectionFactory  implements InvocationHandler, MB
 			removeRegisteredListener((NotificationListener)args[1]);
 			args = new Object[0];
 		}
-		if("DefaultDomain".equals(domain)) {
-			cb.writeByte(0);
-		} else {
-			cb.writeByte(domain.length());
-			cb.writeBytes(domain.getBytes());
-		}
-		cb.writeInt(reqId);
-		cb.writeByte(methodToKey.get(method));
-		cb.writeInt(sargs.length);
-		cb.writeBytes(sargs);		
+		byte[] sargs = getOutput(args);
+		ChannelBuffer cb = ChannelBuffers.directBuffer(1 + domainInfoData.length + 4 +1 + 4 + sargs.length);
+		cb.writeByte(OpCode.JMX_REQUEST.op());  // 1
+		cb.writeBytes(domainInfoData);   // domain data
+		cb.writeInt(reqId);					// 4
+		cb.writeByte(methodToKey.get(method)); // 1
+		cb.writeInt(sargs.length);  			// 4
+		cb.writeBytes(sargs);		           // sargs.length
 		
 		if(listener==null) {
 			synchTimeoutMap.addListener(new TimeoutListener<Integer, CountDownLatch>() {
@@ -415,6 +427,63 @@ public class AgentMBeanServerConnectionFactory  implements InvocationHandler, MB
 	}
 	
 	/**
+	 * Returns a string array containing the default JMX domains of all available MBeanServers in this JVM.
+	 * @return a string array of JMX default domains
+	 */
+	public static String[] getMBeanServerDomains() {
+		Set<String> domains = new HashSet<String>();
+		for(MBeanServer mbs: MBeanServerFactory.findMBeanServer(null)) {
+			String domain = mbs.getDefaultDomain();
+			if(domain==null) domain = "DefaultDomain";
+			domains.add(domain);
+		}
+		return domains.toArray(new String[domains.size()]);
+	}
+	
+	/**
+	 * Sends the available MBeanServer domains in this JVM through the passed channel to the passed remote address in response to a {@link OpCode#JMX_MBS_INQUIRY} request.
+	 * @param channel The channel to write to 
+	 * @param remoteAddress The remote address to send to
+	 */
+	public static void sendMBeanServerDomains(Channel channel, SocketAddress remoteAddress) {
+		String[] domains = getMBeanServerDomains();
+		int size = 4 + (domains.length*4) + 1;
+		for(String s: domains) {
+			size += s.getBytes().length;
+		}
+		ChannelBuffer cb = ChannelBuffers.directBuffer(size);
+		cb.writeByte(OpCode.JMX_MBS_INQUIRY_RESPONSE.op());
+		cb.writeInt(domains.length);
+		for(String s: domains) {
+			byte[] bytes = s.getBytes();
+			cb.writeInt(bytes.length);
+			cb.writeBytes(bytes);
+		}
+		SimpleLogger.info("Sending MBeanServer Domain List ", Arrays.toString(domains));
+		channel.write(cb, remoteAddress);
+	}
+	
+	/**
+	 * Creates and registers a remote MBeanServerProxy MBean for each of the passed MBeanServer default domains passed 
+	 * @param channel The underlying comm channel
+	 * @param remoteAddress The remote address of the agent
+	 * @param host The host of the agent
+	 * @param agent The agent name
+	 * @param protocol The protocol name
+	 * @param jmxDomains An array of MBeanServer default domains to register MBeanServerProxys for
+	 */
+	public static void registerRemoteMBeanServerConnections(Channel channel, SocketAddress remoteAddress, String host, String agent, String protocol, String...jmxDomains) {
+		for(String domain: jmxDomains) {
+			try {
+				JMXConnector connector = new MXLocalJMXConnector(host, agent, protocol, domain);
+				MBeanServerConnectionProxy proxy = new MBeanServerConnectionProxy(connector, host, agent, protocol, domain);
+			} catch (Exception ex) {
+				SimpleLogger.error("Failed to register MBeanServerConnection Proxy for:\n\tHost:", host, "\n\tAgent:", agent, "\n\tDomain:", domain, "\n\tRemoteAddress:", remoteAddress, ex);
+			}
+		}
+	}
+	
+	/**
 	 * Writes a notification back to the originating listener registrar
 	 * @param channel The channel to write on
 	 * @param remoteAddress The remote address to write to
@@ -445,11 +514,12 @@ public class AgentMBeanServerConnectionFactory  implements InvocationHandler, MB
 	public static void handleJMXRequest(Channel channel, SocketAddress remoteAddress, ChannelBuffer buffer) {
 		buffer.resetReaderIndex();
 		/* The request write */
-//		cb.writeByte(OpCode.JMX_REQUEST.op());
-//		cb.writeInt(reqId);
-//		cb.writeByte(methodToKey.get(method));
-//		cb.writeInt(sargs.length);
-//		cb.writeBytes(sargs);
+//		cb.writeByte(OpCode.JMX_REQUEST.op());  // 1
+//		cb.writeBytes(domainInfoData);   // domain data
+//		cb.writeInt(reqId);					// 4
+//		cb.writeByte(methodToKey.get(method)); // 1
+//		cb.writeInt(sargs.length);  			// 4
+//		cb.writeBytes(sargs);		           // sargs.length
 		Object result = null;
 		MBeanServerConnection server = null;
 		buffer.skipBytes(1);
@@ -472,7 +542,6 @@ public class AgentMBeanServerConnectionFactory  implements InvocationHandler, MB
 			byte[] payload = new byte[payloadSize];
 			buffer.readBytes(payload);
 			Object[] params = getInput(payload);		
-			
 			Method targetMethod = null;
 			try {
 				targetMethod = keyToMethod.get(methodId);

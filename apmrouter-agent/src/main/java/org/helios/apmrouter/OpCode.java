@@ -72,7 +72,12 @@ public enum OpCode {
 	/** A JMX notification to a server listener */
 	JMX_NOTIFICATION,
 	/** Indicator sent to the agent that the server has closed the MBeanServerConnection but not the channel */
-	JMX_CONN_CLOSED;
+	JMX_CONN_CLOSED,
+	/** Inquiry from server about available MBeanServers */
+	JMX_MBS_INQUIRY,
+	/** Response from agent to inquiry from server about available MBeanServers */
+	JMX_MBS_INQUIRY_RESPONSE;
+	
 	
 	
 	/** Map of OpCodes keyed by the ordinal */

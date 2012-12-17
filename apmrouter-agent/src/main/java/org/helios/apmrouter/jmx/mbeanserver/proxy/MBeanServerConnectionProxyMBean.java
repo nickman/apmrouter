@@ -28,13 +28,17 @@ import javax.management.MBeanServerConnection;
 import javax.management.NotificationListener;
 
 /**
- * <p>Title: MBeanServerConnectionProxyMXBean</p>
+ * <p>Title: MBeanServerConnectionProxyMBean</p>
  * <p>Description: MX interface for the {@link MBeanServerConnectionProxy}</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.jmx.mbeanserver.proxy.MBeanServerConnectionProxyMXBean</code></p>
+ * <p><code>org.helios.apmrouter.jmx.mbeanserver.proxy.MBeanServerConnectionProxyMBean</code></p>
  */
 
-public interface MBeanServerConnectionProxyMXBean extends MBeanServerConnection, NotificationListener {
-
+public interface MBeanServerConnectionProxyMBean extends MBeanServerConnection, NotificationListener {
+	/**
+	 * Returns this {@link MBeanServerConnection} instance
+	 * @return this {@link MBeanServerConnection} instance
+	 */
+	public MBeanServerConnection getInstance();
 }

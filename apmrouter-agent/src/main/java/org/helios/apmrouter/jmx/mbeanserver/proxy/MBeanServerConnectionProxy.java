@@ -61,7 +61,7 @@ import org.helios.apmrouter.jmx.JMXHelper;
  * <p><code>org.helios.apmrouter.jmx.mbeanserver.proxy.MBeanServerConnectionProxy</code></p>
  */
 
-public class MBeanServerConnectionProxy extends NotificationBroadcasterSupport implements MBeanServerConnectionProxyMXBean {
+public class MBeanServerConnectionProxy extends NotificationBroadcasterSupport implements MBeanServerConnectionProxyMBean {
 	/** The delegate {@link MBeanServerConnection} */
 	protected final MBeanServerConnection mbeanServerConnection;
 	/** The {@link JMXConnector} to attach to the target MBeanServer */
@@ -72,6 +72,9 @@ public class MBeanServerConnectionProxy extends NotificationBroadcasterSupport i
 	protected final String agent;
 	/** The underlying protocol name used to communicate with the agent */
 	protected final String protocol;
+	/** The default domain of the target MBeanServer */
+	protected final String domain;
+	
 	/** The JMX object name for this bean */
 	protected final ObjectName objectName;
 	/**
@@ -80,25 +83,29 @@ public class MBeanServerConnectionProxy extends NotificationBroadcasterSupport i
 	 * @param host The agent host name 
 	 * @param agent The agent name  
 	 * @param protocol The underlying protocol name used to communicate with the agent
+	 * @param domain The default domain of the target MBeanServer
 	 * @throws IOException Thrown if the {@link MBeanServerConnection} cannot be established
 	 */
-	public MBeanServerConnectionProxy(JMXConnector jmxConnector, String host, String agent, String protocol) throws IOException {
+	public MBeanServerConnectionProxy(JMXConnector jmxConnector, String host, String agent, String protocol, String domain) throws IOException {
 		this.host = host;
 		this.agent = agent;
 		this.protocol = protocol;
-		this.jmxConnector = jmxConnector;		
-		mbeanServerConnection = this.jmxConnector.getMBeanServerConnection();
-		objectName = JMXHelper.objectName(ObjectName.quote(new StringBuilder("org.helios.apmrouter.jmxproxy:protocol=")
+		this.jmxConnector = jmxConnector;				
+		this.domain = domain;
+		objectName = JMXHelper.objectName(new StringBuilder("org.helios.apmrouter.jmxproxy:protocol=")
 			.append(protocol)
 			.append(",host=").append(host)
 			.append(",agent=").append(agent)
+			.append(",domain=").append(domain)
 			.toString()			
-		));
+		);
 		try {
 			if(JMXHelper.getHeliosMBeanServer().isRegistered(objectName)) {
 				JMXHelper.getHeliosMBeanServer().unregisterMBean(objectName);
 			}
 			JMXHelper.getHeliosMBeanServer().registerMBean(this, objectName);
+			jmxConnector.connect();
+			mbeanServerConnection = jmxConnector.getMBeanServerConnection();
 			this.jmxConnector.addConnectionNotificationListener(new NotificationListener(){
 				@Override
 				public void handleNotification(Notification notification, Object handback) {
@@ -113,7 +120,7 @@ public class MBeanServerConnectionProxy extends NotificationBroadcasterSupport i
 				public boolean isNotificationEnabled(Notification notification) {
 					return ((notification instanceof JMXConnectionNotification) && JMXConnectionNotification.CLOSED.equals(notification.getType()));
 				}
-			}, null);
+			}, null);			
 		} catch (Exception ex) {
 			throw new RuntimeException("Failed to register MBean for [" + objectName + "]", ex);
 		}
@@ -232,6 +239,14 @@ public class MBeanServerConnectionProxy extends NotificationBroadcasterSupport i
 			throws MBeanException, AttributeNotFoundException,
 			InstanceNotFoundException, ReflectionException, IOException {
 		return mbeanServerConnection.getAttribute(name, attribute);
+	}
+	
+	/**
+	 * Returns this {@link MBeanServerConnection} instance
+	 * @return this {@link MBeanServerConnection} instance
+	 */
+	public MBeanServerConnection getInstance() {
+		return this;
 	}
 	
 	/**
