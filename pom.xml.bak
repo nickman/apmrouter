@@ -13,7 +13,8 @@
 		<module>codahale</module>
 		<module>apmrouter-web</module>
 		<module>apmrouter-cl</module>
-	</modules>
+		<module>gwt-console</module>
+  </modules>
 	<properties>
 		<chronicle.version>1.2-SNAPSHOT</chronicle.version>
 		<json.version>20090211</json.version>
@@ -49,8 +50,14 @@
 		<flapdoodle.version>1.26</flapdoodle.version>
 		<jfree.version>1.0.9</jfree.version>
 		<yammer.version>3.0.0-SNAPSHOT</yammer.version>
+		<asm.version>4.1</asm.version>
 		<jmx-optiona.version>1.0-b02-SNAPSHOT</jmx-optiona.version>
-		
+		<javax-validation.version>1.0.0.GA</javax-validation.version>
+		<!-- Convenience property to set the GWT version -->
+		<gwtVersion>2.5.0-rc2</gwtVersion>
+		<!-- GWT needs at least java 1.5 -->
+		<webappDirectory>${project.build.directory}/${project.build.finalName}</webappDirectory>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -79,6 +86,40 @@
 			    <version>${flapdoodle.version}</version>
 			    <scope>test</scope>
 			  </dependency>	
+			  
+			  <!-- GWT Console -->
+			  <dependency>
+			    <groupId>com.google.gwt</groupId>
+			    <artifactId>gwt-dev</artifactId>
+			    <version>${gwtVersion}</version>
+			    <scope>test</scope>
+			  </dependency>
+			<dependency>
+			  <groupId>com.google.gwt</groupId>
+			  <artifactId>gwt-servlet</artifactId>
+			  <version>${gwtVersion}</version>
+			  <scope>runtime</scope>
+			</dependency>
+			<dependency>
+			  <groupId>com.google.gwt</groupId>
+			  <artifactId>gwt-user</artifactId>
+			  <version>${gwtVersion}</version>
+			  <scope>provided</scope>
+			</dependency>
+			<dependency>
+			  <groupId>javax.validation</groupId>
+			  <artifactId>validation-api</artifactId>
+			  <version>${javax-validation.version}</version>
+			  <scope>test</scope>
+			</dependency>
+			<dependency>
+			  <groupId>javax.validation</groupId>
+			  <artifactId>validation-api</artifactId>
+			  <version>${javax-validation.version}</version>
+			  <classifier>sources</classifier>
+			  <scope>test</scope>
+			</dependency>
+			  
 			
 			<!--   COMPILE/RUNTIME   -->
 			<dependency>
@@ -122,6 +163,12 @@
 				<artifactId>javassist</artifactId>
 				<version>${javassist.version}</version>
 			</dependency>
+		      <dependency>
+			<groupId>org.ow2.asm</groupId>
+			<artifactId>asm-all</artifactId>
+			<version>${asm.version}</version>
+		      </dependency>
+			
 			<dependency>
 				<groupId>org.apache.camel</groupId>
 				<artifactId>camel-core</artifactId>
@@ -140,6 +187,11 @@
 			<dependency>
 			  <groupId>org.springframework</groupId>
 			  <artifactId>org.springframework.orm</artifactId>
+			  <version>${spring.version}</version>
+			</dependency>
+			<dependency>
+			  <groupId>org.springframework</groupId>
+			  <artifactId>spring-web</artifactId>
 			  <version>${spring.version}</version>
 			</dependency>
 			

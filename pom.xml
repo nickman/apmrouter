@@ -50,6 +50,7 @@
 		<flapdoodle.version>1.26</flapdoodle.version>
 		<jfree.version>1.0.9</jfree.version>
 		<yammer.version>3.0.0-SNAPSHOT</yammer.version>
+		<byteman.version>2.1.1-SNAPSHOT</byteman.version>
 		<asm.version>4.1</asm.version>
 		<jmx-optiona.version>1.0-b02-SNAPSHOT</jmx-optiona.version>
 		<javax-validation.version>1.0.0.GA</javax-validation.version>
@@ -86,6 +87,13 @@
 			    <version>${flapdoodle.version}</version>
 			    <scope>test</scope>
 			  </dependency>	
+			  
+			  <!--  Byteman -->
+			  <dependency>
+	        <groupId>org.jboss.byteman</groupId>
+	        <artifactId>byteman</artifactId>
+	        <version>${byteman.version}</version>
+			  </dependency>
 			  
 			  <!-- GWT Console -->
 			  <dependency>

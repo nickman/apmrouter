@@ -58,6 +58,13 @@
 		  <artifactId>snmp4j</artifactId>
 		</dependency>	
 		
+			<!--  Byteman -->
+	 	  <dependency>
+	       <groupId>org.jboss.byteman</groupId>
+	       <artifactId>byteman</artifactId>
+	       <scope>compile</scope>
+		  </dependency>		
+		
 		<!-- JMXMP Server and Client Protocols -->
 		<dependency>
 		  <groupId>com.sun.jdmk</groupId>

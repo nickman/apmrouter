@@ -40,6 +40,7 @@
 			<args>				
 				script:C:/hprojects/byteman/sample/scripts/ThreadMonitor.btm
 			</args>
+			<jar name="c:/users/nwhitehe/.m2/repository/org/jboss/byteman/byteman-sample/2.1.1-SNAPSHOT/byteman-sample-2.1.1-SNAPSHOT.jar"/>
 		</javaagent>
 	</javaagents>
 	<!-- 

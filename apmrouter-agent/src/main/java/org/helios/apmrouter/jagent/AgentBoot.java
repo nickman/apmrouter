@@ -130,8 +130,9 @@ public class AgentBoot {
 				return;
 			}			
 			loadProps(XMLHelper.getChildNodeByName(configNode, "props", false));
-			SenderFactory.getInstance();
 			loadJavaAgents(XMLHelper.getChildNodeByName(configNode, "javaagents", false));
+			SenderFactory.getInstance();
+			
 			Node aopNode = XMLHelper.getChildNodeByName(configNode, "aop", false);
 			if(aopNode!=null) {
 				loadTraceAnnotated(aopNode);
@@ -190,10 +191,11 @@ public class AgentBoot {
 	 * Attempts to initialize the java-agent in the passed agent jar file
 	 * @param file The jar file that the java agent is in
 	 * @param agentArgs The configured agent arguments
+	 * @param supportJars An optional array of supporting jar files to be appended to the bootstrap classpath
 	 * @return The name of the java agent class
 	 * @throws Exception thrown on any error
 	 */
-	protected static String initAgent(File file, String agentArgs) throws Exception {
+	protected static String initAgent(File file, String agentArgs, File...supportJars) throws Exception {
 		JarFile jarFile = new JarFile(file);
 		Manifest manifest = jarFile.getManifest();
 		Attributes attrs = manifest.getMainAttributes();
@@ -220,6 +222,13 @@ public class AgentBoot {
 			throw new Exception("Could not find premain or agentmain methods in the class [" + clazz.getName() + "]", new Throwable());
 		}
 		//instrumentation.appendToSystemClassLoaderSearch(jarFile);
+		for(File f: supportJars) {
+			if(!f.canRead()) {
+				SimpleLogger.warn("Cannot read support jar file [", f, "]. NOT adding to boot classpath");
+				continue;
+			}
+			instrumentation.appendToBootstrapClassLoaderSearch(new JarFile(f));
+		}
 		instrumentation.appendToBootstrapClassLoaderSearch(jarFile);
 		if(method.getParameterTypes().length==2) {
 			method.invoke(null, agentArgs, instrumentation);
@@ -247,23 +256,42 @@ public class AgentBoot {
 		SimpleLogger.info("Loading Chanined Java Agents");
 		for(Node agentNode: XMLHelper.getChildNodesByName(agentsNode, "javaagent", false)) {
 			String jarName = XMLHelper.getAttributeByName(agentNode, "jar", "null");
-			String args = XMLHelper.getNodeTextValue(XMLHelper.getChildNodeByName(agentNode, "args", false));
-			args = args.trim();
-			if(args.isEmpty()) {
-				args = null;
+			Node argNode = XMLHelper.getChildNodeByName(agentNode, "args", false);
+			
+			String args = argNode==null ? null : XMLHelper.getNodeTextValue(argNode);
+			if(args!=null) {
+				args = args.trim();
+				if(args.isEmpty()) {
+					args = null;
+				}
 			}
 			try {
 				File file = new File(jarName.trim());
 				if(!file.canRead()) {
 					throw new Exception("Cannot read the file [" + file + "]");
 				}
-				String className = initAgent(file, args);
+				Set<File> supportJars = new HashSet<File>();
+				for(Node jarNode: XMLHelper.getChildNodesByName(agentNode, "jar", false)) {
+					File f = new File(XMLHelper.getAttributeByName(jarNode, "name", ""));
+					if(file.canRead()) {
+						supportJars.add(f);
+					}
+				}
+				SimpleLogger.info("Adding support jars ", supportJars);
+				String className = initAgent(file, args, supportJars.toArray(new File[supportJars.size()]));
 				SimpleLogger.info("Loaded Java Agent from [", className, "]"); 
+				
 			} catch (Throwable ex) {
 				SimpleLogger.warn("Failed to load and configure java agent [", jarName, "]", ex);
 			}
 		}
 	}
+	
+/*
+ <jars>
+	<jar name="c:/users/nwhitehe/.m2/repository/org/jboss/byteman/byteman-sample/2.1.1-SNAPSHOT/byteman-sample-2.1.1-SNAPSHOT.jar"/>
+ </jars>
+ */
 	
 	/**
 	 * Loads the configured JMX Connector Server
