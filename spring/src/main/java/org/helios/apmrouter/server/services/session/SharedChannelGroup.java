@@ -28,6 +28,7 @@ import java.net.SocketAddress;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -44,6 +45,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.ListenerNotFoundException;
 import javax.management.MBeanNotificationInfo;
+import javax.management.MBeanServerConnection;
 import javax.management.Notification;
 import javax.management.NotificationBroadcaster;
 import javax.management.NotificationBroadcasterSupport;
@@ -55,6 +57,7 @@ import org.helios.apmrouter.catalog.DChannelEvent;
 import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
+import org.helios.apmrouter.jmx.mbeanserver.AgentMBeanServerConnectionFactory;
 import org.helios.apmrouter.server.services.session.ChannelSessionEvent.ChannelSessionStartedEvent;
 import org.helios.apmrouter.server.services.session.ChannelSessionEvent.ChannelSessionStoppedEvent;
 import org.helios.apmrouter.util.SystemClock;
@@ -412,10 +415,91 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 	}
 	
 	/**
+	 * Builds a cache key from the decorated channel's protocol, agent and host
+	 * @param dc The decorated channel to get the key for
+	 * @return a cache key
+	 */
+	protected String makeKey(DecoratedChannel dc) {
+		return dc.getChannelType().protocol +  "://" + dc.getAgent() + "@" + dc.getHost();
+	}
+	
+	/**
+	 * Returns a map of registered channels for the passed agent and host
+	 * @param agent The agent
+	 * @param host The host
+	 * @return a [possibly empty] array of registered channels for the passed agent and host
+	 */
+	@Override
+	public DecoratedChannel[] findByAgentHost(String agent, String host) {
+		Map<String, DecoratedChannel> results = new HashMap<String, DecoratedChannel>();
+		final String suffix = agent + "@" + host;
+		for(Map.Entry<String, DecoratedChannel> entry: channelsByHostAgent.entrySet()) {
+			if(entry.getKey().endsWith(suffix)) {
+				results.put(entry.getValue().getChannelType().protocol,  entry.getValue());
+			}
+		}
+		return results.values().toArray(new DecoratedChannel[results.size()]);
+	}
+	
+	/**
+	 * Acquires an {@link MBeanServerConnection} to the named agent
+	 * @param agent The agent name
+	 * @param host The agent's host
+	 * @param domain The default domain of the target MBeanServer
+	 * @return an {@link MBeanServerConnection} to the named agent
+	 */
+	public MBeanServerConnection getMBeanServerConnection(String agent, String host, String domain) {
+		DecoratedChannel[] dcs = findByAgentHost(agent, host);
+		if(dcs.length>0) {
+			DecoratedChannel dc = dcs[0];
+			return AgentMBeanServerConnectionFactory.builder(dc).domain(domain).remoteAddress(dc.getRemoteAddress()).build();
+		}
+		throw new RuntimeException("No channel found for [" + agent + "@" + host + "]", new Throwable());
+	}
+	
+	/**
+	 * Acquires an {@link MBeanServerConnection} to the named agent
+	 * @param protocol The protocol to comm with
+	 * @param agent The agent name
+	 * @param host The agent's host
+	 * @param domain The default domain of the target MBeanServer
+	 * @return an {@link MBeanServerConnection} to the named agent
+	 */
+	public MBeanServerConnection getMBeanServerConnection(String protocol, String agent, String host, String domain) {
+		DecoratedChannel dc = findByAgentHost(protocol, agent, host);
+		if(dc!=null) {
+			return AgentMBeanServerConnectionFactory.builder(dc).domain(domain).remoteAddress(dc.getRemoteAddress()).build();
+		}
+		throw new RuntimeException("No channel found for [" + protocol + "://" + agent + "@" + host + "]", new Throwable());
+	}
+	
+	
+	/**
+	 * Returns the registered channels for the passed protocol, agent and host
+	 * @param protocol The protocol
+	 * @param agent The agent
+	 * @param host The host
+	 * @return the registered channel for the passed protocol, agent and host keyed or null if one was not found
+	 */
+	@Override
+	public DecoratedChannel findByAgentHost(String protocol, String agent, String host) {
+		final String key = protocol + "://" + agent + "@" + host;
+		return channelsByHostAgent.get(key);
+	}
+	
+	
+	/**
 	 * Sends a JMX notification indicating that a channel session has been identified.
 	 * @param dchannel The channel that has been identified.
 	 */
 	public void sendIdentifiedChannelEvent(final DecoratedChannel dchannel) {
+		final String key = makeKey(dchannel);
+		channelsByHostAgent.put(key, dchannel);
+		dchannel.getCloseFuture().addListener(new ChannelFutureListener() {
+			public void operationComplete(ChannelFuture future) throws Exception {
+				channelsByHostAgent.remove(key);
+			}
+		});
 		final DChannelEvent dce = mcs.onIdentifiedChannel(dchannel);
 		for(final ChannelSessionListener listener: listeners) {
 			if(listener instanceof FilteredChannelSessionListener) {

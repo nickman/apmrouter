@@ -34,7 +34,8 @@ import javax.management.remote.JMXServiceURL;
 
 /**
  * <p>Title: ClientProvider</p>
- * <p>Description: JMX remoting client provider for acquiring {@link MBeanServerConnection}s to agents from external JVMs proxying through the APMRouter server.</p> 
+ * <p>Description: JMX remoting client provider for acquiring {@link MBeanServerConnection}s to agents from external JVMs proxying through the APMRouter server.</p>
+ * <p>E.g.  <code>service:jmx:mxrp://localhost:8002/service:jmx:udp://com.cpex.ne-wk-nwhi-01/marginservice</code></p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.jmx.connector.mxl.ClientProvider</code></p>

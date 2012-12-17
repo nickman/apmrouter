@@ -33,28 +33,34 @@ package org.helios.apmrouter.server.services.session;
  */
 public enum ChannelType {
 	/** A remotely connected UDP agent */
-	UDP_AGENT,
+	UDP_AGENT("udp"),
 	/** A remotely connected TCP agent */
-	TCP_AGENT,
+	TCP_AGENT("tcp"),
 	/** A remotely connected HTTP agent */
-	HTTP_AGENT,
+	HTTP_AGENT("http"),
 	/** A remotely connected websocket client */
-	WEBSOCKET_REMOTE,
+	WEBSOCKET_REMOTE("ws"),
 	/** A local websocket connected to a remote */
-	WEBSOCKET_LOCAL,
+	WEBSOCKET_LOCAL("ws"),
 	/** A local UDP connection to a remote */
-	UDP_CLIENT,
+	UDP_CLIENT("udp"),
 	/** A local TCP connection to a remote */
-	TCP_CLIENT,
+	TCP_CLIENT("tcp"),
 	/** A netty local client */
-	LOCAL_CLIENT,
+	LOCAL_CLIENT("local"),
 	/** A TCP server */
-	TCP_SERVER,
+	TCP_SERVER("tcp"),
 	/** A UDP server */
-	UDP_SERVER,	
+	UDP_SERVER("udp"),	
 	/** A netty local server */
-	LOCAL_SERVER,
+	LOCAL_SERVER("local"),
 	/** An undefined channel type */	
-	OTHER;
+	OTHER("other");
+	
+	private ChannelType(String protocol) {
+		this.protocol = protocol;
+	}
+	
+	public final String protocol;
 	
 }

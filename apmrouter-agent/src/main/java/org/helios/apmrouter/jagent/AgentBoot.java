@@ -109,7 +109,7 @@ public class AgentBoot {
 		AgentBoot.agentArgs = agentArgs;
 		AgentBoot.instrumentation = instrumentation;
 		AgentBoot.classLoader = classLoader;
-		SenderFactory.getInstance();
+		//SenderFactory.getInstance();
 		//DefaultMonitorBoot.boot();
 		configure();
 	}
@@ -130,6 +130,7 @@ public class AgentBoot {
 				return;
 			}			
 			loadProps(XMLHelper.getChildNodeByName(configNode, "props", false));
+			SenderFactory.getInstance();
 			loadJavaAgents(XMLHelper.getChildNodeByName(configNode, "javaagents", false));
 			Node aopNode = XMLHelper.getChildNodeByName(configNode, "aop", false);
 			if(aopNode!=null) {

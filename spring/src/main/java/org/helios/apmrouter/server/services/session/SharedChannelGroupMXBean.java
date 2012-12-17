@@ -24,6 +24,9 @@
  */
 package org.helios.apmrouter.server.services.session;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import javax.management.ObjectName;
 
 import org.helios.apmrouter.jmx.JMXHelper;
@@ -82,5 +85,23 @@ public interface SharedChannelGroupMXBean  {
 	 * @return an array of the decorated channels
 	 */
 	public DecoratedChannelMBean[] getChannels();
+	
+	/**
+	 * Returns a map of registered channels for the passed agent and host
+	 * @param agent The agent
+	 * @param host The host
+	 * @return a [possibly empty] array of registered channels for the passed agent and host
+	 */	
+	public DecoratedChannelMBean[] findByAgentHost(String agent, String host);
+	
+	/**
+	 * Returns the registered channels for the passed protocol, agent and host
+	 * @param protocol The protocol
+	 * @param agent The agent
+	 * @param host The host
+	 * @return the registered channel for the passed protocol, agent and host keyed or null if one was not found
+	 */
+	public DecoratedChannelMBean findByAgentHost(String protocol, String agent, String host);
+
 
 }

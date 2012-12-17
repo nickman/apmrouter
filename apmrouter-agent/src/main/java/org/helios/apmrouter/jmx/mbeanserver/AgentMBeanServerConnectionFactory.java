@@ -32,6 +32,7 @@ import java.io.ObjectOutputStream;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
 import java.net.SocketAddress;
 import java.util.Arrays;
@@ -304,9 +305,8 @@ public class AgentMBeanServerConnectionFactory  implements InvocationHandler, MB
 		}
 		if(channel.getPipeline().get(getClass().getSimpleName())==null) {
 			this.channel.getPipeline().addFirst(getClass().getSimpleName(), responseHandler);
-			LoggingHandler logg = new LoggingHandler(InternalLogLevel.ERROR, true);
-			this.channel.getPipeline().addFirst("logger", logg);
-			
+//			LoggingHandler logg = new LoggingHandler(InternalLogLevel.ERROR, true);
+//			this.channel.getPipeline().addFirst("logger", logg);
 		}
 	}
 	
@@ -332,7 +332,9 @@ public class AgentMBeanServerConnectionFactory  implements InvocationHandler, MB
 		CountDownLatch latch = new CountDownLatch(1);
 		synchTimeoutMap.put(requestId, latch);
 		try {
-			latch.await(timeout, TimeUnit.MILLISECONDS);
+			SimpleLogger.debug("Waiting for response to [", requestId, "]....");
+			boolean timedout = latch.await(timeout, TimeUnit.MILLISECONDS);
+			SimpleLogger.debug("Result of Waiting for response to [", requestId, "]:", timedout);
 		} catch (InterruptedException iex) {			
 			synchResultMap.putIfAbsent(requestId, new IOException("Thread was interrupted while waiting on Operation completion", new Throwable()));
 		}
@@ -344,9 +346,13 @@ public class AgentMBeanServerConnectionFactory  implements InvocationHandler, MB
 	 */
 	@Override
 	public void onSynchronousResponse(int requestId, Object value) {
+		SimpleLogger.debug("Response for req [", requestId, "]:[", value, "]");
 		synchResultMap.putIfAbsent(requestId, value);
-		CountDownLatch latch = synchTimeoutMap.get(requestId);
-		if(latch!=null) latch.countDown();
+		CountDownLatch latch = synchTimeoutMap.remove(requestId);
+		if(latch!=null) {
+			latch.countDown();
+			SimpleLogger.debug("Counted Down Latch for req [", requestId, "]:[", value, "]");
+		}
 		
 	}
 	
@@ -358,6 +364,9 @@ public class AgentMBeanServerConnectionFactory  implements InvocationHandler, MB
 	 */
 	@Override
 	public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+		if(MBeanServerConnection.class!=method.getDeclaringClass()) {
+			return method.invoke(Modifier.isStatic(method.getModifiers()) ? null : this, args);
+		}
 		if(channel.getPipeline().get(getClass().getSimpleName())==null) {
 			throw new IOException("This MBeanServerConnection has been closed", new Throwable());
 		}
@@ -409,7 +418,7 @@ public class AgentMBeanServerConnectionFactory  implements InvocationHandler, MB
 			@Override
 			public void operationComplete(ChannelFuture future) throws Exception {
 				if(future.isSuccess()) {
-					SimpleLogger.info("Sent JMX Request to [", remoteAddress, "]");
+					SimpleLogger.debug("Sent JMX Request to [", remoteAddress, "]");
 				} else {
 					SimpleLogger.error("Failed to send JMX Request to [", remoteAddress, "]", future.getCause());
 				}
