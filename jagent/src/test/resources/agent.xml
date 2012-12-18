@@ -31,16 +31,14 @@
 		<serviceurl>service:jmx:jmxmp://0.0.0.0:8007</serviceurl>		
 	</jmx-connector>
 	<javaagents>
-		<!-- TODO: Add inclusion of additonal jars -->
-	
-		<!-- <javaagent jar="/home/nwhitehead/hprojects/byteman/agent/target/byteman-2.1.1-SNAPSHOT.jar"> -->
-		<javaagent jar="c:/hprojects/byteman/agent/target/byteman-2.1.1-SNAPSHOT.jar">
+		<!-- <javaagent jar="c:/hprojects/byteman/agent/target/byteman-2.1.1-SNAPSHOT.jar"> -->
+		<javaagent jar="/home/nwhitehead/hprojects/byteman/agent/target/byteman-2.1.1-SNAPSHOT.jar">		
 			<!-- script:/home/nwhitehead/hprojects/byteman/sample/scripts/SocketMonitor.btm -->
 			<!-- script:c:/hprojects/byteman/sample/scripts/SocketMonitor.btm -->
 			<args>				
-				script:C:/hprojects/byteman/sample/scripts/ThreadMonitor.btm
 			</args>
-			<jar name="c:/users/nwhitehe/.m2/repository/org/jboss/byteman/byteman-sample/2.1.1-SNAPSHOT/byteman-sample-2.1.1-SNAPSHOT.jar"/>
+			<!-- <jar name="c:/users/nwhitehe/.m2/repository/org/jboss/byteman/byteman-sample/2.1.1-SNAPSHOT/byteman-sample-2.1.1-SNAPSHOT.jar"/> -->
+			<jar name="/home/nwhitehead/.m2/repository/org/jboss/byteman/byteman-sample/2.1.1-SNAPSHOT/byteman-sample-2.1.1-SNAPSHOT.jar"/>
 		</javaagent>
 	</javaagents>
 	<!-- 

@@ -1,0 +1,54 @@
+RULE ServerSocket trace bind
+CLASS ^java.net.ServerSocket
+METHOD bind(SocketAddress)
+HELPER org.helios.apmrouter.byteman.APMAgentHelper
+AT EXIT
+IF TRUE
+DO traceBoundServerSocket($0, $1);
+ENDRULE
+
+RULE ServerSocket trace bind with backlog
+CLASS ^java.net.ServerSocket
+METHOD bind(SocketAddress, int)
+HELPER org.helios.apmrouter.byteman.APMAgentHelper
+AT EXIT
+IF TRUE
+DO traceBoundServerSocket($0, $1, $2);
+ENDRULE
+
+RULE ServerSocket trace accept
+CLASS ^java.net.ServerSocket
+METHOD accept()
+HELPER org.helios.apmrouter.byteman.APMAgentHelper
+AT EXIT
+IF TRUE
+DO traceServerSocketAccept($0, $!);
+ENDRULE
+
+RULE Socket write byte
+CLASS ^java.net.SocketOutputStream
+METHOD write(int)
+HELPER org.helios.apmrouter.byteman.APMAgentHelper
+AT EXIT
+IF TRUE
+DO traceSocketWriteByte($socket);
+ENDRULE
+
+RULE Socket write bytes offset
+CLASS ^java.net.SocketOutputStream
+METHOD write(byte[], int, int)
+HELPER org.helios.apmrouter.byteman.APMAgentHelper
+AT EXIT
+IF TRUE
+DO traceSocketWriteBytes($socket, $3);
+ENDRULE
+
+RULE Socket write byte array
+CLASS ^java.net.SocketOutputStream
+METHOD write(byte[])
+HELPER org.helios.apmrouter.byteman.APMAgentHelper
+AT EXIT
+IF TRUE
+DO traceSocketWriteBytes($socket, $1);
+ENDRULE
+ 

@@ -24,23 +24,38 @@
  */
 package org.helios.apmrouter.byteman;
 
+import java.io.OutputStream;
+import java.io.Serializable;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketAddress;
+import java.util.concurrent.TimeUnit;
+
+import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.metric.ICEMetric;
+import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.TracerFactory;
+import org.helios.apmrouter.util.SimpleLogger;
+import org.jboss.byteman.agent.RuleScript;
 import org.jboss.byteman.rule.Rule;
-import org.jboss.byteman.rule.RuleMBean;
 import org.jboss.byteman.rule.helper.Helper;
+import org.snmp4j.PDU;
+
 
 /**
  * <p>Title: APMAgentHelper</p>
- * <p>Description: </p> 
+ * <p>Description: An APM Agent {@link ITracer} implementation exposed as a  byteman {@link Helper}, plus a handful of supporting utility constructs.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.byteman.APMAgentHelper</code></p>
  */
 
-public class APMAgentHelper extends Helper {
+public class APMAgentHelper extends Helper implements ITracer {
 	/** The {@link ITracer} instance created when this helper is activated */
 	protected static ITracer itracer = null;
+	
 	
 	/**
 	 * Creates a new APMAgentHelper
@@ -70,7 +85,12 @@ public class APMAgentHelper extends Helper {
 	 * @param rule The rule that this helper was instantiated for
 	 */
 	public static void installed(Rule rule) {
-		rule.getRuleScript();
+		RuleScript ruleMBean = rule.getRuleScript();
+		try {
+			JMXHelper.getHeliosMBeanServer().registerMBean(ruleMBean, ruleMBean.getObjectName());
+		} catch (Exception ex) {
+			SimpleLogger.warn("Failed to register Rule MBean for [", ruleMBean, "]", ex);
+		}
 	}
 	
 	/**
@@ -78,7 +98,297 @@ public class APMAgentHelper extends Helper {
 	 * @param rule The rule that this helper was instantiated for
 	 */
 	public static void uninstalled(Rule rule) {
-		/* */
+		RuleScript ruleMBean = rule.getRuleScript();
+		try {
+			JMXHelper.getHeliosMBeanServer().unregisterMBean(ruleMBean.getObjectName());
+		} catch (Exception ex) {
+			SimpleLogger.warn("Failed to unregister Rule MBean for [", ruleMBean, "]", ex);
+		}
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#resetStats()
+	 */
+	@Override
+	public void resetStats() {
+		itracer.resetStats();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#trace(java.lang.Object, java.lang.CharSequence, org.helios.apmrouter.metric.MetricType, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric trace(Object value, CharSequence name, MetricType type,
+			CharSequence... namespace) {
+		return itracer.trace(value, name, type, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceDirect(long, java.util.concurrent.TimeUnit, java.lang.Object, java.lang.CharSequence, org.helios.apmrouter.metric.MetricType, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceDirect(long timeout, TimeUnit unit, Object value,
+			CharSequence name, MetricType type, CharSequence... namespace) {
+		return itracer.traceDirect(timeout, unit, value, name, type, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceDirect(java.lang.Object, java.lang.CharSequence, org.helios.apmrouter.metric.MetricType, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceDirect(Object value, CharSequence name,
+			MetricType type, CharSequence... namespace) {
+		return itracer.traceDirect(value, name, type, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceCounter(long, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceCounter(long value, CharSequence name,
+			CharSequence... namespace) {
+		return itracer.traceCounter(value, name, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceIncrement(long, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceIncrement(long value, CharSequence name,
+			CharSequence... namespace) {
+		return itracer.traceIncrement(value, name, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceIncrement(java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceIncrement(CharSequence name,
+			CharSequence... namespace) {
+		return itracer.traceIncrement(name, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceIntervalIncrement(long, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceIntervalIncrement(long value, CharSequence name,
+			CharSequence... namespace) {
+		return itracer.traceIntervalIncrement(value, name, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceIntervalIncrement(java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceIntervalIncrement(CharSequence name,
+			CharSequence... namespace) {
+		return itracer.traceIntervalIncrement(name, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceGauge(long, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceGauge(long value, CharSequence name,
+			CharSequence... namespace) {
+		return itracer.traceGauge(value, name, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceDeltaGauge(long, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceDeltaGauge(long value, CharSequence name,
+			CharSequence... namespace) {
+		return itracer.traceDeltaGauge(value, name, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceDeltaCounter(long, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceDeltaCounter(long value, CharSequence name,
+			CharSequence... namespace) {
+		return itracer.traceDeltaCounter(value, name, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceString(java.lang.CharSequence, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceString(CharSequence value, CharSequence name,
+			CharSequence... namespace) {
+		return itracer.traceString(value, name, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceError(java.lang.Throwable, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceError(Throwable value, CharSequence name,
+			CharSequence... namespace) {
+		return itracer.traceError(value, name, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceBlob(java.io.Serializable, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceBlob(Serializable value, CharSequence name,
+			CharSequence... namespace) {
+		return itracer.traceBlob(value, name, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceBlobDirect(java.io.Serializable, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceBlobDirect(Serializable value, CharSequence name,
+			CharSequence... namespace) {
+		return itracer.traceBlobDirect(value, name, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#tracePDU(org.snmp4j.PDU, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric tracePDU(PDU pdu, CharSequence name,
+			CharSequence... namespace) {
+		return itracer.tracePDU(pdu, name, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#tracePDUDirect(org.snmp4j.PDU, java.lang.CharSequence, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric tracePDUDirect(PDU pdu, CharSequence name,
+			CharSequence... namespace) {
+		return itracer.tracePDUDirect(pdu, name, namespace);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#getHost()
+	 */
+	@Override
+	public String getHost() {
+		return itracer.getHost();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#getAgent()
+	 */
+	@Override
+	public String getAgent() {
+		return itracer.getAgent();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#getSentMetrics()
+	 */
+	@Override
+	public long getSentMetrics() {
+		return itracer.getSentMetrics();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#getDroppedMetrics()
+	 */
+	@Override
+	public long getDroppedMetrics() {
+		return itracer.getDroppedMetrics();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#getQueuedMetrics()
+	 */
+	@Override
+	public long getQueuedMetrics() {
+		return itracer.getQueuedMetrics();
+	}
+	
+	/**
+	 * Traces a server socket bind
+	 * @param ss The server socket
+	 * @param sa The socket address
+	 * @param backlog The bind backlog
+	 */
+	public void traceBoundServerSocket(ServerSocket ss, SocketAddress sa, int backlog) {	
+		String host = ((InetSocketAddress)sa).getAddress().getHostAddress();
+		String port = "" + ss.getLocalPort();
+		SimpleLogger.info("\n\tServerSocket Bind [", host, ":", port, "]  Backlog:", backlog);
+		traceCounter(1, "ServerSocketBind", "java", "net", "server", host, port);
+		traceCounter(backlog, "ServerSocketBacklog", "java", "net", "server", host, port);
+	}
+	
+	/**
+	 * Traces a server socket bind with a default backlog of 50
+	 * @param ss The server socket
+	 * @param sa The socket address
+	 */
+	public void traceBoundServerSocket(ServerSocket ss, SocketAddress sa) {
+		traceBoundServerSocket(ss, sa, 50);
+	}
+	
+	/**
+	 * Traces a server socket accept of a remote connection
+	 * @param ss The server socket that accepted
+	 * @param as The accepted socket created
+	 */
+	public void traceServerSocketAccept(ServerSocket ss, Socket as) {
+		InetSocketAddress localSocket = (InetSocketAddress)as.getLocalSocketAddress();
+		InetSocketAddress remoteSocket = (InetSocketAddress)as.getRemoteSocketAddress();
+		SimpleLogger.info("\n\tServerSocket Accept \n\t  Socket Local:", localSocket.getAddress().getHostAddress(), ":", localSocket.getPort(), "\n\t  Socket Remote:", remoteSocket.getAddress().getHostAddress(), ":", remoteSocket.getPort());
+		traceCounter(1, "ServerSocketAccept", "java", "net", "server", localSocket.getAddress().getHostAddress(), "" + localSocket.getPort());
+		traceCounter(1, "ServerSocketAccept", "java", "net", "server", localSocket.getAddress().getHostAddress(), "" + localSocket.getPort(), "remote", remoteSocket.getAddress().getHostAddress(), "" + remoteSocket.getPort());
+	}
+	
+	/**
+	 * Traces a server socket accept of a remote connection
+	 * @param ss The server socket that accepted
+	 * @param as The accepted socket created
+	 */
+	public void traceServerSockAccept(Object ss, Object as) {
+		SimpleLogger.info("\n\tServerSocket Accept [", ss.getClass().getName(), "]:[", as.getClass().getName(), "]");
+	}
+	
+	public void traceSocketWriteBytes(Socket as, int length) {
+		InetSocketAddress localSocket = (InetSocketAddress)as.getLocalSocketAddress();
+		InetSocketAddress remoteSocket = (InetSocketAddress)as.getRemoteSocketAddress();		
+		SimpleLogger.info("\n\tSocket Write [", length, "] bytes\n\t  Socket Local:", localSocket.getAddress().getHostAddress(), ":", localSocket.getPort(), "\n\t  Socket Remote:", remoteSocket.getAddress().getHostAddress(), ":", remoteSocket.getPort());
+	}
+	public void traceSocketWriteBytes(Socket as, byte[] bytes) {
+		InetSocketAddress localSocket = (InetSocketAddress)as.getLocalSocketAddress();
+		InetSocketAddress remoteSocket = (InetSocketAddress)as.getRemoteSocketAddress();		
+		SimpleLogger.info("\n\tSocket Write [", bytes.length, "] bytes\n\t  Socket Local:", localSocket.getAddress().getHostAddress(), ":", localSocket.getPort(), "\n\t  Socket Remote:", remoteSocket.getAddress().getHostAddress(), ":", remoteSocket.getPort());		
+	}
+	public void traceSocketWriteByte(Socket as) {
+		InetSocketAddress localSocket = (InetSocketAddress)as.getLocalSocketAddress();
+		InetSocketAddress remoteSocket = (InetSocketAddress)as.getRemoteSocketAddress();		
+		SimpleLogger.info("\n\tSocket Write [", 1, "] bytes\n\t  Socket Local:", localSocket.getAddress().getHostAddress(), ":", localSocket.getPort(), "\n\t  Socket Remote:", remoteSocket.getAddress().getHostAddress(), ":", remoteSocket.getPort());				
 	}
 	
 
