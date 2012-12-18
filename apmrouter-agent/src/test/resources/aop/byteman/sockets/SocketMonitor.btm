@@ -25,12 +25,17 @@ IF TRUE
 DO traceServerSocketAccept($0, $!);
 ENDRULE
 
+# ================================================================================
+#		Socket Writes
+# ================================================================================
+
 RULE Socket write byte
-CLASS ^java.net.SocketOutputStream
+CLASS ^java.io.FileOutputStream
 METHOD write(int)
 HELPER org.helios.apmrouter.byteman.APMAgentHelper
 AT EXIT
-IF TRUE
+BIND isSocket:boolean =$this instanceof java.net.SocketOutputStream 
+IF isSocket
 DO traceSocketWriteByte($socket);
 ENDRULE
 
@@ -51,4 +56,46 @@ AT EXIT
 IF TRUE
 DO traceSocketWriteBytes($socket, $1);
 ENDRULE
+
+
+# =============================
+#   LATEST
+# =============================
+
+RULE Socket write byte
+CLASS ^java.net.SocketOutputStream
+METHOD write(int)
+HELPER org.helios.apmrouter.byteman.APMSocketMonitorHelper
+AT ENTRY
+BIND socket:Socket = getFieldValue($0, "socket");
+IF TRUE
+DO setTriggering(false); 
+	traceln("Write Byte [" + socket + "]:1");
+	traceSocketWriteByte(socket);
+ENDRULE
+
+RULE Socket write bytes offset
+CLASS ^java.net.SocketOutputStream
+METHOD write(byte[], int, int)
+HELPER org.helios.apmrouter.byteman.APMSocketMonitorHelper
+AT ENTRY
+BIND socket:Socket = getFieldValue($0, "socket");
+IF TRUE
+DO setTriggering(false); 
+	traceln("Write Bytes [" + socket + "]:" + $3);
+	traceSocketWriteBytes(socket, $3);
+ENDRULE
+
+RULE Socket write bytes array
+CLASS ^java.net.SocketOutputStream
+METHOD write(byte[])
+HELPER org.helios.apmrouter.byteman.APMSocketMonitorHelper
+AT ENTRY
+BIND socket:Socket = getFieldValue($0, "socket");
+IF TRUE
+DO setTriggering(false); 
+	traceln("Write Bytes [" + socket + "]:" + $1.length);
+	traceSocketWriteBytes(socket, $1);
+ENDRULE
+
  

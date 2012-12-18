@@ -33,6 +33,7 @@ import java.io.File;
 import java.io.StringReader;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.HashSet;
@@ -49,6 +50,7 @@ import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
 
+import org.helios.apmrouter.instrumentation.SocketStreamClassTransformer;
 import org.helios.apmrouter.instrumentation.Trace;
 import org.helios.apmrouter.instrumentation.TraceClassFileTransformer;
 import org.helios.apmrouter.jmx.JMXHelper;
@@ -105,7 +107,22 @@ public class AgentBoot {
 	 * @param instrumentation The instrumentation which may be null
 	 */
 	public static void boot(URLClassLoader classLoader, String agentArgs, Instrumentation instrumentation) {
+		//instrumentation.addTransformer(new SocketStreamClassTransformer(), true);
+		
+		try {
+			Class<?> clazz = Class.forName("java.net.SocketOutputStream");
+			SimpleLogger.info("\n\tAccess Modifier for [", clazz.getName(), "]:", Modifier.isPublic(clazz.getModifiers()));			
+		} catch (Exception ex) {
+			/* No Op */
+		}
 		ExtendedThreadManager.install();
+		try {
+			Class<?> clazz = Class.forName("sun.management.HotspotInternal");
+			Object obj = clazz.newInstance();
+			JMXHelper.getHeliosMBeanServer().registerMBean(obj, new javax.management.ObjectName("sun.management:type=HotspotInternal"));			
+		} catch (Exception ex) {
+			/* No Op */
+		}
 		AgentBoot.agentArgs = agentArgs;
 		AgentBoot.instrumentation = instrumentation;
 		AgentBoot.classLoader = classLoader;

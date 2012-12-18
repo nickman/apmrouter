@@ -24,8 +24,9 @@
  */
 package org.helios.apmrouter.byteman;
 
-import java.io.OutputStream;
 import java.io.Serializable;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -87,7 +88,9 @@ public class APMAgentHelper extends Helper implements ITracer {
 	public static void installed(Rule rule) {
 		RuleScript ruleMBean = rule.getRuleScript();
 		try {
-			JMXHelper.getHeliosMBeanServer().registerMBean(ruleMBean, ruleMBean.getObjectName());
+			if(!JMXHelper.getHeliosMBeanServer().isRegistered(ruleMBean.getObjectName())) {
+				JMXHelper.getHeliosMBeanServer().registerMBean(ruleMBean, ruleMBean.getObjectName());
+			}
 		} catch (Exception ex) {
 			SimpleLogger.warn("Failed to register Rule MBean for [", ruleMBean, "]", ex);
 		}
@@ -100,7 +103,9 @@ public class APMAgentHelper extends Helper implements ITracer {
 	public static void uninstalled(Rule rule) {
 		RuleScript ruleMBean = rule.getRuleScript();
 		try {
-			JMXHelper.getHeliosMBeanServer().unregisterMBean(ruleMBean.getObjectName());
+			if(JMXHelper.getHeliosMBeanServer().isRegistered(ruleMBean.getObjectName())) {
+				JMXHelper.getHeliosMBeanServer().unregisterMBean(ruleMBean.getObjectName());
+			}
 		} catch (Exception ex) {
 			SimpleLogger.warn("Failed to unregister Rule MBean for [", ruleMBean, "]", ex);
 		}
@@ -330,66 +335,27 @@ public class APMAgentHelper extends Helper implements ITracer {
 		return itracer.getQueuedMetrics();
 	}
 	
-	/**
-	 * Traces a server socket bind
-	 * @param ss The server socket
-	 * @param sa The socket address
-	 * @param backlog The bind backlog
-	 */
-	public void traceBoundServerSocket(ServerSocket ss, SocketAddress sa, int backlog) {	
-		String host = ((InetSocketAddress)sa).getAddress().getHostAddress();
-		String port = "" + ss.getLocalPort();
-		SimpleLogger.info("\n\tServerSocket Bind [", host, ":", port, "]  Backlog:", backlog);
-		traceCounter(1, "ServerSocketBind", "java", "net", "server", host, port);
-		traceCounter(backlog, "ServerSocketBacklog", "java", "net", "server", host, port);
+	
+	public Object getFieldValue(Object target, String fieldName) {
+		try {
+			Field f = null;
+			try {
+				f = target.getClass().getDeclaredField(fieldName);
+			} catch (NoSuchFieldException nox) {
+				f = target.getClass().getField(fieldName);
+			}
+			f.setAccessible(true);
+			Object value = f.get(Modifier.isStatic(f.getModifiers()) ? null : target);
+			SimpleLogger.info("Extracted field value [", value, "]");
+			return value;
+		} catch (Exception ex) {
+			SimpleLogger.warn("Failed to get field value for [" , target.getClass().getName() , ".", fieldName, "]", ex);
+			return null;
+		}
 	}
 	
-	/**
-	 * Traces a server socket bind with a default backlog of 50
-	 * @param ss The server socket
-	 * @param sa The socket address
-	 */
-	public void traceBoundServerSocket(ServerSocket ss, SocketAddress sa) {
-		traceBoundServerSocket(ss, sa, 50);
+	public void logMessage(String msg) {
+		SimpleLogger.info(msg);
 	}
-	
-	/**
-	 * Traces a server socket accept of a remote connection
-	 * @param ss The server socket that accepted
-	 * @param as The accepted socket created
-	 */
-	public void traceServerSocketAccept(ServerSocket ss, Socket as) {
-		InetSocketAddress localSocket = (InetSocketAddress)as.getLocalSocketAddress();
-		InetSocketAddress remoteSocket = (InetSocketAddress)as.getRemoteSocketAddress();
-		SimpleLogger.info("\n\tServerSocket Accept \n\t  Socket Local:", localSocket.getAddress().getHostAddress(), ":", localSocket.getPort(), "\n\t  Socket Remote:", remoteSocket.getAddress().getHostAddress(), ":", remoteSocket.getPort());
-		traceCounter(1, "ServerSocketAccept", "java", "net", "server", localSocket.getAddress().getHostAddress(), "" + localSocket.getPort());
-		traceCounter(1, "ServerSocketAccept", "java", "net", "server", localSocket.getAddress().getHostAddress(), "" + localSocket.getPort(), "remote", remoteSocket.getAddress().getHostAddress(), "" + remoteSocket.getPort());
-	}
-	
-	/**
-	 * Traces a server socket accept of a remote connection
-	 * @param ss The server socket that accepted
-	 * @param as The accepted socket created
-	 */
-	public void traceServerSockAccept(Object ss, Object as) {
-		SimpleLogger.info("\n\tServerSocket Accept [", ss.getClass().getName(), "]:[", as.getClass().getName(), "]");
-	}
-	
-	public void traceSocketWriteBytes(Socket as, int length) {
-		InetSocketAddress localSocket = (InetSocketAddress)as.getLocalSocketAddress();
-		InetSocketAddress remoteSocket = (InetSocketAddress)as.getRemoteSocketAddress();		
-		SimpleLogger.info("\n\tSocket Write [", length, "] bytes\n\t  Socket Local:", localSocket.getAddress().getHostAddress(), ":", localSocket.getPort(), "\n\t  Socket Remote:", remoteSocket.getAddress().getHostAddress(), ":", remoteSocket.getPort());
-	}
-	public void traceSocketWriteBytes(Socket as, byte[] bytes) {
-		InetSocketAddress localSocket = (InetSocketAddress)as.getLocalSocketAddress();
-		InetSocketAddress remoteSocket = (InetSocketAddress)as.getRemoteSocketAddress();		
-		SimpleLogger.info("\n\tSocket Write [", bytes.length, "] bytes\n\t  Socket Local:", localSocket.getAddress().getHostAddress(), ":", localSocket.getPort(), "\n\t  Socket Remote:", remoteSocket.getAddress().getHostAddress(), ":", remoteSocket.getPort());		
-	}
-	public void traceSocketWriteByte(Socket as) {
-		InetSocketAddress localSocket = (InetSocketAddress)as.getLocalSocketAddress();
-		InetSocketAddress remoteSocket = (InetSocketAddress)as.getRemoteSocketAddress();		
-		SimpleLogger.info("\n\tSocket Write [", 1, "] bytes\n\t  Socket Local:", localSocket.getAddress().getHostAddress(), ":", localSocket.getPort(), "\n\t  Socket Remote:", remoteSocket.getAddress().getHostAddress(), ":", remoteSocket.getPort());				
-	}
-	
 
 }
