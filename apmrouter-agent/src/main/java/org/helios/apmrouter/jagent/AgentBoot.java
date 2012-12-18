@@ -101,6 +101,14 @@ public class AgentBoot {
 	}
 	
 	/**
+	 * Returns the instrumentation instance
+	 * @return the instrumentation instance
+	 */
+	public static Instrumentation getInstrumentation() {
+		return instrumentation;
+	}
+	
+	/**
 	 * The core module boot hook when installing though the java-agent
 	 * @param classLoader The classloader passed by the bootstrap agent
 	 * @param agentArgs The agent arguments

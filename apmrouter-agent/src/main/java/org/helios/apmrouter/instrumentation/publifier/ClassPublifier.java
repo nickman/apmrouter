@@ -51,7 +51,7 @@ import org.helios.apmrouter.util.SimpleLogger;
  * <p><code>org.helios.apmrouter.instrumentation.publifier.ClassPublifier</code></p>
  */
 
-public class ClassPublifier extends AgentBoot implements ClassFileTransformer {
+public class ClassPublifier implements ClassFileTransformer {
 	/** The singleton instance */
 	private static volatile ClassPublifier instance = null; 
 	/** The singleton instance ctor lock */
@@ -96,7 +96,7 @@ public class ClassPublifier extends AgentBoot implements ClassFileTransformer {
 			synchronized(lock) {
 				if(instance==null) {
 					instance = new ClassPublifier();
-					instrumentation = AgentBoot.instrumentation;
+					instrumentation = AgentBoot.getInstrumentation();
 				}
 			}
 		}
