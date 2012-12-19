@@ -98,4 +98,19 @@ DO setTriggering(false);
 	traceSocketWriteBytes(socket, $1);
 ENDRULE
 
- 
+#==============================================
+# This works with publified SocketStreams
+#==============================================
+RULE Socket write bytes offset
+CLASS ^java.net.SocketOutputStream
+METHOD write(byte[], int, int)
+HELPER org.helios.apmrouter.byteman.APMSocketMonitorHelper
+AT ENTRY
+#BIND socket:Socket = getFieldValue($0, "socket");
+BIND socket:Socket = $0.socket;
+IF TRUE
+DO setTriggering(false); 
+	traceln("Write Bytes [" + socket + "]:" + $3);
+	traceSocketWriteBytes(socket, $3);
+ENDRULE
+#==============================================

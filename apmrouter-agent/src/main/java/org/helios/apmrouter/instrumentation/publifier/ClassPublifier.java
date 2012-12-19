@@ -118,34 +118,43 @@ public class ClassPublifier implements ClassFileTransformer {
 	
 	/**
 	 * Publifies the passed class names. This call cannot be reverted.
-	 * @param redefine If true, classes are redefined, otherwise, they are retransformed
 	 * @param classNames The names of the classes to publify
-	 * @return An array of the publified classes
 	 */
-	public Class<?>[] publify(String...classNames) {
-		if(classNames==null || classNames.length<1) return NULL_CLASS_ARR;
-		Set<Class<?>> clazzes = new HashSet<Class<?>>(classNames.length);
-		try {
-			instrumentation.addTransformer(this, true);
-			for(String className: classNames) {
+	public void publify(String...classNames) {
+		if(classNames==null || classNames.length<1) return;
+		final Set<String> binaryClassNames = new HashSet<String>(classNames.length);
+		for(String className: classNames) {
+			if(className==null || className.trim().isEmpty()) continue;
+			binaryClassNames.add(convertToBinaryName(className.trim()));
+		}
+		instrumentation.addTransformer(new ClassFileTransformer(){
+			/**
+			 * {@inheritDoc}
+			 * @see java.lang.instrument.ClassFileTransformer#transform(java.lang.ClassLoader, java.lang.String, java.lang.Class, java.security.ProtectionDomain, byte[])
+			 */
+			@Override
+			public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
+				ClassPool tClassPool = null;
 				try {
-					if(className==null || className.trim().isEmpty()) continue;
-					toPublify.get().put(convertToBinaryName(className), null);
-					Class<?> clazz = Class.forName(className);
-					clazzes.add(clazz);
-				} catch (Exception e) {					
-					SimpleLogger.warn("Failed to publify class [", className, "]:", e.toString());
-				} finally {
-					toPublify.get().remove(className);
+					if(binaryClassNames.contains(className)) {
+						tClassPool = new ClassPool();
+						tClassPool.appendSystemPath();
+						CtClass clazz = tClassPool.get(convertFromBinaryName(className));
+						clazz.setModifiers(clazz.getModifiers() | Modifier.PUBLIC);
+						
+						byte[] byteCode = clazz.toBytecode();
+						SimpleLogger.info("\n\tPublified [" , clazz.getName(), "]\n");
+						return byteCode;
+					}
+				} catch (Throwable ex) {
+					SimpleLogger.warn("Failed to  publify [", className, "]", ex);
+					return classfileBuffer;
 				}
+				return classfileBuffer;				
 			}
-			return clazzes.toArray(new Class[clazzes.size()]);
-		} catch (Exception ex) {
-			SimpleLogger.error("Failed to publify classes " + Arrays.toString(classNames), ex);
-			return NULL_CLASS_ARR;
-		} finally {
-			lastPub.remove();
-			instrumentation.removeTransformer(this);
+		}, true);
+		for(String className: classNames) {
+			try { ClassLoader.getSystemClassLoader().getParent().loadClass(className); } catch (Throwable ex) {/* No Op*/}
 		}
 	}	
 	
@@ -217,7 +226,7 @@ public class ClassPublifier implements ClassFileTransformer {
 		} catch (Exception ex) {
 			throw new RuntimeException("Failed to create class definitions for " + Arrays.toString(classes), ex);
 		} finally {
-			
+			/* No Op */
 		}
 		
 		return defs.toArray(new ClassDefinition[defs.size()]);

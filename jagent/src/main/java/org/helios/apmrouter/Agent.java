@@ -24,11 +24,12 @@
  */
 package org.helios.apmrouter;
 
+import java.io.File;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Method;
-import java.net.JarURLConnection;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.jar.JarFile;
 
 
 /**
@@ -67,12 +68,18 @@ public class Agent {
 	 * @param args One parameter processed which is the URL to an XML config
 	 */
 	public static void main(String[] args) {
-		//coreClassLoader = getIsolatedClassLoader();
-		//final ClassLoader current = Thread.currentThread().getContextClassLoader();
+		coreClassLoader = getIsolatedClassLoader();
+		final ClassLoader current = Thread.currentThread().getContextClassLoader();
 		try {
-			//Thread.currentThread().setContextClassLoader(coreClassLoader);
-			//Class<?> bootClass = Class.forName(BOOT_CLASS, true, coreClassLoader);
-			Class<?> bootClass = Class.forName(BOOT_CLASS);
+			Thread.currentThread().setContextClassLoader(coreClassLoader);
+			Class<?> bootClass = Class.forName(BOOT_CLASS, true, coreClassLoader);
+			URL jarUrl = Agent.class.getProtectionDomain().getCodeSource().getLocation();
+			
+			File agentFile = new File(jarUrl.getFile());
+			log("Agent Code Source: [" + jarUrl + "]   File: [" + agentFile + "]");
+			JarFile jarFile = new JarFile(agentFile);
+			Agent.instrumentation.appendToBootstrapClassLoaderSearch(jarFile);
+			//Class<?> bootClass = Class.forName(BOOT_CLASS);
 			Method method = bootClass.getDeclaredMethod("boot", URLClassLoader.class, String.class, Instrumentation.class);
 			method.invoke(null, args.length==0 ? null : Thread.currentThread().getContextClassLoader(), args[0], instrumentation);
 			log("\n\t=============================\n\tAPMRouter JavaAgent v " + version(Agent.class) + " Successfully Started\n\t=============================\n");
@@ -80,7 +87,7 @@ public class Agent {
 			System.err.println("Failed to load apmrouter java-agent core. Stack trace follows:");
 			e.printStackTrace(System.err);
 		} finally {
-			//Thread.currentThread().setContextClassLoader(current);
+			Thread.currentThread().setContextClassLoader(current);
 		}
 	}
 	

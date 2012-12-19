@@ -32,6 +32,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.PrintStream;
 import java.io.RandomAccessFile;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.HashSet;
@@ -114,6 +115,9 @@ public class NativeLibLoader {
 			byte[] buffer = new byte[4096];
 			int bytesWritten = 0;
 			int totalBytesWritten = 0;
+//			ClassLoader ncl = NativeLibLoader.class.getClassLoader();
+//			URL ncs = NativeLibLoader.class.getProtectionDomain().getCodeSource().getLocation();
+//			System.out.println("\n\tNativeLibLoader:\n\t\tClassLoader:" + ncl + "\n\t\tCodeSource:" + ncs + "\n");
 			is = NativeLibLoader.class.getClassLoader().getResourceAsStream("META-INF/native/" + nativeLibraryName);
 			File tmpFile = File.createTempFile("jzabTmp", nativeLibraryName);
 			SnipeFilesRepo.getInstance().bypass(tmpFile);

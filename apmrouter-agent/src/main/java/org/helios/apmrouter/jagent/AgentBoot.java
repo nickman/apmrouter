@@ -36,6 +36,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -53,6 +54,7 @@ import javax.management.remote.JMXServiceURL;
 import org.helios.apmrouter.instrumentation.SocketStreamClassTransformer;
 import org.helios.apmrouter.instrumentation.Trace;
 import org.helios.apmrouter.instrumentation.TraceClassFileTransformer;
+import org.helios.apmrouter.instrumentation.publifier.ClassPublifier;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.jmx.XMLHelper;
 import org.helios.apmrouter.jmx.threadinfo.ExtendedThreadManager;
@@ -122,13 +124,20 @@ public class AgentBoot {
 		AgentBoot.classLoader = classLoader;
 		configure();
 		ExtendedThreadManager.install();
-		try {
-			Class<?> clazz = Class.forName("sun.management.HotspotInternal");
-			Object obj = clazz.newInstance();
-			JMXHelper.getHeliosMBeanServer().registerMBean(obj, new javax.management.ObjectName("sun.management:type=HotspotInternal"));			
-		} catch (Exception ex) {
-			SimpleLogger.warn("Failed to install HotspotInternal:", ex.toString());
-		}
+		Thread t = new Thread("HotspotInternalLoaderThread") {
+			public void run() {
+				try {
+					Thread.sleep(15000);
+					Class<?> clazz = Class.forName("sun.management.HotspotInternal");
+					Object obj = clazz.newInstance();
+					JMXHelper.getHeliosMBeanServer().registerMBean(obj, new javax.management.ObjectName("sun.management:type=HotspotInternal"));			
+				} catch (Exception ex) {
+					SimpleLogger.warn("Failed to install HotspotInternal:", ex);
+				}				
+			}
+		};
+		t.setDaemon(true);
+		t.start();
 	}
 	
 	/**
@@ -158,19 +167,31 @@ public class AgentBoot {
 			}
 			loadJmxConnectors(XMLHelper.getChildNodeByName(configNode, "jmx-connector", false));
 			loadMonitors(XMLHelper.getChildNodeByName(configNode, "monitors", false));
-			
-			
-			
-			
-			
 		}		
 	}
 	
-/**
-	 * @param childNodeByName
+	/**
+	 * The passed node contains the comma separated names of classes that need to be publified
+	 * @param publifyNode The publify config node
 	 */
 	private static void publify(Node publifyNode) {
+		SimpleLogger.info("\n\tExecuting publifier");
 		if(publifyNode==null) return;
+		String[] classes = XMLHelper.getNodeTextValue(publifyNode).split(",");
+		SimpleLogger.debug("Publifying Classes ", Arrays.toString(classes));
+		try {
+			ClassPublifier.getInstance().publify(classes);
+				StringBuilder b = new StringBuilder("\n\t===============================================\n\tThe following classes will be transformed to make them public\n\t===============================================");
+				for(String className: classes) {
+					if(className==null || className.trim().isEmpty()) continue;
+					b.append("\n\t").append(className.trim());
+				}
+				b.append("\n\t===============================================\n");
+				SimpleLogger.info(b.toString());
+		} catch (Exception ex) {
+			/* No Op */
+		}
+		
 		
 	}
 
