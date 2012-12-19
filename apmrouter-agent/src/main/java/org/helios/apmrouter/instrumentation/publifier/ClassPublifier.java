@@ -24,12 +24,14 @@
  */
 package org.helios.apmrouter.instrumentation.publifier;
 
+import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
 import java.lang.instrument.UnmodifiableClassException;
 import java.lang.reflect.Modifier;
 import java.security.ProtectionDomain;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -37,10 +39,11 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javassist.ByteArrayClassPath;
+import javassist.ClassClassPath;
 import javassist.ClassPool;
 import javassist.CtClass;
 
-import org.helios.apmrouter.jagent.AgentBoot;
+import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.util.SimpleLogger;
 
 /**
@@ -83,7 +86,7 @@ public class ClassPublifier implements ClassFileTransformer {
 	};
 	
 	/** The instrumentation instance */
-	private static Instrumentation instrumentation = null;
+	private final Instrumentation instrumentation;
 	/** The name of the marker interface applied to publified classes */
 	public static final String PUBLIFIED_IFACE = Publified.class.getName();
 	
@@ -95,25 +98,64 @@ public class ClassPublifier implements ClassFileTransformer {
 		if(instance==null) {
 			synchronized(lock) {
 				if(instance==null) {
-					instance = new ClassPublifier();
-					instrumentation = AgentBoot.getInstrumentation();
+					instance = new ClassPublifier();					
 				}
 			}
 		}
 		return instance;
 	}
 	
-	private ClassPublifier() { /* No Op */ }
+	private ClassPublifier() { 
+		try {
+			instrumentation = (Instrumentation)JMXHelper.getHeliosMBeanServer().getAttribute(org.helios.apmrouter.jagent.Instrumentation.OBJECT_NAME, "Instance");
+		} catch (Exception ex) {
+			throw new RuntimeException("Failed to load instrumentation", ex);
+		}
+	}
 	
 	/** Empty class array constant */
 	private static final Class<?>[] NULL_CLASS_ARR = new Class[0];
 	
 	/**
+	 * Publifies the passed class names. This call cannot be reverted.
+	 * @param redefine If true, classes are redefined, otherwise, they are retransformed
+	 * @param classNames The names of the classes to publify
+	 * @return An array of the publified classes
+	 */
+	public Class<?>[] publify(String...classNames) {
+		if(classNames==null || classNames.length<1) return NULL_CLASS_ARR;
+		Set<Class<?>> clazzes = new HashSet<Class<?>>(classNames.length);
+		try {
+			instrumentation.addTransformer(this, true);
+			for(String className: classNames) {
+				try {
+					if(className==null || className.trim().isEmpty()) continue;
+					toPublify.get().put(convertToBinaryName(className), null);
+					Class<?> clazz = Class.forName(className);
+					clazzes.add(clazz);
+				} catch (Exception e) {					
+					SimpleLogger.warn("Failed to publify class [", className, "]:", e.toString());
+				} finally {
+					toPublify.get().remove(className);
+				}
+			}
+			return clazzes.toArray(new Class[clazzes.size()]);
+		} catch (Exception ex) {
+			SimpleLogger.error("Failed to publify classes " + Arrays.toString(classNames), ex);
+			return NULL_CLASS_ARR;
+		} finally {
+			lastPub.remove();
+			instrumentation.removeTransformer(this);
+		}
+	}	
+	
+	/**
 	 * Publifies the passed classes
+	 * @param redefine If true, classes are redefined, otherwise, they are retransformed
 	 * @param classes The classes to publify
 	 * @return An array of the publified classes
 	 */
-	public Class<?>[] publify(Class<?>...classes) {
+	public Class<?>[] publify(boolean redefine, Class<?>...classes) {
 		if(classes==null || classes.length<1) return NULL_CLASS_ARR; 
 		try {
 			for(Class<?> clazz: classes) {
@@ -122,7 +164,15 @@ public class ClassPublifier implements ClassFileTransformer {
 			}			
 			instrumentation.addTransformer(this, true);
 			try {
-				instrumentation.retransformClasses(classes);
+				if(redefine) {
+					try {
+						instrumentation.redefineClasses(getClassDefinitions(classes));
+					} catch (ClassNotFoundException e) {						
+						throw new RuntimeException("Failed to redefine classes " + Arrays.toString(classes), e);
+					}
+				} else {
+					instrumentation.retransformClasses(classes);
+				}
 			} catch (UnmodifiableClassException e) {
 				throw new RuntimeException("A class was found unmodifiable", e);
 			}
@@ -142,11 +192,44 @@ public class ClassPublifier implements ClassFileTransformer {
 	}
 	
 	/**
+	 * Acquires {@link ClassDefinition}s for the passed classes
+	 * @param classes The classes to get {@link ClassDefinition}s for 
+	 * @return an array of {@link ClassDefinition}s
+	 */
+	protected ClassDefinition[] getClassDefinitions(Class<?>...classes) {
+		if(classes==null || classes.length<1) return new ClassDefinition[0];
+		Set<ClassDefinition> defs = new HashSet<ClassDefinition>();
+		try {			
+			ClassPool cp = new ClassPool();
+			for(Class<?> clazz: classes) {
+				cp.appendClassPath(new ClassClassPath(clazz));
+			}
+			for(Class<?> clazz: classes) {
+				byte[] byteCode = originalByteCode.get(clazz.getName());
+				if(byteCode!=null) {
+					defs.add(new ClassDefinition(clazz, byteCode));
+				} else {
+					CtClass ctClazz = cp.get(clazz.getName());
+					defs.add(new ClassDefinition(clazz, ctClazz.toBytecode()));
+					ctClazz.detach();
+				}
+			}			
+		} catch (Exception ex) {
+			throw new RuntimeException("Failed to create class definitions for " + Arrays.toString(classes), ex);
+		} finally {
+			
+		}
+		
+		return defs.toArray(new ClassDefinition[defs.size()]);
+	}
+	
+	/**
 	 * Reverts the passed classes to their original byte code
+	 * @param redefine If true, classes are redefined, otherwise, they are retransformed
 	 * @param classes The classes to revert
 	 * @return The reverted classes
 	 */
-	public synchronized Class<?>[] revert(Class<?>...classes) {
+	public synchronized Class<?>[] revert(boolean redefine, Class<?>...classes) {
 		if(classes==null || classes.length<1) return NULL_CLASS_ARR;
 		try {
 			for(Class<?> clazz: classes) {
@@ -155,7 +238,15 @@ public class ClassPublifier implements ClassFileTransformer {
 			}						
 			instrumentation.addTransformer(this, true);
 			try {
-				instrumentation.retransformClasses(classes);
+				if(redefine) {
+					try {
+						instrumentation.redefineClasses(getClassDefinitions(classes));
+					} catch (ClassNotFoundException e) {						
+						throw new RuntimeException("Failed to redefine classes " + Arrays.toString(classes), e);
+					}
+				} else {
+					instrumentation.retransformClasses(classes);
+				}
 			} catch (UnmodifiableClassException e) {
 				throw new RuntimeException("A class was found unmodifiable", e);
 			}

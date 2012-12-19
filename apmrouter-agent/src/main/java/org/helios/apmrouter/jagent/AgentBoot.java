@@ -116,27 +116,19 @@ public class AgentBoot {
 	 */
 	public static void boot(URLClassLoader classLoader, String agentArgs, Instrumentation instrumentation) {
 		//instrumentation.addTransformer(new SocketStreamClassTransformer(), true);
-		
-		try {
-			Class<?> clazz = Class.forName("java.net.SocketOutputStream");
-			SimpleLogger.info("\n\tAccess Modifier for [", clazz.getName(), "]:", Modifier.isPublic(clazz.getModifiers()));			
-		} catch (Exception ex) {
-			/* No Op */
-		}
+		org.helios.apmrouter.jagent.Instrumentation.install(instrumentation);
+		AgentBoot.agentArgs = agentArgs;
+		AgentBoot.instrumentation = instrumentation;
+		AgentBoot.classLoader = classLoader;
+		configure();
 		ExtendedThreadManager.install();
 		try {
 			Class<?> clazz = Class.forName("sun.management.HotspotInternal");
 			Object obj = clazz.newInstance();
 			JMXHelper.getHeliosMBeanServer().registerMBean(obj, new javax.management.ObjectName("sun.management:type=HotspotInternal"));			
 		} catch (Exception ex) {
-			/* No Op */
+			SimpleLogger.warn("Failed to install HotspotInternal:", ex.toString());
 		}
-		AgentBoot.agentArgs = agentArgs;
-		AgentBoot.instrumentation = instrumentation;
-		AgentBoot.classLoader = classLoader;
-		//SenderFactory.getInstance();
-		//DefaultMonitorBoot.boot();
-		configure();
 	}
 	
 	/**
@@ -155,6 +147,7 @@ public class AgentBoot {
 				return;
 			}			
 			loadProps(XMLHelper.getChildNodeByName(configNode, "props", false));
+			publify(XMLHelper.getChildNodeByName(configNode, "publify", false));
 			loadJavaAgents(XMLHelper.getChildNodeByName(configNode, "javaagents", false));
 			SenderFactory.getInstance();
 			
@@ -173,7 +166,15 @@ public class AgentBoot {
 		}		
 	}
 	
-/*
+/**
+	 * @param childNodeByName
+	 */
+	private static void publify(Node publifyNode) {
+		if(publifyNode==null) return;
+		
+	}
+
+	/*
 	<jmx-connector>
 		<connectorclass>javax.management.remote.jmxmp.JMXMPConnectorServer</connectorclass>
 		<serviceurl>service:jmx:jmxmp://0.0.0.0:8006</serviceurl>		

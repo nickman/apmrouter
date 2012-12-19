@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.byteman;
 
+import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -55,11 +56,11 @@ public class APMSocketMonitorHelper extends APMAgentHelper {
 		APMAgentHelper.activated();
 		Class<?>[] publified = null;
 		try {
-			publified = ClassPublifier.getInstance().publify(Class.forName("java.net.SocketOutputStream"), Class.forName("java.net.SocketInputStream"));
+			publified = ClassPublifier.getInstance().publify(true, Class.forName("java.net.SocketOutputStream"), Class.forName("java.net.SocketInputStream"));
 			SimpleLogger.info("Publified SocketMonitor Classes:" + publified.length);
 			StringBuilder b = new StringBuilder("\nPublified SocketMonitor Classes:");
 			for(Class<?> clazz: publifiedClasses) {
-				b.append("\n\t[").append(clazz.getName()).append("]-->").append(clazz.getClassLoader());
+				b.append("\n\t[").append(clazz.getName()).append("]  Public:").append(Modifier.isPublic(clazz.getModifiers()));
 			}
 			b.append("\n");
 			SimpleLogger.info(b);
@@ -77,7 +78,7 @@ public class APMSocketMonitorHelper extends APMAgentHelper {
 		APMAgentHelper.deactivated();
 		Class<?>[] reverted = null;
 		try {
-			reverted = ClassPublifier.getInstance().revert(Class.forName("java.net.SocketOutputStream"), Class.forName("java.net.SocketInputStream"));
+			reverted = ClassPublifier.getInstance().revert(true, Class.forName("java.net.SocketOutputStream"), Class.forName("java.net.SocketInputStream"));
 			SimpleLogger.info("Reverted SocketMonitor Classes:" + reverted.length);
 			for(Class<?> clazz: reverted) {
 				publifiedClasses.remove(clazz);
@@ -163,13 +164,14 @@ public class APMSocketMonitorHelper extends APMAgentHelper {
 	}
 	/**
 	 * Traces the number of bytes written to a socket output stream
-	 * @param as The socket whose output stream was written to
-	 * @param bytes The byte array that was written to the output stream
+	 * @param stream The socketoutputstream being written to
+	 * @param length The number of bytes written
 	 */
-	public void traceSocketWriteBytes(Socket as, byte[] bytes) {
+	public void traceSocketWriteByteArrayOffset(Object stream, int length) {
+		Socket as = (Socket)getFieldValue(stream, "socket");
 		InetSocketAddress localSocket = (InetSocketAddress)as.getLocalSocketAddress();
 		InetSocketAddress remoteSocket = (InetSocketAddress)as.getRemoteSocketAddress();		
-		SimpleLogger.info("\n\tSocket Write [", bytes.length, "] bytes\n\t  Socket Local:", localSocket.getAddress().getHostAddress(), ":", localSocket.getPort(), "\n\t  Socket Remote:", remoteSocket.getAddress().getHostAddress(), ":", remoteSocket.getPort());		
+		SimpleLogger.info("\n\tSocket Write [", length, "] bytes\n\t  Socket Local:", localSocket.getAddress().getHostAddress(), ":", localSocket.getPort(), "\n\t  Socket Remote:", remoteSocket.getAddress().getHostAddress(), ":", remoteSocket.getPort());		
 	}
 	/**
 	 * Traces the number (in this case, one) of bytes written to a socket output stream

@@ -27,10 +27,6 @@ package org.helios.apmrouter.byteman;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.SocketAddress;
 import java.util.concurrent.TimeUnit;
 
 import org.helios.apmrouter.jmx.JMXHelper;

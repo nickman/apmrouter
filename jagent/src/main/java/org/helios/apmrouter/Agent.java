@@ -67,19 +67,20 @@ public class Agent {
 	 * @param args One parameter processed which is the URL to an XML config
 	 */
 	public static void main(String[] args) {
-		coreClassLoader = getIsolatedClassLoader();
-		final ClassLoader current = Thread.currentThread().getContextClassLoader();
+		//coreClassLoader = getIsolatedClassLoader();
+		//final ClassLoader current = Thread.currentThread().getContextClassLoader();
 		try {
-			Thread.currentThread().setContextClassLoader(coreClassLoader);
-			Class<?> bootClass = Class.forName(BOOT_CLASS, true, coreClassLoader);
+			//Thread.currentThread().setContextClassLoader(coreClassLoader);
+			//Class<?> bootClass = Class.forName(BOOT_CLASS, true, coreClassLoader);
+			Class<?> bootClass = Class.forName(BOOT_CLASS);
 			Method method = bootClass.getDeclaredMethod("boot", URLClassLoader.class, String.class, Instrumentation.class);
-			method.invoke(null, args.length==0 ? null : coreClassLoader, args[0], instrumentation);
+			method.invoke(null, args.length==0 ? null : Thread.currentThread().getContextClassLoader(), args[0], instrumentation);
 			log("\n\t=============================\n\tAPMRouter JavaAgent v " + version(Agent.class) + " Successfully Started\n\t=============================\n");
 		} catch (Exception e) {
 			System.err.println("Failed to load apmrouter java-agent core. Stack trace follows:");
 			e.printStackTrace(System.err);
 		} finally {
-			Thread.currentThread().setContextClassLoader(current);
+			//Thread.currentThread().setContextClassLoader(current);
 		}
 	}
 	
