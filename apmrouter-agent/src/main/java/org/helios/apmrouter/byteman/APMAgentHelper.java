@@ -29,6 +29,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.concurrent.TimeUnit;
 
+import org.cliffc.high_scale_lib.Counter;
+import org.cliffc.high_scale_lib.NonBlockingHashMap;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.MetricType;
@@ -52,7 +54,8 @@ import org.snmp4j.PDU;
 public class APMAgentHelper extends Helper implements ITracer {
 	/** The {@link ITracer} instance created when this helper is activated */
 	protected static ITracer itracer = null;
-	
+	/** Metrics accumulator */
+	protected final NonBlockingHashMap<String, Counter> metrics = new NonBlockingHashMap<String, Counter>();
 	
 	/**
 	 * Creates a new APMAgentHelper

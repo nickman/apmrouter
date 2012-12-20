@@ -34,7 +34,10 @@
 			<artifactId>javassist</artifactId>
 		</dependency>
 		
-		
+			<dependency>
+			  <groupId>com.github.stephenc.high-scale-lib</groupId>
+			  <artifactId>high-scale-lib</artifactId>
+			</dependency>		
 		
 		<!--  JSON Formatting -->
 			<dependency>

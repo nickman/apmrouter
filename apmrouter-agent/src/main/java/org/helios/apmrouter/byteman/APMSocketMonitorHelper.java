@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -35,7 +36,10 @@ import java.net.SocketAddress;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import org.helios.apmrouter.byteman.SocketTracingLevel.SocketTracingLevelListener;
+import org.helios.apmrouter.byteman.SocketTracingLevel.SocketTracingLevelWatcher;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.util.SimpleLogger;
 import org.jboss.byteman.rule.Rule;
@@ -49,8 +53,6 @@ import org.jboss.byteman.rule.Rule;
  */
 
 public class APMSocketMonitorHelper extends APMAgentHelper {
-	/** A set of publified classes that will be reverted on helper unload */
-	protected static final Set<Class<?>> publifiedClasses = new CopyOnWriteArraySet<Class<?>>();
 	
 	/** The java.net.SocketOutputStream class */
 	protected static final Class<?> SOCK_OUT_CLASS;
@@ -74,6 +76,28 @@ public class APMSocketMonitorHelper extends APMAgentHelper {
 		}
 	}
 	
+	/** The level listener for this helper's socket tracing level */
+	protected static final SocketTracingLevelListener levelListener = new SocketTracingLevelListener() {
+
+		@Override
+		public void fromNullTo(SocketTracingLevel newLevel) {			
+			
+		}
+
+		@Override
+		public void toNull(SocketTracingLevel oldLevel) {
+			
+		}
+
+		@Override
+		public void change(SocketTracingLevel oldLevel, SocketTracingLevel newLevel) {
+			
+		}
+		
+	};
+	/** The socket tracing level */
+	protected static final SocketTracingLevelWatcher tracingLevel = new SocketTracingLevelWatcher(SocketTracingLevel.CONNECTIONS, levelListener); 
+	
 	/** The array index for socket input (reads) */
 	public static final int INPUT = 0;
 	/** The array index for socket output (writes) */
@@ -82,18 +106,88 @@ public class APMSocketMonitorHelper extends APMAgentHelper {
 	public static final int LOCAL = 0;
 	/** The array index for the remote socket */
 	public static final int REMOTE = 0;
+	
+	/**
+	 * Events to track:
+	 *  New Connections:
+	 *  ================
+	 *  ServerSocket.implAccept (on entry) --> returned socket is an INCOMING (server) connection
+	 * 	
+	 *  
+	 *  Socket.connect()       -->   unless registered as an incoming, this socket is an OUTGOING (client) connection
+	 *  	CONNECTIONS: Increment counter in serverConnections or clientConnections
+	 *  	ADDRESS_TRAFFIC: [Check that socket is registered in serverAddressIO or clientAddressIO]
+	 *  	PORT_TRAFFIC: [Check that socket is registered in serverSocketIO or clientSocketIO]
+	 *  	ADDRESS_PORT_TRAFFIC: [Check that socket is registered in serverSocketIO or clientSocketIO]
+	 *  
+	 *  I/O Activity:
+	 *  =============
+	 *  
+	 *  Socket.getInputStream()
+	 *  Socket.getOutputStream()
+	 *  	CONNECTIONS: None
+	 *  	ADDRESS_TRAFFIC: Add stream and local/remote InetAddresses to outputAddresses or inputAddresses
+	 *  	PORT_TRAFFIC: Add stream and local/remote InetSocketAddresses to outputPortAddresses or inputPortAddresses
+	 *  	ADDRESS_PORT_TRAFFIC: Add stream and local/remote InetSocketAddresses to outputPortAddresses or inputPortAddresses
+	 *  
+	 *  SocketOutputStream.write(...)
+	 *  SocketInputStream.read(...)
+	 *  	CONNECTIONS: None
+	 *  	ADDRESS_TRAFFIC: Add byte count to serverAddressIO or clientAddressIO
+	 *  	PORT_TRAFFIC: Add byte count to serverSocketIO or clientSocketIO
+	 *  	ADDRESS_PORT_TRAFFIC: Add byte count to serverSocketIO or clientSocketIO
+	 *  
+	 *  Closed Connections:
+	 *  ===================
+	 *  Socket.close()
+	 *  	CONNECTIONS: Decrement counter in serverConnections or clientConnections
+	 *  	ADDRESS_TRAFFIC: [Check that socket is de-registered from serverAddressIO or clientAddressIO  & clear outputAddresses or inputAddresses]
+	 *  	PORT_TRAFFIC: [Check that socket is de-registered from serverSocketIO or clientSocketIO  & clear outputPortAddresses or inputPortAddresses]
+	 *  	ADDRESS_PORT_TRAFFIC: [Check that socket is de-registered from serverSocketIO or clientSocketIO  & clear outputPortAddresses or inputPortAddresses]
+	 *  
+	 *  NOTE: No collection diff between PORT_TRAFFIC and ADDRESS_PORT_TRAFFIC. Flush thread will accumulate address level I/O on flush. 
+	 */
 
+	//===============================================================================
+	//   Tracking of sockets for socket streams used when using ADDRESS_TRAFFIC
+	//   This saves us from having to reflect out the socket on every call.
+	//===============================================================================	
+	/** A map of of addresses (local and remote) keyed by an opaque socket output stream */
+	protected static final ConcurrentHashMap<OutputStream, InetAddress[]> outputAddresses = new ConcurrentHashMap<OutputStream, InetAddress[]>(128, 0.75f, 16); 
+	/** A map of of addresses (local and remote) keyed by an opaque socket input stream */
+	protected static final ConcurrentHashMap<InputStream, InetAddress[]> inputAddresses = new ConcurrentHashMap<InputStream, InetAddress[]>(128, 0.75f, 16);
+	//===============================================================================
+	//   Tracking of sockets for socket streams used when using >= PORT_TRAFFIC 
+	//   This saves us from having to reflect out the socket on every call.
+	//===============================================================================	
+	/** A map of of addresses (local and remote) keyed by an opaque socket output stream */
+	protected static final ConcurrentHashMap<OutputStream, InetSocketAddress[]> outputPortAddresses = new ConcurrentHashMap<OutputStream, InetSocketAddress[]>(128, 0.75f, 16); 
+	/** A map of of addresses (local and remote) keyed by an opaque socket input stream */
+	protected static final ConcurrentHashMap<InputStream, InetSocketAddress[]> inputPortAddresses = new ConcurrentHashMap<InputStream, InetSocketAddress[]>(128, 0.75f, 16); 
 	
-	/** A map of of socket addresses (local and remote) keyed by an opaque socket output stream */
-	protected static final ConcurrentHashMap<OutputStream, InetSocketAddress[]> outputIO = new ConcurrentHashMap<OutputStream, InetSocketAddress[]>(128, 0.75f, 16); 
-	/** Two member arrays of socket addresses (local and remote) keyed by an opaque InetSocketAddress input stream */
-	protected static final ConcurrentHashMap<InputStream, InetSocketAddress[]> inputIO = new ConcurrentHashMap<InputStream, InetSocketAddress[]>(128, 0.75f, 16); 
-	
+	//===================================================================
+	//   Accumulators used when we're tracing at at least PORT_TRAFFICconnection
+	//===================================================================
 	/** Two member arrays of interval accumulators for IN/OUT traffic marking, keyed by the local server socket the i/o occurs on. */
 	protected static final ConcurrentHashMap<Socket, ConcurrentLongSlidingWindow[]> serverSocketIO = new ConcurrentHashMap<Socket, ConcurrentLongSlidingWindow[]>(128, 0.75f, 16); 
 	/** Two member arrays of interval accumulators for IN/OUT traffic marking, keyed by the local client socket the i/o occurs on. */
 	protected static final ConcurrentHashMap<Socket, ConcurrentLongSlidingWindow[]> clientSocketIO = new ConcurrentHashMap<Socket, ConcurrentLongSlidingWindow[]>(128, 0.75f, 16);
+	//===================================================================
+	//   Accumulators used when we're tracing at ADDRESS_TRAFFIC
+	//===================================================================
+	/** Two member arrays of interval accumulators for IN/OUT traffic marking, keyed by the local server socket the i/o occurs on. */
+	protected static final ConcurrentHashMap<InetAddress, ConcurrentLongSlidingWindow[]> serverAddressIO = new ConcurrentHashMap<InetAddress, ConcurrentLongSlidingWindow[]>(128, 0.75f, 16); 
+	/** Two member arrays of interval accumulators for IN/OUT traffic marking, keyed by the local client socket the i/o occurs on. */
+	protected static final ConcurrentHashMap<InetAddress, ConcurrentLongSlidingWindow[]> clientAddressIO = new ConcurrentHashMap<InetAddress, ConcurrentLongSlidingWindow[]>(128, 0.75f, 16);
+	//===================================================================
+	//   Accumulators used when we're tracing at CONNECTIONS
+	//===================================================================
+	/** Counters for active connections INTO this JVM */
+	protected static final ConcurrentHashMap<InetAddress, AtomicInteger> serverConnections = new ConcurrentHashMap<InetAddress, AtomicInteger>(128, 0.75f, 16); 
+	/** Counters for active connections INTO this JVM */
+	protected static final ConcurrentHashMap<InetAddress, AtomicInteger> clientConnections = new ConcurrentHashMap<InetAddress, AtomicInteger>(128, 0.75f, 16); 
 
+	
 	
 	/** A set of pending closed sockets that will cleared after the next flush */
 	protected static final Set<Socket> closedSockets = new CopyOnWriteArraySet<Socket>();
@@ -107,28 +201,30 @@ public class APMSocketMonitorHelper extends APMAgentHelper {
 	}
 	
 	/**
-	 * Adds the passed socket to the tracked socket map
-	 * @param socket The socket to add
-	 * @param serverAccepted if true, the socket is a server INCOMING, otherwise it is a client OUTGOING 
+	 * <p>Starts tracking on the  passed socket. Called when:<ol>
+	 * 	<li><b><code>ServerSocket.implAccept (entry)</code></b>: Passed socket is not connected, but we track it so we know it is a server accepted.</li>
+	 *  <li><b><code>Socket.connect (exit)</code></b>: Passed socket is connected so we can get the remote/local addresses. If the socket is not registered as a server socket, it is a client socket.</li>
+	 * </ol></p>
+	 * <p>Note that server accepted sockets will be passed here twice, once on implAccept and once on connect. 
+	 * @param socket The socket to track
+	 * NOTE: An important distinction, INCOMING sockets are not connected yet so do not have local/remote addresses. 
 	 */
-	protected void trackSocket(Socket socket, boolean serverAccepted) {
+	protected void trackSocket(Socket socket) {
+		
+		switch(tracingLevel.get()) {
+			case CONNECTIONS:
+				
+				// add address counters if not exist
+				// if outgoing, add addresses
+				break;
+			case ADDRESS_TRAFFIC:				
+				break;
+			default:				
+		}
 		ConcurrentLongSlidingWindow[] cls = new ConcurrentLongSlidingWindow[2];
 		if((serverAccepted ? serverSocketIO : clientSocketIO).putIfAbsent(socket, cls)==null) {
 			cls[0] = new ConcurrentLongSlidingWindow(128);
 			cls[1] = new ConcurrentLongSlidingWindow(128);
-			try {
-			inputIO.put(socket.getInputStream(), new InetSocketAddress[]{
-				(InetSocketAddress)socket.getLocalSocketAddress(),
-				(InetSocketAddress)socket.getRemoteSocketAddress()
-			});
-			outputIO.put(socket.getOutputStream(), new InetSocketAddress[]{
-				(InetSocketAddress)socket.getLocalSocketAddress(),
-				(InetSocketAddress)socket.getRemoteSocketAddress()
-			});
-			
-			} catch (IOException ioe) {
-				throw new RuntimeException("Failed to acquire socket streams", ioe);
-			}
 		}
 	}
 	
@@ -161,9 +257,8 @@ public class APMSocketMonitorHelper extends APMAgentHelper {
 	 * @param as The accepted socket created
 	 */
 	public void traceServerSocketAccept(ServerSocket ss, Socket as) {
-		InetSocketAddress localAddress = (InetSocketAddress)as.getLocalSocketAddress();
-		InetSocketAddress remoteAddress = (InetSocketAddress)as.getRemoteSocketAddress();
-		trackSocket(as, true);
+		//trackSocket(as, true);
+		SimpleLogger.info("\n\tServerSocket Accepted  on [", ss.getLocalSocketAddress(), "]");
 	}
 	
 	/**
