@@ -30,8 +30,22 @@ import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketAddress;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.management.ObjectName;
 
 import org.cliffc.high_scale_lib.Counter;
 import org.cliffc.high_scale_lib.NonBlockingHashMap;
@@ -39,6 +53,11 @@ import org.cliffc.high_scale_lib.NonBlockingHashSet;
 import org.helios.apmrouter.byteman.SocketTracingLevel.SocketTracingLevelListener;
 import org.helios.apmrouter.byteman.SocketTracingLevel.SocketTracingLevelWatcher;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
+import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.trace.TracerFactory;
+import org.helios.apmrouter.util.SimpleLogger;
+import org.helios.apmrouter.util.SystemClock;
+import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.jboss.byteman.rule.Rule;
 
 /**
@@ -49,7 +68,7 @@ import org.jboss.byteman.rule.Rule;
  * <p><code>org.helios.apmrouter.byteman.APMSocketMonitorHelper</code></p>
  */
 
-public class APMSocketMonitorHelper extends APMAgentHelper {
+public class APMSocketMonitorHelper extends APMAgentHelper implements APMSocketMonitorHelperMXBean {
 	
 	/** The java.net.SocketOutputStream class */
 	protected static final Class<?> SOCK_OUT_CLASS;
@@ -59,6 +78,25 @@ public class APMSocketMonitorHelper extends APMAgentHelper {
 	protected static final Field SOCK_OUT_FIELD;	
 	/** The java.net.SocketInputStream Stream socket field */
 	protected static final Field SOCK_IN_FIELD;
+	
+	/** The default size of collections holding socket constructs */
+	public static final int DEFAULT_ACC_SIZE = 128;  
+	/** The default flush period in ms. */
+	public static final int DEFAULT_FLUSH_PERIOD = 5000;  
+	
+	/** The flush scheduler */
+	protected static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new ThreadFactory(){
+		private final AtomicInteger serial = new AtomicInteger(0);
+		@Override
+		public Thread newThread(Runnable r) {
+			Thread t = new Thread(r, "SocketMonitorFlushThread#" + serial.incrementAndGet());
+			t.setDaemon(true);
+			return t;
+		}
+	});
+	
+	/** The current flush schedule handle */
+	protected static ScheduledFuture<?> flushSchedule = null;
 	
 	static {
 		try {
@@ -148,59 +186,171 @@ public class APMSocketMonitorHelper extends APMAgentHelper {
 	//   Tracking of socket streams per socket so we can clean them when the socket closes.
 	//===============================================================================	
 	/** A map of of opaque socket streams keyed by socket output stream */
-	protected static final NonBlockingHashMap<Socket, Closeable[]> socketStreams = new NonBlockingHashMap<Socket, Closeable[]>(128); 
+	protected static final NonBlockingHashMap<Socket, Closeable[]> socketStreams = new NonBlockingHashMap<Socket, Closeable[]>(DEFAULT_ACC_SIZE); 
 
 	//===============================================================================
 	//   Tracking of sockets for socket streams used when using ADDRESS_TRAFFIC
 	//   This saves us from having to reflect out the socket on every call.
 	//===============================================================================	
 	/** A map of of remote addresses keyed by an opaque socket output stream */
-	protected static final NonBlockingHashMap<OutputStream, InetAddress> outputAddresses = new NonBlockingHashMap<OutputStream, InetAddress>(128); 
+	protected static final NonBlockingHashMap<OutputStream, InetAddress> outputAddresses = new NonBlockingHashMap<OutputStream, InetAddress>(DEFAULT_ACC_SIZE); 
 	/** A map of of remote addresses keyed by an opaque socket input stream */
-	protected static final NonBlockingHashMap<InputStream, InetAddress> inputAddresses = new NonBlockingHashMap<InputStream, InetAddress>(128);
+	protected static final NonBlockingHashMap<InputStream, InetAddress> inputAddresses = new NonBlockingHashMap<InputStream, InetAddress>(DEFAULT_ACC_SIZE);
 	//===============================================================================
 	//   Tracking of sockets for socket streams used when using >= PORT_TRAFFIC 
 	//   This saves us from having to reflect out the socket on every call.
 	//===============================================================================	
 	/** A map of of remote addresses keyed by an opaque socket output stream */
-	protected static final NonBlockingHashMap<OutputStream, InetSocketAddress> outputPortAddresses = new NonBlockingHashMap<OutputStream, InetSocketAddress>(128); 
+	protected static final NonBlockingHashMap<OutputStream, InetSocketAddress> outputPortAddresses = new NonBlockingHashMap<OutputStream, InetSocketAddress>(DEFAULT_ACC_SIZE); 
 	/** A map of of remote addresses keyed by an opaque socket input stream */
-	protected static final NonBlockingHashMap<InputStream, InetSocketAddress> inputPortAddresses = new NonBlockingHashMap<InputStream, InetSocketAddress>(128); 
+	protected static final NonBlockingHashMap<InputStream, InetSocketAddress> inputPortAddresses = new NonBlockingHashMap<InputStream, InetSocketAddress>(DEFAULT_ACC_SIZE); 
 	
 	//===================================================================
 	//   Accumulators used when we're tracing at at least PORT_TRAFFICconnection
 	//===================================================================
 	/** Two member arrays of interval accumulators for IN/OUT traffic marking, keyed by the local server socket the i/o occurs on. */
-	protected static final NonBlockingHashMap<Socket, ConcurrentLongSlidingWindow[]> serverSocketIO = new NonBlockingHashMap<Socket, ConcurrentLongSlidingWindow[]>(128); 
+	protected static final NonBlockingHashMap<Socket, ConcurrentLongSlidingWindow[]> serverSocketIO = new NonBlockingHashMap<Socket, ConcurrentLongSlidingWindow[]>(DEFAULT_ACC_SIZE); 
 	/** Two member arrays of interval accumulators for IN/OUT traffic marking, keyed by the local client socket the i/o occurs on. */
-	protected static final NonBlockingHashMap<Socket, ConcurrentLongSlidingWindow[]> clientSocketIO = new NonBlockingHashMap<Socket, ConcurrentLongSlidingWindow[]>(128);
+	protected static final NonBlockingHashMap<Socket, ConcurrentLongSlidingWindow[]> clientSocketIO = new NonBlockingHashMap<Socket, ConcurrentLongSlidingWindow[]>(DEFAULT_ACC_SIZE);
 	//===================================================================
 	//   Accumulators used when we're tracing at ADDRESS_TRAFFIC
 	//===================================================================
 	/** Two member arrays of interval accumulators for IN/OUT traffic marking, keyed by the local server socket the i/o occurs on. */
-	protected static final NonBlockingHashMap<InetAddress, ConcurrentLongSlidingWindow[]> serverAddressIO = new NonBlockingHashMap<InetAddress, ConcurrentLongSlidingWindow[]>(128); 
+	protected static final NonBlockingHashMap<InetAddress, ConcurrentLongSlidingWindow[]> serverAddressIO = new NonBlockingHashMap<InetAddress, ConcurrentLongSlidingWindow[]>(DEFAULT_ACC_SIZE); 
 	/** Two member arrays of interval accumulators for IN/OUT traffic marking, keyed by the local client socket the i/o occurs on. */
-	protected static final NonBlockingHashMap<InetAddress, ConcurrentLongSlidingWindow[]> clientAddressIO = new NonBlockingHashMap<InetAddress, ConcurrentLongSlidingWindow[]>(128);
+	protected static final NonBlockingHashMap<InetAddress, ConcurrentLongSlidingWindow[]> clientAddressIO = new NonBlockingHashMap<InetAddress, ConcurrentLongSlidingWindow[]>(DEFAULT_ACC_SIZE);
 	//===================================================================
 	//   Accumulators used when we're tracing at CONNECTIONS
 	//===================================================================
 	/** Counters for active connections INTO this JVM */
-	protected static final NonBlockingHashMap<InetAddress, Counter> serverConnections = new NonBlockingHashMap<InetAddress, Counter>(128); 
+	protected static final NonBlockingHashMap<InetAddress, Counter> serverConnections = new NonBlockingHashMap<InetAddress, Counter>(DEFAULT_ACC_SIZE); 
 	/** Counters for active connections INTO this JVM */
-	protected static final NonBlockingHashMap<InetAddress, Counter> clientConnections = new NonBlockingHashMap<InetAddress, Counter>(128); 
+	protected static final NonBlockingHashMap<InetAddress, Counter> clientConnections = new NonBlockingHashMap<InetAddress, Counter>(DEFAULT_ACC_SIZE); 
 	//===================================================================
 	//   Basic server and client socket tracking combined with possible
 	//   read and write counts. 
 	//===================================================================
 	/** Counters for active connections INTO this JVM */
-	protected static final NonBlockingHashMap<Socket, Counter[]> serverSockets = new NonBlockingHashMap<Socket, Counter[]>(128); 
+	protected static final NonBlockingHashMap<Socket, Counter[]> serverSockets = new NonBlockingHashMap<Socket, Counter[]>(DEFAULT_ACC_SIZE); 
 	/** Counters for active connections INTO this JVM */
-	protected static final NonBlockingHashMap<Socket, Counter[]> clientSockets = new NonBlockingHashMap<Socket, Counter[]>(128); 
-
+	protected static final NonBlockingHashMap<Socket, Counter[]> clientSockets = new NonBlockingHashMap<Socket, Counter[]>(DEFAULT_ACC_SIZE);
 	
+	
+	/** A map of bound server sockets and the count of accepted connections */
+	protected static final NonBlockingHashMap<ServerSocket, Counter> boundServerSockets = new NonBlockingHashMap<ServerSocket, Counter>(); 
+	
+	
+	/** The flush runnable */
+	protected static final Runnable flushProcedure = new Runnable() {
+		@Override
+		public void run() {
+			SystemClock.startTimer();
+			//SimpleLogger.info("\n\tSocketMonitor Flushing....");
+			flushData();
+			cleanClosedSockets();
+			ElapsedTime et = SystemClock.endTimer();
+			//SimpleLogger.info("SocketMonitor Flush completed in [", et, "]");			
+		}
+	};
+	
+	/**
+	 * Called when the first instance of this helper class is instantiated for an active rule
+	 */
+	public static void activated() {
+		itracer = TracerFactory.getTracer();
+		if(!JMXHelper.getHeliosMBeanServer().isRegistered(objectName)) {
+			try {
+				JMXHelper.getHeliosMBeanServer().registerMBean(new APMSocketMonitorHelper(null), objectName);
+			} catch (Exception ex) {
+				SimpleLogger.warn("Failed to register SocketMonitor MBean", ex);
+			}
+		}
+		flushSchedule = scheduler.scheduleWithFixedDelay(flushProcedure, DEFAULT_FLUSH_PERIOD, DEFAULT_FLUSH_PERIOD, TimeUnit.MILLISECONDS);
+		SimpleLogger.info("\n\t======================\n\tActivated SocketMonitor\n\t======================\n");
+	}
+	
+	/**
+	 * Called when the last rule using this helper class is uninstalled
+	 */
+	public static void deactivated() {
+		if(JMXHelper.getHeliosMBeanServer().isRegistered(objectName)) {
+			try {
+				JMXHelper.getHeliosMBeanServer().unregisterMBean(objectName);
+			} catch (Exception ex) {
+				/* No Op */
+			}
+		}
+		if(flushSchedule!=null) flushSchedule.cancel(false); 
+		SimpleLogger.info("\n\t======================\n\tDeactivated SocketMonitor\n\t======================\n");
+	}
+
 	
 	/** A set of pending closed sockets that will cleared after the next flush */
 	protected static final Set<Socket> closedSockets = new NonBlockingHashSet<Socket>();
+	/** A set of pending closed server sockets that will cleared after the next flush */
+	protected static final Set<ServerSocket> closedServerSockets = new NonBlockingHashSet<ServerSocket>();
+	
+	//==========================================================================================
+	//   JMX Ops and Attrs for SocketHelper MBean
+	//==========================================================================================
+	
+	/** The JMX MBean ObjectName */
+	protected static final ObjectName objectName = JMXHelper.objectName(APMSocketMonitorHelper.class.getPackage().getName() + ":helper=" + APMSocketMonitorHelper.class.getSimpleName());
+	
+	/**
+	 * Returns the current SocketTracingLevel name
+	 * @return the current SocketTracingLevel name
+	 */
+	@Override
+	public String getSocketTracingLevel() {
+		return tracingLevel.get().name();
+	}
+	
+	/**
+	 * Sets the SocketTracingLevel 
+	 * @param level the SocketTracingLevel name to set
+	 */
+	@Override
+	public void setSocketTracingLevel(String level) {	
+		try {
+			tracingLevel.set(SocketTracingLevel.valueOfName(level));
+		} catch (IllegalArgumentException ex) {
+			throw new RuntimeException("Invalid level. Valid levels are " + Arrays.toString(SocketTracingLevel.values()));
+		}
+	}
+	
+	/**
+	 * Returns the number of open server sockets listening on client requests
+	 * @return the number of open server sockets listening on client requests
+	 */
+	@Override
+	public int getServerSocketCount() {
+		return boundServerSockets.size();
+	}
+	
+	/**
+	 * Returns a map of connection listening ports and the number of accepted connections on each
+	 * @return a map of connection listening ports and the number of accepted connections on each
+	 */
+	@Override
+	public Map<String, Long> getAcceptedConnectionCounts() {
+		Map<String, Long> map = new HashMap<String, Long>(boundServerSockets.size());
+		for(Map.Entry<ServerSocket, Counter> entry: boundServerSockets.entrySet()) {
+			ServerSocket ss = entry.getKey();
+			map.put(ss.getInetAddress().getHostName() + ":" + ss.getLocalPort(), entry.getValue().get());
+		}
+		return map;
+	}
+	
+	/**
+	 * Returns the number of client sockets connected from this JVM to remotes
+	 * @return the number of client sockets connected from this JVM to remotes
+	 */
+	@Override
+	public int getClientSocketCount() {
+		return clientSockets.size();
+	}
+	
 	
 	/**
 	 * Creates a new APMSocketMonitorHelper
@@ -208,6 +358,38 @@ public class APMSocketMonitorHelper extends APMAgentHelper {
 	 */
 	public APMSocketMonitorHelper(Rule rule) {
 		super(rule);		
+	}
+	
+	/**
+	 * Starts tracking on a bound server socket.
+	 * Should be triggered by {@link ServerSocket#bind(java.net.SocketAddress)} and {@link ServerSocket#bind(java.net.SocketAddress, int)}. 
+	 * @param serverSocket The bound server socket
+	 * @param socketAddres The socket address that the server socket is bound to
+	 */
+	public void trackServerSocket(ServerSocket serverSocket, SocketAddress socketAddres) {
+		boundServerSockets.putIfAbsent(serverSocket, new Counter());
+		SimpleLogger.info("Bound Server Socket ", render(serverSocket));
+	}
+	
+	/**
+	 * Starts tracking on the connection created on a server socket accept.
+	 * Should be triggered by {@link ServerSocket#accept()}.
+	 * @param serverSocket The server socket that accepted a connection
+	 * @param socket The socket created by the accepted connection 
+	 */
+	public void serverSocketAccept(ServerSocket serverSocket, Socket socket) {
+		boundServerSockets.putIfAbsent(serverSocket, new Counter());
+		boundServerSockets.get(serverSocket).increment();
+		serverSockets.putIfAbsent(socket, new Counter[]{new Counter(), new Counter()});
+	}
+	
+	/**
+	 * Adds the closed server socket to the closed pending queue.
+	 * Should be triggered by {@link ServerSocket#close()}. 
+	 * @param serverSocket The closed server socket
+	 */
+	public void serverSocketClosed(ServerSocket serverSocket) {
+		closedServerSockets.add(serverSocket);
 	}
 	
 	/**
@@ -307,8 +489,8 @@ public class APMSocketMonitorHelper extends APMAgentHelper {
 			// ==============================================================================
 			ConcurrentLongSlidingWindow[] cls = new ConcurrentLongSlidingWindow[2];
 			if(clientAddressIO.putIfAbsent(remoteAddress, cls)==null) {
-				cls[0] = new ConcurrentLongSlidingWindow(128);
-				cls[1] = new ConcurrentLongSlidingWindow(128);				
+				cls[0] = new ConcurrentLongSlidingWindow(DEFAULT_ACC_SIZE);
+				cls[1] = new ConcurrentLongSlidingWindow(DEFAULT_ACC_SIZE);				
 			}						
 		} else if(level.isPortCollecting()) {
 			socketStreams.putIfAbsent(socket, new Closeable[2]);
@@ -317,8 +499,8 @@ public class APMSocketMonitorHelper extends APMAgentHelper {
 			// ==============================================================================
 			ConcurrentLongSlidingWindow[] cls = new ConcurrentLongSlidingWindow[2];
 			if(clientSocketIO.putIfAbsent(socket, cls)==null) {
-				cls[0] = new ConcurrentLongSlidingWindow(128);
-				cls[1] = new ConcurrentLongSlidingWindow(128);				
+				cls[0] = new ConcurrentLongSlidingWindow(DEFAULT_ACC_SIZE);
+				cls[1] = new ConcurrentLongSlidingWindow(DEFAULT_ACC_SIZE);				
 			}									
 		}
 	}
@@ -343,8 +525,8 @@ public class APMSocketMonitorHelper extends APMAgentHelper {
 			// ==============================================================================
 			ConcurrentLongSlidingWindow[] cls = new ConcurrentLongSlidingWindow[2];
 			if(serverAddressIO.putIfAbsent(remoteAddress, cls)==null) {
-				cls[0] = new ConcurrentLongSlidingWindow(128);
-				cls[1] = new ConcurrentLongSlidingWindow(128);				
+				cls[0] = new ConcurrentLongSlidingWindow(DEFAULT_ACC_SIZE);
+				cls[1] = new ConcurrentLongSlidingWindow(DEFAULT_ACC_SIZE);				
 			}						
 		} else if(level.isPortCollecting()) {
 			// ==============================================================================
@@ -352,8 +534,8 @@ public class APMSocketMonitorHelper extends APMAgentHelper {
 			// ==============================================================================
 			ConcurrentLongSlidingWindow[] cls = new ConcurrentLongSlidingWindow[2];
 			if(serverSocketIO.putIfAbsent(socket, cls)==null) {
-				cls[0] = new ConcurrentLongSlidingWindow(128);
-				cls[1] = new ConcurrentLongSlidingWindow(128);				
+				cls[0] = new ConcurrentLongSlidingWindow(DEFAULT_ACC_SIZE);
+				cls[1] = new ConcurrentLongSlidingWindow(DEFAULT_ACC_SIZE);				
 			}									
 		}
 	}
@@ -487,9 +669,96 @@ public class APMSocketMonitorHelper extends APMAgentHelper {
 	 */
 	public void socketClosed(Socket socket) {
 		if(socket==null) return;
-		closedSockets.add(socket);
+		closedSockets.add(socket);		
+		SimpleLogger.info("Closing ", render(socket));
 	}
 	
+	/**
+	 * Renders the details of a socket in the returned string
+	 * @param socket The socket to render
+	 * @return the details of the socket as a string
+	 */
+	public static String render(Socket socket) {
+		if(socket==null) return "NULL";
+		StringBuilder b = new StringBuilder("\nSocket [");
+		b.append("\n\tLocalPort:").append(socket.getLocalPort());
+		b.append("\n\tLocalAddress:").append(socket.getLocalAddress());
+		b.append("\n\tLocalSocketAddress:").append(socket.getLocalSocketAddress());
+		b.append("\n\tRemotePort:").append(socket.getPort());
+		b.append("\n\tRemoteAddress:").append(socket.getInetAddress());
+		b.append("\n\tRemoteSocketAddress:").append(socket.getRemoteSocketAddress());
+		b.append("\n\tChannel:").append(socket.getChannel());
+		b.append("\n\tHashCode:").append(socket.hashCode());
+		b.append("\n]");		
+		return b.toString();
+	}
+	
+	/**
+	 * Renders the details of a server socket in the returned string
+	 * @param socket The server socket to render
+	 * @return the details of the server socket as a string
+	 */
+	public static String render(ServerSocket socket) {
+		if(socket==null) return "NULL";
+		StringBuilder b = new StringBuilder("\nSocket [");
+		b.append("\n\tLocalPort:").append(socket.getLocalPort());		
+		b.append("\n\tLocalAddress:").append(socket.getInetAddress());
+		b.append("\n\tLocalSocketAddress:").append(socket.getLocalSocketAddress());
+		b.append("\n\tChannel:").append(socket.getChannel());
+		b.append("\n\tHashCode:").append(socket.hashCode());		
+		b.append("\n]");		
+		return b.toString();
+	}
+	
+
+	//===================================================================
+	//   Flush and Clean Procedures
+	//===================================================================
+	/**
+	 * Flushes the data to the itracer
+	 */
+	protected static void flushData() {
+		//===============================================================
+		//   Trace the number of client and server connections
+		//===============================================================
+		for(Socket socket: serverSockets.keySet()) {
+			
+		}
+	}
+	/**
+	 * Cleans up all closed sockets
+	 */
+	protected static void cleanClosedSockets() {
+		for(Iterator<ServerSocket> closedServerIterator = closedServerSockets.iterator(); closedServerIterator.hasNext();) {
+			// clean up connected sockets here ?
+			closedServerIterator.remove();
+		}
+		//boundServerSockets
+		for(Iterator<Socket> closedIterator = closedSockets.iterator(); closedIterator.hasNext();) {
+			Socket sock = closedIterator.next();
+			if(isSocketServerTracked(sock)) {
+				serverAddressIO.remove(sock.getRemoteSocketAddress());
+				serverSocketIO.remove(sock.getRemoteSocketAddress());
+				serverSockets.remove(sock);
+			} else {
+				clientAddressIO.remove(sock.getRemoteSocketAddress());
+				clientSocketIO.remove(sock.getRemoteSocketAddress());
+				clientSockets.remove(sock);				
+			}
+			Closeable[] streams = socketStreams.get(sock);
+			if(streams!=null) {
+				if(streams[INPUT]!=null) {
+					inputAddresses.remove(streams[INPUT]);
+					inputPortAddresses.remove(streams[INPUT]);
+				}
+				if(streams[OUTPUT]!=null) {
+					outputAddresses.remove(streams[OUTPUT]);
+					outputPortAddresses.remove(streams[OUTPUT]);
+				}					
+			}			
+			closedIterator.remove();
+		}
+	}
 
 }
 

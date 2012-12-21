@@ -114,3 +114,52 @@ DO setTriggering(false);
 	traceSocketWriteBytes(socket, $3);
 ENDRULE
 #==============================================
+
+
+
+# ===============================================
+#  Server Sockets
+# ===============================================
+
+RULE ServerSocket Bound
+CLASS ^java.net.ServerSocket
+METHOD bind
+HELPER org.helios.apmrouter.byteman.APMSocketMonitorHelper
+AT EXIT
+IF TRUE
+DO setTriggering(false);
+  trackServerSocket($0, $1);	
+  traceln("\n\t -----> Processed Bind");
+ENDRULE
+
+RULE ServerSocket Accepted
+CLASS ^java.net.ServerSocket
+METHOD accept
+HELPER org.helios.apmrouter.byteman.APMSocketMonitorHelper
+AT EXIT
+IF TRUE
+DO setTriggering(false);
+  serverSocketAccept($0, $!);	
+  traceln("\n\t -----> Processed Accept");
+ENDRULE
+
+
+RULE Socket Connect
+CLASS ^java.net.Socket
+METHOD connect
+HELPER org.helios.apmrouter.byteman.APMSocketMonitorHelper
+AT EXIT
+IF FALSE
+DO setTriggering(false); 
+	trackSocket($0);
+ENDRULE
+
+RULE Socket Close
+CLASS ^java.net.Socket
+METHOD close
+HELPER org.helios.apmrouter.byteman.APMSocketMonitorHelper
+AT EXIT
+IF FALSE
+DO setTriggering(false); 
+	socketClosed($0);
+ENDRULE
