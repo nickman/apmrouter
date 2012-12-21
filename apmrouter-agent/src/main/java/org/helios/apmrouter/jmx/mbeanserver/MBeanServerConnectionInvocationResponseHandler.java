@@ -63,10 +63,12 @@ public class MBeanServerConnectionInvocationResponseHandler extends SimpleChanne
 	@Override
 	public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {				
 		Object message = e.getMessage();
+		boolean handled = false;
 		if(message instanceof ChannelBuffer) {
 			ChannelBuffer cb = (ChannelBuffer)message;
 			byte op = cb.getByte(0);
-			if(OpCode.JMX_RESPONSE.op()==op) {				
+			if(OpCode.JMX_RESPONSE.op()==op) {		
+				handled = true;
 				int reqId=cb.getInt(1);
 				AsynchJMXResponseListener waitingListener = AgentMBeanServerConnectionFactory.asynchTimeoutMap.remove(reqId);
 				cb.skipBytes(5);  // skipping op code and request id.
@@ -92,6 +94,7 @@ public class MBeanServerConnectionInvocationResponseHandler extends SimpleChanne
 					connectionAdmin.onSynchronousResponse(reqId, resp.length==1 ? resp[0] : null);
 				}
 			} else if(OpCode.JMX_NOTIFICATION.op()==op) {
+				handled = true;
 				// Notification Write Procedure
 //				cb.writeByte(OpCode.JMX_NOTIFICATION.op());
 //				cb.writeInt(requestId);
@@ -104,7 +107,9 @@ public class MBeanServerConnectionInvocationResponseHandler extends SimpleChanne
 				connectionAdmin.onNotification(reqId, (Notification)notifValues[0], notifValues[1]);
 			}
 		}				
-		ctx.sendUpstream(e);
+		if(!handled) {
+			ctx.sendUpstream(e);
+		}
 	}			
 
 }
