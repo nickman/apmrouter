@@ -22,7 +22,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.byteman;
+package org.helios.apmrouter.byteman.sockets;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -32,6 +32,9 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -44,6 +47,8 @@ import javax.management.ObjectName;
 import org.cliffc.high_scale_lib.Counter;
 import org.cliffc.high_scale_lib.NonBlockingHashMap;
 import org.cliffc.high_scale_lib.NonBlockingHashSet;
+import org.helios.apmrouter.byteman.APMAgentHelper;
+import org.helios.apmrouter.byteman.APMSocketMonitorHelper;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.trace.TracerFactory;
@@ -58,7 +63,7 @@ import org.jboss.byteman.rule.Rule;
  * <p><a href="http://apmrouter.blogspot.com/2012/12/socket-monitoring-instrumentation.html">Docs.</a></p>
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.byteman.SocketMonitor</code></p>
+ * <p><code>org.helios.apmrouter.byteman.sockets.SocketMonitor</code></p>
  */
 
 public class SocketMonitor extends APMAgentHelper {
@@ -104,12 +109,71 @@ public class SocketMonitor extends APMAgentHelper {
 	/** The JMX MBean ObjectName */
 	protected static final ObjectName objectName = JMXHelper.objectName(APMSocketMonitorHelper.class.getPackage().getName() + ":helper=" + SocketMonitor.class.getSimpleName());
 	
+	
+	/**
+	 * <p>Title: SocketMonitorJMX</p>
+	 * <p>Description: </p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.byteman.sockets.SocketMonitorJMX</code></p>
+	 */
+	public static class SocketMonitorJMX implements SocketMonitorMXBean {
+
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.byteman.sockets.SocketMonitorMXBean#getSocketTracingLevel()
+		 */
+		@Override
+		public String getSocketTracingLevel() {
+			return tracingLevel.name();
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.byteman.sockets.SocketMonitorMXBean#setSocketTracingLevel(java.lang.String)
+		 */
+		@Override
+		public void setSocketTracingLevel(String level) {
+			tracingLevel = SocketTracingLevel.valueOfName(level);
+			
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.byteman.sockets.SocketMonitorMXBean#getServerSocketCount()
+		 */
+		@Override
+		public int getServerSocketCount() {
+			return ServerSocketTracker.serverSideSockets.size();
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.byteman.sockets.SocketMonitorMXBean#getAcceptedConnectionCounts()
+		 */
+		@Override
+		public Map<String, Long> getAcceptedConnectionCountsByAddress() {
+			return ServerSocketTracker.getAcceptedConnectionCountsByAddress();
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.byteman.sockets.SocketMonitorMXBean#getClientSocketCount()
+		 */
+		@Override
+		public int getClientSocketCount() {
+			return SocketTracker.CTRACKERS.size();
+		}
+		
+	}
 
 	/** The flush runnable */
 	protected static final Runnable flushProcedure = new Runnable() {
 		@Override
 		public void run() {
 			SystemClock.startTimer();
+			ServerSocketTracker.flush();
+			SocketTracker.flush();
 			//SimpleLogger.info("\n\tSocketMonitor Flushing....");
 //			flushData();
 //			cleanClosedSockets();
@@ -165,12 +229,15 @@ public class SocketMonitor extends APMAgentHelper {
 		itracer = TracerFactory.getTracer();
 		if(!JMXHelper.getHeliosMBeanServer().isRegistered(objectName)) {
 			try {
-				JMXHelper.getHeliosMBeanServer().registerMBean(new SocketMonitor(null), objectName);
+				JMXHelper.getHeliosMBeanServer().registerMBean(new SocketMonitorJMX(), objectName);
 			} catch (Exception ex) {
 				SimpleLogger.warn("Failed to register SocketMonitor MBean", ex);
 			}
 		}
 		initCollections();
+		if(flushSchedule!=null) {
+			flushSchedule.cancel(true);
+		}
 		flushSchedule = scheduler.scheduleWithFixedDelay(flushProcedure, DEFAULT_FLUSH_PERIOD, DEFAULT_FLUSH_PERIOD, TimeUnit.MILLISECONDS);
 		SimpleLogger.info("\n\t======================\n\tActivated SocketMonitor\n\t======================\n");
 	}
@@ -187,7 +254,10 @@ public class SocketMonitor extends APMAgentHelper {
 				/* No Op */
 			}
 		}
-		if(flushSchedule!=null) flushSchedule.cancel(false); 
+		if(flushSchedule!=null) {
+			flushSchedule.cancel(false);
+			flushSchedule = null;
+		}
 		SimpleLogger.info("\n\t======================\n\tDeactivated SocketMonitor\n\t======================\n");
 	}
 	
@@ -233,7 +303,12 @@ public class SocketMonitor extends APMAgentHelper {
 	 * @param socket The connected {@link Socket}
 	 */
 	public void serverSocketAccept(ServerSocket serverSocket, Socket socket) {
-		ServerSocketTracker.getInstance(serverSocket).increment().trackConnection(socket);
+		ServerSocketTracker sst = ServerSocketTracker.getInstance(serverSocket).increment();
+		if(!socket.isConnected()) {			
+			sst.trackAccept(socket);
+		} else {
+			sst.trackConnection(socket);
+		}
 	}
 	
 	/**
@@ -242,8 +317,7 @@ public class SocketMonitor extends APMAgentHelper {
 	 * @param serverSocket The server socket to close
 	 */
 	public void serverSocketClose(ServerSocket serverSocket) {
-		//ServerSocketTracker.getInstance(serverSocket).decrement();
-		// terminate and remove all associated sockets
+		ServerSocketTracker.getInstance(serverSocket).closeServerSocket(serverSocket);		
 	}
 	
 	/**
@@ -254,7 +328,9 @@ public class SocketMonitor extends APMAgentHelper {
 	 * @param socket The connected socket.
 	 */
 	public void socketConnect(Socket socket) {
-		
+		if(!ServerSocketTracker.isTrackedServerSideSocket(socket)) {
+			SocketTracker.getInstance(socket);
+		}
 	}
 	
 	/**
@@ -263,7 +339,12 @@ public class SocketMonitor extends APMAgentHelper {
 	 * @param socket The closed socket.
 	 */
 	public void socketClose(Socket socket) {
-		
+		if(ServerSocketTracker.isTrackedServerSideSocket(socket)) {
+			ServerSocketTracker.closeServerSideSocket(socket);
+		} else {
+			SocketTracker st = SocketTracker.getInstance(socket);
+			st.closeSocket();
+		}
 	}
 	
 	
@@ -298,7 +379,7 @@ public class SocketMonitor extends APMAgentHelper {
 	 * <p>Description: A container class to track the accept count and created sockets for a ServerSocket.</p> 
 	 * <p>Company: Helios Development Group LLC</p>
 	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
-	 * <p><code>org.helios.apmrouter.byteman.SocketMonitor.ServerSocketTracker</code></p>
+	 * <p><code>org.helios.apmrouter.byteman.sockets.SocketMonitor.ServerSocketTracker</code></p>
 	 */
 	protected static class ServerSocketTracker {
 		/** A map of the created ServerSocketTracker instances keyed by the tracked {@ServerSocket} */
@@ -308,6 +389,10 @@ public class SocketMonitor extends APMAgentHelper {
 		
 		/** A set of pending server socket closes */
 		final static NonBlockingHashSet<ServerSocket> pendingCloses = new NonBlockingHashSet<ServerSocket>(); 
+
+		/** A set of accepted sockets (server side sockets) to distinguish between client and server side socket instances */
+		final static NonBlockingHashSet<Socket> serverSideSockets = new NonBlockingHashSet<Socket>(); 
+		
 		
 		/** The tracked {@link ServerSocket} */
 		final ServerSocket serverSocket;
@@ -319,6 +404,33 @@ public class SocketMonitor extends APMAgentHelper {
 		final NonBlockingHashMap<InetSocketAddress, SocketTracker> connectorsBySocketAddress = new NonBlockingHashMap<InetSocketAddress, SocketTracker>(accumulatorSize);
 		/** A map of sets of connected sockets accepted by the tracked {@link ServerSocket} keyed by the remote address of the connector */
 		final NonBlockingHashMap<InetAddress, NonBlockingHashSet<SocketTracker>> connectorsByAddress = new NonBlockingHashMap<InetAddress, NonBlockingHashSet<SocketTracker>>(accumulatorSize);
+		
+		/**
+		 * Interval flush procedure for server socket tracking  
+		 */
+		static void flush() {
+			for(ServerSocket ss: pendingCloses) {
+				ServerSocketTracker sst = TRACKERS.remove(ss);
+				TRACKERS_BY_BIND.remove(ss.getLocalSocketAddress());
+				sst.connectorsByAddress.clear();
+				sst.connectorsBySocketAddress.clear();
+			}
+		}
+		
+		
+		/**
+		 * Returns a map of the total cummulative accept counts by address
+		 * @return a map of the total cummulative accept counts by address
+		 */
+		public static Map<String, Long> getAcceptedConnectionCountsByAddress() {
+			Map<String, Long> map = new HashMap<String, Long>(TRACKERS.size());
+			for(Map.Entry<ServerSocket, ServerSocketTracker> entry: TRACKERS.entrySet()) {
+				String address = entry.getKey().getInetAddress().getHostName() + ":" + entry.getKey().getLocalPort();
+				if(!map.containsKey(address)) map.put(address, 0L);
+				map.put(address, map.get(address)+entry.getValue().acceptCount.get());				
+			}
+			return map;
+		}
 		/**
 		 * Returns the {@link ServerSocketTracker} for the passed {@ServerSocket}
 		 * @param serverSocket The {@ServerSocket}
@@ -348,12 +460,50 @@ public class SocketMonitor extends APMAgentHelper {
 		}
 		
 		/**
+		 * Indicates if the passed socket is registered as a server side socket
+		 * @param socket The socket to test
+		 * @return true if the socket is registered as a server side socket, 
+		 * false if the socket is null or not registered as a server side socket 
+		 */
+		public static boolean isTrackedServerSideSocket(Socket socket) {
+			if(socket==null) return false;
+			return serverSideSockets.contains(socket);			
+		}
+		
+		/**
+		 * Handles a closed server connection to a bound server side socket
+		 * @param socket the closed socket
+		 */
+		public static void closeServerSideSocket(Socket socket) {
+			ServerSocketTracker sst = getInstance(socket.getLocalSocketAddress());
+			sst.closeServerSide(socket);
+		}
+		
+		
+		/**
 		 * Creates a new ServerSocketTracker
 		 * @param serverSocket The tracked {@link ServerSocket} 
 		 */
 		private ServerSocketTracker(ServerSocket serverSocket) {
 			this.serverSocket = serverSocket;
 			TRACKERS_BY_BIND.put(this.serverSocket.getLocalSocketAddress(), this);
+		}
+		
+		/**
+		 * Closes and cleans up references to a server side socket
+		 * @param socket the closed socket
+		 */
+		protected void closeServerSide(Socket socket) {
+			decrement();
+			serverSideSockets.remove(socket);
+			connectorsBySocketAddress.remove(socket.getRemoteSocketAddress());
+			Set<SocketTracker> socketTrackers = connectorsByAddress.get(socket.getInetAddress());
+			SocketTracker socketTracker = SocketTracker.getServerInstance(socket);
+			if(socketTrackers!=null) {
+				socketTrackers.remove(socketTracker);
+			}
+			socketTracker.closeSocket();
+			
 		}
 		
 		/**
@@ -383,8 +533,22 @@ public class SocketMonitor extends APMAgentHelper {
 		 */
 		public ServerSocketTracker closeServerSocket(ServerSocket serverSocket) {
 			if(serverSocket!=null) {
-				pendingCloses.add(serverSocket);				
+				pendingCloses.add(serverSocket);
+				// terminate and remove all associated sockets
 			}
+			return this;
+		}
+		
+		/**
+		 * Adds a socket that created during a {@link ServerSocket#accept()} but before the create socket's connection.
+		 * This allows the created socket to be registered as a server side socket before the {@link Socket#connect(SocketAddress)} callback,
+		 * so we know it is a server side socket.
+		 * @param socket The connecting socket
+		 * @return this tracker
+		 */
+		public ServerSocketTracker trackAccept(Socket socket) {
+			if(socket==null) return this;			
+			serverSideSockets.add(socket);
 			return this;
 		}
 		
@@ -394,7 +558,7 @@ public class SocketMonitor extends APMAgentHelper {
 		 * @return this tracker
 		 */
 		public ServerSocketTracker trackConnection(Socket socket) {
-			if(socket==null) return this;			
+			if(socket==null) return this;
 			if(tracingLevel.isAddressCollecting()) {
 				NonBlockingHashSet<SocketTracker> socketTrackers = connectorsByAddress.get(socket.getInetAddress());
 				if(socketTrackers==null) {
@@ -406,8 +570,11 @@ public class SocketMonitor extends APMAgentHelper {
 				connectorsBySocketAddress.putIfAbsent((InetSocketAddress)socket.getRemoteSocketAddress(), SocketTracker.getServerInstance(socket));
 			}
 			return this;
-		}		
+		}
+		
 	}
+	
+	
 	
 	/**
 	 * <p>Title: SocketTracker</p>
@@ -419,7 +586,7 @@ public class SocketMonitor extends APMAgentHelper {
 	 * </ul></p> 
 	 * <p>Company: Helios Development Group LLC</p>
 	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
-	 * <p><code>org.helios.apmrouter.byteman.SocketMonitor.SocketTracker</code></p>
+	 * <p><code>org.helios.apmrouter.byteman.sockets.SocketMonitor.SocketTracker</code></p>
 	 */
 	protected static class SocketTracker {
 		/** A map of the created server side SocketTracker instances keyed by the tracked {@Socket} */
@@ -431,6 +598,10 @@ public class SocketMonitor extends APMAgentHelper {
 		final static NonBlockingHashMap<InputStream, SocketTracker> INSTREAMS = new NonBlockingHashMap<InputStream, SocketTracker>(accumulatorSize); 
 		/** A map of registered SocketTracker instances keyed by the tracked {@Socket}'s output stream */
 		final static NonBlockingHashMap<OutputStream, SocketTracker> OUTSTREAMS = new NonBlockingHashMap<OutputStream, SocketTracker>(accumulatorSize); 
+		
+		/** A map of client side connection counters keyed by the tracked {@Socket}'s remote socket address */
+		final static NonBlockingHashMap<InetSocketAddress, Counter> CLIENT_CONNECTION_COUNTERS = new NonBlockingHashMap<InetSocketAddress, Counter>(accumulatorSize); 
+		
 		
 		
 		/** The tracked {@link Socket} */
@@ -457,6 +628,22 @@ public class SocketMonitor extends APMAgentHelper {
 		private ConcurrentLongSlidingWindow socketWrites; 
 		/** The socket's reads */
 		private ConcurrentLongSlidingWindow socketReads; 
+		
+		
+		/**
+		 * Interval flush procedure for socket tracking
+		 */
+		static void flush() {
+			
+		}
+		
+		/**
+		 * Closes a socket
+		 */
+		public void closeSocket() {
+			Counter counter = CLIENT_CONNECTION_COUNTERS.get(remoteSocketAddress);
+			if(counter!=null) counter.decrement();
+		}
 		
 		/**
 		 * Sets and indexes the input stream of the tracked socket
@@ -590,12 +777,26 @@ public class SocketMonitor extends APMAgentHelper {
 		 */
 		private SocketTracker(Socket socket) {
 			this.socket = socket;
-			this.localAddress = socket.getLocalAddress();
-			this.localPort = socket.getLocalPort();
-			this.localSocketAddress = (InetSocketAddress)socket.getLocalSocketAddress();
-			this.remoteAddress = socket.getInetAddress();
-			this.remotePort = socket.getPort();
-			this.remoteSocketAddress = (InetSocketAddress)socket.getRemoteSocketAddress();			
+			localAddress = socket.getLocalAddress();
+			localPort = socket.getLocalPort();
+			localSocketAddress = (InetSocketAddress)socket.getLocalSocketAddress();
+			remoteAddress = socket.getInetAddress();
+			remotePort = socket.getPort();
+			remoteSocketAddress = (InetSocketAddress)socket.getRemoteSocketAddress();
+			if(!ServerSocketTracker.isTrackedServerSideSocket(socket)) {
+				Counter counter = CLIENT_CONNECTION_COUNTERS.get(remoteSocketAddress);
+				if(counter==null) {
+					synchronized(CLIENT_CONNECTION_COUNTERS) {
+						counter = CLIENT_CONNECTION_COUNTERS.get(remoteSocketAddress);
+						if(counter==null) {
+							counter = new Counter();
+							CLIENT_CONNECTION_COUNTERS.put(remoteSocketAddress, counter);
+						}
+					}
+				}
+				counter.increment();
+			}
+			
 		}		
 		
 		/**

@@ -163,3 +163,47 @@ IF FALSE
 DO setTriggering(false); 
 	socketClosed($0);
 ENDRULE
+
+
+#============================================
+#Focus on connections
+#============================================
+RULE ServerSocket bind
+CLASS ^java.net.ServerSocket
+METHOD bind
+HELPER org.helios.apmrouter.byteman.sockets.SocketMonitor
+AT EXIT
+IF TRUE
+DO setTriggering(false); 
+	serverSocketBind($0);	
+ENDRULE
+
+RULE ServerSocket pre-accept
+CLASS ^java.net.ServerSocket
+METHOD implAccept
+HELPER org.helios.apmrouter.byteman.sockets.SocketMonitor
+AT ENTRY
+IF TRUE
+DO setTriggering(false); 
+	serverSocketAccept($0, $1);	
+ENDRULE
+
+RULE ServerSocket post-accept
+CLASS ^java.net.ServerSocket
+METHOD accept
+HELPER org.helios.apmrouter.byteman.sockets.SocketMonitor
+AT EXIT
+IF TRUE
+DO setTriggering(false); 
+	serverSocketAccept($0, $1);	
+ENDRULE
+
+RULE ServerSocket close
+CLASS ^java.net.ServerSocket
+METHOD close
+HELPER org.helios.apmrouter.byteman.sockets.SocketMonitor
+AT EXIT
+IF TRUE
+DO setTriggering(false); 
+	serverSocketClose($0);	
+ENDRULE

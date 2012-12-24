@@ -22,7 +22,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.byteman;
+package org.helios.apmrouter.byteman.sockets;
 
 import static org.helios.apmrouter.util.Methods.nvl;
 
@@ -167,7 +167,7 @@ public enum SocketTracingLevel {
 
 		/**
 		 * {@inheritDoc}
-		 * @see org.helios.apmrouter.byteman.SocketTracingLevel.SocketTracingLevelListener#fromNullTo(org.helios.apmrouter.byteman.SocketTracingLevel)
+		 * @see org.helios.apmrouter.byteman.sockets.SocketTracingLevel.SocketTracingLevelListener#fromNullTo(org.helios.apmrouter.byteman.sockets.SocketTracingLevel)
 		 */
 		@Override
 		public void fromNullTo(SocketTracingLevel newLevel) {
@@ -175,7 +175,7 @@ public enum SocketTracingLevel {
 
 		/**
 		 * {@inheritDoc}
-		 * @see org.helios.apmrouter.byteman.SocketTracingLevel.SocketTracingLevelListener#toNull(org.helios.apmrouter.byteman.SocketTracingLevel)
+		 * @see org.helios.apmrouter.byteman.sockets.SocketTracingLevel.SocketTracingLevelListener#toNull(org.helios.apmrouter.byteman.sockets.SocketTracingLevel)
 		 */
 		@Override
 		public void toNull(SocketTracingLevel oldLevel) {
@@ -183,7 +183,7 @@ public enum SocketTracingLevel {
 
 		/**
 		 * {@inheritDoc}
-		 * @see org.helios.apmrouter.byteman.SocketTracingLevel.SocketTracingLevelListener#change(org.helios.apmrouter.byteman.SocketTracingLevel, org.helios.apmrouter.byteman.SocketTracingLevel)
+		 * @see org.helios.apmrouter.byteman.sockets.SocketTracingLevel.SocketTracingLevelListener#change(org.helios.apmrouter.byteman.sockets.SocketTracingLevel, org.helios.apmrouter.byteman.sockets.SocketTracingLevel)
 		 */
 		@Override
 		public void change(SocketTracingLevel oldLevel, SocketTracingLevel newLevel) {
