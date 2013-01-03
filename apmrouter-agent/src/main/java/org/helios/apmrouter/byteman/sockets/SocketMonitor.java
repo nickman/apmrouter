@@ -112,10 +112,10 @@ public class SocketMonitor extends APMAgentHelper {
 	
 	/**
 	 * <p>Title: SocketMonitorJMX</p>
-	 * <p>Description: </p> 
+	 * <p>Description: JMX management for the SocketMonitor helper.</p> 
 	 * <p>Company: Helios Development Group LLC</p>
 	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
-	 * <p><code>org.helios.apmrouter.byteman.sockets.SocketMonitorJMX</code></p>
+	 * <p><code>org.helios.apmrouter.byteman.sockets.SocketMonitor.SocketMonitorJMX</code></p>
 	 */
 	public static class SocketMonitorJMX implements SocketMonitorMXBean {
 
@@ -549,6 +549,7 @@ public class SocketMonitor extends APMAgentHelper {
 		public ServerSocketTracker trackAccept(Socket socket) {
 			if(socket==null) return this;			
 			serverSideSockets.add(socket);
+			
 			return this;
 		}
 		
@@ -559,6 +560,7 @@ public class SocketMonitor extends APMAgentHelper {
 		 */
 		public ServerSocketTracker trackConnection(Socket socket) {
 			if(socket==null) return this;
+			serverSideSockets.add(socket);
 			if(tracingLevel.isAddressCollecting()) {
 				NonBlockingHashSet<SocketTracker> socketTrackers = connectorsByAddress.get(socket.getInetAddress());
 				if(socketTrackers==null) {
