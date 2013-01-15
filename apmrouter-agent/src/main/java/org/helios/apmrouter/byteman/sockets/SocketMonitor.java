@@ -410,11 +410,27 @@ public class SocketMonitor extends APMAgentHelper {
 		 */
 		static void flush() {
 			for(ServerSocket ss: pendingCloses) {
+				
 				ServerSocketTracker sst = TRACKERS.remove(ss);
+				//itracer.traceGauge(0, "Bound", "SocketMonitor", "ServerSockets", sst.serverSocket.getInetAddress().getHostAddress(), "" + sst.serverSocket.getLocalPort());
 				TRACKERS_BY_BIND.remove(ss.getLocalSocketAddress());
 				sst.connectorsByAddress.clear();
 				sst.connectorsBySocketAddress.clear();
+				
 			}
+			for(ServerSocketTracker sst : TRACKERS.values()) {
+				sst._flush();
+			}
+		}
+		
+		private void _flush() {
+			itracer.traceGauge(1, "Bound", "SocketMonitor", "ServerSockets", serverSocket.getInetAddress().getHostAddress(), "" + serverSocket.getLocalPort());
+			itracer.traceDeltaCounter(acceptCount.get(), "Accepts", "SocketMonitor", "ServerSockets", serverSocket.getInetAddress().getHostAddress(), "" + serverSocket.getLocalPort());
+			itracer.traceGauge(connectedClients.get(), "ConnectedClients", "SocketMonitor", "ServerSockets", serverSocket.getInetAddress().getHostAddress(), "" + serverSocket.getLocalPort());
+			
+//			acceptCount.increment();
+//			connectedClients.increment();
+			
 		}
 		
 		

@@ -35,6 +35,13 @@
 		  <groupId>jfree</groupId>
 		  <artifactId>jfreechart</artifactId>
 		</dependency>
+		
+		<!-- Camel Bindy -->
+		<dependency>
+		  <groupId>org.apache.camel</groupId>
+		  <artifactId>camel-bindy</artifactId>
+		</dependency>
+		
 	
 		<!--  SNMP Events -->
 		<dependency>

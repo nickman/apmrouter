@@ -136,6 +136,13 @@
 			</dependency>
 			
 			<dependency>
+			  <groupId>org.apache.camel</groupId>
+			  <artifactId>camel-bindy</artifactId>
+			  <version>${camel.version}</version>
+			</dependency>
+
+			
+			<dependency>
 				<groupId>vanilla.java</groupId>
 				<artifactId>chronicle</artifactId>
 				<version>${chronicle.version}</version>

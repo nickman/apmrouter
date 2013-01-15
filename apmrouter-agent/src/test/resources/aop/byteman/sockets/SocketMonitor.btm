@@ -207,3 +207,13 @@ IF TRUE
 DO setTriggering(false); 
 	serverSocketClose($0);	
 ENDRULE
+
+RULE Socket Close
+CLASS ^java.net.Socket
+METHOD close
+HELPER org.helios.apmrouter.byteman.sockets.SocketMonitor
+AT EXIT
+IF FALSE
+DO setTriggering(false); 
+	socketClose($0);
+ENDRULE
