@@ -35,6 +35,9 @@ import java.net.SocketImpl;
 import java.net.SocketImplFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.helios.apmrouter.jmx.ConfigurationHelper;
+import org.helios.apmrouter.util.SimpleLogger;
+
 /**
  * <p>Title: TrackingSocketImpl</p>
  * <p>Description: A {@link SocketImpl} implementation and factory intended to wrap the provided implementation to track client and server socket activity.
@@ -45,27 +48,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p><code>org.helios.apmrouter.byteman.sockets.impl.TrackingSocketImpl</code></p>
  */
 
-public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory {
-	/** Indicates if the socket impl factory has been installed */
-	protected static final AtomicBoolean installed = new AtomicBoolean(false);
-	/** The delegate socket impl factory */
-	protected static SocketImplFactory delegate = null;
+public class TrackingSocketImpl extends SocketImpl {
 	/** The delegate socket impl */
 	protected final ISocketImpl innerSocket;
+	/** The configured verbosity */
+	protected final boolean verbose;
+	/** the logging prefix */
+	protected final String[] prefix;
 	
-	/**
-	 * Indicates if the socket impl factory has been installed
-	 * @return true if the socket impl factory has been installed, false otherwise
-	 */
-	public static boolean isInstalled() {
-		return installed.get();
-	}
+	
+	
 	/**
 	 * Creates a new TrackingSocketImpl
 	 * @param innerSocket The delegate socket impl
 	 */
 	public TrackingSocketImpl(ISocketImpl innerSocket) {
+		verbose = ConfigurationHelper.getBooleanSystemThenEnvProperty(SocketImplTransformer.VERBOSE_PROP, SocketImplTransformer.DEFAULT_VERBOSE);
 		this.innerSocket = innerSocket;
+		prefix = new String[]{"[", getClass().getSimpleName(), "]", innerSocket.toString()};
+		info("Created Socket");
 	}
 
 	/**
@@ -75,6 +76,7 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	@Override
 	public void setOption(int optID, Object value) throws SocketException {
 		innerSocket.setOption(optID, value);
+		info("\n\tSet Option:" + optID, "\n\tValue:" + value);
 	}
 
 	/**
@@ -86,14 +88,6 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 		return innerSocket.getOption(optID);
 	}
 
-	/**
-	 * {@inheritDoc}
-	 * @see java.net.SocketImplFactory#createSocketImpl()
-	 */
-	@Override
-	public SocketImpl createSocketImpl() {
-		return new TrackingSocketImpl((ISocketImpl)delegate.createSocketImpl());
-	}
 
 	/**
 	 * {@inheritDoc}
@@ -102,7 +96,6 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	@Override
 	protected void create(boolean stream) throws IOException {
 		innerSocket.create(stream);
-
 	}
 
 	/**
@@ -111,8 +104,8 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected void connect(String host, int port) throws IOException {
+		info("Connecting...", "\n\tHost:" + host, "\n\tPort:" + port);
 		innerSocket.connect(host, port);
-
 	}
 
 	/**
@@ -121,8 +114,8 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected void connect(InetAddress address, int port) throws IOException {
+		info("Connecting...", "\n\tAddress:" + address, "\n\tPort:" + port);
 		innerSocket.connect(address, port);
-
 	}
 
 	/**
@@ -131,8 +124,8 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected void connect(SocketAddress address, int timeout) throws IOException {
+		info("Connecting...", "\n\tAddress:" + address, "\n\tTimeout:" + timeout);
 		innerSocket.connect(address, timeout);
-
 	}
 
 	/**
@@ -141,8 +134,8 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected void bind(InetAddress host, int port) throws IOException {
+		info("Binding...", "\n\tAddress:" + address, "\n\tPort:" + port);
 		innerSocket.bind(host, port);
-
 	}
 
 	/**
@@ -151,8 +144,8 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected void listen(int backlog) throws IOException {
+		info("Listening...", "\n\tBacklog:" + backlog);
 		innerSocket.listen(backlog);
-
 	}
 
 	/**
@@ -161,8 +154,8 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected void accept(SocketImpl s) throws IOException {
+		info("Accepting...", "\n\tSocket:" + s);
 		innerSocket.accept(s);
-
 	}
 
 	/**
@@ -198,6 +191,7 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected void close() throws IOException {
+		info("Closing....");
 		innerSocket.close();
 
 	}
@@ -208,8 +202,21 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected void sendUrgentData(int data) throws IOException {
+		info("Sending UrgentData...", "\n\tData:" + data);
 		innerSocket.sendUrgentData(data);
-
+	}
+	
+	/**
+	 * Low key logger
+	 * @param msgs an array of objects to log
+	 */
+	protected void info(Object...msgs) {
+		if(!verbose) return;
+		if(msgs==null || msgs.length<1) return;
+		Object[] args = new Object[msgs.length + prefix.length];
+		System.arraycopy(prefix, 0, args, 0, prefix.length);
+		System.arraycopy(msgs, 0, args, prefix.length, msgs.length);
+		SimpleLogger.info(args);
 	}
 
 }

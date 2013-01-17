@@ -77,8 +77,10 @@ public class JMXSubscriptionCriteriaBuilder extends AbstractSubscriptionCriteria
 				try {
 					((NotificationFilterSupport)filter).enableType(simpleFilterExpression.getString(i).trim());
 					enabledTypes.add(simpleFilterExpression.getString(i).trim());
-				} catch (IllegalArgumentException | JSONException e) {
-					throw new RuntimeException("Failed to parse simple filter expression", e);
+				} catch (IllegalArgumentException iex) { 
+					throw new RuntimeException("Failed to parse simple filter expression", iex);
+				} catch (JSONException jex) {
+					throw new RuntimeException("Failed to parse simple filter expression", jex);
 				}
 			}
 

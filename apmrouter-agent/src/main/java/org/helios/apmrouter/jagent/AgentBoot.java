@@ -33,7 +33,7 @@ import java.io.File;
 import java.io.StringReader;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
+import java.net.Socket;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Arrays;
@@ -51,7 +51,8 @@ import javax.management.remote.JMXConnectorServer;
 import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
 
-import org.helios.apmrouter.instrumentation.SocketStreamClassTransformer;
+import org.helios.apmrouter.byteman.sockets.impl.SocketImplTransformer;
+import org.helios.apmrouter.byteman.sockets.impl.TrackingSocketImplFactory;
 import org.helios.apmrouter.instrumentation.Trace;
 import org.helios.apmrouter.instrumentation.TraceClassFileTransformer;
 import org.helios.apmrouter.instrumentation.publifier.ClassPublifier;
@@ -117,7 +118,13 @@ public class AgentBoot {
 	 * @param instrumentation The instrumentation which may be null
 	 */
 	public static void boot(URLClassLoader classLoader, String agentArgs, Instrumentation instrumentation) {
-		//instrumentation.addTransformer(new SocketStreamClassTransformer(), true);
+		instrumentation.addTransformer(new SocketImplTransformer(), true);
+		try {
+			instrumentation.retransformClasses(Socket.class);
+			Socket.setSocketImplFactory(new TrackingSocketImplFactory());
+		} catch (Exception ex) {}
+		SimpleLogger.info("TrackingSocketFactory Installed:" + TrackingSocketImplFactory.isInstalled());
+		
 		org.helios.apmrouter.jagent.Instrumentation.install(instrumentation);
 		AgentBoot.agentArgs = agentArgs;
 		AgentBoot.instrumentation = instrumentation;

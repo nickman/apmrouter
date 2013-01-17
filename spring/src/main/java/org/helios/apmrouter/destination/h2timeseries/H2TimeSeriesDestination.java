@@ -147,7 +147,7 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	@Override
 	protected void doStart() throws Exception {
 		super.doStart();
-		flushQueue = new TimeSizeFlushQueue<>(getClass().getSimpleName(), sizeTrigger, timeTrigger, this);
+		flushQueue = (TimeSizeFlushQueue<IMetric>) new TimeSizeFlushQueue(getClass().getSimpleName(), sizeTrigger, timeTrigger, this);
 		unsafeSelectSql = new StringBuilder("select METRIC_ID, NVL2(V, V, UNSAFE_MAKE_MV(").append(timeSeriesStep).append(",").append(timeSeriesWidth).append(",false)) from METRIC M left outer join UNSAFE_METRIC_VALUES MV on MV.ID = m.METRIC_ID where  M.METRIC_ID IN (");
 		safeSelectSql = new StringBuilder("select METRIC_ID, NVL2(V, V, MAKE_MV(").append(timeSeriesStep).append(",").append(timeSeriesWidth).append(",false)) from METRIC M left outer join METRIC_VALUES MV on MV.ID = m.METRIC_ID where  M.METRIC_ID IN (");
 		liveTier = timeSeriesManager.getLiveTier();
