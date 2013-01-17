@@ -51,7 +51,7 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	/** The delegate socket impl factory */
 	protected static SocketImplFactory delegate = null;
 	/** The delegate socket impl */
-	protected final SocketImpl innerSocket;
+	protected final ISocketImpl innerSocket;
 	
 	/**
 	 * Indicates if the socket impl factory has been installed
@@ -64,7 +64,7 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 * Creates a new TrackingSocketImpl
 	 * @param innerSocket The delegate socket impl
 	 */
-	public TrackingSocketImpl(SocketImpl innerSocket) {
+	public TrackingSocketImpl(ISocketImpl innerSocket) {
 		this.innerSocket = innerSocket;
 	}
 
@@ -92,7 +92,7 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	public SocketImpl createSocketImpl() {
-		return new TrackingSocketImpl(delegate.createSocketImpl());
+		return new TrackingSocketImpl((ISocketImpl)delegate.createSocketImpl());
 	}
 
 	/**
@@ -111,7 +111,7 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected void connect(String host, int port) throws IOException {
-		// TODO Auto-generated method stub
+		innerSocket.connect(host, port);
 
 	}
 
@@ -121,7 +121,7 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected void connect(InetAddress address, int port) throws IOException {
-		// TODO Auto-generated method stub
+		innerSocket.connect(address, port);
 
 	}
 
@@ -130,9 +130,8 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 * @see java.net.SocketImpl#connect(java.net.SocketAddress, int)
 	 */
 	@Override
-	protected void connect(SocketAddress address, int timeout)
-			throws IOException {
-		// TODO Auto-generated method stub
+	protected void connect(SocketAddress address, int timeout) throws IOException {
+		innerSocket.connect(address, timeout);
 
 	}
 
@@ -142,7 +141,7 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected void bind(InetAddress host, int port) throws IOException {
-		// TODO Auto-generated method stub
+		innerSocket.bind(host, port);
 
 	}
 
@@ -152,7 +151,7 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected void listen(int backlog) throws IOException {
-		// TODO Auto-generated method stub
+		innerSocket.listen(backlog);
 
 	}
 
@@ -162,7 +161,7 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected void accept(SocketImpl s) throws IOException {
-		// TODO Auto-generated method stub
+		innerSocket.accept(s);
 
 	}
 
@@ -172,8 +171,7 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected InputStream getInputStream() throws IOException {
-		// TODO Auto-generated method stub
-		return null;
+		return innerSocket.getInputStream();
 	}
 
 	/**
@@ -182,8 +180,7 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected OutputStream getOutputStream() throws IOException {
-		// TODO Auto-generated method stub
-		return null;
+		return innerSocket.getOutputStream();
 	}
 
 	/**
@@ -192,8 +189,7 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected int available() throws IOException {
-		// TODO Auto-generated method stub
-		return 0;
+		return innerSocket.available();
 	}
 
 	/**
@@ -202,7 +198,7 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected void close() throws IOException {
-		// TODO Auto-generated method stub
+		innerSocket.close();
 
 	}
 
@@ -212,7 +208,7 @@ public class TrackingSocketImpl extends SocketImpl implements SocketImplFactory 
 	 */
 	@Override
 	protected void sendUrgentData(int data) throws IOException {
-		// TODO Auto-generated method stub
+		innerSocket.sendUrgentData(data);
 
 	}
 

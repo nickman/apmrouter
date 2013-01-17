@@ -768,6 +768,33 @@ public class StringHelper {
 	}
 	
 	/**
+	 * Converts a class name to the binary name used by the class file transformer, or returns the passed name if it is already a binary name
+	 * @param name The class name to convert
+	 * @return the binary name
+	 */
+	public static String convertToBinaryName(String name) {
+		int index = name.indexOf('.');
+		if(index!=-1) {
+			return name.replace('.', '/');
+		}
+		return name;
+	}
+	
+	/**
+	 * Converts a class name from the binary name used by the class file transformer to the standard dot notated form, or returns the passed name if it is already a binary name
+	 * @param name The class name to convert
+	 * @return the standard dot notated class name
+	 */
+	public static String convertFromBinaryName(String name) {
+		int index = name.indexOf('/');
+		if(index!=-1) {
+			return name.replace('/', '.');
+		}
+		return name;
+	}
+	
+	
+	/**
 	 * Creates a new Unformatter
 	 * @param pattern the Unformatter's pattern
 	 * @return a new Unformatter

@@ -70,5 +70,32 @@ public class SocketStreamClassTransformer implements ClassFileTransformer {
 		}
 		return classfileBuffer;
 	}
+	
+	/**
+	 * Converts a class name to the binary name used by the class file transformer, or returns the passed name if it is already a binary name
+	 * @param name The class name to convert
+	 * @return the binary name
+	 */
+	protected String convertToBinaryName(String name) {
+		int index = name.indexOf('.');
+		if(index!=-1) {
+			return name.replace('.', '/');
+		}
+		return name;
+	}
+	
+	/**
+	 * Converts a class name from the binary name used by the class file transformer to the standard dot notated form, or returns the passed name if it is already a binary name
+	 * @param name The class name to convert
+	 * @return the standard dot notated class name
+	 */
+	protected String convertFromBinaryName(String name) {
+		int index = name.indexOf('/');
+		if(index!=-1) {
+			return name.replace('/', '.');
+		}
+		return name;
+	}
+	
 
 }
