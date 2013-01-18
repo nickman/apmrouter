@@ -35,10 +35,10 @@ import java.net.Socket;
 import java.net.SocketImpl;
 import java.net.SocketImplFactory;
 
-import org.helios.apmrouter.byteman.sockets.impl.ISocketImpl;
+
 import org.helios.apmrouter.byteman.sockets.impl.SocketImplTransformer;
-import org.helios.apmrouter.byteman.sockets.impl.TrackingSocketImpl;
-import org.helios.apmrouter.byteman.sockets.impl.TrackingSocketImplFactory;
+
+
 import org.helios.apmrouter.jmx.JMXHelper;
 
 /**
@@ -51,7 +51,7 @@ import org.helios.apmrouter.jmx.JMXHelper;
 
 public class RunSocketInstr {
 	/** Sample socket impls */
-	public static final String[] SOCKET_IMPLS = {
+	public static final String[] SOCKET_IMPLS_X = {
 		"java.net.DualStackPlainSocketImpl",
 		"java.net.PlainSocketImpl",
 		"java.net.SdpSocketImpl",
@@ -65,20 +65,8 @@ public class RunSocketInstr {
 		log("SocketInstr Test");
 		try {
 			Instrumentation instrumentation = (Instrumentation)JMXHelper.getHeliosMBeanServer().getAttribute(org.helios.apmrouter.jagent.Instrumentation.OBJECT_NAME, "Instance");
-			instrumentation.addTransformer(new SocketImplTransformer());
-			log("Transformer Installed. TrackingSocketFactory Installed:" + TrackingSocketImplFactory.isInstalled());
-			instrumentation.retransformClasses(Socket.class);
-			if(!TrackingSocketImplFactory.isInstalled()) Socket.setSocketImplFactory(new TrackingSocketImplFactory());
-			log("TrackingSocketFactory Installed:" + TrackingSocketImplFactory.isInstalled());
-//			for(String className: SOCKET_IMPLS) {
-//				try {
-//					Class<?> socketImplClass = Class.forName(className);
-//					boolean isISocketImpl = ISocketImpl.class.isAssignableFrom(socketImplClass);
-//					log("Loaded [" + className + "]:  Instrumented:" + isISocketImpl);
-//				} catch (Exception ex) {
-//					log("Failed to load [" + className + "]");
-//				}
-//			}
+//			instrumentation.addTransformer(new SocketImplTransformer());
+			//log("Transformer Installed. TrackingSocketFactory Installed:" + TrackingSocketImplFactory.isInstalled());
 			Socket sock = new Socket();
 			sock.setSoTimeout(5000);
 			sock.setTcpNoDelay(true);

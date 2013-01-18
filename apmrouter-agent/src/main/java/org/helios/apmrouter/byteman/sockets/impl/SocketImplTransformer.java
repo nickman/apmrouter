@@ -27,6 +27,7 @@ package org.helios.apmrouter.byteman.sockets.impl;
 import java.io.File;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
+import java.net.Socket;
 import java.net.SocketImpl;
 import java.net.SocketImplFactory;
 import java.net.SocketOptions;
@@ -38,6 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javassist.ByteArrayClassPath;
 import javassist.ClassClassPath;
 import javassist.ClassPool;
+import javassist.CodeConverter;
 import javassist.CtClass;
 import javassist.CtConstructor;
 import javassist.CtMethod;
@@ -84,8 +86,8 @@ public class SocketImplTransformer implements ClassFileTransformer {
 	public static final String DEFAULT_CLASSDIR = System.getProperty("java.io.tmpdir") + "/org/helios";
 	
 	
-	/** The wrapping socket impl factory */
-	public static final Class<TrackingSocketImplFactory> TrackingSocketImplFactoryClass = TrackingSocketImplFactory.class;
+//	/** The wrapping socket impl factory */
+//	public static final Class<TrackingSocketImplFactory> TrackingSocketImplFactoryClass = TrackingSocketImplFactory.class;
 	/** The wrapping socket impl */
 	public static final Class<TrackingSocketImpl> TrackingSocketImplClass = TrackingSocketImpl.class; 
 	
@@ -120,10 +122,10 @@ public class SocketImplTransformer implements ClassFileTransformer {
 	protected final CtClass socketImplFactoryCtClass;
 	/** The javassist method representation of {@link SocketImplFactory#createSocketImpl} */
 	protected final CtMethod createSocketImplMethod;
-	/** The javassist ctclass representation of {@link TrackingSocketImpl} */
-	protected final CtClass trackingSocketImplCtClass;
-	/** The javassist ctclass representation of {@link TrackingSocketImplFactory} */
-	protected final CtClass trackingSocketImplFactoryCtClass;
+//	/** The javassist ctclass representation of {@link TrackingSocketImpl} */
+//	protected final CtClass trackingSocketImplCtClass;
+//	/** The javassist ctclass representation of {@link TrackingSocketImplFactory} */
+//	protected final CtClass trackingSocketImplFactoryCtClass;
 	
 	/** The javassist ctclass representation of {@link ISocketImpl} */
 	protected final CtClass iSocketImplCtClass;
@@ -173,10 +175,10 @@ public class SocketImplTransformer implements ClassFileTransformer {
 				SimpleLogger.info("Generated class files will be written to [" , classDir , "]");
 			}
 			classPool = new ClassPool(true);
-			classPool.appendClassPath(new ClassClassPath(TrackingSocketImplFactoryClass));
-			classPool.importPackage(TrackingSocketImplFactoryClass.getPackage().getName());
-			trackingSocketImplCtClass = classPool.get(TrackingSocketImpl.class.getName());
-			trackingSocketImplFactoryCtClass = classPool.get(TrackingSocketImplFactoryClass.getName());
+//			classPool.appendClassPath(new ClassClassPath(TrackingSocketImplFactoryClass));
+//			classPool.importPackage(TrackingSocketImplFactoryClass.getPackage().getName());
+//			trackingSocketImplCtClass = classPool.get(TrackingSocketImpl.class.getName());
+//			trackingSocketImplFactoryCtClass = classPool.get(TrackingSocketImplFactoryClass.getName());
 			iSocketImplCtClass = classPool.get(ISocketImplClass.getName());
 			socketImplCtClass = classPool.get(SOCK_NAME);
 			socketOptionsCtClass = classPool.get(SOCK_OPT_NAME);
@@ -216,31 +218,37 @@ public class SocketImplTransformer implements ClassFileTransformer {
 			} catch (Exception ex) {
 				return classfileBuffer;
 			}
-			if(SOCKET_BIN_NAME.equals(className)) {
-				byte[] byteCode = transformSocket(clazz);
-				preInstrumented.put(className, classfileBuffer);
-				instrumented.put(className, byteCode);
-				if(loader!=null) {
-					loader.loadClass(convertFromBinaryName(className));
-				} else {
-					Class.forName(convertFromBinaryName(className));
-				}				
-				return byteCode;
-			}
-			if(clazz.isInterface()) {
-				if(implementsInterface(clazz, socketImplFactoryCtClass)) {
-					if(verbose) SimpleLogger.info("[", Thread.currentThread(), "] SocketImplTransformer Recursion Level:", recLevel);
-					byte[] byteCode = transformSocketImplFactory(clazz);
-					preInstrumented.put(className, classfileBuffer);
-					instrumented.put(className, byteCode);
-					return byteCode;
-				}
-			} else {
+//			if(SOCKET_BIN_NAME.equals(className)) {
+//				byte[] byteCode = transformSocket(clazz);
+//				preInstrumented.put(className, classfileBuffer);
+//				instrumented.put(className, byteCode);
+//				if(loader!=null) {
+//					loader.loadClass(convertFromBinaryName(className));
+//				} else {
+//					Class.forName(convertFromBinaryName(className));
+//				}				
+//				return byteCode;
+//			}
+			if(!clazz.isInterface()) {
 				if(isSocketImpl(clazz)) {
 					if(verbose) SimpleLogger.info("[", Thread.currentThread(), "] SocketImplTransformer Recursion Level:", recLevel);
 					return transformSocketImpl(clazz);
 				}					
 			}
+//			if(clazz.isInterface()) {
+//				if(implementsInterface(clazz, socketImplFactoryCtClass)) {
+//					if(verbose) SimpleLogger.info("[", Thread.currentThread(), "] SocketImplTransformer Recursion Level:", recLevel);
+//					byte[] byteCode = transformSocketImplFactory(clazz);
+//					preInstrumented.put(className, classfileBuffer);
+//					instrumented.put(className, byteCode);
+//					return byteCode;
+//				}
+//			} else {
+//				if(isSocketImpl(clazz)) {
+//					if(verbose) SimpleLogger.info("[", Thread.currentThread(), "] SocketImplTransformer Recursion Level:", recLevel);
+//					return transformSocketImpl(clazz);
+//				}					
+//			}
 			return classfileBuffer;
 		} catch (Throwable t) {
 			t.printStackTrace(System.err);
@@ -289,61 +297,61 @@ public class SocketImplTransformer implements ClassFileTransformer {
 		return isIface;
 	}
 	
-	/**
-	 * Instruments the passed {@link SocketImplFactory}
-	 * @param socketImplFactoryImpl the javassist representation of a {@link SocketImplFactory} 
-	 * @return the class byte code
-	 */
-	protected byte[] transformSocketImplFactory(CtClass socketImplFactoryImpl) {
-		try {
-			SimpleLogger.info("Transforming SocketImplFactory [", socketImplFactoryImpl.getName(), "]");
-			CtMethod originalMethod = socketImplFactoryImpl.getMethod(createSocketImplMethod.getName(), createSocketImplMethod.getSignature());
-			originalMethod.setName("_" + createSocketImplMethod.getName());
-			CtMethod newMethod = new CtMethod(socketImplCtClass, createSocketImplMethod.getName(), new CtClass[0], socketImplFactoryImpl);
-			newMethod.setBody("return new TrackingSocketImplFactory(" + originalMethod.getName() + ");");
-			if(classDir!=null) {
-				SimpleLogger.info("Writing SocketImplFactory [", socketImplFactoryImpl.getName(), "]");
-				socketImplFactoryImpl.writeFile(classDir.getAbsolutePath());
-			}
-			return socketImplFactoryImpl.toBytecode();
-		} catch (Exception ex) {
-			ex.printStackTrace(System.err);
-			throw new RuntimeException("Failed to instrument [" + socketImplFactoryImpl.getName() + "]", ex);
-		}		
-	}
+//	/**
+//	 * Instruments the passed {@link SocketImplFactory}
+//	 * @param socketImplFactoryImpl the javassist representation of a {@link SocketImplFactory} 
+//	 * @return the class byte code
+//	 */
+//	protected byte[] transformSocketImplFactory(CtClass socketImplFactoryImpl) {
+//		try {
+//			SimpleLogger.info("Transforming SocketImplFactory [", socketImplFactoryImpl.getName(), "]");
+//			CtMethod originalMethod = socketImplFactoryImpl.getMethod(createSocketImplMethod.getName(), createSocketImplMethod.getSignature());
+//			originalMethod.setName("_" + createSocketImplMethod.getName());
+//			CtMethod newMethod = new CtMethod(socketImplCtClass, createSocketImplMethod.getName(), new CtClass[0], socketImplFactoryImpl);
+//			newMethod.setBody("return new TrackingSocketImplFactory(" + originalMethod.getName() + ");");
+//			if(classDir!=null) {
+//				SimpleLogger.info("Writing SocketImplFactory [", socketImplFactoryImpl.getName(), "]");
+//				socketImplFactoryImpl.writeFile(classDir.getAbsolutePath());
+//			}
+//			return socketImplFactoryImpl.toBytecode();
+//		} catch (Exception ex) {
+//			ex.printStackTrace(System.err);
+//			throw new RuntimeException("Failed to instrument [" + socketImplFactoryImpl.getName() + "]", ex);
+//		}		
+//	}
 	
-	protected byte[] transformSocket(CtClass socket) {
-		SimpleLogger.info("Transforming Socket");
-		try {
-			socket.defrost();
-			CtMethod setMethod = socket.getDeclaredMethod("setSocketImplFactory");
-			setMethod.setName("_setSocketImplFactory");
-			CtMethod newMethod = new CtMethod(setMethod, socket, null);
-			newMethod.setName("setSocketImplFactory");
-				//new CtMethod(CtClass.voidType, "setSocketImplFactory", new CtClass[]{socketImplFactoryCtClass}, socket);
-			newMethod.setBody(new StringBuilder("{")				
-				.append("if (factory != null && (factory instanceof TrackingSocketImplFactory)) {")
-				.append("System.out.println(\"Current Factory:\" + factory.getClass().getName());")
-				.append("factory = new TrackingSocketImplFactory($1);")
-				.append("} else { _setSocketImplFactory($1); if($1 instanceof TrackingSocketImplFactory) {}")
-				.append("System.out.println(\"Installed Factory:\" + factory.getClass().getName());")
-				.append("}")
-				.append("}")
-				.toString()
-			);
-			newMethod.setModifiers(newMethod.getModifiers() | Modifier.STATIC);
-			newMethod.setModifiers(newMethod.getModifiers() | Modifier.PUBLIC);
-			socket.addMethod(newMethod);
-			if(classDir!=null) {
-				SimpleLogger.info("Writing Socket [", socket.getName(), "]");
-				socket.writeFile(classDir.getAbsolutePath());
-			}			
-			return socket.toBytecode();
-		} catch (Exception ex) {
-			ex.printStackTrace(System.err);
-			throw new RuntimeException("Failed to instrument socket", ex);
-		}		
-	}
+//	protected byte[] transformSocket(CtClass socket) {
+//		SimpleLogger.info("Transforming Socket");
+//		try {
+//			socket.defrost();
+//			CtMethod setMethod = socket.getDeclaredMethod("setSocketImplFactory");
+//			setMethod.setName("_setSocketImplFactory");
+//			CtMethod newMethod = new CtMethod(setMethod, socket, null);
+//			newMethod.setName("setSocketImplFactory");
+//				//new CtMethod(CtClass.voidType, "setSocketImplFactory", new CtClass[]{socketImplFactoryCtClass}, socket);
+//			newMethod.setBody(new StringBuilder("{")				
+//				.append("if (factory != null && (factory instanceof TrackingSocketImplFactory)) {")
+//				.append("System.out.println(\"Current Factory:\" + factory.getClass().getName());")
+//				.append("factory = new TrackingSocketImplFactory($1);")
+//				.append("} else { _setSocketImplFactory($1); if($1 instanceof TrackingSocketImplFactory) {}")
+//				.append("System.out.println(\"Installed Factory:\" + factory.getClass().getName());")
+//				.append("}")
+//				.append("}")
+//				.toString()
+//			);
+//			newMethod.setModifiers(newMethod.getModifiers() | Modifier.STATIC);
+//			newMethod.setModifiers(newMethod.getModifiers() | Modifier.PUBLIC);
+//			socket.addMethod(newMethod);
+//			if(classDir!=null) {
+//				SimpleLogger.info("Writing Socket [", socket.getName(), "]");
+//				socket.writeFile(classDir.getAbsolutePath());
+//			}			
+//			return socket.toBytecode();
+//		} catch (Exception ex) {
+//			ex.printStackTrace(System.err);
+//			throw new RuntimeException("Failed to instrument socket", ex);
+//		}		
+//	}
 	
 	/**
 	 * Transforms a {@link SocketImpl} class
@@ -363,17 +371,24 @@ public class SocketImplTransformer implements ClassFileTransformer {
 			for(CtMethod method: iSocketImplCtClass.getDeclaredMethods()) {
 				CtMethod toPub = socketImplImpl.getMethod(method.getName(), method.getSignature());
 				if(Modifier.isPublic(toPub.getModifiers())) continue;				
-				socketImplImpl.removeMethod(toPub);
+				//socketImplImpl.removeMethod(toPub);
 				toPub.setModifiers(toPub.getModifiers() & ~Modifier.PROTECTED);
 				toPub.setModifiers(toPub.getModifiers() | Modifier.PUBLIC);
 				String key = toPub.getName() + "." + toPub.getSignature();
 				String transform = SocketTrackingAdapter.SOCKET_IMPL_ADAPTERS.get(key);
 				if(transform!=null) {
-					CtMethod afterMethod = new CtMethod(toPub.getReturnType(), "_after" + toPub.getName(), toPub.getParameterTypes(), socketImplImpl);
-					afterMethod.setBody(transform);
-					//
+//					CtMethod afterMethod = new CtMethod(toPub.getReturnType(), "_after" + toPub.getName(), toPub.getParameterTypes(), socketImplImpl);
+//					SimpleLogger.info("Adding AfterMethod:[", toPub.getLongName(), "  /  ", afterMethod.getLongName(), "]\n\t[", transform, "]" );
+//					afterMethod.setBody(transform);
+//					socketImplImpl.addMethod(afterMethod);
+//					CodeConverter cc = new CodeConverter();
+//					cc.insertAfterMethod(toPub, afterMethod);
+//					toPub.instrument(cc);
+					
+					SimpleLogger.info("Adding insertAfter on:[", toPub.getLongName(), "]\n\t[", transform, "]" );
+					toPub.insertAfter(transform);
 				}
-				socketImplImpl.addMethod(toPub);
+				//socketImplImpl.addMethod(toPub);
 			}
 			if(classDir!=null) {
 				SimpleLogger.info("Writing SocketImpl [", socketImplImpl.getName(), "]");

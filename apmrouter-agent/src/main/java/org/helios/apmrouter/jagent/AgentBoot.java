@@ -52,7 +52,7 @@ import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
 
 import org.helios.apmrouter.byteman.sockets.impl.SocketImplTransformer;
-import org.helios.apmrouter.byteman.sockets.impl.TrackingSocketImplFactory;
+//import org.helios.apmrouter.byteman.sockets.impl.TrackingSocketImplFactory;
 import org.helios.apmrouter.instrumentation.Trace;
 import org.helios.apmrouter.instrumentation.TraceClassFileTransformer;
 import org.helios.apmrouter.instrumentation.publifier.ClassPublifier;
@@ -120,10 +120,10 @@ public class AgentBoot {
 	public static void boot(URLClassLoader classLoader, String agentArgs, Instrumentation instrumentation) {
 		instrumentation.addTransformer(new SocketImplTransformer(), true);
 		try {
-			instrumentation.retransformClasses(Socket.class);
-			Socket.setSocketImplFactory(new TrackingSocketImplFactory());
+//			instrumentation.retransformClasses(Socket.class);
+//			Socket.setSocketImplFactory(new TrackingSocketImplFactory());
 		} catch (Exception ex) {}
-		SimpleLogger.info("TrackingSocketFactory Installed:" + TrackingSocketImplFactory.isInstalled());
+//		SimpleLogger.info("TrackingSocketFactory Installed:" + TrackingSocketImplFactory.isInstalled());
 		
 		org.helios.apmrouter.jagent.Instrumentation.install(instrumentation);
 		AgentBoot.agentArgs = agentArgs;

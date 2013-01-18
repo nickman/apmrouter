@@ -56,9 +56,9 @@ public class SocketTrackingAdapter {
 		methodMap.put("bind.(Ljava/net/InetAddress;I)V","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onBind($0, $$);");
 		methodMap.put("listen.(I)V","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onListen($0, $$);");
 		methodMap.put("accept.(Ljava/net/SocketImpl;)V","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onAccept($0, $$);");
-		methodMap.put("getInputStream.()Ljava/io/InputStream;","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onGetInputStream($0, _$);");
-		methodMap.put("getOutputStream.()Ljava/io/OutputStream;","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onGetOutputStream($0, _$);");
-		methodMap.put("available.()I","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onAvailable($0, _$);");
+		methodMap.put("getInputStream.()Ljava/io/InputStream;","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onGetInputStream($0, $_);");
+		methodMap.put("getOutputStream.()Ljava/io/OutputStream;","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onGetOutputStream($0, $_);");
+		methodMap.put("available.()I","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onAvailable($0, $_);");
 		methodMap.put("close.()V","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onClose($0);");
 		methodMap.put("shutdownInput.()V","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onShutdownInput($0);");
 		methodMap.put("shutdownOutput.()V","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onShutdownOutput($0);");
@@ -71,13 +71,13 @@ public class SocketTrackingAdapter {
 	}
 
 	/**
-	 * Called on a socket impl connect
+	 * Called on a socket impl connect. This is the only <i>actual</i> connect execution. The overloads are redirected here.
 	 * @param socketImpl the socket impl that connected
 	 * @param address the socket address that the socket impl connected to
 	 * @param timeout the timeout used for connect
 	 */
 	public static void onConnect(Object socketImpl, SocketAddress address, int timeout) {
-		info("Connected [", address, ":", timeout, "]");
+		info("Connected (sa) [", address, ":", timeout, "]");
 	}
 	
 	/**
@@ -87,7 +87,7 @@ public class SocketTrackingAdapter {
 	 * @param timeout the timeout used for connect
 	 */
 	public static void onConnect(Object socketImpl, InetAddress address, int timeout) {
-		info("Connected [", address, ":", timeout, "]");
+		info("Connected (ia) [", address, ":", timeout, "]");
 	}
 	
 	/**
@@ -97,7 +97,7 @@ public class SocketTrackingAdapter {
 	 * @param port the port that the socket impl connected to
 	 */
 	public static void onConnect(Object socketImpl, String host, int port) {
-		info("Connected [", host, ":", port, "]");
+		info("Connected (ha) [", host, ":", port, "]");
 	}
 	
 	/**
