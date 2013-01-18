@@ -349,6 +349,8 @@ public class SocketImplTransformer implements ClassFileTransformer {
 	 * Transforms a {@link SocketImpl} class
 	 * @param socketImplImpl the javassist representation of a {@link SocketImpl} 
 	 * @return the class byte code
+	 * TODO: publify fields
+	 * TODO: add socket tracker adapter calls  (CtMethod.insertAfter or CodeConverter.insertAfterMethod) 
 	 */
 	protected byte[] transformSocketImpl(CtClass socketImplImpl) {
 		SimpleLogger.info("Transforming SocketImpl [", socketImplImpl.getName(), "]");
@@ -361,8 +363,17 @@ public class SocketImplTransformer implements ClassFileTransformer {
 			for(CtMethod method: iSocketImplCtClass.getDeclaredMethods()) {
 				CtMethod toPub = socketImplImpl.getMethod(method.getName(), method.getSignature());
 				if(Modifier.isPublic(toPub.getModifiers())) continue;				
+				socketImplImpl.removeMethod(toPub);
 				toPub.setModifiers(toPub.getModifiers() & ~Modifier.PROTECTED);
 				toPub.setModifiers(toPub.getModifiers() | Modifier.PUBLIC);
+				String key = toPub.getName() + "." + toPub.getSignature();
+				String transform = SocketTrackingAdapter.SOCKET_IMPL_ADAPTERS.get(key);
+				if(transform!=null) {
+					CtMethod afterMethod = new CtMethod(toPub.getReturnType(), "_after" + toPub.getName(), toPub.getParameterTypes(), socketImplImpl);
+					afterMethod.setBody(transform);
+					//
+				}
+				socketImplImpl.addMethod(toPub);
 			}
 			if(classDir!=null) {
 				SimpleLogger.info("Writing SocketImpl [", socketImplImpl.getName(), "]");
