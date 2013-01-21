@@ -27,19 +27,22 @@ package org.helios.apmrouter.byteman.sockets.impl;
 import java.io.File;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketImpl;
 import java.net.SocketImplFactory;
 import java.net.SocketOptions;
 import java.security.ProtectionDomain;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javassist.ByteArrayClassPath;
-import javassist.ClassClassPath;
 import javassist.ClassPool;
-import javassist.CodeConverter;
 import javassist.CtClass;
 import javassist.CtConstructor;
 import javassist.CtMethod;
@@ -68,6 +71,21 @@ public class SocketImplTransformer implements ClassFileTransformer {
 	public static final String SOCKET_NAME = "java.net.Socket";
 	/** The binary class name of {@link Socket} */
 	public static final String SOCKET_BIN_NAME = "java/net/Socket";
+	/** The class name of {@link ServerSocket} */
+	public static final String SERVER_SOCKET_NAME = "java.net.ServerSocket";
+	/** The binary class name of {@link ServerSocket} */
+	public static final String SERVER_SOCKET_BIN_NAME = "java/net/ServerSocket";
+	
+	/** The class name of SocketOutputStream */
+	public static final String SOCKET_OS_NAME = "java.net.SocketOutputStream";
+	/** The binary class name of SocketOutputStream */
+	public static final String SOCKET_OS_BIN_NAME = "java/net/SocketOutputStream";
+	/** The class name of SocketInputStream */
+	public static final String SOCKET_IS_NAME = "java.net.SocketInputStream";
+	/** The binary class name of SocketInputStream */
+	public static final String SOCKET_IS_BIN_NAME = "java/net/SocketInputStream";
+	
+
 	
 	/** The binary class name of {@link SocketImpl} */
 	public static final String SOCK_BIN_NAME = "java/net/SocketImpl";
@@ -113,11 +131,18 @@ public class SocketImplTransformer implements ClassFileTransformer {
 			return new AtomicInteger();
 		}
 	};
+	/** A thread local containing the transformed method signatures of the current class */
+	protected static final ThreadLocal<Set<String>> currentSignatures = new ThreadLocal<Set<String>>();
 	
 	/** The javassist classpool used by this transformer */
 	protected final ClassPool classPool;
 	/** The javassist ctclass representation of {@link SocketImpl} */
 	protected final CtClass socketImplCtClass;
+	/** The javassist ctclass representation of {@link Socket} */
+	protected final CtClass socketCtClass;
+	/** The javassist ctclass representation of {@link ServerSocket} */
+	protected final CtClass serverSocketCtClass;
+	
 	/** The javassist ctclass representation of {@link SocketImplFactory} */
 	protected final CtClass socketImplFactoryCtClass;
 	/** The javassist method representation of {@link SocketImplFactory#createSocketImpl} */
@@ -146,6 +171,14 @@ public class SocketImplTransformer implements ClassFileTransformer {
 	/** A map of pre-istrumentation bytecode instrumented classes keyed by the binary class name. */
 	protected final Map<String, byte[]> preInstrumented = new ConcurrentHashMap<String, byte[]>();
 	
+	/** A map of socket impl class names keyed by the signature of the instrumented method */
+	protected final Map<String, String> socketImplSigs = new ConcurrentHashMap<String, String>(); 
+	
+	
+	public void flushInstr() {
+		instrumented.clear();
+		socketImplSigs.clear();
+	}
 	/**
 	 * Creates a new SocketImplTransformer
 	 */
@@ -179,6 +212,8 @@ public class SocketImplTransformer implements ClassFileTransformer {
 //			classPool.importPackage(TrackingSocketImplFactoryClass.getPackage().getName());
 //			trackingSocketImplCtClass = classPool.get(TrackingSocketImpl.class.getName());
 //			trackingSocketImplFactoryCtClass = classPool.get(TrackingSocketImplFactoryClass.getName());
+			serverSocketCtClass = classPool.get(SERVER_SOCKET_BIN_NAME);
+			socketCtClass = classPool.get(SOCKET_BIN_NAME);
 			iSocketImplCtClass = classPool.get(ISocketImplClass.getName());
 			socketImplCtClass = classPool.get(SOCK_NAME);
 			socketOptionsCtClass = classPool.get(SOCK_OPT_NAME);
@@ -203,14 +238,14 @@ public class SocketImplTransformer implements ClassFileTransformer {
 		LoaderClassPath lcp = null;
 		final ByteArrayClassPath bcp = new ByteArrayClassPath(convertFromBinaryName(className), classfileBuffer);
 		final int recLevel = recursionLevel.get().incrementAndGet();
+		
+		final boolean createdSigs = currentSignatures.get()==null;
+		if(createdSigs) currentSignatures.set(new HashSet<String>());
 		if(instrumented.containsKey(className)) return instrumented.get(className);
 		try {			
 			if(loader!=null) {
 				lcp = new LoaderClassPath(loader);
 				classPool.appendClassPath(lcp);
-			}
-			if("org/helios/apmrouter/byteman/sockets/impl/TrackingSocketImpl".equals(className)) {
-				return classfileBuffer;
 			}
 			CtClass clazz = null;
 			try {
@@ -229,10 +264,26 @@ public class SocketImplTransformer implements ClassFileTransformer {
 //				}				
 //				return byteCode;
 //			}
+			if(SOCKET_OS_BIN_NAME.equals(className)) {
+				return transformSocketOutputStream(clazz);
+			}
+			if(SOCKET_IS_BIN_NAME.equals(className)) {
+				return transformSocketInputStream(clazz);
+			}
+			
 			if(!clazz.isInterface()) {
 				if(isSocketImpl(clazz)) {
-					if(verbose) SimpleLogger.info("[", Thread.currentThread(), "] SocketImplTransformer Recursion Level:", recLevel);
-					return transformSocketImpl(clazz);
+					SimpleLogger.info("[", Thread.currentThread(), "] SocketImplTransformer Recursion Level:", recLevel);
+					byte[] byteCode =  transformSocketImpl(clazz);
+					instrumented.put(className, byteCode);
+					return byteCode;
+//					if(loader!=null) {
+//						loader.loadClass(convertFromBinaryName(className));
+//						SimpleLogger.info("LOADED SOCKIMPL:[" + className + "] from [", loader, "]");
+//					} else {
+//						Class.forName(convertFromBinaryName(className));
+//						SimpleLogger.info("LOADED SOCKIMPL:[" + className + "] from Bootloader");
+//					}				
 				}					
 			}
 //			if(clazz.isInterface()) {
@@ -257,19 +308,22 @@ public class SocketImplTransformer implements ClassFileTransformer {
 			if(recursionLevel.get().decrementAndGet()==0) {
 				recursionLevel.remove();
 			}			
+			if(createdSigs) {
+				currentSignatures.remove();
+			}
 			classPool.removeClassPath(bcp);
 			if(lcp!=null) classPool.removeClassPath(lcp);
 		}
 	}
 	
 	/**
-	 * Determines if the passed class has {@link SocketImpl} as a direct or indirect superclass, is not abstract and does not already implement {@link ISocketImpl}
+	 * Determines if the passed class has {@link SocketImpl} as a direct or indirect superclass and does not already implement {@link ISocketImpl}
 	 * @param clazz The class to test  
-	 * @return true if the passed class has {@link SocketImpl} as a direct or indirect superclass, is not abstract and does not already implement {@link ISocketImpl}
+	 * @return true if the passed class has {@link SocketImpl} as a direct or indirect superclass and does not already implement {@link ISocketImpl}
 	 * @throws NotFoundException thrown when the superclass cannot be loaded
 	 */
 	protected boolean isSocketImpl(CtClass clazz) throws NotFoundException {
-		if(Modifier.isAbstract(clazz.getModifiers())) return false;		
+		if(clazz.isInterface()) return false;		
 		CtClass parent = clazz.getSuperclass();
 		while(parent!=null && !parent.getName().equals(objectCtClass.getName())) {
 			if(parent.getName().equals(SOCK_NAME)) return true;
@@ -277,6 +331,25 @@ public class SocketImplTransformer implements ClassFileTransformer {
 		}
 		return false;
 	}
+	
+	/**
+	 * Determines if the passed class <b><code>clazz</code></b> is a descendent of <b><code>superClazz</code></b>.  
+	 * @param clazz The class to test 
+	 * @param superClazz The super class
+	 * @return true if <b><code>clazz</code></b> is a descendent of <b><code>superClazz</code></b>
+	 * @throws NotFoundException thrown on failure to get a super class
+	 */
+	protected boolean isDescendentOf(CtClass clazz, CtClass superClazz) throws NotFoundException {
+		if(clazz.isInterface()) return false;		
+		String superName = superClazz.getName();
+		CtClass parent = clazz.getSuperclass();
+		while(parent!=null && !parent.getName().equals(objectCtClass.getName())) {
+			if(parent.getName().equals(superName)) return true;
+			parent = parent.getSuperclass();
+		}
+		return false;
+	}
+	
 	
 	/**
 	 * Determines if the passed class implements the passed interface and is not abstract
@@ -359,22 +432,38 @@ public class SocketImplTransformer implements ClassFileTransformer {
 	 * @return the class byte code
 	 * TODO: publify fields
 	 * TODO: add socket tracker adapter calls  (CtMethod.insertAfter or CodeConverter.insertAfterMethod) 
+	 * @throws NotFoundException thrown on failure to render class hierarchy
 	 */
-	protected byte[] transformSocketImpl(CtClass socketImplImpl) {
+	protected byte[] transformSocketImpl(final CtClass socketImplImpl) throws NotFoundException {
 		SimpleLogger.info("Transforming SocketImpl [", socketImplImpl.getName(), "]");
+		final Set<String> sigs = currentSignatures.get();
 		try {
 			socketImplImpl.defrost();
 			socketImplImpl.setModifiers(socketImplImpl.getModifiers() | Modifier.PUBLIC);
 			CtConstructor ctor = socketImplImpl.getDeclaredConstructor(new CtClass[0]);
 			ctor.setModifiers(ctor.getModifiers() | Modifier.PUBLIC);
 			socketImplImpl.addInterface(iSocketImplCtClass);
-			for(CtMethod method: iSocketImplCtClass.getDeclaredMethods()) {
+			CtMethod getSockMethod = new CtMethod(socketCtClass, "getSocket", new CtClass[0], socketImplImpl);
+			getSockMethod.setModifiers(getSockMethod.getModifiers() | Modifier.PUBLIC);
+			getSockMethod.setBody("return socket;");
+			socketImplImpl.addMethod(getSockMethod);
+			CtMethod getServerSockMethod = new CtMethod(serverSocketCtClass, "getServerSocket", new CtClass[0], socketImplImpl);
+			getServerSockMethod.setModifiers(getServerSockMethod.getModifiers() | Modifier.PUBLIC);
+			getServerSockMethod.setBody("return serverSocket;");
+			socketImplImpl.addMethod(getServerSockMethod);
+			
+			for(CtMethod method: socketImplCtClass.getDeclaredMethods()) {
 				CtMethod toPub = socketImplImpl.getMethod(method.getName(), method.getSignature());
-				if(Modifier.isPublic(toPub.getModifiers())) continue;				
+				String key = toPub.getName() + "." + toPub.getSignature();
+				int modifiers = toPub.getModifiers();
+				if(Modifier.isNative(modifiers) || sigs.contains(key) || socketImplSigs.containsKey(toPub.getName() + toPub.getSignature())) continue;
+				sigs.add(key);
+				socketImplSigs.put(toPub.getName() + toPub.getSignature(), socketImplImpl.getName());
+//				SimpleLogger.info("ADD KEY [", key, "]");
 				//socketImplImpl.removeMethod(toPub);
 				toPub.setModifiers(toPub.getModifiers() & ~Modifier.PROTECTED);
 				toPub.setModifiers(toPub.getModifiers() | Modifier.PUBLIC);
-				String key = toPub.getName() + "." + toPub.getSignature();
+				
 				String transform = SocketTrackingAdapter.SOCKET_IMPL_ADAPTERS.get(key);
 				if(transform!=null) {
 //					CtMethod afterMethod = new CtMethod(toPub.getReturnType(), "_after" + toPub.getName(), toPub.getParameterTypes(), socketImplImpl);
@@ -384,21 +473,90 @@ public class SocketImplTransformer implements ClassFileTransformer {
 //					CodeConverter cc = new CodeConverter();
 //					cc.insertAfterMethod(toPub, afterMethod);
 //					toPub.instrument(cc);
-					
-					SimpleLogger.info("Adding insertAfter on:[", toPub.getLongName(), "]\n\t[", transform, "]" );
+					transform = transform.replace("##className##", toPub.getDeclaringClass().getSimpleName());
+//					SimpleLogger.info("Adding insertAfter on:[", toPub.getDeclaringClass().getSimpleName(), " | ", toPub.getSignature(), "]\n\t[", transform, "]" );
 					toPub.insertAfter(transform);
 				}
 				//socketImplImpl.addMethod(toPub);
 			}
 			if(classDir!=null) {
-				SimpleLogger.info("Writing SocketImpl [", socketImplImpl.getName(), "]");
+//				SimpleLogger.info("Writing SocketImpl [", socketImplImpl.getName(), "]");
 				socketImplImpl.writeFile(classDir.getAbsolutePath());
-			}			
-			return socketImplImpl.toBytecode();
+			}						
+			return socketImplImpl.toBytecode(); 
 		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
 			throw new RuntimeException("Failed to instrument [" + socketImplImpl.getName() + "]", ex);
-		}		
+		}
+	}
+	
+	/**
+	 * Instruments the SocketOutputStream class
+	 * @param socketOutput the javassist representation of the SocketOutputStream class
+	 * @return the bytecode of the instrumented class 
+	 * @throws Exception thrown on any error instrumenting the class
+	 */
+	protected byte[] transformSocketOutputStream(CtClass socketOutput) throws Exception {
+		for(CtMethod method: socketOutput.getDeclaredMethods()) {
+			String key = method.getName() + "." + method.getSignature();
+			String transform = SocketTrackingAdapter.SOCKET_OS_ADAPTERS.get(key);
+			if(transform!=null) {
+				method.insertAfter(transform);
+			}
+		}
+		return socketOutput.toBytecode();
+	}
+	
+	/**
+	 * Instruments the SocketInputStream class
+	 * @param socketInput the javassist representation of the SocketInputStream class
+	 * @return the bytecode of the instrumented class 
+	 * @throws Exception thrown on any error instrumenting the class
+	 */
+	protected byte[] transformSocketInputStream(CtClass socketInput) throws Exception {
+		for(CtMethod method: socketInput.getDeclaredMethods()) {
+			String key = method.getName() + "." + method.getSignature();
+			String transform = SocketTrackingAdapter.SOCKET_IS_ADAPTERS.get(key);
+			if(transform!=null) {
+				method.insertAfter(transform);
+			}
+		}
+		return socketInput.toBytecode();
+	}
+	
+	
+	/**
+	 * Returns a formatted string of the socket impl instrumented methods
+	 * @return a formatted string of the socket impl instrumented methods
+	 */
+	public String getSocketImplSigs() {
+		StringBuilder b = new StringBuilder();
+		for(Map.Entry<String, String> entry: socketImplSigs.entrySet()) {
+			b.append("\n\t").append(entry.getValue()).append(" : ").append(entry.getKey());
+		}
+		return b.toString();
+	}
+	
+	/**
+	 * Builds an inherritance hierarchy of the passed class <b><code>impl</code></b>
+	 * where all classes extend <b><code>parent</code></b> up to the top class that is <b><code>parent</code></b>  
+	 * @param impl The class to start from
+	 * @param parent the top class to go to
+	 * @return a list of classes starting with <b><code>impl</code></b>  and ending with <b><code>parent</code></b>.
+	 * @throws NotFoundException thrown on any failure to get super classes
+	 */
+	protected List<CtClass> getClassHierarchy(CtClass impl, CtClass parent) throws NotFoundException {
+		List<CtClass> hier = new ArrayList<CtClass>();
+		if(isDescendentOf(impl, parent)) {
+			hier.add(impl);
+			CtClass sc = impl.getSuperclass();
+			while(sc!=null && !sc.getName().equals(objectCtClass.getName()) && !sc.getName().equals(parent.getName())) {
+				hier.add(sc);
+				sc = sc.getSuperclass();
+			}
+			hier.add(parent);
+		}
+		return hier;
 	}
 	
 	

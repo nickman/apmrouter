@@ -91,6 +91,15 @@ public class Agent {
 		}
 	}
 	
+	/*
+			String agentFile = System.getProperty("agent.file");
+			JarFile jarFile = new JarFile(agentFile);
+			Agent.instrumentation.appendToBootstrapClassLoaderSearch(jarFile);			
+			ClassFileTransformer transformer = (ClassFileTransformer)Class.forName("org.helios.apmrouter.byteman.sockets.impl.SocketImplTransformer").newInstance();
+			Agent.instrumentation.addTransformer(transformer);			
+
+	 */
+	
 	/**
 	 * Creates an isolated classloader to load the core library underlying the agent 
 	 * @return a classloader

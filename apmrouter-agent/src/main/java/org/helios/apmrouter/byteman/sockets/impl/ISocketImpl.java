@@ -28,6 +28,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.SocketImpl;
@@ -69,7 +71,19 @@ public interface ISocketImpl {
 
 	public Object getOption(int optID) throws SocketException;
 	
-	public SocketImpl get();
+//	public SocketImpl get();
+//	
+//    public void setServerSocket(ServerSocket soc);
+//
+    public ServerSocket getServerSocket();
+//    
+//    public void setSocket(Socket soc);
+//
+    public Socket getSocket();
+    
+    public int getLocalPort();
+    
+    public int getPort();
 	
 
 }

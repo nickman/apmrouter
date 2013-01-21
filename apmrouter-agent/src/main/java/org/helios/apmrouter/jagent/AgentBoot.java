@@ -32,8 +32,8 @@ import static org.helios.apmrouter.util.SimpleLogger.warn;
 import java.io.File;
 import java.io.StringReader;
 import java.lang.instrument.Instrumentation;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.net.Socket;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Arrays;
@@ -52,7 +52,6 @@ import javax.management.remote.JMXConnectorServerFactory;
 import javax.management.remote.JMXServiceURL;
 
 import org.helios.apmrouter.byteman.sockets.impl.SocketImplTransformer;
-//import org.helios.apmrouter.byteman.sockets.impl.TrackingSocketImplFactory;
 import org.helios.apmrouter.instrumentation.Trace;
 import org.helios.apmrouter.instrumentation.TraceClassFileTransformer;
 import org.helios.apmrouter.instrumentation.publifier.ClassPublifier;
@@ -64,6 +63,7 @@ import org.helios.apmrouter.sender.SenderFactory;
 import org.helios.apmrouter.util.SimpleLogger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
+//import org.helios.apmrouter.byteman.sockets.impl.TrackingSocketImplFactory;
 
 /**
  * <p>Title: AgentBoot</p>
@@ -118,12 +118,18 @@ public class AgentBoot {
 	 * @param instrumentation The instrumentation which may be null
 	 */
 	public static void boot(URLClassLoader classLoader, String agentArgs, Instrumentation instrumentation) {
-		instrumentation.addTransformer(new SocketImplTransformer(), true);
+		SocketImplTransformer sit = new SocketImplTransformer();
+		instrumentation.addTransformer(sit, true);
 		try {
-//			instrumentation.retransformClasses(Socket.class);
-//			Socket.setSocketImplFactory(new TrackingSocketImplFactory());
-		} catch (Exception ex) {}
-//		SimpleLogger.info("TrackingSocketFactory Installed:" + TrackingSocketImplFactory.isInstalled());
+			Object sock = Class.forName("java.net.Socket").newInstance();
+			Field f = sock.getClass().getDeclaredField("impl");
+			f.setAccessible(true);
+			Object sockImpl = f.get(sock); 			
+			instrumentation.retransformClasses(sockImpl.getClass(), sockImpl.getClass().getSuperclass());			
+			SimpleLogger.info("Retransformed [" + sockImpl.getClass().getName() + "]");
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+		}
 		
 		org.helios.apmrouter.jagent.Instrumentation.install(instrumentation);
 		AgentBoot.agentArgs = agentArgs;
@@ -132,6 +138,7 @@ public class AgentBoot {
 		configure();
 		ExtendedThreadManager.install();
 		Thread t = new Thread("HotspotInternalLoaderThread") {
+			@Override
 			public void run() {
 				try {
 					Thread.sleep(15000);
@@ -247,7 +254,7 @@ public class AgentBoot {
 	 * @param agentArgs The configured agent arguments
 	 * @param supportJars An optional array of supporting jar files to be appended to the bootstrap classpath
 	 * @return The name of the java agent class
-	 * @throws Exception thrown on any error
+	 * @throws Except)ion thrown on any error
 	 */
 	protected static String initAgent(File file, String agentArgs, File...supportJars) throws Exception {
 		JarFile jarFile = new JarFile(file);

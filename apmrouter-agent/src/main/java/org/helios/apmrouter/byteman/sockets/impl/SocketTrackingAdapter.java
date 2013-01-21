@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.byteman.sockets.impl;
 
+import static org.helios.apmrouter.util.SimpleLogger.info;
+
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
@@ -31,7 +33,6 @@ import java.net.SocketAddress;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import static org.helios.apmrouter.util.SimpleLogger.*;
 
 /**
  * <p>Title: SocketTrackingAdapter</p>
@@ -44,9 +45,15 @@ import static org.helios.apmrouter.util.SimpleLogger.*;
 
 
 public class SocketTrackingAdapter {
-	
+	/** The registered socket tracker */
+	protected static ISocketTracker socketTracker = null;  
 	/** The socket tracking adapters for socket impls */
 	public static final Map<String, String> SOCKET_IMPL_ADAPTERS;
+	/** The socket tracking adapters for socket output stream */
+	public static final Map<String, String> SOCKET_OS_ADAPTERS;
+	/** The socket tracking adapters for socket input stream */
+	public static final Map<String, String> SOCKET_IS_ADAPTERS;
+	
 	
 	static {
 		Map<String, String> methodMap = new HashMap<String, String>();
@@ -68,7 +75,100 @@ public class SocketTrackingAdapter {
 		methodMap.put("reset.()V","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onReset($0);");
 		methodMap.put("setPerformancePreferences.(III)V","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onSetPerformancePreferences($0, $$);");
 		SOCKET_IMPL_ADAPTERS = Collections.unmodifiableMap(methodMap);
+		methodMap = new HashMap<String, String>();
+		methodMap.put("socketWrite.([BII)V","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onSocketWrite($0, socket, $$);");
+		
+		
+		SOCKET_OS_ADAPTERS = Collections.unmodifiableMap(methodMap);
+		methodMap = new HashMap<String, String>();
+		methodMap.put("read.([B)I","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onRead($0, $_, socket, $$);");
+		methodMap.put("read.([BII)I","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onRead($0, $_, socket, $$);");
+		methodMap.put("read.()I","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onRead($0, $_, socket);");
+		methodMap.put("setEOF.(Z)V","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onSetEOF($0, socket, $$);");
+		methodMap.put("skip.(J)J","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onSkip($0, $_, socket, $$);");
+		SOCKET_IS_ADAPTERS = Collections.unmodifiableMap(methodMap);
+		
+		setISocketTracker(new LoggingSocketTracker());
 	}
+	
+	/**
+	 * Sets the socket tracker
+	 * @param tracker the socket tracker or null to clear the tracker
+	 */
+	public static void setISocketTracker(ISocketTracker tracker) {
+		socketTracker = tracker;
+	}
+	
+	/**
+	 * Called when EOF is set on a socket
+	 * @param is the input stream
+	 * @param socket the socket
+	 * @param eof the eof value
+	 */
+	public static void onSetEOF(InputStream is, Object socket, boolean eof) {
+		if(socketTracker!=null) socketTracker.onSetEOF(is, socket, eof);
+	}
+	
+	/**
+	 * Called when bytes are skipped on the input stream of a socket
+	 * @param is The input stream
+	 * @param skipped the actual number of bytes to skip
+	 * @param socket the socket
+	 * @param skip the number of bytes to skip
+	 */
+	public static void onSkip(InputStream is, long skipped, Object socket, long skip) {
+		if(socketTracker!=null) socketTracker.onSkip(is, skipped, socket, skip);
+	}
+	
+	/**
+	 * Called when a write completes to a socket
+	 * @param os The output stream
+	 * @param socket The socket
+     * @param b the data that was written
+     * @param off the start offset in the data
+     * @param len the number of bytes that were written
+	 */
+	public static void onSocketWrite(OutputStream os, Object socket, byte b[], int off, int len) {
+		if(socketTracker!=null) socketTracker.onSocketWrite(os, socket, b, off, len);
+	}
+	
+	
+
+	
+	/**
+	 * Called when data is read from a socket
+	 * @param is the input stream
+	 * @param actualBytesRead the actual number of bytes read, -1 is returned when the end of the stream is reached
+	 * @param socket the socket
+	 * @param buffer the buffer into which the data is read
+	 */
+	public static void onRead(InputStream is, int actualBytesRead, Object socket, byte[] buffer) {
+		if(socketTracker!=null) socketTracker.onRead(is, actualBytesRead, socket, buffer);
+	}
+	
+	/**
+	 * Called when data is read from a socket
+	 * @param is the input stream
+	 * @param actualBytesRead the actual number of bytes read, -1 is returned when the end of the stream is reached
+	 * @param socket the socket
+	 * @param buffer the buffer into which the data is read
+	 * @param off the start offset of the data
+	 * @param length the maximum number of bytes read
+	 */
+	public static void onRead(InputStream is, int actualBytesRead, Object socket, byte[] buffer, int off, int length) {
+		if(socketTracker!=null) socketTracker.onRead(is, actualBytesRead, socket, buffer, off, length);
+	}
+	
+	
+    /**
+     * Called when a byte is read from a socket
+     * @param is the input stream
+     * @param value the value read
+     * @param socket the socket
+     */
+    public static void onRead(InputStream is, int value, Object socket) {
+    	if(socketTracker!=null) socketTracker.onRead(is, value, socket);
+    }
 
 	/**
 	 * Called on a socket impl connect. This is the only <i>actual</i> connect execution. The overloads are redirected here.
@@ -77,7 +177,7 @@ public class SocketTrackingAdapter {
 	 * @param timeout the timeout used for connect
 	 */
 	public static void onConnect(Object socketImpl, SocketAddress address, int timeout) {
-		info("Connected (sa) [", address, ":", timeout, "]");
+		if(socketTracker!=null) socketTracker.onConnect((ISocketImpl)socketImpl, address, timeout);
 	}
 	
 	/**
@@ -87,7 +187,7 @@ public class SocketTrackingAdapter {
 	 * @param timeout the timeout used for connect
 	 */
 	public static void onConnect(Object socketImpl, InetAddress address, int timeout) {
-		info("Connected (ia) [", address, ":", timeout, "]");
+		if(socketTracker!=null) socketTracker.onConnect((ISocketImpl)socketImpl, address, timeout);
 	}
 	
 	/**
@@ -97,7 +197,7 @@ public class SocketTrackingAdapter {
 	 * @param port the port that the socket impl connected to
 	 */
 	public static void onConnect(Object socketImpl, String host, int port) {
-		info("Connected (ha) [", host, ":", port, "]");
+		if(socketTracker!=null) socketTracker.onConnect((ISocketImpl)socketImpl, host, port);
 	}
 	
 	/**
@@ -107,7 +207,7 @@ public class SocketTrackingAdapter {
 	 * @param port the port of the bound socket
 	 */
 	public static void onBind(Object socketImpl, InetAddress host, int port) {
-		
+		if(socketTracker!=null) socketTracker.onBind((ISocketImpl)socketImpl, host, port);
 	}
 	
 	/**
@@ -116,7 +216,7 @@ public class SocketTrackingAdapter {
 	 * @param backlog the connection backlog
 	 */
 	public static void onListen(Object socketImpl, int backlog) {
-		
+		if(socketTracker!=null) socketTracker.onListen((ISocketImpl)socketImpl, backlog);
 	}
 	
 	/**
@@ -125,7 +225,7 @@ public class SocketTrackingAdapter {
 	 * @param acceptedSocketImpl the accepted client socket impl
 	 */
 	public static void onAccept(Object socketImpl, Object acceptedSocketImpl) {
-		
+		if(socketTracker!=null) socketTracker.onAccept((ISocketImpl)socketImpl, acceptedSocketImpl);
 	}
 	
 	/**
@@ -134,7 +234,7 @@ public class SocketTrackingAdapter {
 	 * @param inputStream the returned input stream
 	 */
 	public static void onGetInputStream(Object socketImpl, InputStream inputStream) {
-		
+		if(socketTracker!=null) socketTracker.onGetInputStream((ISocketImpl)socketImpl, inputStream);
 	}
 
 	/**
@@ -143,7 +243,7 @@ public class SocketTrackingAdapter {
 	 * @param outputStream the returned output stream
 	 */
 	public static void onGetOutputStream(Object socketImpl, OutputStream outputStream) {
-		
+		if(socketTracker!=null) socketTracker.onGetOutputStream((ISocketImpl)socketImpl, outputStream);
 	}
 	
 	/**
@@ -152,7 +252,7 @@ public class SocketTrackingAdapter {
 	 * @param available the available bytes returned
 	 */
 	public static void  onAvailable(Object socketImpl, int available) {
-		
+		if(socketTracker!=null) socketTracker.onAvailable((ISocketImpl)socketImpl, available);
 	}
 
 	/**
@@ -160,7 +260,7 @@ public class SocketTrackingAdapter {
 	 * @param socketImpl the socket impl
 	 */
 	public static void  onClose(Object socketImpl) {
-		
+		if(socketTracker!=null) socketTracker.onClose((ISocketImpl)socketImpl);
 	}
 
 	/**
@@ -168,7 +268,7 @@ public class SocketTrackingAdapter {
 	 * @param socketImpl the socket impl
 	 */
 	public static void onShutdownInput(Object socketImpl)  {
-      
+		if(socketTracker!=null) socketTracker.onShutdownInput((ISocketImpl)socketImpl);
     }
 	
 	/**
@@ -176,7 +276,7 @@ public class SocketTrackingAdapter {
 	 * @param socketImpl the socket impl
 	 */
 	public static void onShutdownOutput(Object socketImpl)  {
-	      
+		if(socketTracker!=null) socketTracker.onShutdownOutput((ISocketImpl)socketImpl);
     }
 	
 	/**
@@ -185,7 +285,7 @@ public class SocketTrackingAdapter {
 	 * @param data the data that was sent
 	 */
 	public static void onSendUrgentData(Object socketImpl, int data)  {
-		
+		if(socketTracker!=null) socketTracker.onSendUrgentData((ISocketImpl)socketImpl, data);
 	}
 	
 	/**
@@ -194,7 +294,7 @@ public class SocketTrackingAdapter {
 	 * @param socket the set socket
 	 */
 	public static void onSetSocket(Object socketImpl, Object socket) {
-		
+		if(socketTracker!=null) socketTracker.onSetSocket((ISocketImpl)socketImpl, socket);
 	}
 
 	/**
@@ -203,7 +303,7 @@ public class SocketTrackingAdapter {
 	 * @param serverSocket The set server socket
 	 */
 	public static void onSetServerSocket(Object socketImpl, Object serverSocket) {
-		
+		if(socketTracker!=null) socketTracker.onSetServerSocket((ISocketImpl)socketImpl, serverSocket);
 	}
 	
 	/**
@@ -211,7 +311,7 @@ public class SocketTrackingAdapter {
 	 * @param socketImpl the socket impl
 	 */
 	public static void onReset(Object socketImpl) {
-		
+		if(socketTracker!=null) socketTracker.onReset((ISocketImpl)socketImpl);
 	}
 	
 	
@@ -223,7 +323,7 @@ public class SocketTrackingAdapter {
 	 * @param bandwidth An <tt>int</tt> expressing the relative importance of highbandwidth
 	 */
 	public static void onSetPerformancePreferences(Object socketImpl, int connectionTime, int latency, int bandwidth) {
-		
+		if(socketTracker!=null) socketTracker.onSetPerformancePreferences((ISocketImpl)socketImpl, connectionTime, latency, bandwidth);
 	}
 	
 }

@@ -68,6 +68,15 @@ public class UnsafeArrayBuilder {
 	}
 	
 	/**
+	 * Builds and returns an UnsafeDoubleArray 
+	 * @return a new UnsafeDoubleArray
+	 */
+	public UnsafeDoubleArray buildDoubleArray() {
+		return UnsafeDoubleArray.build(this);
+	}
+	
+	
+	/**
 	 * Builds and returns an UnsafeLongArray, initializing it with the values from the passed object
 	 * @param data The values to initialize the array with  
 	 * @return a new UnsafeLongArray
@@ -75,6 +84,16 @@ public class UnsafeArrayBuilder {
 	public UnsafeLongArray buildLongArray(Object data) {
 		return UnsafeLongArray.build(this, data);
 	}
+	
+	/**
+	 * Builds and returns an UnsafeDoubleArray, initializing it with the values from the passed object
+	 * @param data The values to initialize the array with  
+	 * @return a new UnsafeDoubleArray
+	 */
+	public UnsafeDoubleArray buildDoubleArray(Object data) {
+		return UnsafeDoubleArray.build(this, data);
+	}
+	
 	
 	
 	/**
