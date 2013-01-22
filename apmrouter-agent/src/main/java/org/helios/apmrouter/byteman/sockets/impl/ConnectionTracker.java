@@ -25,11 +25,15 @@
 package org.helios.apmrouter.byteman.sockets.impl;
 
 import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.SocketAddress;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.cliffc.high_scale_lib.Counter;
 import org.cliffc.high_scale_lib.NonBlockingHashMap;
 import org.cliffc.high_scale_lib.NonBlockingHashSet;
+import org.helios.apmrouter.util.SimpleLogger;
 
 /**
  * <p>Title: ConnectionTracker</p>
@@ -39,13 +43,11 @@ import org.cliffc.high_scale_lib.NonBlockingHashSet;
  * <p><code>org.helios.apmrouter.byteman.sockets.impl.ConnectionTracker</code></p>
  */
 
-public class ConnectionTracker extends EmptySocketTracker {
-	/** The server socket signatures of bound listeners */
-	protected final NonBlockingHashSet<String> boundListeners = new NonBlockingHashSet<String>(); 
+public class ConnectionTracker extends EmptySocketTracker implements Runnable {
 	/** The number of connections bound to a listening server socket */
-	protected final NonBlockingHashMap<String, NonBlockingHashMap<String, Counter> serverListenerConnections = new NonBlockingHashMap<String, Counter>(); 
-	/**  */
-	//protected final Counter serverListenerConnections = new Counter();
+	protected final NonBlockingHashMap<SocketAddress, NonBlockingHashMap<SocketAddress, Counter>> serverListenerConnections = new NonBlockingHashMap<SocketAddress, NonBlockingHashMap<SocketAddress, Counter>>();
+	/** A hashset of server side sockets */
+	protected final NonBlockingHashSet<ISocketImpl> serverSideSockets = new NonBlockingHashSet<ISocketImpl>();
 
 	/**
 	 * {@inheritDoc}
@@ -80,25 +82,26 @@ public class ConnectionTracker extends EmptySocketTracker {
 	 */
 	@Override
 	public void onBind(ISocketImpl socketImpl, InetAddress host, int port) {
-		boundListeners.add(new StringBuilder(socketImpl.getServerSocket().getInetAddress().getHostAddress()).append(":").append(port).toString());
+		serverListenerConnections.put(socketImpl.getServerSocket().getLocalSocketAddress(), new NonBlockingHashMap<SocketAddress, Counter>());
 	}
 
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.byteman.sockets.impl.ISocketTracker#onListen(org.helios.apmrouter.byteman.sockets.impl.ISocketImpl, int)
-	 */
-	@Override
-	public void onListen(ISocketImpl socketImpl, int backlog) {
-
-	}
 
 	/**
+	 * <p>Increments the count of connections from the remote host of the passed accepted socket to the passed server socket.</p> 
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.byteman.sockets.impl.ISocketTracker#onAccept(org.helios.apmrouter.byteman.sockets.impl.ISocketImpl, java.lang.Object)
+	 * @see org.helios.apmrouter.byteman.sockets.impl.EmptySocketTracker#onAccept(org.helios.apmrouter.byteman.sockets.impl.ISocketImpl, org.helios.apmrouter.byteman.sockets.impl.ISocketImpl)
 	 */
 	@Override
-	public void onAccept(ISocketImpl socketImpl, Object acceptedSocketImpl) {
-
+	public void onAccept(ISocketImpl socketImpl, ISocketImpl acceptedSocketImpl) {
+		serverSideSockets.add(acceptedSocketImpl);
+		SocketAddress sa = acceptedSocketImpl.getSocket().getRemoteSocketAddress();
+		NonBlockingHashMap<SocketAddress, Counter> clientSockMap = serverListenerConnections.get(socketImpl.getServerSocket().getLocalSocketAddress());
+		Counter counter = new Counter();
+		Counter tmpCounter = clientSockMap.get(sa);
+		if(tmpCounter!=null) {
+			counter = tmpCounter;
+		}
+		counter.increment();		
 	}
 
 
@@ -108,8 +111,78 @@ public class ConnectionTracker extends EmptySocketTracker {
 	 */
 	@Override
 	public void onClose(ISocketImpl socketImpl) {
-
+		if(socketImpl.getServerSocket()!=null) {
+			onClose(socketImpl.getServerSocket());
+		} else {
+			Socket sock = socketImpl.getSocket();
+			SocketAddress remoteSocketAddress = sock.getRemoteSocketAddress();
+			SocketAddress localSocketAddress = sock.getLocalSocketAddress();
+			if(serverSideSockets.remove(socketImpl)) {
+				// the closed socket is a server side (accepted) socket
+				// decrement the connection count for the server socket
+				try {
+					serverListenerConnections.get(localSocketAddress).get(remoteSocketAddress).decrement();
+				} catch (NullPointerException npe) {
+					System.err.println("Failed to decrement for remote disconnect on [" + localSocketAddress + "]");
+				}
+			} else {
+				// the closed socket is a client socket 
+			}
+		}
+	}
+	
+	/**
+	 * Called when a remote client socket closes
+	 * @param socket the closed remote socket
+	 */
+	protected void onCloseRemote(Socket socket) {
+//		SocketAddress sa = socket.
+//		NonBlockingHashMap<SocketAddress, Counter> clientSockMap = serverListenerConnections.get(socketImpl.getServerSocket().getLocalSocketAddress());
+//		Counter counter = new Counter();
+//		Counter tmpCounter = clientSockMap.get(sa);
+//		if(tmpCounter!=null) {
+//			counter = tmpCounter;
+//		}
+//		counter.increment();		
+		
+	}
+	
+	/**
+	 * Called when a local client socket closes
+	 * @param socket the closed local socket
+	 */
+	protected void onCloseLocal(Socket socket) {
+		
+	}
+	
+	
+	/**
+	 * Called when a formerly bound and listening server socket closes
+	 * @param serverSocket the closed server socket
+	 */
+	protected void onClose(ServerSocket serverSocket) {
+		
 	}
 
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.byteman.sockets.impl.ISocketTracker#requiresHarvester()
+	 */
+	@Override
+	public boolean requiresHarvester() {
+		return true;
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.byteman.sockets.impl.EmptySocketTracker#harvest()
+	 */
+	@Override
+	protected void harvest() {
+		
+	}
+	
 
 }

@@ -24,12 +24,17 @@
  */
 package test.org.helios.apmrouter.sockets;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.lang.reflect.Field;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketImpl;
 
 import org.helios.apmrouter.byteman.sockets.impl.LoggingSocketTracker;
 import org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter;
@@ -106,11 +111,21 @@ public class RunSocketInstr {
 					try {
 						log("Server Started");
 						Socket sock = ss.accept();
+						log("Accepted Socket: [" + System.identityHashCode(getSocketImpl(sock)) + "] [" + sock + "]" );
+						OutputStreamWriter out = new OutputStreamWriter(sock.getOutputStream(  ));
+					    out.write("You've connected to this server. Bye-bye now.\r\n");       
+					    out.flush();
+					    log(" OUTPUT WRITTEN");
+					    sock.shutdownOutput();
+					    for(;;) {
+					    	log(" ACC-CHECK:" + testSockStreams(sock));
+					    	SystemClock.sleep(5000);
+					    }
+					    //sock.close(  );						
 					} catch (IOException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
-					}
-					log("Accepted");
+					}					
 					
 				}
 			};
@@ -120,11 +135,14 @@ public class RunSocketInstr {
 			
 			Socket client = new Socket();
 			client.setTcpNoDelay(true);
+			client.setSoLinger(false, -1);
 			client.connect(new InetSocketAddress("localhost", 9384), 3000);
-			log("Client Connected:" + client.isConnected());
+			log("Client Connected:" + client.isConnected() + " [" + System.identityHashCode(getSocketImpl(client)) + "]");
+			printOutput(client);
+			log("Closing Client.....");
 			client.close();
 			log("Client Closed");
-			SystemClock.sleep(2000);			
+			SystemClock.sleep(60000);			
 			ss.close();
 			log("Server Closed");
 			
@@ -135,7 +153,62 @@ public class RunSocketInstr {
 		} finally {
 			/** Noop */
 		}
-
+	}
+	
+	public static boolean testSockUD(Socket so) {
+		try {
+			so.sendUrgentData(-1);
+			return true;
+		}  catch (Exception ex) {
+			if(so.isConnected()) {
+				try { so.close(); } catch (Exception e) {}
+			}
+			return false;
+		}
+	}
+	
+	public static boolean testSockStreams(Socket so) {
+		try {			
+			so.getInputStream().available();
+			so.getOutputStream();
+			return true;
+		}  catch (Exception ex) {
+			if(so.isConnected()) {
+				try { so.close(); } catch (Exception e) {}
+			}
+			return false;
+		}
+	}
+	
+	
+	public static void printOutput(Socket socket) {
+		InputStream is = null;
+		InputStreamReader isReader = null;
+		BufferedReader bReader = null;
+		try {
+			is = socket.getInputStream();
+			isReader = new InputStreamReader(is);
+			bReader = new BufferedReader(isReader);
+			String line = null;
+			while((line = bReader.readLine())!=null) {
+				log("OUTPUT:" + line);
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+		} finally {
+			try { is.close(); } catch (Exception e) {}
+		}
+	}
+	
+	public static SocketImpl getSocketImpl(Socket socket) {
+		if(socket==null) return null;
+		try {
+			Field f = Socket.class.getDeclaredField("impl");
+			f.setAccessible(true);
+			return (SocketImpl)f.get(socket);
+		} catch (Exception ex) {
+			throw new RuntimeException(ex);
+		}
 	}
 	
 	public static void log(Object msg) {

@@ -24,8 +24,6 @@
  */
 package org.helios.apmrouter.byteman.sockets.impl;
 
-import static org.helios.apmrouter.util.SimpleLogger.info;
-
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
@@ -225,7 +223,7 @@ public class SocketTrackingAdapter {
 	 * @param acceptedSocketImpl the accepted client socket impl
 	 */
 	public static void onAccept(Object socketImpl, Object acceptedSocketImpl) {
-		if(socketTracker!=null) socketTracker.onAccept((ISocketImpl)socketImpl, acceptedSocketImpl);
+		if(socketTracker!=null) socketTracker.onAccept((ISocketImpl)socketImpl, (ISocketImpl)acceptedSocketImpl);
 	}
 	
 	/**

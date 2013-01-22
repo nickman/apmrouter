@@ -37,7 +37,23 @@ import java.net.SocketAddress;
  * <p><code>org.helios.apmrouter.byteman.sockets.impl.ISocketTracker</code></p>
  */
 
-public interface ISocketTracker {
+public interface ISocketTracker extends Runnable {
+	
+	/** The system property name for the name of the socket tracking class to install */
+	public static final String SOCKET_TRACKER_PROP = "org.helios.apmrouter.socket.tracker";
+	/** The default name of the socket tracking class to install */
+	public static final String DEFAULT_SOCKET_TRACKER = EmptySocketTracker.class.getName();
+	/** The system property name for the pause time between harvester runs */
+	public static final String SOCKET_HARVESTER_PERIOD_PROP = "org.helios.apmrouter.socket.harvester";
+	/** The default for the pause time between harvester runs in ms. */
+	public static final long DEFAULT_SOCKET_HARVESTER_PERIOD = 5000;
+	
+	/**
+	 * Indicates if this socket tracker requires a harvester thread
+	 * @return true if this socket tracker requires a harvester thread, false otherwise
+	 */
+	public boolean requiresHarvester();
+	
 	/**
 	 * Called when EOF is set on a socket
 	 * @param is the input stream
@@ -141,7 +157,7 @@ public interface ISocketTracker {
 	 * @param socketImpl the socket impl that accepted
 	 * @param acceptedSocketImpl the accepted client socket impl
 	 */
-	public void onAccept(ISocketImpl socketImpl, Object acceptedSocketImpl);
+	public void onAccept(ISocketImpl socketImpl, ISocketImpl acceptedSocketImpl);
 	
 	/**
 	 * Called when the input stream is requested from a socket impl
@@ -218,5 +234,21 @@ public interface ISocketTracker {
 	 * @param bandwidth An <tt>int</tt> expressing the relative importance of highbandwidth
 	 */
 	public void onSetPerformancePreferences(ISocketImpl socketImpl, int connectionTime, int latency, int bandwidth);
+	
+	/**
+	 * Stops the socket tracker's harvester thread if it is running
+	 */
+	public void stop();
+	
+	/**
+	 * Starts the socket tracker's harvester thread if it is not already running
+	 */
+	public void start();
+	
+	/**
+	 * Indicates if the socket tracker's harvester thread is running
+	 * @return true if the socket tracker's harvester thread is running, false otherwise
+	 */
+	public boolean isStarted();
 
 }

@@ -32,6 +32,8 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.SocketAddress;
 
+import org.helios.apmrouter.util.SimpleLogger;
+
 /**
  * <p>Title: LoggingSocketTracker</p>
  * <p>Description: A super simple {@link ISocketTracker} that logs all socket events.</p> 
@@ -40,7 +42,8 @@ import java.net.SocketAddress;
  * <p><code>org.helios.apmrouter.byteman.sockets.impl.LoggingSocketTracker</code></p>
  */
 
-public class LoggingSocketTracker implements ISocketTracker {
+public class LoggingSocketTracker extends EmptySocketTracker {
+	
 	/**
 	 * Called when EOF is set on a socket
 	 * @param is the input stream
@@ -181,8 +184,12 @@ public class LoggingSocketTracker implements ISocketTracker {
 	 * @param acceptedSocketImpl the accepted client socket impl
 	 */
 	@Override
-	public void onAccept(ISocketImpl socketImpl, Object acceptedSocketImpl) {
-		info("Accept [", acceptedSocketImpl, "]");
+	public void onAccept(ISocketImpl socketImpl, ISocketImpl acceptedSocketImpl) {		
+		serverSideSockets.add(acceptedSocketImpl);
+		StringBuilder b = new StringBuilder("Accepted Socket [").append(System.identityHashCode(acceptedSocketImpl)).append("]");
+		b.append("\n\tLocal Address:").append(acceptedSocketImpl.getSocket().getLocalSocketAddress());
+		b.append("\n\tRemote Address:").append(acceptedSocketImpl.getSocket().getRemoteSocketAddress());
+		info(b);
 	}
 	
 	/**
@@ -192,7 +199,10 @@ public class LoggingSocketTracker implements ISocketTracker {
 	 */
 	@Override
 	public void onGetInputStream(ISocketImpl socketImpl, InputStream inputStream) {
-		info("GetInputStream [", inputStream, "]");
+		StringBuilder b = new StringBuilder("InputStream Accessed [").append(System.identityHashCode(socketImpl)).append("]");
+		b.append("\n\tLocal Address:").append(socketImpl.getSocket().getLocalSocketAddress());
+		b.append("\n\tRemote Address:").append(socketImpl.getSocket().getRemoteSocketAddress());		
+		info(b);		
 	}
 
 	/**
@@ -201,8 +211,11 @@ public class LoggingSocketTracker implements ISocketTracker {
 	 * @param outputStream the returned output stream
 	 */
 	@Override
-	public void onGetOutputStream(ISocketImpl socketImpl, OutputStream outputStream) {
-		info("GetOutputStream [", outputStream, "]");
+	public void onGetOutputStream(ISocketImpl socketImpl, OutputStream outputStream) {		
+		StringBuilder b = new StringBuilder("OutputStream Accessed [").append(System.identityHashCode(socketImpl)).append("]");
+		b.append("\n\tLocal Address:").append(socketImpl.getSocket().getLocalSocketAddress());
+		b.append("\n\tRemote Address:").append(socketImpl.getSocket().getRemoteSocketAddress());		
+		info(b);
 	}
 	
 	/**
@@ -221,7 +234,21 @@ public class LoggingSocketTracker implements ISocketTracker {
 	 */
 	@Override
 	public void  onClose(ISocketImpl socketImpl) {
-		info("Close [", socketImpl, "]");
+		StringBuilder b = new StringBuilder("Closing [");
+		b.append(socketImpl.getClass().getSimpleName()).append("]");
+		if(socketImpl.getServerSocket()!=null) {
+			b.append(":  ServerSocket");
+			b.append("\n\tBound Address:").append(socketImpl.getServerSocket().getLocalSocketAddress());
+		} else {
+			if(serverSideSockets.remove(socketImpl)) {
+				b.append(":  ServerSide Socket [" + System.identityHashCode(socketImpl) + "]");				
+			} else {
+				b.append(":  ClientSocket [" + System.identityHashCode(socketImpl) + "]");
+			}
+			b.append("\n\tLocal Address:").append(socketImpl.getSocket().getLocalSocketAddress());
+			b.append("\n\tRemote Address:").append(socketImpl.getSocket().getRemoteSocketAddress());			
+		}
+		info(b);
 	}
 
 	/**
@@ -294,6 +321,32 @@ public class LoggingSocketTracker implements ISocketTracker {
 		info("SetPerformancePreferences [", connectionTime, ":", latency, ":", bandwidth,  "]");
 	}
 
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.byteman.sockets.impl.ISocketTracker#requiresHarvester()
+	 */
+	@Override
+	public boolean requiresHarvester() {
+		return true;
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.byteman.sockets.impl.EmptySocketTracker#harvest()
+	 */
+	@Override
+	protected void harvest() {
+		final long start = System.currentTimeMillis();
+		SimpleLogger.info("[", getClass().getSimpleName(), "] Harvesting...");
+		for(ISocketImpl isocket: this.serverSideSockets) {
+			if(!testSocketStreams(isocket.getSocket())) {
+				
+			}
+		}
+		final long elapsed = System.currentTimeMillis()-start;
+		SimpleLogger.info("[", getClass().getSimpleName(), "] Harvesting Elapsed:", elapsed, " ms.");
+	}
 	
 
 }

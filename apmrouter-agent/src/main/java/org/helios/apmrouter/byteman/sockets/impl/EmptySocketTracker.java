@@ -27,7 +27,14 @@ package org.helios.apmrouter.byteman.sockets.impl;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
+import java.net.Socket;
 import java.net.SocketAddress;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+
+import org.cliffc.high_scale_lib.NonBlockingHashSet;
+import org.helios.apmrouter.jmx.ConfigurationHelper;
+import org.helios.apmrouter.util.SimpleLogger;
 
 /**
  * <p>Title: EmptySocketTracker</p>
@@ -38,6 +45,21 @@ import java.net.SocketAddress;
  */
 
 public class EmptySocketTracker implements ISocketTracker {
+	/** A hashset of server side sockets */
+	protected final NonBlockingHashSet<ISocketImpl> serverSideSockets = new NonBlockingHashSet<ISocketImpl>();
+	/** The harvester thread */
+	protected Thread harvesterThread;
+	/** The keep running flag */
+	protected final AtomicBoolean keepRunning = new AtomicBoolean(false);
+	/** The harvester sleep period in ms. */
+	protected final AtomicLong harvesterSleep = new AtomicLong(-1L);
+	
+	/**
+	 * Creates a new EmptySocketTracker
+	 */
+	public EmptySocketTracker() {
+		harvesterSleep.set(ConfigurationHelper.getLongSystemThenEnvProperty(SOCKET_HARVESTER_PERIOD_PROP, DEFAULT_SOCKET_HARVESTER_PERIOD));
+	}
 
 	/**
 	 * {@inheritDoc}
@@ -156,11 +178,10 @@ public class EmptySocketTracker implements ISocketTracker {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.byteman.sockets.impl.ISocketTracker#onAccept(org.helios.apmrouter.byteman.sockets.impl.ISocketImpl, java.lang.Object)
+	 * @see org.helios.apmrouter.byteman.sockets.impl.ISocketTracker#onAccept(org.helios.apmrouter.byteman.sockets.impl.ISocketImpl, org.helios.apmrouter.byteman.sockets.impl.ISocketImpl)
 	 */
 	@Override
-	public void onAccept(ISocketImpl socketImpl, Object acceptedSocketImpl) {
-		
+	public void onAccept(ISocketImpl socketImpl, ISocketImpl acceptedSocketImpl) {
 
 	}
 
@@ -272,8 +293,107 @@ public class EmptySocketTracker implements ISocketTracker {
 	@Override
 	public void onSetPerformancePreferences(ISocketImpl socketImpl,
 			int connectionTime, int latency, int bandwidth) {
-		
-
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.byteman.sockets.impl.ISocketTracker#requiresHarvester()
+	 */
+	@Override
+	public boolean requiresHarvester() {
+		return false;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.byteman.sockets.impl.ISocketTracker#stop()
+	 */
+	@Override
+	public synchronized void stop() {
+		if(!requiresHarvester()) return;
+		if(keepRunning.get()) {
+			keepRunning.set(false);
+		}
+		if(harvesterThread!=null && harvesterThread.isAlive()) {
+			harvesterThread.interrupt();
+		}
+		harvesterThread = null;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.byteman.sockets.impl.ISocketTracker#start()
+	 */
+	@Override
+	public synchronized void start() {
+		if(!requiresHarvester()) return;
+		if(!keepRunning.get()) {
+			keepRunning.set(true);
+		}
+		if(harvesterThread!=null && harvesterThread.isAlive()) {
+			harvesterThread.interrupt();
+			harvesterThread = null;
+		}
+		harvesterThread = new Thread(this, getClass().getSimpleName() + "-HarvesterThread");
+		harvesterThread.setDaemon(true);
+		harvesterThread.start();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.byteman.sockets.impl.ISocketTracker#isStarted()
+	 */
+	@Override
+	public boolean isStarted() {
+		return keepRunning.get();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.Runnable#run()
+	 */
+	@Override
+	public void run() {
+		while(keepRunning.get()) {
+			try {
+				harvest();
+			} catch (Throwable t) {
+				SimpleLogger.error("Harvester Thread Error", t);
+			} finally {
+				try {
+					Thread.currentThread().join(harvesterSleep.get());
+				} catch (InterruptedException iex) {
+					Thread.interrupted();
+				}
+			}
+		}
+	}
+
+	/**
+	 * The harvest task implementation
+	 */
+	protected void harvest() {
+		
+	}
+	
+	/**
+	 * Tests a socket's input and output streams to see if the socket is active.
+	 * @param so The socket to test
+	 * @return true if the socket is active, false otherwise
+	 */
+	protected boolean testSocketStreams(Socket so) {
+		if(so==null) return false;
+		try {			
+			so.getInputStream().available();
+			so.getOutputStream();
+			return true;
+		}  catch (Exception ex) {
+			if(so.isConnected()) {
+				try { so.close(); } catch (Exception e) {}
+			}
+			return false;
+		}
+	}
+	
 
 }
