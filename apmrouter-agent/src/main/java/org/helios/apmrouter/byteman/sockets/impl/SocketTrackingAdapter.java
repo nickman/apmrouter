@@ -32,6 +32,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.helios.apmrouter.util.SimpleLogger;
+
 /**
  * <p>Title: SocketTrackingAdapter</p>
  * <p>Description: A static template class acting as a receiver for events emitted from instrumented socket implementations</p> 
@@ -86,7 +88,8 @@ public class SocketTrackingAdapter {
 		methodMap.put("skip.(J)J","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onSkip($0, $_, socket, $$);");
 		SOCKET_IS_ADAPTERS = Collections.unmodifiableMap(methodMap);
 		
-		setISocketTracker(new LoggingSocketTracker());
+		SimpleLogger.info("Initialized SocketTrackingAdapter [", SocketTrackingAdapter.class.getClassLoader(), "]" );
+		//setISocketTracker(new LoggingSocketTracker());
 	}
 	
 	/**
@@ -94,7 +97,16 @@ public class SocketTrackingAdapter {
 	 * @param tracker the socket tracker or null to clear the tracker
 	 */
 	public static void setISocketTracker(ISocketTracker tracker) {
+		if(socketTracker!=null && tracker!=null && socketTracker==tracker) return;
+		if(socketTracker!=null) {
+			socketTracker.stop();
+			socketTracker.setActiveTracker(tracker==null ? null : tracker.getClass().getSimpleName());
+		}
 		socketTracker = tracker;
+		if(socketTracker!=null && !socketTracker.isStarted()) {
+			socketTracker.setActiveTracker(socketTracker.getClass().getSimpleName());
+			socketTracker.start();
+		}
 	}
 	
 	/**

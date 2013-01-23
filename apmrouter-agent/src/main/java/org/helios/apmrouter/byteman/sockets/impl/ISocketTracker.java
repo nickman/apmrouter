@@ -251,4 +251,16 @@ public interface ISocketTracker extends Runnable {
 	 */
 	public boolean isStarted();
 
+	/**
+	 * Sets the name of the active tracker
+	 * @param simpleName the name of the active tracker
+	 */
+	public void setActiveTracker(String simpleName);
+	
+	/**
+	 * Returns the name of the active tracker or null if there is none
+	 * @return the name of the active tracker or null if there is none
+	 */
+	public String getActiveTracker();
+
 }

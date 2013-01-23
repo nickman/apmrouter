@@ -26,11 +26,13 @@ package org.helios.apmrouter.byteman.sockets.impl;
 
 import static org.helios.apmrouter.util.SimpleLogger.info;
 
+import java.io.FileDescriptor;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.SocketAddress;
+import java.util.Iterator;
 
 import org.helios.apmrouter.util.SimpleLogger;
 
@@ -339,13 +341,25 @@ public class LoggingSocketTracker extends EmptySocketTracker {
 	protected void harvest() {
 		final long start = System.currentTimeMillis();
 		SimpleLogger.info("[", getClass().getSimpleName(), "] Harvesting...");
-		for(ISocketImpl isocket: this.serverSideSockets) {
-			if(!testSocketStreams(isocket.getSocket())) {
-				
+		Iterator<ISocketImpl> socketIter = serverSideSockets.iterator();
+		int socketsClosed = 0;
+		for(; socketIter.hasNext();) {
+			ISocketImpl isocket = socketIter.next();
+			FileDescriptor fd = isocket.getFileDescriptor();
+			boolean fdValid = fd!=null && fd.valid();
+			if(fd!=null) {
+				SimpleLogger.info("FD: [", fd, "]:" , fd.valid());
+				try { fd.sync(); } catch (Exception ex) {}
+			}
+			
+			if(!fdValid || !testSocketStreams(isocket.getSocket())) {
+				socketIter.remove();
+				socketsClosed++;
+				try { isocket.close(); } catch (Exception ex) {}
 			}
 		}
 		final long elapsed = System.currentTimeMillis()-start;
-		SimpleLogger.info("[", getClass().getSimpleName(), "] Harvesting Elapsed:", elapsed, " ms.");
+		SimpleLogger.info("[", getClass().getSimpleName(), "] Harvester closed [", socketsClosed, "] accepted sockets. Elapsed:", elapsed, " ms.");
 	}
 	
 

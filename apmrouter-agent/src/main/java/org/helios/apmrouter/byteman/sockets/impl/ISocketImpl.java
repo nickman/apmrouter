@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.byteman.sockets.impl;
 
+import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -71,14 +72,10 @@ public interface ISocketImpl {
 
 	public Object getOption(int optID) throws SocketException;
 	
-//	public SocketImpl get();
-//	
-//    public void setServerSocket(ServerSocket soc);
-//
     public ServerSocket getServerSocket();
-//    
-//    public void setSocket(Socket soc);
-//
+    
+    public FileDescriptor getFileDescriptor();
+
     public Socket getSocket();
     
     public int getLocalPort();

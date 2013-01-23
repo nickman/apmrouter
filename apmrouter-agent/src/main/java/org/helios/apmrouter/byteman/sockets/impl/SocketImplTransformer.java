@@ -142,6 +142,8 @@ public class SocketImplTransformer implements ClassFileTransformer {
 	protected final CtClass socketCtClass;
 	/** The javassist ctclass representation of {@link ServerSocket} */
 	protected final CtClass serverSocketCtClass;
+	/** The javassist ctclass representation of {@link java.io.FileDescriptor} */
+	protected final CtClass serverFileDescriptorCtClass;
 	
 	/** The javassist ctclass representation of {@link SocketImplFactory} */
 	protected final CtClass socketImplFactoryCtClass;
@@ -220,6 +222,7 @@ public class SocketImplTransformer implements ClassFileTransformer {
 			socketImplFactoryCtClass = classPool.get(SOCK_FACTORY_NAME);
 			createSocketImplMethod = socketImplFactoryCtClass.getDeclaredMethod("createSocketImpl");
 			objectCtClass = classPool.get("java.lang.Object");
+			serverFileDescriptorCtClass = classPool.get("java.io.FileDescriptor");
 			SimpleLogger.info("Created SocketImplTransformer");
 		} catch (Exception ex) {
 			SimpleLogger.error("Failed to initialize SocketImpleTransformer", ex);
@@ -451,6 +454,12 @@ public class SocketImplTransformer implements ClassFileTransformer {
 			getServerSockMethod.setModifiers(getServerSockMethod.getModifiers() | Modifier.PUBLIC);
 			getServerSockMethod.setBody("return serverSocket;");
 			socketImplImpl.addMethod(getServerSockMethod);
+			//getFd
+			CtMethod getFdSockMethod = new CtMethod(serverFileDescriptorCtClass, "getFileDescriptor", new CtClass[0], socketImplImpl);
+			getFdSockMethod.setModifiers(getFdSockMethod.getModifiers() | Modifier.PUBLIC);
+			//getFdSockMethod.setModifiers(getFdSockMethod.getModifiers() & ~Modifier.ABSTRACT);
+			getFdSockMethod.setBody("return super.getFileDescriptor();");
+			socketImplImpl.addMethod(getFdSockMethod);
 			
 			for(CtMethod method: socketImplCtClass.getDeclaredMethods()) {
 				CtMethod toPub = socketImplImpl.getMethod(method.getName(), method.getSignature());

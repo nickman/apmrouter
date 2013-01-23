@@ -35,6 +35,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketImpl;
+import java.util.concurrent.CountDownLatch;
 
 import org.helios.apmrouter.byteman.sockets.impl.LoggingSocketTracker;
 import org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter;
@@ -108,43 +109,50 @@ public class RunSocketInstr {
 			final ServerSocket ss = new ServerSocket(9384, 213, InetAddress.getByName("0.0.0.0"));
 			Thread t = new Thread() {
 				public void run() {
-					try {
-						log("Server Started");
-						Socket sock = ss.accept();
-						log("Accepted Socket: [" + System.identityHashCode(getSocketImpl(sock)) + "] [" + sock + "]" );
-						OutputStreamWriter out = new OutputStreamWriter(sock.getOutputStream(  ));
-					    out.write("You've connected to this server. Bye-bye now.\r\n");       
-					    out.flush();
-					    log(" OUTPUT WRITTEN");
-					    sock.shutdownOutput();
-					    for(;;) {
-					    	log(" ACC-CHECK:" + testSockStreams(sock));
-					    	SystemClock.sleep(5000);
-					    }
-					    //sock.close(  );						
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}					
+					log("Server Started");
+					while(true) {
+						try {							
+							Socket sock = ss.accept();
+							sock.setKeepAlive(true);
+							sock.setSoLinger(false, -1);
+							sock.setSoTimeout(3000);
+							sock.setTcpNoDelay(false);
+							log("Accepted Socket: [" + System.identityHashCode(getSocketImpl(sock)) + "] [" + sock + "]" );
+							OutputStreamWriter out = new OutputStreamWriter(sock.getOutputStream(  ));
+						    out.write("You've connected to this server. Bye-bye now.\r\n");       
+						    out.flush();
+						    log(" OUTPUT WRITTEN");					    
+						    for(;;) {
+						    	log(" ACC-CHECK:\n\tClosed:" + sock.isClosed() + "\n\tBound:" + sock.isBound() + "\n\tConnected:" + sock.isConnected() + "\n\tOS Closed:" + sock.isOutputShutdown() + "\n\tIS Closed:" + sock.isInputShutdown() + "\n\tKeepAlive:" + sock.getKeepAlive());
+						    	SystemClock.sleep(5000);
+						    }
+						    //sock.close(  );						
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					}
 					
 				}
 			};
-			t.setDaemon(true);
+			t.setDaemon(false);
 			t.start();
 			//ss.bind(new InetSocketAddress("0.0.0.0", 9384), 200);
 			
-			Socket client = new Socket();
-			client.setTcpNoDelay(true);
-			client.setSoLinger(false, -1);
-			client.connect(new InetSocketAddress("localhost", 9384), 3000);
-			log("Client Connected:" + client.isConnected() + " [" + System.identityHashCode(getSocketImpl(client)) + "]");
-			printOutput(client);
-			log("Closing Client.....");
-			client.close();
-			log("Client Closed");
-			SystemClock.sleep(60000);			
-			ss.close();
-			log("Server Closed");
+//			Socket client = new Socket();
+//			client.setTcpNoDelay(true);
+//			client.setSoLinger(false, -1);
+//			log("Client Default Timeout:" + client.getSoTimeout());
+//			client.setSoTimeout(3000);
+//			client.connect(new InetSocketAddress("localhost", 9384), 3000);
+//			log("Client Connected:" + client.isConnected() + " [" + System.identityHashCode(getSocketImpl(client)) + "]");
+//			printOutput(client);
+//			SystemClock.sleep(10000);
+//			log("Closing Client.....");
+//			client.close();
+//			log("Client Closed");
+//			SystemClock.sleep(300000);			
+//			ss.close();
+//			log("Server Closed");
 			
 			
 			
@@ -181,22 +189,34 @@ public class RunSocketInstr {
 	}
 	
 	
-	public static void printOutput(Socket socket) {
-		InputStream is = null;
-		InputStreamReader isReader = null;
-		BufferedReader bReader = null;
-		try {
-			is = socket.getInputStream();
-			isReader = new InputStreamReader(is);
-			bReader = new BufferedReader(isReader);
-			String line = null;
-			while((line = bReader.readLine())!=null) {
-				log("OUTPUT:" + line);
+	public static void printOutput(final Socket socket) {
+		final CountDownLatch latch = new CountDownLatch(1); 
+		Thread t = new Thread() {
+			public void run() {
+				InputStream is = null;
+				InputStreamReader isReader = null;
+				BufferedReader bReader = null;
+				try {
+					is = socket.getInputStream();
+					isReader = new InputStreamReader(is);
+					bReader = new BufferedReader(isReader);
+					String line = null;
+					while((line = bReader.readLine())!=null) {
+						log("OUTPUT:" + line);
+						latch.countDown();
+						break;
+					}
+				} catch (Exception ex) {
+					ex.printStackTrace(System.err);
+				} finally {
+					try { is.close(); } catch (Exception e) {}
+				}				
 			}
-		} catch (Exception ex) {
+		};
+		t.setDaemon(true);
+		t.start();
+		try { latch.await(); } catch (Exception ex) {
 			ex.printStackTrace(System.err);
-		} finally {
-			try { is.close(); } catch (Exception e) {}
 		}
 	}
 	

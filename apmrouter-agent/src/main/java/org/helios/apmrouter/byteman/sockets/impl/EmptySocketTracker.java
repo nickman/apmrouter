@@ -29,6 +29,7 @@ import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -44,13 +45,20 @@ import org.helios.apmrouter.util.SimpleLogger;
  * <p><code>org.helios.apmrouter.byteman.sockets.impl.EmptySocketTracker</code></p>
  */
 
-public class EmptySocketTracker implements ISocketTracker {
+public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 	/** A hashset of server side sockets */
 	protected final NonBlockingHashSet<ISocketImpl> serverSideSockets = new NonBlockingHashSet<ISocketImpl>();
 	/** The harvester thread */
 	protected Thread harvesterThread;
+	/** The name of the active tracker */
+	protected String activeTracker = null;
 	/** The keep running flag */
 	protected final AtomicBoolean keepRunning = new AtomicBoolean(false);
+	/** Serial number generator for harvester threads */
+	protected static final AtomicLong serial = new AtomicLong(0L);
+	/** Harvester thread group */
+	protected static final ThreadGroup harvesterThreadGroup = new ThreadGroup("SocketTrackingHarvesters");
+	
 	/** The harvester sleep period in ms. */
 	protected final AtomicLong harvesterSleep = new AtomicLong(-1L);
 	
@@ -59,6 +67,36 @@ public class EmptySocketTracker implements ISocketTracker {
 	 */
 	public EmptySocketTracker() {
 		harvesterSleep.set(ConfigurationHelper.getLongSystemThenEnvProperty(SOCKET_HARVESTER_PERIOD_PROP, DEFAULT_SOCKET_HARVESTER_PERIOD));
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see java.util.concurrent.ThreadFactory#newThread(java.lang.Runnable)
+	 */
+	@Override
+	public Thread newThread(Runnable r) {
+		Thread t = new Thread(harvesterThreadGroup, this, getClass().getSimpleName() + "-HarvesterThread#" + serial.incrementAndGet());
+		t.setDaemon(true);
+		t.setPriority(Thread.NORM_PRIORITY-1);
+		return t;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.byteman.sockets.impl.ISocketTracker#setActiveTracker(java.lang.String)
+	 */
+	@Override
+	public void setActiveTracker(String simpleName) {
+		activeTracker = simpleName;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.byteman.sockets.impl.ISocketTracker#getActiveTracker()
+	 */
+	@Override
+	public String getActiveTracker() {
+		return activeTracker;
 	}
 
 	/**
@@ -334,8 +372,7 @@ public class EmptySocketTracker implements ISocketTracker {
 			harvesterThread.interrupt();
 			harvesterThread = null;
 		}
-		harvesterThread = new Thread(this, getClass().getSimpleName() + "-HarvesterThread");
-		harvesterThread.setDaemon(true);
+		harvesterThread = newThread(this);		
 		harvesterThread.start();
 	}
 
@@ -384,9 +421,8 @@ public class EmptySocketTracker implements ISocketTracker {
 	protected boolean testSocketStreams(Socket so) {
 		if(so==null) return false;
 		try {			
-			so.getInputStream().available();
-			so.getOutputStream();
-			return true;
+			if(!so.isConnected() || so.isClosed()) return false;
+			return testSocketInput(so) && testSocketOutput(so);
 		}  catch (Exception ex) {
 			if(so.isConnected()) {
 				try { so.close(); } catch (Exception e) {}
@@ -394,6 +430,40 @@ public class EmptySocketTracker implements ISocketTracker {
 			return false;
 		}
 	}
+	
+	/**
+	 * Tests the socket's input stream to determine if input is closed 
+	 * @param so the socket to test
+	 * @return true if the input is still active, false otherwise
+	 */
+	protected boolean testSocketInput(Socket so) {
+		if(so==null) return false;
+		try {			
+			if(so.isInputShutdown()) return false;
+			so.getInputStream().available();			
+			return true;
+		}  catch (Exception ex) {
+			return false;
+		}
+	}
+	
+	/**
+	 * Tests the socket's output stream to determine if output is closed 
+	 * @param so the socket to test
+	 * @return true if the output is still active, false otherwise
+	 */
+	protected boolean testSocketOutput(Socket so) {
+		if(so==null) return false;
+		try {
+			if(so.isOutputShutdown()) return false;
+			so.getOutputStream();			
+			return true;
+		}  catch (Exception ex) {
+			return false;
+		}
+	}
+	
+	
 	
 
 }

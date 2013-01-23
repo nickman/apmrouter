@@ -118,18 +118,6 @@ public class AgentBoot {
 	 * @param instrumentation The instrumentation which may be null
 	 */
 	public static void boot(URLClassLoader classLoader, String agentArgs, Instrumentation instrumentation) {
-		SocketImplTransformer sit = new SocketImplTransformer();
-		instrumentation.addTransformer(sit, true);
-		try {
-			Object sock = Class.forName("java.net.Socket").newInstance();
-			Field f = sock.getClass().getDeclaredField("impl");
-			f.setAccessible(true);
-			Object sockImpl = f.get(sock); 			
-			instrumentation.retransformClasses(sockImpl.getClass(), sockImpl.getClass().getSuperclass());			
-			SimpleLogger.info("Retransformed [" + sockImpl.getClass().getName() + "]");
-		} catch (Exception ex) {
-			ex.printStackTrace(System.err);
-		}
 		
 		org.helios.apmrouter.jagent.Instrumentation.install(instrumentation);
 		AgentBoot.agentArgs = agentArgs;

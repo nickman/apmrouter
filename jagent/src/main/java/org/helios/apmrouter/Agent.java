@@ -25,11 +25,16 @@
 package org.helios.apmrouter;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.instrument.Instrumentation;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.jar.JarFile;
+
+import org.helios.apmrouter.byteman.sockets.impl.SocketImplTransformer;
+import org.helios.apmrouter.util.SimpleLogger;
 
 
 /**
@@ -67,18 +72,15 @@ public class Agent {
 	 * The main entry point for javaagents or optional standalone monitor deploy.
 	 * @param args One parameter processed which is the URL to an XML config
 	 */
-	public static void main(String[] args) {
+	public static void main(String[] args)  {
+		appendToBootClassPath();
+		installBoostrapInstrumentation();
 		coreClassLoader = getIsolatedClassLoader();
 		final ClassLoader current = Thread.currentThread().getContextClassLoader();
 		try {
 			Thread.currentThread().setContextClassLoader(coreClassLoader);
 			Class<?> bootClass = Class.forName(BOOT_CLASS, true, coreClassLoader);
-			URL jarUrl = Agent.class.getProtectionDomain().getCodeSource().getLocation();
 			
-			File agentFile = new File(jarUrl.getFile());
-			log("Agent Code Source: [" + jarUrl + "]   File: [" + agentFile + "]");
-			JarFile jarFile = new JarFile(agentFile);
-			Agent.instrumentation.appendToBootstrapClassLoaderSearch(jarFile);
 			//Class<?> bootClass = Class.forName(BOOT_CLASS);
 			Method method = bootClass.getDeclaredMethod("boot", URLClassLoader.class, String.class, Instrumentation.class);
 			method.invoke(null, args.length==0 ? null : Thread.currentThread().getContextClassLoader(), args[0], instrumentation);
@@ -89,6 +91,43 @@ public class Agent {
 		} finally {
 			Thread.currentThread().setContextClassLoader(current);
 		}
+	}
+	
+	protected static void appendToBootClassPath() {
+		try {
+			URL jarUrl = Agent.class.getProtectionDomain().getCodeSource().getLocation();
+			File agentFile = new File(jarUrl.getFile());
+			JarFile jarFile = new JarFile(agentFile);
+			Agent.instrumentation.appendToBootstrapClassLoaderSearch(jarFile);
+			log("Agent Code Source: [" + jarUrl + "]   File: [" + agentFile + "]");
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+		}
+	}
+	
+	/**
+	 * Installs bootstrap instrumentation shims.
+	 */
+	protected static void installBoostrapInstrumentation() {
+		installSocketTracker();
+	}
+	
+	/**
+	 * Starts the socket tracking instrumentation unless disabled by sysprop
+	 */
+	protected static void installSocketTracker() {
+		SocketImplTransformer sit = new SocketImplTransformer();
+		instrumentation.addTransformer(sit, true);
+		try {
+			Object sock = Class.forName("java.net.Socket").newInstance();
+			Field f = sock.getClass().getDeclaredField("impl");
+			f.setAccessible(true);
+			Object sockImpl = f.get(sock); 			
+			instrumentation.retransformClasses(sockImpl.getClass(), sockImpl.getClass().getSuperclass());			
+			SimpleLogger.info("Retransformed [" + sockImpl.getClass().getName() + "]");
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+		}		
 	}
 	
 	/*
