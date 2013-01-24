@@ -26,13 +26,19 @@ package org.helios.apmrouter.byteman.sockets.impl;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.SocketAddress;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import javax.management.ObjectName;
 
 import org.helios.apmrouter.util.SimpleLogger;
+import org.helios.helpers.ConfigurationHelper;
+
 
 /**
  * <p>Title: SocketTrackingAdapter</p>
@@ -40,11 +46,15 @@ import org.helios.apmrouter.util.SimpleLogger;
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter</code></p>
+ * TODO: Options for detecting closed remote sockets:
+ * 		Define interface and impls for disconnected remote detector
+ * 		sendUrgentData supression  (default is false)
+ * 		Sigar NetStat
  */
 
 
 
-public class SocketTrackingAdapter {
+public class SocketTrackingAdapter implements SocketTrackingAdapterMBean {
 	/** The registered socket tracker */
 	protected static ISocketTracker socketTracker = null;  
 	/** The socket tracking adapters for socket impls */
@@ -54,7 +64,24 @@ public class SocketTrackingAdapter {
 	/** The socket tracking adapters for socket input stream */
 	public static final Map<String, String> SOCKET_IS_ADAPTERS;
 	
+	/** A map of instantiated socket trackers keyed by the class name */
+	protected static final Map<String, ISocketTracker> socketTrackerInstances = new ConcurrentHashMap<String, ISocketTracker>();
 	
+	/** The system property name for the socket tracker to install at init time */
+	public static final String SOCK_TRACKER_PROP = "org.helios.apmrouter.socket.tracker";
+	/** The template for the JMX ObjectName for installed socket trackers */
+	public static final String SOCK_OBJECT_NAME = "org.helios.apmrouter.sockets:service=SocketTracker,name=%s";
+	/** The JMX ObjectName for the SocketTrackingAdapter */
+	public static final String SOCK_ADAPTER_OBJECTNAME = "org.helios.apmrouter.sockets:service=SocketTrackingAdapter";
+	
+	/**
+	 * Creates a new SocketTrackingAdapter
+	 */
+	private SocketTrackingAdapter() {
+		
+	}
+	
+
 	static {
 		Map<String, String> methodMap = new HashMap<String, String>();
 		methodMap.put("connect.(Ljava/lang/String;I)V","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onConnect($0, $$);");
@@ -88,8 +115,93 @@ public class SocketTrackingAdapter {
 		methodMap.put("skip.(J)J","org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapter.onSkip($0, $_, socket, $$);");
 		SOCKET_IS_ADAPTERS = Collections.unmodifiableMap(methodMap);
 		
+		setISocketTracker(getISocketTracker(System.getProperty(SOCK_TRACKER_PROP, null)));
+		
+		try {
+			ManagementFactory.getPlatformMBeanServer().registerMBean(new SocketTrackingAdapter(), new ObjectName(SOCK_ADAPTER_OBJECTNAME));
+		} catch (Exception ex) {
+			SimpleLogger.warn("Failed to register SocketTrackingAdapter JMX interface. Continuing without.", ex);
+		}
+		
 		SimpleLogger.info("Initialized SocketTrackingAdapter [", SocketTrackingAdapter.class.getClassLoader(), "]" );
-		//setISocketTracker(new LoggingSocketTracker());
+		
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapterMBean#getInstalledTrackerName()
+	 */
+	@Override
+	public String getInstalledTrackerName() {
+		if(socketTracker==null) return null;
+		return socketTracker.getClass().getName();
+	}
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapterMBean#setInstalledTrackerName(java.lang.String)
+	 */
+	@Override
+	public void setInstalledTrackerName(String trackerClassName) {
+		if(trackerClassName==null || trackerClassName.trim().isEmpty()) {
+			setISocketTracker(null);
+		} else {
+			setISocketTracker(getISocketTracker(trackerClassName));
+		}
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.byteman.sockets.impl.SocketTrackingAdapterMBean#setInstalledTrackerName(java.lang.String, java.lang.ClassLoader)
+	 */
+	public void setInstalledTrackerName(String trackerClassName, ClassLoader cl) {
+		if(trackerClassName==null || trackerClassName.trim().isEmpty()) {
+			setISocketTracker(null);
+		} else {
+			setISocketTracker(getISocketTracker(trackerClassName, cl));
+		}
+	}
+	
+	
+	/**
+	 * Returns an instance of the named socket tracker
+	 * @param trackerClassName The socket tracker class name to load
+	 * @param cl An optional classloader. Ignored if null
+	 * @return the loaded socket tracker
+	 */
+	@SuppressWarnings("unchecked")
+	protected static ISocketTracker getISocketTracker(String trackerClassName, ClassLoader cl) {
+		if(trackerClassName==null || trackerClassName.trim().isEmpty()) return null;
+		ISocketTracker socketTracker = socketTrackerInstances.get(trackerClassName.trim());
+		if(socketTracker==null) {
+			synchronized(socketTrackerInstances) {
+				socketTracker = socketTrackerInstances.get(trackerClassName.trim());
+				if(socketTracker==null) {
+					try {
+						Class<ISocketTracker> clazz = null;
+						if(cl==null) {
+							clazz = (Class<ISocketTracker>) Class.forName(trackerClassName.trim());
+						} else {
+							clazz = (Class<ISocketTracker>) Class.forName(trackerClassName.trim(), true, cl);
+						}
+						socketTracker = clazz.newInstance();
+						socketTrackerInstances.put(socketTracker.getClass().getName(), socketTracker);
+					} catch (Exception ex) {
+						SimpleLogger.error("Failed to load socket tracker [", trackerClassName, "]", ex);
+						socketTracker = null;
+					}
+				}						
+			}
+		}
+		return socketTracker;		
+	}
+	
+	/**
+	 * Returns an instance of the named socket tracker
+	 * @param trackerClassName The socket tracker class name to load
+	 * @return the loaded socket tracker
+	 */
+	protected static ISocketTracker getISocketTracker(String trackerClassName) {
+		return getISocketTracker(trackerClassName, null);
 	}
 	
 	/**

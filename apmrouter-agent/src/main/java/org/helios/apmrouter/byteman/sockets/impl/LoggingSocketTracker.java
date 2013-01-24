@@ -44,7 +44,13 @@ import org.helios.apmrouter.util.SimpleLogger;
  * <p><code>org.helios.apmrouter.byteman.sockets.impl.LoggingSocketTracker</code></p>
  */
 
-public class LoggingSocketTracker extends EmptySocketTracker {
+public class LoggingSocketTracker extends EmptySocketTracker implements LoggingSocketTrackerMBean {
+	
+	/*
+	 * TODO:
+	 * Logging level
+	 * Tracked socket counts
+	 */
 	
 	/**
 	 * Called when EOF is set on a socket
@@ -339,8 +345,10 @@ public class LoggingSocketTracker extends EmptySocketTracker {
 	 */
 	@Override
 	protected void harvest() {
+		if(serverSideSockets.isEmpty()) return;
 		final long start = System.currentTimeMillis();
-		SimpleLogger.info("[", getClass().getSimpleName(), "] Harvesting...");
+		//SimpleLogger.info("[", getClass().getSimpleName(), "] Harvesting...");
+		final int startSize = serverSideSockets.size();
 		Iterator<ISocketImpl> socketIter = serverSideSockets.iterator();
 		int socketsClosed = 0;
 		for(; socketIter.hasNext();) {
@@ -358,9 +366,19 @@ public class LoggingSocketTracker extends EmptySocketTracker {
 				try { isocket.close(); } catch (Exception ex) {}
 			}
 		}
+		final int endSize = serverSideSockets.size();
 		final long elapsed = System.currentTimeMillis()-start;
-		SimpleLogger.info("[", getClass().getSimpleName(), "] Harvester closed [", socketsClosed, "] accepted sockets. Elapsed:", elapsed, " ms.");
+		SimpleLogger.info("[", getClass().getSimpleName(), "] Harvester closed [", socketsClosed, "] accepted sockets. \n\tStartCount:", startSize, " \n\tEndCount:", endSize, "\n\tElapsed:", elapsed, " ms.");
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.byteman.sockets.impl.EmptySocketTracker#hasJMXInterface()
+	 */
+	@Override
+	public boolean hasJMXInterface() {
+		return true;
+	}
+
 
 }

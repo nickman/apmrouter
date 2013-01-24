@@ -57,11 +57,13 @@ public class RunSocketClient {
 			client.connect(new InetSocketAddress("localhost", 9384), 3000);
 			log("Client Connected:" + client.isConnected());
 			printOutput(client);
-			SystemClock.sleep(10000);
+			SystemClock.sleep(2000);
 			log("Closing Client.....");
+			try { client.shutdownInput(); } catch (Exception ex) {}
+			try { client.shutdownOutput(); } catch (Exception ex) {}
 			client.close();
 			log("Client Closed");
-			SystemClock.sleep(300000);						
+			SystemClock.sleep(2000);						
 		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
 		}
@@ -92,7 +94,7 @@ public class RunSocketClient {
 				} catch (Exception ex) {
 					ex.printStackTrace(System.err);
 				} finally {
-					try { is.close(); } catch (Exception e) {}
+					//try { is.close(); } catch (Exception e) {}
 				}				
 			}
 		};

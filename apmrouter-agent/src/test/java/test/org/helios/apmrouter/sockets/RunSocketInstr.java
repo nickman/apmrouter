@@ -107,35 +107,37 @@ public class RunSocketInstr {
 			Field f = ServerSocket.class.getDeclaredField("impl");
 			f.setAccessible(true);
 			final ServerSocket ss = new ServerSocket(9384, 213, InetAddress.getByName("0.0.0.0"));
-			Thread t = new Thread() {
-				public void run() {
-					log("Server Started");
-					while(true) {
-						try {							
-							Socket sock = ss.accept();
-							sock.setKeepAlive(true);
-							sock.setSoLinger(false, -1);
-							sock.setSoTimeout(3000);
-							sock.setTcpNoDelay(false);
-							log("Accepted Socket: [" + System.identityHashCode(getSocketImpl(sock)) + "] [" + sock + "]" );
-							OutputStreamWriter out = new OutputStreamWriter(sock.getOutputStream(  ));
-						    out.write("You've connected to this server. Bye-bye now.\r\n");       
-						    out.flush();
-						    log(" OUTPUT WRITTEN");					    
-						    for(;;) {
-						    	log(" ACC-CHECK:\n\tClosed:" + sock.isClosed() + "\n\tBound:" + sock.isBound() + "\n\tConnected:" + sock.isConnected() + "\n\tOS Closed:" + sock.isOutputShutdown() + "\n\tIS Closed:" + sock.isInputShutdown() + "\n\tKeepAlive:" + sock.getKeepAlive());
-						    	SystemClock.sleep(5000);
-						    }
-						    //sock.close(  );						
-						} catch (IOException e) {
-							e.printStackTrace();
-						}
+			int cnt = 0;
+			for(;;) {
+				final Socket sock = ss.accept();
+				cnt++;
+				Thread t = new Thread("ServerThread#" + cnt) {
+					public void run() {
+						log("Server Started");
+						//while(true) {
+							try {							
+								//sock.setKeepAlive(true);
+								sock.setSoLinger(true, 30);
+								sock.setSoTimeout(3000);
+								sock.setTcpNoDelay(false);
+								sock.setOOBInline(false);
+								log("Accepted Socket: [" + System.identityHashCode(getSocketImpl(sock)) + "] [" + sock + "]  Available:" + sock.getInputStream().available() );
+								
+								OutputStreamWriter out = new OutputStreamWriter(sock.getOutputStream(  ));
+							    out.write("You've connected to this server. Bye-bye now.\r\n");       
+							    out.flush();
+							    log(" OUTPUT WRITTEN");					    
+							    SystemClock.sleep(5000);
+							    //sock.close(  );						
+							} catch (IOException e) {
+								//e.printStackTrace();
+							}
+						//}						
 					}
-					
-				}
-			};
-			t.setDaemon(false);
-			t.start();
+				};
+				t.setDaemon(false);
+				t.start();				
+			}
 			//ss.bind(new InetSocketAddress("0.0.0.0", 9384), 200);
 			
 //			Socket client = new Socket();

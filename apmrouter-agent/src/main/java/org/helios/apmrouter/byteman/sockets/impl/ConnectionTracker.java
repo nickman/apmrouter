@@ -184,5 +184,13 @@ public class ConnectionTracker extends EmptySocketTracker implements Runnable {
 		
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.byteman.sockets.impl.EmptySocketTracker#hasJMXInterface()
+	 */
+	@Override
+	public boolean hasJMXInterface() {
+		return true;
+	}
 
 }

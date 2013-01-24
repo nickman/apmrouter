@@ -262,5 +262,11 @@ public interface ISocketTracker extends Runnable {
 	 * @return the name of the active tracker or null if there is none
 	 */
 	public String getActiveTracker();
+	
+	/**
+	 * Indicates if this tracker class sports a JMX interface that can be registered
+	 * @return if this tracker class sports a JMX interface that can be registered, false otherwise
+	 */
+	public boolean hasJMXInterface();
 
 }

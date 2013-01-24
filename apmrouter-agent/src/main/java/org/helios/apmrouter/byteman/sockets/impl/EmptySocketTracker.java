@@ -29,13 +29,16 @@ import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.util.Arrays;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.cliffc.high_scale_lib.NonBlockingHashSet;
 import org.helios.apmrouter.jmx.ConfigurationHelper;
+import org.helios.apmrouter.nativex.APMSigar;
 import org.helios.apmrouter.util.SimpleLogger;
+import org.hyperic.sigar.NetStat;
 
 /**
  * <p>Title: EmptySocketTracker</p>
@@ -61,6 +64,9 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 	
 	/** The harvester sleep period in ms. */
 	protected final AtomicLong harvesterSleep = new AtomicLong(-1L);
+	
+	/** Native OS API  */
+	protected static final APMSigar sigar = APMSigar.getInstance();
 	
 	/**
 	 * Creates a new EmptySocketTracker
@@ -414,6 +420,15 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 	}
 	
 	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.byteman.sockets.impl.ISocketTracker#hasJMXInterface()
+	 */
+	@Override
+	public boolean hasJMXInterface() {
+		return false;
+	}
+	
+	/**
 	 * Tests a socket's input and output streams to see if the socket is active.
 	 * @param so The socket to test
 	 * @return true if the socket is active, false otherwise
@@ -422,7 +437,15 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 		if(so==null) return false;
 		try {			
 			if(!so.isConnected() || so.isClosed()) return false;
-			return testSocketInput(so) && testSocketOutput(so);
+			boolean ok = testSocketInput(so) && testSocketOutput(so);
+			if(!ok) return false;
+			//so.sendUrgentData(0);
+//			NetStat ns = sigar.getNetStat(so.getLocalAddress().getAddress(), so.getLocalPort());
+//			SimpleLogger.info(new NetStatPrinter(ns));
+//			if(ns.getTcpCloseWait()>0) {
+//				return false;
+//			}
+			return ok;
 		}  catch (Exception ex) {
 			if(so.isConnected()) {
 				try { so.close(); } catch (Exception e) {}
@@ -447,6 +470,8 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 		}
 	}
 	
+	/** An empty byte array buffer constant */
+	public static final byte[] EMPTY_BYTE_ARR = {};
 	/**
 	 * Tests the socket's output stream to determine if output is closed 
 	 * @param so the socket to test
@@ -456,7 +481,8 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 		if(so==null) return false;
 		try {
 			if(so.isOutputShutdown()) return false;
-			so.getOutputStream();			
+			OutputStream os = so.getOutputStream();			
+			os.write(EMPTY_BYTE_ARR, 0, 0);			
 			return true;
 		}  catch (Exception ex) {
 			return false;
@@ -464,6 +490,122 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 	}
 	
 	
-	
+	public static class NetStatPrinter {
+		/** the netstat to print */
+		private final NetStat netStat;
+
+		/**
+		 * Creates a new NetStatPrinter
+		 * @param netStat the netstat to print
+		 */
+		public NetStatPrinter(NetStat netStat) {
+			super();
+			this.netStat = netStat;
+		}
+		
+		
+
+		public int getAllInboundTotal() {
+			return netStat.getAllInboundTotal();
+		}
+
+		public int getAllOutboundTotal() {
+			return netStat.getAllOutboundTotal();
+		}
+
+		public int getTcpBound() {
+			return netStat.getTcpBound();
+		}
+
+		public int getTcpClose() {
+			return netStat.getTcpClose();
+		}
+
+		public int getTcpCloseWait() {
+			return netStat.getTcpCloseWait();
+		}
+
+		public int getTcpClosing() {
+			return netStat.getTcpClosing();
+		}
+
+		public int getTcpEstablished() {
+			return netStat.getTcpEstablished();
+		}
+
+		public int getTcpFinWait1() {
+			return netStat.getTcpFinWait1();
+		}
+
+		public int getTcpFinWait2() {
+			return netStat.getTcpFinWait2();
+		}
+
+		public int getTcpIdle() {
+			return netStat.getTcpIdle();
+		}
+
+		public int getTcpInboundTotal() {
+			return netStat.getTcpInboundTotal();
+		}
+
+		public int getTcpLastAck() {
+			return netStat.getTcpLastAck();
+		}
+
+		public int getTcpListen() {
+			return netStat.getTcpListen();
+		}
+
+		public int getTcpOutboundTotal() {
+			return netStat.getTcpOutboundTotal();
+		}
+
+		public int[] getTcpStates() {
+			return netStat.getTcpStates();
+		}
+
+		public int getTcpSynRecv() {
+			return netStat.getTcpSynRecv();
+		}
+
+		public int getTcpSynSent() {
+			return netStat.getTcpSynSent();
+		}
+
+		public int getTcpTimeWait() {
+			return netStat.getTcpTimeWait();
+		}
+
+
+
+		@Override
+		public String toString() {
+			StringBuilder builder = new StringBuilder();
+			builder.append("NetStatPrinter [\n\tgetAllInboundTotal()=")
+					.append(getAllInboundTotal())
+					.append("\n\tgetAllOutboundTotal()=")
+					.append(getAllOutboundTotal()).append("\n\tgetTcpBound()=")
+					.append(getTcpBound()).append("\n\tgetTcpClose()=")
+					.append(getTcpClose()).append("\n\tgetTcpCloseWait()=")
+					.append(getTcpCloseWait()).append("\n\tgetTcpClosing()=")
+					.append(getTcpClosing()).append("\n\tgetTcpEstablished()=")
+					.append(getTcpEstablished()).append("\n\tgetTcpFinWait1()=")
+					.append(getTcpFinWait1()).append("\n\tgetTcpFinWait2()=")
+					.append(getTcpFinWait2()).append("\n\tgetTcpIdle()=")
+					.append(getTcpIdle()).append("\n\tgetTcpInboundTotal()=")
+					.append(getTcpInboundTotal()).append("\n\tgetTcpLastAck()=")
+					.append(getTcpLastAck()).append("\n\tgetTcpListen()=")
+					.append(getTcpListen()).append("\n\tgetTcpOutboundTotal()=")
+					.append(getTcpOutboundTotal())
+					.append("\n\tgetTcpSynRecv()=").append(getTcpSynRecv())
+					.append("\n\tgetTcpSynSent()=").append(getTcpSynSent())
+					.append("\n\tgetTcpTimeWait()=").append(getTcpTimeWait())
+					.append("]");
+			return builder.toString();
+		}
+		
+		
+	}
 
 }
