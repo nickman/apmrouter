@@ -118,7 +118,27 @@ public class NativeLibLoader {
 //			ClassLoader ncl = NativeLibLoader.class.getClassLoader();
 //			URL ncs = NativeLibLoader.class.getProtectionDomain().getCodeSource().getLocation();
 //			System.out.println("\n\tNativeLibLoader:\n\t\tClassLoader:" + ncl + "\n\t\tCodeSource:" + ncs + "\n");
-			is = NativeLibLoader.class.getClassLoader().getResourceAsStream("META-INF/native/" + nativeLibraryName);
+			if(NativeLibLoader.class.getClassLoader()==null) {
+				is = NativeLibLoader.class.getResourceAsStream("META-INF/native/" + nativeLibraryName);
+			} else {
+				is = NativeLibLoader.class.getClassLoader().getResourceAsStream("META-INF/native/" + nativeLibraryName);
+			}
+			if(is==null) {
+				try {
+					String jarUrl = "jar:" + NativeLibLoader.class.getProtectionDomain().getCodeSource().getLocation().toString() + "!/META-INF/native/" + nativeLibraryName;
+					URL jurl = new URL(jarUrl);
+					is = jurl.openStream();
+				} catch (Exception ex) {}
+			}
+			if(is==null) {
+				try {
+					is = ClassLoader.getSystemResourceAsStream("META-INF/native/" + nativeLibraryName);
+				} catch (Exception ex) {}
+			}
+			if(is==null) {
+				throw new RuntimeException("Failed to load resource [META-INF/native/" + nativeLibraryName + "]", new Throwable());
+			}
+			
 			File tmpFile = File.createTempFile("jzabTmp", nativeLibraryName);
 			SnipeFilesRepo.getInstance().bypass(tmpFile);
 			fos = new FileOutputStream(tmpFile, true);
