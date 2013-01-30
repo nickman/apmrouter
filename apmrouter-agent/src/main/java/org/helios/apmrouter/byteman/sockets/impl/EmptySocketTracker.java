@@ -38,6 +38,7 @@ import org.cliffc.high_scale_lib.NonBlockingHashSet;
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.nativex.APMSigar;
 import org.helios.apmrouter.util.SimpleLogger;
+import org.helios.apmrouter.util.SimpleLogger.Level;
 import org.hyperic.sigar.NetStat;
 
 /**
@@ -64,6 +65,10 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 	
 	/** The harvester sleep period in ms. */
 	protected final AtomicLong harvesterSleep = new AtomicLong(-1L);
+	
+	/** The logging level for the tracker */
+	protected Level loggingLevel = Level.INFO;
+
 	
 	/** Native OS API  */
 	protected static final APMSigar sigar = APMSigar.getInstance();
@@ -606,6 +611,23 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 		}
 		
 		
+	}
+
+
+	/**
+	 * Returns the name of the current logging level
+	 * @return the current logging level name
+	 */
+	public String getLoggingLevel() {
+		return loggingLevel.name();
+	}
+
+	/**
+	 * Sets the logging level to the passed level name
+	 * @param loggingLevel the level name
+	 */
+	public void setLoggingLevel(String loggingLevel) {
+		this.loggingLevel = Level.forName(loggingLevel);
 	}
 
 }
