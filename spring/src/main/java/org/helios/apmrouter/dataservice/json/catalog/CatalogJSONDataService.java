@@ -185,8 +185,7 @@ public class CatalogJSONDataService extends ServerComponentBean {
 	 * @param channel The channel to write the response to
 	 */
 	@JSONRequestHandler(name="ams")
-	public void agentMetricSet(JsonRequest request, Channel channel) {
-		
+	public void agentMetricSet(JsonRequest request, Channel channel) {		
 		Session session = null;
 		try {
 			int agentId = Integer.parseInt(request.getArgument("agentId"));
@@ -195,7 +194,7 @@ public class CatalogJSONDataService extends ServerComponentBean {
 		} catch (Exception ex) {
 			error("Failed to execute agentMetricSet [" + request + "]", ex);
 		} finally {
-			if(session!=null && session.isOpen()) try { session.close(); } catch (Exception e) {}
+			if(session!=null && session.isOpen()) try { session.close(); } catch (Exception e) {/* No Op */}
 		}
  
 	}
