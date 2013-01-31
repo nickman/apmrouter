@@ -75,6 +75,8 @@ public interface ISocketImpl {
     public ServerSocket getServerSocket();
     
     public FileDescriptor getFileDescriptor();
+    
+    public InetAddress getInetAddress();    
 
     public Socket getSocket();
     

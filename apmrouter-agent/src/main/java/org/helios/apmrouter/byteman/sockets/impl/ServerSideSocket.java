@@ -25,24 +25,29 @@
 package org.helios.apmrouter.byteman.sockets.impl;
 
 /**
- * <p>Title: LoggingSocketTrackerMBean</p>
- * <p>Description: JMX MBean interface for [@link LoggingSocketTracker}</p> 
+ * <p>Title: ServerSideSocket</p>
+ * <p>Description: A container class for various bits-n-pieces regarding the server side socket of a remote incoming connection</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.byteman.sockets.impl.LoggingSocketTrackerMBean</code></p>
+ * <p><code>org.helios.apmrouter.byteman.sockets.impl.ServerSideSocket</code></p>
  */
 
-public interface LoggingSocketTrackerMBean {
+public class ServerSideSocket {
+	/** The listening server socket */
+	protected final ISocketImpl serverSocketImpl;
+	/** The socket representing the server side of an incoming connection */
+	protected final ISocketImpl acceptedSocketImpl;
+	/** A sigar netstat instance for tracking stats on this connection */
+	
 	/**
-	 * Returns the name of the current logging level
-	 * @return the current logging level name
+	 * Creates a new ServerSideSocket
+	 * @param serverSocketImpl The listening server socket
+	 * @param acceptedSocketImpl The socket representing the server side of an incoming connection
 	 */
-	public String getLoggingLevel();
-
-	/**
-	 * Sets the logging level to the passed level name
-	 * @param loggingLevel the level name
-	 */
-	public void setLoggingLevel(String loggingLevel);
-
+	public ServerSideSocket(ISocketImpl serverSocketImpl, ISocketImpl acceptedSocketImpl) {
+		this.serverSocketImpl = serverSocketImpl;
+		this.acceptedSocketImpl = acceptedSocketImpl;
+	}
+	
+	
 }

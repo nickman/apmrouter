@@ -150,6 +150,15 @@ public class SimpleLogger {
 	}
 	
 	/**
+	 * Logs the passed message at the specified level
+	 * @param level the level to log at
+	 * @param msgs the message fragments
+	 */
+	public static void log(Level level, Object...msgs) {
+		logAtLevel(level==null ? Level.INFO : level, msgs);
+	}
+	
+	/**
 	 * Issues a debug level logging request
 	 * @param msgs The objects to format into a log message
 	 */

@@ -78,9 +78,35 @@
           </manifestEntries>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <configuration>
+          <mainClass>org.helios.apmrouter.APMRouter</mainClass>
+          <arguments>./src/test/resources/server</arguments>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
   <dependencies>
+    <dependency>
+      <groupId>de.flapdoodle.embed</groupId>
+      <artifactId>de.flapdoodle.embed.mongo</artifactId>
+      <version>1.26</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>de.flapdoodle.embed.process</artifactId>
+          <groupId>de.flapdoodle.embed</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.camel</groupId>
+      <artifactId>camel-bindy</artifactId>
+      <version>2.10.0</version>
+      <scope>compile</scope>
+    </dependency>
     <dependency>
       <groupId>org.apache.camel</groupId>
       <artifactId>camel-core</artifactId>

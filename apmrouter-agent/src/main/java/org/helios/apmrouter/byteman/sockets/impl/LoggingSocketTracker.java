@@ -24,7 +24,7 @@
  */
 package org.helios.apmrouter.byteman.sockets.impl;
 
-import static org.helios.apmrouter.util.SimpleLogger.info;
+import static org.helios.apmrouter.util.SimpleLogger.log;
 
 import java.io.FileDescriptor;
 import java.io.InputStream;
@@ -45,7 +45,6 @@ import org.helios.apmrouter.util.SimpleLogger;
  */
 
 public class LoggingSocketTracker extends EmptySocketTracker implements LoggingSocketTrackerMBean {
-	
 	/*
 	 * TODO:
 	 * Logging level
@@ -60,7 +59,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onSetEOF(InputStream is, Object socket, boolean eof) {
-		info("EOF [", eof, "]");
+		log(loggingLevel, "EOF [", eof, "]");
 	}
 	
 	/**
@@ -72,7 +71,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onSkip(InputStream is, long skipped, Object socket, long skip) {
-		info("Skipped [", skipped, "]");
+		log(loggingLevel, "Skipped [", skipped, "]");
 	}
 	
 	/**
@@ -85,8 +84,8 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onSocketWrite(OutputStream os, Object socket, byte b[], int off, int len) {
-		info("Socket Write [", len, "]");
-		//info("Socket Write Conent: [", new String(b), "]");
+		log(loggingLevel, "Socket Write [", len, "]");
+		//log(loggingLevel, "Socket Write Conent: [", new String(b), "]");
 	}
 	
 	
@@ -101,7 +100,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onRead(InputStream is, int actualBytesRead, Object socket, byte[] buffer) {
-		info("Socket Read [", actualBytesRead, "]");
+		log(loggingLevel, "Socket Read [", actualBytesRead, "]");
 	}
 	
 	/**
@@ -115,7 +114,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onRead(InputStream is, int actualBytesRead, Object socket, byte[] buffer, int off, int length) {
-		info("Socket Read [", actualBytesRead, "]");
+		log(loggingLevel, "Socket Read [", actualBytesRead, "]");
 	}
 	
 	
@@ -127,7 +126,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
      */
     @Override
 	public void onRead(InputStream is, int value, Object socket) {
-    	info("Socket Read [1]");
+    	log(loggingLevel, "Socket Read [1]");
     }
 
 	/**
@@ -138,7 +137,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onConnect(ISocketImpl socketImpl, SocketAddress address, int timeout) {
-		info("Connected (sa) [", socketImpl.getClass().getSimpleName() , ":", address, ":", timeout, "]");
+		log(loggingLevel, "Connected (sa) [", socketImpl.getClass().getSimpleName() , ":", address, ":", timeout, "]");
 	}
 	
 	/**
@@ -149,7 +148,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onConnect(ISocketImpl socketImpl, InetAddress address, int timeout) {
-		info("Connected (ia) [", address, ":", timeout, "]");
+		log(loggingLevel, "Connected (ia) [", address, ":", timeout, "]");
 	}
 	
 	/**
@@ -160,7 +159,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onConnect(ISocketImpl socketImpl, String host, int port) {
-		info("Connected (ha) [", host, ":", port, "]");
+		log(loggingLevel, "Connected (ha) [", host, ":", port, "]");
 	}
 	
 	/**
@@ -171,9 +170,9 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onBind(ISocketImpl socketImpl, InetAddress host, int port) {
-		info("Bind [", host, ":", port, "]");
+		log(loggingLevel, "Bind [", host, ":", port, "]");
 		ServerSocket ss = socketImpl.getServerSocket();
-		info("ServerSock: [", ss, "]");
+		log(loggingLevel, "ServerSock: [", ss, "]");
 	}
 	
 	/**
@@ -183,21 +182,27 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onListen(ISocketImpl socketImpl, int backlog) {
-		info("Listen [", backlog, "]");
+		log(loggingLevel, "Listen [", backlog, "]");
 	}
 	
 	/**
 	 * Called when a server socket impl accepts a new connection 
-	 * @param socketImpl the socket impl that accepted
+	 * @param socketImpl the socket impl that was accepted
 	 * @param acceptedSocketImpl the accepted client socket impl
 	 */
 	@Override
 	public void onAccept(ISocketImpl socketImpl, ISocketImpl acceptedSocketImpl) {		
 		serverSideSockets.add(acceptedSocketImpl);
 		StringBuilder b = new StringBuilder("Accepted Socket [").append(System.identityHashCode(acceptedSocketImpl)).append("]");
-		b.append("\n\tLocal Address:").append(acceptedSocketImpl.getSocket().getLocalSocketAddress());
-		b.append("\n\tRemote Address:").append(acceptedSocketImpl.getSocket().getRemoteSocketAddress());
-		info(b);
+		
+		b.append("\n\tAccepted:").append(acceptedSocketImpl);
+		b.append("\n\tRemote Address:").append(acceptedSocketImpl.getInetAddress().getHostAddress()).append(":").append(acceptedSocketImpl.getPort());
+		b.append("\n\tLocal Address:").append(socketImpl.getInetAddress().getHostAddress()).append(":").append(socketImpl.getLocalPort());
+		
+//		b.append("\n\tLocal Address:").append(acceptedSocketImpl.getSocket().getLocalSocketAddress());
+//		b.append("\n\tRemote Address:").append(acceptedSocketImpl.getSocket().getRemoteSocketAddress());
+		
+		log(loggingLevel, b);
 	}
 	
 	/**
@@ -210,7 +215,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 		StringBuilder b = new StringBuilder("InputStream Accessed [").append(System.identityHashCode(socketImpl)).append("]");
 		b.append("\n\tLocal Address:").append(socketImpl.getSocket().getLocalSocketAddress());
 		b.append("\n\tRemote Address:").append(socketImpl.getSocket().getRemoteSocketAddress());		
-		info(b);		
+		log(loggingLevel, b);
 	}
 
 	/**
@@ -223,7 +228,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 		StringBuilder b = new StringBuilder("OutputStream Accessed [").append(System.identityHashCode(socketImpl)).append("]");
 		b.append("\n\tLocal Address:").append(socketImpl.getSocket().getLocalSocketAddress());
 		b.append("\n\tRemote Address:").append(socketImpl.getSocket().getRemoteSocketAddress());		
-		info(b);
+		log(loggingLevel, b);
 	}
 	
 	/**
@@ -233,7 +238,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void  onAvailable(ISocketImpl socketImpl, int available) {
-		info("Available [", available, "]");
+		log(loggingLevel, "Available [", available, "]");
 	}
 
 	/**
@@ -256,7 +261,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 			b.append("\n\tLocal Address:").append(socketImpl.getSocket().getLocalSocketAddress());
 			b.append("\n\tRemote Address:").append(socketImpl.getSocket().getRemoteSocketAddress());			
 		}
-		info(b);
+		log(loggingLevel, b);
 	}
 
 	/**
@@ -265,7 +270,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onShutdownInput(ISocketImpl socketImpl)  {
-		info("ShutdownInput [", socketImpl, "]");
+		log(loggingLevel, "ShutdownInput [", socketImpl, "]");
     }
 	
 	/**
@@ -274,7 +279,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onShutdownOutput(ISocketImpl socketImpl)  {
-		info("ShutdownOutput [", socketImpl, "]");
+		log(loggingLevel, "ShutdownOutput [", socketImpl, "]");
     }
 	
 	/**
@@ -284,7 +289,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onSendUrgentData(ISocketImpl socketImpl, int data)  {
-		info("SendUrgentData [", data, "]");
+		log(loggingLevel, "SendUrgentData [", data, "]");
 	}
 	
 	/**
@@ -294,7 +299,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onSetSocket(ISocketImpl socketImpl, Object socket) {
-		info("SetSocket [", socket, "]");
+		log(loggingLevel, "SetSocket [", socket, "]");
 	}
 
 	/**
@@ -304,7 +309,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onSetServerSocket(ISocketImpl socketImpl, Object serverSocket) {
-		info("SetServerSocket [", serverSocket, "]");
+		log(loggingLevel, "SetServerSocket [", serverSocket, "]");
 	}
 	
 	/**
@@ -313,7 +318,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onReset(ISocketImpl socketImpl) {
-		info("Reset [", socketImpl, "]");
+		log(loggingLevel, "Reset [", socketImpl, "]");
 	}
 	
 	
@@ -326,7 +331,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onSetPerformancePreferences(ISocketImpl socketImpl, int connectionTime, int latency, int bandwidth) {
-		info("SetPerformancePreferences [", connectionTime, ":", latency, ":", bandwidth,  "]");
+		log(loggingLevel, "SetPerformancePreferences [", connectionTime, ":", latency, ":", bandwidth,  "]");
 	}
 
 	/**
@@ -347,7 +352,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	protected void harvest() {
 		if(serverSideSockets.isEmpty()) return;
 		final long start = System.currentTimeMillis();
-		//SimpleLogger.info("[", getClass().getSimpleName(), "] Harvesting...");
+		//SimpleLogger.log(loggingLevel, "[", getClass().getSimpleName(), "] Harvesting...");
 		final int startSize = serverSideSockets.size();
 		Iterator<ISocketImpl> socketIter = serverSideSockets.iterator();
 		int socketsClosed = 0;
@@ -356,7 +361,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 			FileDescriptor fd = isocket.getFileDescriptor();
 			boolean fdValid = fd!=null && fd.valid();
 			if(fd!=null) {
-				SimpleLogger.info("FD: [", fd, "]:" , fd.valid());
+				SimpleLogger.log(loggingLevel, "FD: [", fd, "]:" , fd.valid());
 				try { fd.sync(); } catch (Exception ex) {}
 			}
 			
@@ -368,7 +373,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 		}
 		final int endSize = serverSideSockets.size();
 		final long elapsed = System.currentTimeMillis()-start;
-		SimpleLogger.info("[", getClass().getSimpleName(), "] Harvester closed [", socketsClosed, "] accepted sockets. \n\tStartCount:", startSize, " \n\tEndCount:", endSize, "\n\tElapsed:", elapsed, " ms.");
+		SimpleLogger.log(loggingLevel, "[", getClass().getSimpleName(), "] Harvester closed [", socketsClosed, "] accepted sockets. \n\tStartCount:", startSize, " \n\tEndCount:", endSize, "\n\tElapsed:", elapsed, " ms.");
 	}
 	
 	/**

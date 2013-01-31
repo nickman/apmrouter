@@ -22,27 +22,16 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.byteman.sockets.impl;
+package org.helios.apmrouter.nativex;
 
 /**
- * <p>Title: LoggingSocketTrackerMBean</p>
- * <p>Description: JMX MBean interface for [@link LoggingSocketTracker}</p> 
+ * <p>Title: TCPSocketState</p>
+ * <p>Description: </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.byteman.sockets.impl.LoggingSocketTrackerMBean</code></p>
+ * <p><code>org.helios.apmrouter.nativex.TCPSocketState</code></p>
  */
 
-public interface LoggingSocketTrackerMBean {
-	/**
-	 * Returns the name of the current logging level
-	 * @return the current logging level name
-	 */
-	public String getLoggingLevel();
-
-	/**
-	 * Sets the logging level to the passed level name
-	 * @param loggingLevel the level name
-	 */
-	public void setLoggingLevel(String loggingLevel);
+public enum TCPSocketState {
 
 }

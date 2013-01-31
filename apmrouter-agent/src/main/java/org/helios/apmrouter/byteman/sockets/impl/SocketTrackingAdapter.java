@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import javax.management.MBeanServerInvocationHandler;
 import javax.management.ObjectName;
 
 import org.helios.apmrouter.util.SimpleLogger;
@@ -125,6 +126,18 @@ public class SocketTrackingAdapter implements SocketTrackingAdapterMBean {
 		
 		SimpleLogger.info("Initialized SocketTrackingAdapter [", SocketTrackingAdapter.class.getClassLoader(), "]" );
 		
+	}
+	
+	public static final SocketTrackingAdapterMBean getInvoker() {
+		return MBeanServerInvocationHandler.newProxyInstance(ManagementFactory.getPlatformMBeanServer(), objectName(SOCK_ADAPTER_OBJECTNAME), SocketTrackingAdapterMBean.class, false);
+	}
+	
+	public static final ObjectName objectName(CharSequence name) {
+		try {
+			return new ObjectName(name.toString());
+		} catch (Exception ex) {
+			throw new RuntimeException(ex);
+		}
 	}
 	
 	/**

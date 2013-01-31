@@ -91,7 +91,7 @@ public class RunSocketInstr {
 //				log(line);
 //			}
 			
-			SocketTrackingAdapter.setISocketTracker(new LoggingSocketTracker());
+			SocketTrackingAdapter.getInvoker().setInstalledTrackerName("org.helios.apmrouter.byteman.sockets.impl.LoggingSocketTracker");
 			
 //			URL url = new URL("http://localhost:80");
 //			SocketTrackingAdapter.setISocketTracker(new LoggingSocketTracker());
@@ -104,16 +104,14 @@ public class RunSocketInstr {
 //				//log(line);
 //			}
 //			is.close();
-			Field f = ServerSocket.class.getDeclaredField("impl");
-			f.setAccessible(true);
 			final ServerSocket ss = new ServerSocket(9384, 213, InetAddress.getByName("0.0.0.0"));
 			int cnt = 0;
+			log("Server Started");
 			for(;;) {
 				final Socket sock = ss.accept();
 				cnt++;
 				Thread t = new Thread("ServerThread#" + cnt) {
 					public void run() {
-						log("Server Started");
 						//while(true) {
 							try {							
 								//sock.setKeepAlive(true);

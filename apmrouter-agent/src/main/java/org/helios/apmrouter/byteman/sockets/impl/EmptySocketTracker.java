@@ -38,6 +38,7 @@ import org.cliffc.high_scale_lib.NonBlockingHashSet;
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.nativex.APMSigar;
 import org.helios.apmrouter.util.SimpleLogger;
+import org.helios.apmrouter.util.SimpleLogger.Level;
 import org.hyperic.sigar.NetStat;
 
 /**
@@ -64,6 +65,10 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 	
 	/** The harvester sleep period in ms. */
 	protected final AtomicLong harvesterSleep = new AtomicLong(-1L);
+	
+	/** The logging level for the tracker */
+	protected Level loggingLevel = Level.INFO;
+
 	
 	/** Native OS API  */
 	protected static final APMSigar sigar = APMSigar.getInstance();
@@ -440,8 +445,14 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 			boolean ok = testSocketInput(so) && testSocketOutput(so);
 			if(!ok) return false;
 			//so.sendUrgentData(0);
-//			NetStat ns = sigar.getNetStat(so.getLocalAddress().getAddress(), so.getLocalPort());
-//			SimpleLogger.info(new NetStatPrinter(ns));
+			
+			NetStat ns = sigar.getNetStat(so.getLocalAddress().getAddress(), so.getLocalPort());
+			SimpleLogger.info("Local CloseWaits:", ns.getTcpCloseWait());
+			try {
+				int cw  = sigar.getNetStat(so.getInetAddress().getAddress(),  so.getPort()).getTcpCloseWait();
+				SimpleLogger.info("Remote CloseWaits on [:" + so.getRemoteSocketAddress() + "]", cw);
+				if(cw>0) return false;
+			} catch (Exception ex) { SimpleLogger.warn("Failed to get Remote CloseWaits"); }
 //			if(ns.getTcpCloseWait()>0) {
 //				return false;
 //			}
@@ -472,6 +483,9 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 	
 	/** An empty byte array buffer constant */
 	public static final byte[] EMPTY_BYTE_ARR = {};
+	/** An one byte array buffer constant */
+	public static final byte[] ONE_BYTE_ARR = {0};
+	
 	/**
 	 * Tests the socket's output stream to determine if output is closed 
 	 * @param so the socket to test
@@ -482,9 +496,10 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 		try {
 			if(so.isOutputShutdown()) return false;
 			OutputStream os = so.getOutputStream();			
-			os.write(EMPTY_BYTE_ARR, 0, 0);			
+			os.write(ONE_BYTE_ARR, 0, 0);			
 			return true;
 		}  catch (Exception ex) {
+			SimpleLogger.info("Got exception writing zero bytes of ONE_BYTE_ARR");
 			return false;
 		}
 	}
@@ -606,6 +621,23 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 		}
 		
 		
+	}
+
+
+	/**
+	 * Returns the name of the current logging level
+	 * @return the current logging level name
+	 */
+	public String getLoggingLevel() {
+		return loggingLevel.name();
+	}
+
+	/**
+	 * Sets the logging level to the passed level name
+	 * @param loggingLevel the level name
+	 */
+	public void setLoggingLevel(String loggingLevel) {
+		this.loggingLevel = Level.forName(loggingLevel);
 	}
 
 }

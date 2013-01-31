@@ -673,11 +673,16 @@ public class APMSigar implements SigarProxy {
 	 * @param address
 	 * @param port
 	 * @return
-	 * @throws SigarException
 	 * @see org.hyperic.sigar.Sigar#getNetStat(byte[], long)
 	 */
-	public NetStat getNetStat(byte[] address, long port) throws SigarException {
-		return sigar.getNetStat(address, port);
+	public NetStat getNetStat(byte[] address, long port)  {
+		try {
+			return sigar.getNetStat(address, port);
+		} catch (SigarException se) {
+			throw new RuntimeException("Failed to invokeinternal Sigar call NetStat");
+		}
+		
+		
 	}
 
 	/**

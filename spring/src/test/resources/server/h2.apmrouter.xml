@@ -73,7 +73,7 @@
 	    </bean>	   
 	
 		<!-- 
-			To connect remotely:   jdbc:h2:file:~/.apmrouter/h2/db;JMX=TRUE;MULTI_THREADED=TRUE;DB_CLOSE_DELAY=-1
+			To connect remotely:   jdbc:h2:tcp://localhost:3083/file:~/.apmrouter/h2/db
 		 -->
 	
 	<bean id="H2DataSource" class="org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy" >
