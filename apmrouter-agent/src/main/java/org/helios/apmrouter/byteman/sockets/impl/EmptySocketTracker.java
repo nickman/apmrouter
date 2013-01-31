@@ -445,8 +445,14 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 			boolean ok = testSocketInput(so) && testSocketOutput(so);
 			if(!ok) return false;
 			//so.sendUrgentData(0);
-//			NetStat ns = sigar.getNetStat(so.getLocalAddress().getAddress(), so.getLocalPort());
-//			SimpleLogger.info(new NetStatPrinter(ns));
+			
+			NetStat ns = sigar.getNetStat(so.getLocalAddress().getAddress(), so.getLocalPort());
+			SimpleLogger.info("Local CloseWaits:", ns.getTcpCloseWait());
+			try {
+				int cw  = sigar.getNetStat(so.getInetAddress().getAddress(),  so.getPort()).getTcpCloseWait();
+				SimpleLogger.info("Remote CloseWaits on [:" + so.getRemoteSocketAddress() + "]", cw);
+				if(cw>0) return false;
+			} catch (Exception ex) { SimpleLogger.warn("Failed to get Remote CloseWaits"); }
 //			if(ns.getTcpCloseWait()>0) {
 //				return false;
 //			}
@@ -477,6 +483,9 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 	
 	/** An empty byte array buffer constant */
 	public static final byte[] EMPTY_BYTE_ARR = {};
+	/** An one byte array buffer constant */
+	public static final byte[] ONE_BYTE_ARR = {0};
+	
 	/**
 	 * Tests the socket's output stream to determine if output is closed 
 	 * @param so the socket to test
@@ -487,9 +496,10 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 		try {
 			if(so.isOutputShutdown()) return false;
 			OutputStream os = so.getOutputStream();			
-			os.write(EMPTY_BYTE_ARR, 0, 0);			
+			os.write(ONE_BYTE_ARR, 0, 0);			
 			return true;
 		}  catch (Exception ex) {
+			SimpleLogger.info("Got exception writing zero bytes of ONE_BYTE_ARR");
 			return false;
 		}
 	}

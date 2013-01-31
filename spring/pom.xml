@@ -270,7 +270,17 @@
 						</manifestEntries>
 				</configuration>
 	        </plugin>
-	         
+			<plugin>
+			    <groupId>org.codehaus.mojo</groupId>
+			    <artifactId>exec-maven-plugin</artifactId>
+			    <configuration>
+			      <mainClass>org.helios.apmrouter.APMRouter</mainClass>
+			      <arguments>
+			      	<argument>./src/test/resources/server</argument>
+			      </arguments>
+			    </configuration>
+		   	</plugin>
+   	         
 			
 		</plugins>
 	</build>
