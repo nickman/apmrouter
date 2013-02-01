@@ -104,7 +104,7 @@ public class BaseTracingOperations extends BasePerformanceTestCase {
 	}
 	
 	/**
-	 * Prints tracing stats
+	 * Prints tracing localStats
 	 */
 	@AfterClass
 	public static void printEnvSummary() {

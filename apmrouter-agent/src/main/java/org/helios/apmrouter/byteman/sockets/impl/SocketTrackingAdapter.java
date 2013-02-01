@@ -38,7 +38,7 @@ import javax.management.MBeanServerInvocationHandler;
 import javax.management.ObjectName;
 
 import org.helios.apmrouter.util.SimpleLogger;
-import org.helios.helpers.ConfigurationHelper;
+
 
 
 /**

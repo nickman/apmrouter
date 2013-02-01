@@ -34,6 +34,7 @@ import java.net.ServerSocket;
 import java.net.SocketAddress;
 import java.util.Iterator;
 
+import org.helios.apmrouter.byteman.sockets.ServerConnection;
 import org.helios.apmrouter.util.SimpleLogger;
 
 /**
@@ -192,7 +193,8 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	 */
 	@Override
 	public void onAccept(ISocketImpl socketImpl, ISocketImpl acceptedSocketImpl) {		
-		serverSideSockets.add(acceptedSocketImpl);
+		//serverSideSockets.add(acceptedSocketImpl);
+		ServerConnection.getInstance(acceptedSocketImpl);
 		StringBuilder b = new StringBuilder("Accepted Socket [").append(System.identityHashCode(acceptedSocketImpl)).append("]");
 		
 		b.append("\n\tAccepted:").append(acceptedSocketImpl);

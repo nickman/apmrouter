@@ -57,7 +57,7 @@ public class ResourceHelper {
 	
 	/**
 	 * <p>Title: NamedMemoryUsage</p>
-	 * <p>Description: A wrapped memory usage extended to compute some additional stats and display a memory type name</p> 
+	 * <p>Description: A wrapped memory usage extended to compute some additional localStats and display a memory type name</p> 
 	 * <p>Company: Helios Development Group LLC</p>
 	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
 	 * <p><code>org.helios.apmrouter.util.ResourceHelper.NamedMemoryUsage</code></p>

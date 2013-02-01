@@ -152,7 +152,7 @@ public enum MetricType  implements IMetricDataAccessor {
 	
 	/**
 	 * Decodes the passed name to a MetricType.
-	 * Throws a runtime exception if the ordinal is invalud
+	 * Throws a runtime exception if the ordinal is invalid
 	 * @param name The metricId type name to decode. Trimmed and uppercased.
 	 * @return the decoded MetricType
 	 */

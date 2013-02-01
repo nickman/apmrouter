@@ -42,7 +42,7 @@ import org.snmp4j.PDU;
 public interface ITracer {
 	
 	/**
-	 * Resets the tracer stats
+	 * Resets the tracer localStats
 	 */
 	public void resetStats();
 	

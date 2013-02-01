@@ -37,7 +37,7 @@ public class ServerSideSocket {
 	protected final ISocketImpl serverSocketImpl;
 	/** The socket representing the server side of an incoming connection */
 	protected final ISocketImpl acceptedSocketImpl;
-	/** A sigar netstat instance for tracking stats on this connection */
+	/** A sigar netstat instance for tracking localStats on this connection */
 	
 	/**
 	 * Creates a new ServerSideSocket

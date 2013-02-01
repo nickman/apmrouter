@@ -48,7 +48,7 @@ import org.springframework.jmx.support.MetricType;
 
 /**
  * <p>Title: ServerMonitor</p>
- * <p>Description: A service to execute background stats collection and submission</p> 
+ * <p>Description: A service to execute background localStats collection and submission</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.monitor.ServerMonitor</code></p>
@@ -145,7 +145,7 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 					}
 					tracer.traceDeltaCounter(value, opName, "platform=APMRouter", "category=" + category);
 				} catch (Exception ex) {
-					error("Failed to collect stats for ObjectName [", on, "] on operation [", opName, "]", ex);
+					error("Failed to collect localStats for ObjectName [", on, "] on operation [", opName, "]", ex);
 				}				
 			}
 		}
@@ -164,7 +164,7 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 					}
 					tracer.traceGauge(value, opName, "platform=APMRouter", "category=" + category);
 				} catch (Exception ex) {
-					error("Failed to collect stats for ObjectName [", on, "] on operation [", opName, "]", ex);
+					error("Failed to collect localStats for ObjectName [", on, "] on operation [", opName, "]", ex);
 				}				
 			}
 		}

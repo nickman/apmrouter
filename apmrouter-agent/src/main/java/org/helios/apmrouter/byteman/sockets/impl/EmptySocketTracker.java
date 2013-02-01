@@ -511,7 +511,7 @@ public class EmptySocketTracker implements ISocketTracker, ThreadFactory {
 
 		/**
 		 * Creates a new NetStatPrinter
-		 * @param netStat the netstat to print
+		 * @param remoteNetStat the netstat to print
 		 */
 		public NetStatPrinter(NetStat netStat) {
 			super();

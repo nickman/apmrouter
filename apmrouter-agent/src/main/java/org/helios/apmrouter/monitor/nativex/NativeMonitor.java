@@ -73,7 +73,7 @@ public class NativeMonitor extends AbstractMonitor {
 	protected int fsTimeToFullCollectionSweep = 10;
 	/** Indicates if static os meta-data should be traced during rescans */
 	protected boolean traceMeta = false;
-	/** Indicates if detailed stats for all cpus should be traced */
+	/** Indicates if detailed localStats for all cpus should be traced */
 	protected boolean traceAllCpus = false;
 	
 
@@ -138,9 +138,9 @@ public class NativeMonitor extends AbstractMonitor {
 	public static final String OS_META_PROP = "monitor.nativex.tracemeta";
 	/** The default configuration that specifies if static os data should be traced when systems are rescanned */
 	public static final boolean DEFAULT_OS_META = false;
-	/** The property name for configuring if detailed stats on each cpu should be traced, or just the combined */
+	/** The property name for configuring if detailed localStats on each cpu should be traced, or just the combined */
 	public static final String CPU_ALL_PROP = "monitor.nativex.cpu.traceall";
-	/** The default configuration for detailed stats on each cpu should be traced */
+	/** The default configuration for detailed localStats on each cpu should be traced */
 	public static final boolean DEFAULT_CPU_ALL = false;
 	
 	/**
@@ -195,7 +195,7 @@ public class NativeMonitor extends AbstractMonitor {
 	}
 	
 	/**
-	 * Traces network stats
+	 * Traces network localStats
 	 */
 	protected void traceNetstat() {
 		NetStat net = hsigar.getNetStat();
@@ -356,7 +356,7 @@ public class NativeMonitor extends AbstractMonitor {
 	}
 	
 	/**
-	 * Collects individual and aggregate CPU percentage utilization stats.
+	 * Collects individual and aggregate CPU percentage utilization localStats.
 	 */
 	protected void traceCpus() {
 		int cid = 0;
@@ -383,8 +383,8 @@ public class NativeMonitor extends AbstractMonitor {
 	}
 	
 	/**
-	 * Traces the passed PCU percentage stats
-	 * @param c The CPU percentage stats
+	 * Traces the passed PCU percentage localStats
+	 * @param c The CPU percentage localStats
 	 * @param cpuName The cpu name
 	 */
 	private void traceCpuPerc(CpuPerc c, String cpuName) {
@@ -402,7 +402,7 @@ public class NativeMonitor extends AbstractMonitor {
 
 	
 	/**
-	 * Traces usage stats about the local file systems
+	 * Traces usage localStats about the local file systems
 	 */
 	protected void traceFileSystemUsage() {		
 		StringBuilder b = new StringBuilder("\n\t=================================\n\tDiscovered File Systems\n\t=================================");
@@ -490,7 +490,7 @@ public class NativeMonitor extends AbstractMonitor {
 	 * @param total The file system's total capacity
 	 * @param used The file system usage in this collection period
 	 * @param now The current timestamp
-	 * @param fsState The collected stats from the prior period
+	 * @param fsState The collected localStats from the prior period
 	 * @return the approximate number of seconds until a file system is full 
 	 */
 	protected long timeUntilFull(long total, long used, long now, long[] fsState) {		

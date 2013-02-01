@@ -52,7 +52,7 @@ import org.helios.apmrouter.util.SystemClock;
 
 /**
  * <p>Title: JVMMonitor</p>
- * <p>Description: A monitor implementation to collect and trace stats on the JVM's health and status</p> 
+ * <p>Description: A monitor implementation to collect and trace localStats on the JVM's health and status</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.monitor.jvm.JVMMonitor</code></p>
@@ -81,7 +81,7 @@ public class JVMMonitor extends AbstractMonitor {
 	
 	/** The last collection timestamp */
 	protected long lastCollectTime = -1;
-	/** The number of collects after which resetable stats are reset */
+	/** The number of collects after which resetable localStats are reset */
 	protected int resetLoopCount = 2;
 	/** The number of collects since the last reset */
 	protected int resetLoops = 0;
@@ -95,7 +95,7 @@ public class JVMMonitor extends AbstractMonitor {
 	protected final Map<String, Long> lastGCCollectTime = new HashMap<String, Long>(gcMXBeans.size());
 	/** A map of the max pool sizes keyed by pool name */
 	protected final Map<String, Long> maxPoolSize = new HashMap<String, Long>(gcMXBeans.size());
-	/** Indicates if the initial static runtime stats have been collected */
+	/** Indicates if the initial static runtime localStats have been collected */
 	protected boolean initialRuntimeCollected = false;
 	/** Indicates if this is Java 7*/
 	protected final boolean isJava7;
@@ -210,7 +210,7 @@ public class JVMMonitor extends AbstractMonitor {
 	}
 	
 	/**
-	 * Collects threading stats
+	 * Collects threading localStats
 	 */
 	protected void collectThreads() {
 		int tc = threadMXBean.getThreadCount();
@@ -324,7 +324,7 @@ public class JVMMonitor extends AbstractMonitor {
 	}
 	
 	/**
-	 * Collects class loading stats
+	 * Collects class loading localStats
 	 * FIXME: TotalLoadedClasses needs traceLongLast
 	 */
 	protected void collectClassLoading() {

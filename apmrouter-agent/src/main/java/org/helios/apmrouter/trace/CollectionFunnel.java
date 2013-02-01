@@ -147,7 +147,7 @@ public class CollectionFunnel implements RejectedExecutionHandler, MetricSubmitt
 	}
 	
 	/**
-	 * Resets the sent and dropped stats
+	 * Resets the sent and dropped localStats
 	 */
 	@Override
 	public void resetStats() {

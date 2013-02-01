@@ -332,7 +332,7 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 	
 	
 	/**
-	 * Prints some basic stats on the metric recorder
+	 * Prints some basic localStats on the metric recorder
 	 */
 	public void printStats() {
 		final StringBuilder s = new StringBuilder("\nMetric Recorder Stats:");

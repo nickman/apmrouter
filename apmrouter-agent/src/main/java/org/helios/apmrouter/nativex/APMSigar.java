@@ -450,8 +450,8 @@ public class APMSigar implements SigarProxy {
 	}
 
 	/**
-	 * Returns system memory stats
-	 * @return the system memory stats
+	 * Returns system memory localStats
+	 * @return the system memory localStats
 	 * @see org.hyperic.sigar.Sigar#getMem()
 	 */
 	@Override
@@ -656,8 +656,8 @@ public class APMSigar implements SigarProxy {
 	}
 
 	/**
-	 * Returns network stats
-	 * @return network stats
+	 * Returns network localStats
+	 * @return network localStats
 	 * @see org.hyperic.sigar.Siar#getNetStat()
 	 */
 	@Override

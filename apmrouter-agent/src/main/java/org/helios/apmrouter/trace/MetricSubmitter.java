@@ -71,7 +71,7 @@ public interface MetricSubmitter {
 	public long getDroppedMetrics();
 	
 	/**
-	 * Resets the stats
+	 * Resets the localStats
 	 */
 	public void resetStats();
 
