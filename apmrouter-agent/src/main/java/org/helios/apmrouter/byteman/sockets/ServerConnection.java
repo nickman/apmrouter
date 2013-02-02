@@ -27,6 +27,7 @@ package org.helios.apmrouter.byteman.sockets;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -34,7 +35,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.apache.log4j.Logger;
 import org.cliffc.high_scale_lib.NonBlockingHashMap;
 import org.helios.apmrouter.byteman.sockets.impl.ISocketImpl;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
@@ -106,20 +106,18 @@ public class ServerConnection implements NetStatConst {
 				SimpleLogger.info("\n\t===================\n\tServerConnection Harvest in [" ,elapsed, "] ms.\n\t===================\n");
 				
 			}
-		}, 15, 15, TimeUnit.SECONDS);
+		}, 5, 5, TimeUnit.SECONDS);
 	}
 	
 	
 	/**
 	 * Acquires the ServerConnection instance for the passed ISocketImpl
 	 * @param serverSocket the ISocketImpl to get the ServerConnection for.
-	 * @return a ServerConnection wrapping the passed serverSocket
 	 */
-	public static ServerConnection getInstance(ISocketImpl serverSocket) {
+	public static void registerInstance(ISocketImpl serverSocket) {
 		if(serverSocket==null) throw new IllegalArgumentException("The passed server socket was null", new Throwable());
 		String key = key(serverSocket);
-		isockets.putIfAbsent(key, new ServerConnection(key, serverSocket));
-		return isockets.get(key);
+		isockets.putIfAbsent(key, new ServerConnection(key, serverSocket));		
 	}
 	
 	/**
@@ -165,12 +163,38 @@ public class ServerConnection implements NetStatConst {
 	}
 	
 	/**
+	 * Updates the local socket state, firing state change listeners if the state has changed
+	 * @param newSocketState The new socket state
+	 */
+	protected void setLocalSocketState(TCPSocketState newSocketState) {
+		TCPSocketState priorSocketState = localSocketState.getAndSet(newSocketState);
+		if(priorSocketState!=newSocketState) {
+			SimpleLogger.info("Server LocalSide Socket [", serverSocket.getSocket().getLocalSocketAddress() , "] Changed State from [", priorSocketState, "] to [", newSocketState, "]" );
+		}
+	}
+	
+	/**
+	 * Updates the remote socket state, firing state change listeners if the state has changed
+	 * @param newSocketState The new socket state
+	 */
+	protected void setRemoteSocketState(TCPSocketState newSocketState) {
+		TCPSocketState priorSocketState = remoteSocketState.getAndSet(newSocketState);
+		if(priorSocketState!=newSocketState) {
+			SimpleLogger.info("Server RemoteSide Socket [", serverSocket.getSocket().getRemoteSocketAddress() , "] Changed State from [", priorSocketState, "] to [", newSocketState, "]" );
+		}
+	}
+	
+	
+	/**
 	 * Collects stats and states for the local and remote side of this connection
 	 */
 	protected void collect() {
+		int[] tcpStates;
 		refreshNetStat(false);
-		if(localNetStat!=null) {			
-			localSocketState.set(TCPSocketState.valueOf(localNetStat.getTcpStates()[0]));
+		if(localNetStat!=null) {
+			tcpStates = localNetStat.getTcpStates();
+			SimpleLogger.info("Local TCP States: " , Arrays.toString(TCPSocketState.valueOfName(tcpStates)), "\n\t", Arrays.toString(tcpStates));
+			setLocalSocketState(TCPSocketState.valueOf(tcpStates[0]));
 			localStats.get(STAT_TCPINBOUNDTOTAL).insert(localNetStat.getTcpInboundTotal());
 			localStats.get(STAT_TCPOUTBOUNDTOTAL).insert(localNetStat.getTcpOutboundTotal());
 			localStats.get(STAT_ALLINBOUNDTOTAL).insert(localNetStat.getAllInboundTotal());
@@ -188,11 +212,13 @@ public class ServerConnection implements NetStatConst {
 			localStats.get(STAT_TCPCLOSING).insert(localNetStat.getTcpClosing());
 			localStats.get(STAT_TCPIDLE).insert(localNetStat.getTcpIdle());
 			localStats.get(STAT_TCPBOUND).insert(localNetStat.getTcpBound());
-			SimpleLogger.info("Local ServerSide [" ,serverSocket.getSocket().getLocalSocketAddress() , "]" , renderStats(localStats));
+			SimpleLogger.info("Local ServerSide [", localSocketState.get(), "] [" ,serverSocket.getSocket().getLocalSocketAddress() , "]" , renderStats(localStats));
 		}
-		refreshNetStat(false);
-		if(remoteNetStat!=null) {			
-			remoteSocketState.set(TCPSocketState.valueOf(remoteNetStat.getTcpStates()[0]));
+		refreshNetStat(true);
+		if(remoteNetStat!=null) {
+			tcpStates = remoteNetStat.getTcpStates();
+			SimpleLogger.info("Remote TCP States: " ,Arrays.toString(TCPSocketState.valueOfName(tcpStates)), "\n\t", Arrays.toString(tcpStates));			
+			setRemoteSocketState(TCPSocketState.valueOf(tcpStates[0]));
 			remoteStats.get(STAT_TCPINBOUNDTOTAL).insert(remoteNetStat.getTcpInboundTotal());
 			remoteStats.get(STAT_TCPOUTBOUNDTOTAL).insert(remoteNetStat.getTcpOutboundTotal());
 			remoteStats.get(STAT_ALLINBOUNDTOTAL).insert(remoteNetStat.getAllInboundTotal());
@@ -210,10 +236,43 @@ public class ServerConnection implements NetStatConst {
 			remoteStats.get(STAT_TCPCLOSING).insert(remoteNetStat.getTcpClosing());
 			remoteStats.get(STAT_TCPIDLE).insert(remoteNetStat.getTcpIdle());
 			remoteStats.get(STAT_TCPBOUND).insert(remoteNetStat.getTcpBound());
-			SimpleLogger.info("Remote ServerSide [" , serverSocket.getSocket().getRemoteSocketAddress() , "]" , renderStats(remoteStats));
+			SimpleLogger.info("Remote ServerSide [", remoteSocketState, "] [" , serverSocket.getSocket().getRemoteSocketAddress() , "]" , renderStats(remoteStats));
 		}
-		
 	}
+	
+/*
+  
+ ServerSocket[addr=/0.0.0.0,port=0,localport=9384 
+ Accepted Socket: [1212866551] [Socket[addr=/0:0:0:0:0:0:0:1,port=35812,localport=9384]]  Available:0
+INFO [ServerThread#1]OutputStream Accessed [1212866551]
+	Local Address:/0:0:0:0:0:0:0:1:9384
+	Remote Address:/0:0:0:0:0:0:0:1:35812
+ 
+tcp6       0      0 :::9384                 :::*                    LISTEN      18277/java       off (0.00/0/0)
+tcp6       0      0 ::1:35461               ::1:9384                ESTABLISHED 18295/nc         off (0.00/0/0)
+tcp6       0      0 ::1:9384                ::1:35461               ESTABLISHED 18277/java       off (0.00/0/0)
+=====
+tcp6       0      0 :::9384                 :::*                    LISTEN      18277/java       off (0.00/0/0)
+tcp6       0      0 ::1:35461               ::1:9384                FIN_WAIT2   -                timewait (56.35/0/0)
+tcp6       1      0 ::1:9384                ::1:35461               CLOSE_WAIT  18277/java       off (0.00/0/0)
+
+-Djava.net.preferIPv4Stack=true
+
+addr=/0.0.0.0,port=0,localport=9384
+INFO [ServerThread#1]OutputStream Accessed [1807104969]
+	Local Address:/127.0.0.1:9384
+	Remote Address:/127.0.0.1:57136
+
+tcp        0      0 0.0.0.0:9384            0.0.0.0:*               LISTEN      18367/java       off (0.00/0/0)
+tcp        0      0 127.0.0.1:9384          127.0.0.1:56931         ESTABLISHED 18367/java       off (0.00/0/0)
+tcp        0      0 127.0.0.1:56931         127.0.0.1:9384          ESTABLISHED 18385/nc         off (0.00/0/0)
+====
+tcp        0      0 0.0.0.0:9384            0.0.0.0:*               LISTEN      18367/java       off (0.00/0/0)
+tcp        1      0 127.0.0.1:9384          127.0.0.1:56931         CLOSE_WAIT  18367/java       off (0.00/0/0)
+tcp        0      0 127.0.0.1:56931         127.0.0.1:9384          FIN_WAIT2   -                timewait (56.93/0/0)
+ 	
+ 	
+ */
 	
 	/**
 	 * Formats a stats map into printable string
@@ -224,33 +283,46 @@ public class ServerConnection implements NetStatConst {
 		StringBuilder b = new StringBuilder();
 		for(Map.Entry<String, ConcurrentLongSlidingWindow> entry: stats.entrySet()) {
 			ConcurrentLongSlidingWindow lsw = entry.getValue();
-			b.append("\n\t").append(entry.getKey()).append(lsw.isEmpty() ? 0 : lsw.get(0));			
+			b.append("\n\t").append(entry.getKey()).append(": ").append(lsw.isEmpty() ? 0 : lsw.get(0));			
 		}
 		return b.toString();
 	}
 	
 	/**
-	 * Refreshes the netstats
+	 * Refreshes the netstats, creating them if they're null
 	 * @param remoteSide true for the remote side, false for the local side
 	 * @return true if the netstat was updated successfully, false otherwise
 	 */
-	protected boolean refreshNetStat(boolean remoteSide) {
-		if(remoteSide && remoteNetStat!=null) {
+	protected boolean refreshNetStat(boolean remoteSide) {		
+		if(remoteSide) {
+			if(remoteNetStat==null) remoteNetStat = getNetStatOrNull(remoteSide);
+			if(remoteNetStat!=null) 
 			try {
-				remoteNetStat.stat(sigar.getSigar(), serverSocket.getSocket().getLocalAddress().getAddress(), serverSocket.getSocket().getLocalPort()); 
+				remoteNetStat.stat(sigar.getSigar(), serverSocket.getSocket().getInetAddress().getAddress(), serverSocket.getSocket().getPort()); 
 				return true;
 			} catch (Exception ex) {
 				return false;
 			}
-		} else if(!remoteSide && localNetStat!=null) {
-			try {
-				localNetStat.stat(sigar.getSigar(), serverSocket.getSocket().getInetAddress().getAddress(), serverSocket.getSocket().getPort()); 
+		} else if(!remoteSide) {
+			if(localNetStat==null) localNetStat = getNetStatOrNull(remoteSide);
+			if(localNetStat!=null) 			
+			try {				 
+				localNetStat.stat(sigar.getSigar(), serverSocket.getSocket().getLocalAddress().getAddress(), serverSocket.getSocket().getLocalPort());
 				return true;
 			} catch (Exception ex) {
 				return false;
 			}
 		}
 		return false;
+	}
+	
+	protected void dumpSocketSides() {
+		StringBuilder b = new StringBuilder("Socket Sides Dump:");
+		b.append("\n\tLocal").append("\n\t\tAddress:").append(serverSocket.getSocket().getLocalAddress()).append("\n\t\tPort:").append(serverSocket.getSocket().getLocalPort()).append("\n\t\tNetStat:").append(localNetStat);
+		b.append("\n\tRemote").append("\n\t\tAddress:").append(serverSocket.getSocket().getInetAddress()).append("\n\t\tPort:").append(serverSocket.getSocket().getPort()).append("\n\t\tNetStat:").append(remoteNetStat);		
+		InetSocketAddress isa = (InetSocketAddress)serverSocket.getSocket().getRemoteSocketAddress(); 
+		b.append("\n\tRSA").append("\n\t\tAddress:").append(isa.getAddress()).append("\n\t\tPort:").append(isa.getPort());
+		SimpleLogger.info(b);
 	}
 	
 	/**
@@ -261,11 +333,14 @@ public class ServerConnection implements NetStatConst {
 	 */
 	protected NetStat getNetStatOrNull(boolean remoteSide) {
 		try {
-			return sigar==null ? null : sigar.getNetStat(
-					remoteSide ? serverSocket.getSocket().getLocalAddress().getAddress() : serverSocket.getSocket().getInetAddress().getAddress(), 
-					remoteSide ? serverSocket.getSocket().getLocalPort() : serverSocket.getSocket().getPort()
-			);
+			if(remoteSide) {
+				if(remoteNetStat!=null) return remoteNetStat;
+				return sigar.getNetStat(serverSocket.getSocket().getInetAddress().getAddress(),  serverSocket.getSocket().getPort());
+			}
+			if(localNetStat!=null) return localNetStat;
+			return sigar.getNetStat(serverSocket.getSocket().getLocalAddress().getAddress(), serverSocket.getSocket().getLocalPort());				
 		} catch (Exception ex) {
+			SimpleLogger.error("NetStat fail on [", (remoteSide ? "Remote" : "Local"), ":", ex);
 			return null;
 		}
 	}

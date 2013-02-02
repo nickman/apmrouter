@@ -194,7 +194,7 @@ public class LoggingSocketTracker extends EmptySocketTracker implements LoggingS
 	@Override
 	public void onAccept(ISocketImpl socketImpl, ISocketImpl acceptedSocketImpl) {		
 		//serverSideSockets.add(acceptedSocketImpl);
-		ServerConnection.getInstance(acceptedSocketImpl);
+		ServerConnection.registerInstance(acceptedSocketImpl);
 		StringBuilder b = new StringBuilder("Accepted Socket [").append(System.identityHashCode(acceptedSocketImpl)).append("]");
 		
 		b.append("\n\tAccepted:").append(acceptedSocketImpl);

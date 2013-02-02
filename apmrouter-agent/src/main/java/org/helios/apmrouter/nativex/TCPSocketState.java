@@ -28,7 +28,11 @@ import static org.helios.apmrouter.util.Methods.nvl;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+
+import org.helios.apmrouter.util.SimpleLogger;
 
 /**
  * <p>Title: TCPSocketState</p>
@@ -39,8 +43,6 @@ import java.util.Map;
  */
 
 public enum TCPSocketState {
-	/** The socket state for <i>really</i> UNKNOWN */
-	TCP_SUPER_UNKNOWN(0),
 	/** The socket state for ESTABLISHED */
 	TCP_ESTABLISHED(1),
 
@@ -95,11 +97,97 @@ public enum TCPSocketState {
 		CODE2ENUM = Collections.unmodifiableMap(tmp);
 	}
 	
+	private static final String bits = "00000000000000";
+			
+	
 	private TCPSocketState(int code) {
 		this.code = code;
+		mask = Integer.parseInt("1" + bits.substring(0, code-1), 2);
 	}
 	
+	/** The code for this state */
 	private final int code;
+	/** The mask for this state */
+	private final int mask;
+	/**
+	 * Returns the code for this state
+	 * @return the code for this state
+	 */
+	public int getCode() {
+		return code;
+	}
+
+	/**
+	 * Returns the mask for this state
+	 * @return the mask for this state
+	 */
+	public int getMask() {
+		return mask;
+	}
+
+	/**
+	 * Accepts the passed int state and enables the passed socket states on it
+	 * @param i The initial state code
+	 * @param states The states to enable
+	 * @return the modified state code
+	 */
+	public static int enable(int i, TCPSocketState...states) {
+		int mask = i;
+		if(states!=null) {
+			for(TCPSocketState state: states) {
+				if(state==null) continue;
+				mask = mask | state.mask;
+			}
+		}
+		return mask;
+	}
+
+	/**
+	 * Returns a state code that represents the mask of all the passed socket states
+	 * @param states The socket states to enable
+	 * @return the mask that represents all the socket states.
+	 */
+	public static int enable(TCPSocketState...states) {
+		return enable(0, states);
+	}
+	
+	public static boolean enabledForAll(int mask, TCPSocketState...state) {
+		if(state==null) throw new IllegalArgumentException("The passed state was null", new Throwable());
+		for(TCPSocketState t: state) {
+			if(t==null) continue;
+			if((mask| t.mask) != mask) return false;
+		}
+		return true;
+	}
+	
+	public static boolean enabledForAny(int mask, TCPSocketState...state) {
+		if(state==null) throw new IllegalArgumentException("The passed state was null", new Throwable());
+		for(TCPSocketState t: state) {
+			if(t==null) continue;
+			if((mask| t.mask) == mask) return true;
+		}
+		return false;
+	}
+	
+	
+	public boolean isEnabled(int mask) {		
+		return (mask| this.mask) == mask;
+	}
+	
+	
+	public static void main(String[] args) {
+		for(TCPSocketState t: values()) {
+			//SimpleLogger.info(t.name(), "[", t.mask, "]:", Integer.toBinaryString(t.mask));
+		}
+		int mask = enable(TCP_CLOSE_WAIT, TCP_FIN_WAIT2);
+		SimpleLogger.info("CloseWait and FinWait2:", mask, "[", Integer.toBinaryString(mask), "]");
+		for(TCPSocketState t: values()) {
+			if(t.isEnabled(mask)) SimpleLogger.info("Enabled for [", t, "]");
+		}
+		SimpleLogger.info("Enabled for All CloseWait and FinWait2:", enabledForAll(mask, TCP_CLOSE_WAIT, TCP_FIN_WAIT2)); 
+		SimpleLogger.info("Enabled for All CloseWait and FinWait2 and TimeWait:", enabledForAll(mask, TCP_CLOSE_WAIT, TCP_FIN_WAIT2, TCP_TIME_WAIT));
+		SimpleLogger.info("Enabled for Any CloseWait and FinWait2 and TimeWait:", enabledForAny(mask, TCP_CLOSE_WAIT, TCP_FIN_WAIT2, TCP_TIME_WAIT));
+	}
 	
 	/**
 	 * Decodes the passed name to a TCPSocketState.
@@ -114,7 +202,23 @@ public enum TCPSocketState {
 		} catch (Exception e) {
 			throw new IllegalArgumentException("The passed name [" + name + "] is not a valid TCPSocketState name", new Throwable());
 		}
+	}
+	
+	/**
+	 * Decodes the passed array of states to an array of TCPSocketStates.
+	 * Ignores any invalid indexes in the array
+	 * @param codes A netstat array of socket state codes
+	 * @return the decoded TCPSocketState array
+	 */
+	public static TCPSocketState[] valueOfName(int[] codes) {
+		int[] c = nvl(codes, "TCPSocketState Codes");
+		Set<TCPSocketState> states = new HashSet<TCPSocketState>();
+		for(int i = 1; i < codes.length; i++) {
+			if(c[i] > 0) try { states.add(TCPSocketState.valueOf(i)); } catch (Exception e) {}
+		}
+		return states.toArray(new TCPSocketState[states.size()]);
 	}	
+	
 	
 	/**
 	 * Decodes the passed code to a TCPSocketState.

@@ -16,44 +16,21 @@
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>2.3.2</version>
+        <dependencies>
+          <dependency>
+            <groupId>org.codehaus.plexus</groupId>
+            <artifactId>plexus-compiler-eclipse</artifactId>
+            <version>1.8.2</version>
+          </dependency>
+        </dependencies>
         <configuration>
+          <compilerId>eclipse</compilerId>
           <source>1.6</source>
           <target>1.6</target>
-          <executable>${JAVA_1_7_HOME}/bin/javac</executable>
         </configuration>
       </plugin>
       <plugin>
         <artifactId>maven-eclipse-plugin</artifactId>
-      </plugin>
-      <plugin>
-        <artifactId>maven-source-plugin</artifactId>
-        <version>2.2</version>
-        <executions>
-          <execution>
-            <id>attach-sources</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>jar</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <artifactId>maven-javadoc-plugin</artifactId>
-        <version>2.9</version>
-        <executions>
-          <execution>
-            <id>attach-javadocs</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>jar</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <show>public</show>
-          <nohelp>true</nohelp>
-        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.camel</groupId>
