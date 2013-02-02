@@ -281,6 +281,15 @@ public enum TCPSocketState {
 		return Arrays.toString(getEnabledStates(mask)).replace("[", "").replace("]", "").replace(" ", "").replace(',', '|');
 	}
 	
+	/**
+	 * Returns the masked int for the passed NetStat socket state int array
+	 * @param arr a NetStat socket state int array (an array of 14 ints)
+	 * @return a socket state mask
+	 */
+	public static int getMaskedArray(int[] arr) {
+		return enable(valueOf(arr));
+	}
+	
 	
 	
 	public static void main(String[] args) {
@@ -324,7 +333,7 @@ public enum TCPSocketState {
 	 * @param codes A netstat array of socket state codes
 	 * @return the decoded TCPSocketState array
 	 */
-	public static TCPSocketState[] valueOfName(int[] codes) {
+	public static TCPSocketState[] valueOf(int...codes) {
 		int[] c = nvl(codes, "TCPSocketState Codes");
 		Set<TCPSocketState> states = new HashSet<TCPSocketState>();
 		for(int i = 1; i < codes.length; i++) {

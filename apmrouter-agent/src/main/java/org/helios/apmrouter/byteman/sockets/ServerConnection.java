@@ -68,10 +68,10 @@ public class ServerConnection implements NetStatConst {
 	/** Metric accumulator for the remote side */
 	protected final NonBlockingHashMap<String, ConcurrentLongSlidingWindow> remoteStats = newNetStatMap();
 	
-	/** The socket state of the local side */
-	protected final AtomicReference<TCPSocketState> localSocketState = new AtomicReference<TCPSocketState>(TCPSocketState.TCP_UNKNOWN); 
-	/** The socket state of the remote side */
-	protected final AtomicReference<TCPSocketState> remoteSocketState = new AtomicReference<TCPSocketState>(TCPSocketState.TCP_UNKNOWN); 
+	/** The socket state of the local side as a {@link TCPSocketState} bit mask */
+	protected final AtomicInteger localSocketState = new AtomicInteger(0); 
+	/** The socket state of the remote side as a {@link TCPSocketState} bit mask */
+	protected final AtomicInteger remoteSocketState = new AtomicInteger(0); 
 	
 	/** A sigar reference to acquire netstats */
 	protected static final APMSigar sigar;
@@ -154,6 +154,10 @@ public class ServerConnection implements NetStatConst {
 		}
 	}
 	
+	/**
+	 * Creates a new stat map
+	 * @return a new stat map
+	 */
 	public static NonBlockingHashMap<String, ConcurrentLongSlidingWindow> newNetStatMap() {
 		NonBlockingHashMap<String, ConcurrentLongSlidingWindow> stats = new NonBlockingHashMap<String, ConcurrentLongSlidingWindow>(STAT_ALL.length);
 		for(String name: STAT_ALL) {
@@ -166,10 +170,10 @@ public class ServerConnection implements NetStatConst {
 	 * Updates the local socket state, firing state change listeners if the state has changed
 	 * @param newSocketState The new socket state
 	 */
-	protected void setLocalSocketState(TCPSocketState newSocketState) {
-		TCPSocketState priorSocketState = localSocketState.getAndSet(newSocketState);
+	protected void setLocalSocketState(int newSocketState) {
+		int priorSocketState = localSocketState.getAndSet(newSocketState);
 		if(priorSocketState!=newSocketState) {
-			SimpleLogger.info("Server LocalSide Socket [", serverSocket.getSocket().getLocalSocketAddress() , "] Changed State from [", priorSocketState, "] to [", newSocketState, "]" );
+			SimpleLogger.info("Server LocalSide Socket [", serverSocket.getSocket().getLocalSocketAddress() , "] Changed State from [", TCPSocketState.getEnabledStatesName(priorSocketState) , "] to [", TCPSocketState.getEnabledStatesName(newSocketState), "]" );
 		}
 	}
 	
@@ -177,10 +181,10 @@ public class ServerConnection implements NetStatConst {
 	 * Updates the remote socket state, firing state change listeners if the state has changed
 	 * @param newSocketState The new socket state
 	 */
-	protected void setRemoteSocketState(TCPSocketState newSocketState) {
-		TCPSocketState priorSocketState = remoteSocketState.getAndSet(newSocketState);
+	protected void setRemoteSocketState(int newSocketState) {
+		int priorSocketState = remoteSocketState.getAndSet(newSocketState);
 		if(priorSocketState!=newSocketState) {
-			SimpleLogger.info("Server RemoteSide Socket [", serverSocket.getSocket().getRemoteSocketAddress() , "] Changed State from [", priorSocketState, "] to [", newSocketState, "]" );
+			SimpleLogger.info("Server RemoteSide Socket [", serverSocket.getSocket().getLocalSocketAddress() , "] Changed State from [", TCPSocketState.getEnabledStatesName(priorSocketState) , "] to [", TCPSocketState.getEnabledStatesName(newSocketState), "]" );
 		}
 	}
 	
@@ -188,55 +192,56 @@ public class ServerConnection implements NetStatConst {
 	/**
 	 * Collects stats and states for the local and remote side of this connection
 	 */
-	protected void collect() {
-		int[] tcpStates;
+	protected void collect() {		
 		refreshNetStat(false);
 		if(localNetStat!=null) {
-			tcpStates = localNetStat.getTcpStates();
-			SimpleLogger.info("Local TCP States: " , Arrays.toString(TCPSocketState.valueOfName(tcpStates)), "\n\t", Arrays.toString(tcpStates));
-			setLocalSocketState(TCPSocketState.valueOf(tcpStates[0]));
-			localStats.get(STAT_TCPINBOUNDTOTAL).insert(localNetStat.getTcpInboundTotal());
-			localStats.get(STAT_TCPOUTBOUNDTOTAL).insert(localNetStat.getTcpOutboundTotal());
-			localStats.get(STAT_ALLINBOUNDTOTAL).insert(localNetStat.getAllInboundTotal());
-			localStats.get(STAT_ALLOUTBOUNDTOTAL).insert(localNetStat.getAllOutboundTotal());
-			localStats.get(STAT_TCPESTABLISHED).insert(localNetStat.getTcpEstablished());
-			localStats.get(STAT_TCPSYNSENT).insert(localNetStat.getTcpSynSent());
-			localStats.get(STAT_TCPSYNRECV).insert(localNetStat.getTcpSynRecv());
-			localStats.get(STAT_TCPFINWAIT1).insert(localNetStat.getTcpFinWait1());
-			localStats.get(STAT_TCPFINWAIT2).insert(localNetStat.getTcpFinWait2());
-			localStats.get(STAT_TCPTIMEWAIT).insert(localNetStat.getTcpTimeWait());
-			localStats.get(STAT_TCPCLOSE).insert(localNetStat.getTcpClose());
-			localStats.get(STAT_TCPCLOSEWAIT).insert(localNetStat.getTcpCloseWait());
-			localStats.get(STAT_TCPLASTACK).insert(localNetStat.getTcpLastAck());
-			localStats.get(STAT_TCPLISTEN).insert(localNetStat.getTcpListen());
-			localStats.get(STAT_TCPCLOSING).insert(localNetStat.getTcpClosing());
-			localStats.get(STAT_TCPIDLE).insert(localNetStat.getTcpIdle());
-			localStats.get(STAT_TCPBOUND).insert(localNetStat.getTcpBound());
-			SimpleLogger.info("Local ServerSide [", localSocketState.get(), "] [" ,serverSocket.getSocket().getLocalSocketAddress() , "]" , renderStats(localStats));
+			int socketState = TCPSocketState.getMaskedArray(localNetStat.getTcpStates());
+			setLocalSocketState(socketState);
+			SimpleLogger.info("Local TCP Socket State: [" , TCPSocketState.getEnabledStatesName(socketState), "]");			
+
+//			localStats.get(STAT_TCPINBOUNDTOTAL).insert(localNetStat.getTcpInboundTotal());
+//			localStats.get(STAT_TCPOUTBOUNDTOTAL).insert(localNetStat.getTcpOutboundTotal());
+//			localStats.get(STAT_ALLINBOUNDTOTAL).insert(localNetStat.getAllInboundTotal());
+//			localStats.get(STAT_ALLOUTBOUNDTOTAL).insert(localNetStat.getAllOutboundTotal());
+//			localStats.get(STAT_TCPESTABLISHED).insert(localNetStat.getTcpEstablished());
+//			localStats.get(STAT_TCPSYNSENT).insert(localNetStat.getTcpSynSent());
+//			localStats.get(STAT_TCPSYNRECV).insert(localNetStat.getTcpSynRecv());
+//			localStats.get(STAT_TCPFINWAIT1).insert(localNetStat.getTcpFinWait1());
+//			localStats.get(STAT_TCPFINWAIT2).insert(localNetStat.getTcpFinWait2());
+//			localStats.get(STAT_TCPTIMEWAIT).insert(localNetStat.getTcpTimeWait());
+//			localStats.get(STAT_TCPCLOSE).insert(localNetStat.getTcpClose());
+//			localStats.get(STAT_TCPCLOSEWAIT).insert(localNetStat.getTcpCloseWait());
+//			localStats.get(STAT_TCPLASTACK).insert(localNetStat.getTcpLastAck());
+//			localStats.get(STAT_TCPLISTEN).insert(localNetStat.getTcpListen());
+//			localStats.get(STAT_TCPCLOSING).insert(localNetStat.getTcpClosing());
+//			localStats.get(STAT_TCPIDLE).insert(localNetStat.getTcpIdle());
+//			localStats.get(STAT_TCPBOUND).insert(localNetStat.getTcpBound());
+//			SimpleLogger.info("Local ServerSide [", localSocketState.get(), "] [" ,serverSocket.getSocket().getLocalSocketAddress() , "]" , renderStats(localStats));
 		}
 		refreshNetStat(true);
 		if(remoteNetStat!=null) {
-			tcpStates = remoteNetStat.getTcpStates();
-			SimpleLogger.info("Remote TCP States: " ,Arrays.toString(TCPSocketState.valueOfName(tcpStates)), "\n\t", Arrays.toString(tcpStates));			
-			setRemoteSocketState(TCPSocketState.valueOf(tcpStates[0]));
-			remoteStats.get(STAT_TCPINBOUNDTOTAL).insert(remoteNetStat.getTcpInboundTotal());
-			remoteStats.get(STAT_TCPOUTBOUNDTOTAL).insert(remoteNetStat.getTcpOutboundTotal());
-			remoteStats.get(STAT_ALLINBOUNDTOTAL).insert(remoteNetStat.getAllInboundTotal());
-			remoteStats.get(STAT_ALLOUTBOUNDTOTAL).insert(remoteNetStat.getAllOutboundTotal());
-			remoteStats.get(STAT_TCPESTABLISHED).insert(remoteNetStat.getTcpEstablished());
-			remoteStats.get(STAT_TCPSYNSENT).insert(remoteNetStat.getTcpSynSent());
-			remoteStats.get(STAT_TCPSYNRECV).insert(remoteNetStat.getTcpSynRecv());
-			remoteStats.get(STAT_TCPFINWAIT1).insert(remoteNetStat.getTcpFinWait1());
-			remoteStats.get(STAT_TCPFINWAIT2).insert(remoteNetStat.getTcpFinWait2());
-			remoteStats.get(STAT_TCPTIMEWAIT).insert(remoteNetStat.getTcpTimeWait());
-			remoteStats.get(STAT_TCPCLOSE).insert(remoteNetStat.getTcpClose());
-			remoteStats.get(STAT_TCPCLOSEWAIT).insert(remoteNetStat.getTcpCloseWait());
-			remoteStats.get(STAT_TCPLASTACK).insert(remoteNetStat.getTcpLastAck());
-			remoteStats.get(STAT_TCPLISTEN).insert(remoteNetStat.getTcpListen());
-			remoteStats.get(STAT_TCPCLOSING).insert(remoteNetStat.getTcpClosing());
-			remoteStats.get(STAT_TCPIDLE).insert(remoteNetStat.getTcpIdle());
-			remoteStats.get(STAT_TCPBOUND).insert(remoteNetStat.getTcpBound());
-			SimpleLogger.info("Remote ServerSide [", remoteSocketState, "] [" , serverSocket.getSocket().getRemoteSocketAddress() , "]" , renderStats(remoteStats));
+			int socketState = TCPSocketState.getMaskedArray(remoteNetStat.getTcpStates());
+			setRemoteSocketState(socketState);
+			SimpleLogger.info("Remote TCP Socket State: [" , TCPSocketState.getEnabledStatesName(socketState), "]");			
+			
+//			remoteStats.get(STAT_TCPINBOUNDTOTAL).insert(remoteNetStat.getTcpInboundTotal());
+//			remoteStats.get(STAT_TCPOUTBOUNDTOTAL).insert(remoteNetStat.getTcpOutboundTotal());
+//			remoteStats.get(STAT_ALLINBOUNDTOTAL).insert(remoteNetStat.getAllInboundTotal());
+//			remoteStats.get(STAT_ALLOUTBOUNDTOTAL).insert(remoteNetStat.getAllOutboundTotal());
+//			remoteStats.get(STAT_TCPESTABLISHED).insert(remoteNetStat.getTcpEstablished());
+//			remoteStats.get(STAT_TCPSYNSENT).insert(remoteNetStat.getTcpSynSent());
+//			remoteStats.get(STAT_TCPSYNRECV).insert(remoteNetStat.getTcpSynRecv());
+//			remoteStats.get(STAT_TCPFINWAIT1).insert(remoteNetStat.getTcpFinWait1());
+//			remoteStats.get(STAT_TCPFINWAIT2).insert(remoteNetStat.getTcpFinWait2());
+//			remoteStats.get(STAT_TCPTIMEWAIT).insert(remoteNetStat.getTcpTimeWait());
+//			remoteStats.get(STAT_TCPCLOSE).insert(remoteNetStat.getTcpClose());
+//			remoteStats.get(STAT_TCPCLOSEWAIT).insert(remoteNetStat.getTcpCloseWait());
+//			remoteStats.get(STAT_TCPLASTACK).insert(remoteNetStat.getTcpLastAck());
+//			remoteStats.get(STAT_TCPLISTEN).insert(remoteNetStat.getTcpListen());
+//			remoteStats.get(STAT_TCPCLOSING).insert(remoteNetStat.getTcpClosing());
+//			remoteStats.get(STAT_TCPIDLE).insert(remoteNetStat.getTcpIdle());
+//			remoteStats.get(STAT_TCPBOUND).insert(remoteNetStat.getTcpBound());
+//			SimpleLogger.info("Remote ServerSide [", remoteSocketState, "] [" , serverSocket.getSocket().getRemoteSocketAddress() , "]" , renderStats(remoteStats));
 		}
 	}
 	

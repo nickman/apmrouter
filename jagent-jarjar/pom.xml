@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<artifactId>apmrouter</artifactId>
+		<groupId>org.helios.apmrouter</groupId>
+		<version>1.0-SNAPSHOT</version>
+	</parent>
+	<groupId>org.helios.apmrouter</groupId>
+	<artifactId>jagent-jarjar</artifactId>
+	<packaging>jar</packaging>
+	<version>1.0-SNAPSHOT</version>
+	<name>APMRouter-JavaAgent-JarJar</name>
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+	</properties>
+	
+	
+	<dependencies>
+	
+		<dependency>
+		  <groupId>org.helios.apmrouter</groupId>
+		  <artifactId>jagent</artifactId>
+		  <version>1.0-SNAPSHOT</version>
+		</dependency>
+		
+		
+	</dependencies>
+	<build>
+	  <defaultGoal>install</defaultGoal>
+	    <plugins>
+
+	      <plugin>
+		<groupId>org.sonatype.plugins</groupId>
+		<artifactId>jarjar-maven-plugin</artifactId>
+		<version>1.7</version>
+
+		<executions>
+		  <execution>
+		    <phase>package</phase>
+		    <goals>
+		      <goal>jarjar</goal>
+		    </goals>
+		    <configuration>
+		      <includes>
+			<include>org.helios.apmrouter:jagent</include>
+		      </includes>
+		      <rules>
+			<rule>
+			  <pattern>org.objectweb.asm.**</pattern>
+			  <result>com.google.inject.internal.asm.@1</result>
+			</rule>
+			<rule>
+			  <pattern>net.sf.cglib.**</pattern>
+			  <result>com.google.inject.internal.cglib.@1</result>
+			</rule>
+			<keep>
+			  <pattern>com.google.inject.**</pattern>
+			</keep>
+		      </rules>
+		    </configuration>
+		  </execution>
+		</executions>		
+		
+	      </plugin>
+	      
+	      
+	    <plugins>
+	</build>
+</project>
