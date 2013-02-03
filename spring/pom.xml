@@ -124,7 +124,7 @@
 			</dependency>
 			<dependency>
 			 <groupId>net.opentsdb</groupId>
-			 <artifactId>core</artifactId>
+			 <artifactId>opentsdb</artifactId>
 			</dependency>
 			
 			

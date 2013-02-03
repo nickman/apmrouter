@@ -261,7 +261,7 @@
 
 			<dependency>
 			 <groupId>net.opentsdb</groupId>
-			 <artifactId>core</artifactId>
+			 <artifactId>opentsdb</artifactId>
 			 <version>${tsdb.version}</version>
 			</dependency>
 			<dependency>

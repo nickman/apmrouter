@@ -322,7 +322,7 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 	    	dp.setSeries(_metric, tags);
 	    } catch (Exception ex) {
 	    	//ex.printStackTrace(System.err);
-	    	System.err.println("Failed to get data points for [" + metric + "]:" + tags);
+	    	LOG.debug("Failed to get data points for [" + metric + "]:" + tags, ex);
 	    	return null;
 	    }
 	    dp.setBatchImport(true);
