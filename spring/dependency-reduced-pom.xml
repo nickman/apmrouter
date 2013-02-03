@@ -83,7 +83,9 @@
         <artifactId>exec-maven-plugin</artifactId>
         <configuration>
           <mainClass>org.helios.apmrouter.APMRouter</mainClass>
-          <arguments>./src/test/resources/server</arguments>
+          <arguments>
+            <argument>./src/test/resources/server</argument>
+          </arguments>
         </configuration>
       </plugin>
     </plugins>

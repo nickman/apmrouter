@@ -97,7 +97,7 @@
 		</dependency>
 		<dependency>
 		  <groupId>org.springframework</groupId>
-		  <artifactId>org.springframework.orm</artifactId>
+		  <artifactId>spring-orm</artifactId>
 		</dependency>
 		<dependency>
 		  <groupId>net.javacrumbs</groupId>
