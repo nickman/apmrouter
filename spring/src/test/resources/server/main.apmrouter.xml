@@ -42,7 +42,9 @@
 		</property>
 	</bean>
 	
-	<bean id="ChannelSessions" class="org.helios.apmrouter.server.services.session.SharedChannelGroup" factory-method="getInstance" />
+	<bean id="ChannelSessions" class="org.helios.apmrouter.server.services.session.SharedChannelGroup" factory-method="getInstance" >
+		
+	</bean>
 	
 	<bean id="SpringEventPool" class="org.helios.apmrouter.util.thread.ManagedThreadPool">
 		<qualifier value="SpringEvent"/>
