@@ -26,6 +26,7 @@ package org.helios.apmrouter.nativex;
 
 import static org.helios.apmrouter.util.Methods.nvl;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -141,6 +142,23 @@ public enum TCPSocketState {
 		}
 		return mask;
 	}
+		
+	/**
+	 * Accepts the passed int state and disables the passed socket states on it
+	 * @param i The initial state code
+	 * @param states The states to disable
+	 * @return the modified state code
+	 */
+	public static int disable(int i, TCPSocketState...states) {
+		int mask = i;
+		if(states!=null) {
+			for(TCPSocketState state: states) {
+				if(state==null) continue;
+				mask = mask & ~state.mask;
+			}
+		}
+		return mask;
+	}	
 
 	/**
 	 * Returns a state code that represents the mask of all the passed socket states
@@ -151,6 +169,14 @@ public enum TCPSocketState {
 		return enable(0, states);
 	}
 	
+	
+	
+	/**
+	 * Determines if the passed mask is enabled for all the specified socket states
+	 * @param mask The mask to test
+	 * @param state The socket states to test for
+	 * @return true if the passed mask is enabled for all the specified socket states, false otherwise
+	 */
 	public static boolean enabledForAll(int mask, TCPSocketState...state) {
 		if(state==null) throw new IllegalArgumentException("The passed state was null", new Throwable());
 		for(TCPSocketState t: state) {
@@ -160,19 +186,110 @@ public enum TCPSocketState {
 		return true;
 	}
 	
+	/**
+	 * Determines if the passed mask is disabled for all the specified socket states
+	 * @param mask The mask to test
+	 * @param state The socket states to test for
+	 * @return true if the passed mask is disabled for all the specified socket states, false otherwise
+	 */
+	public static boolean disabledForAll(int mask, TCPSocketState...state) {
+		if(state==null) throw new IllegalArgumentException("The passed state was null", new Throwable());
+		for(TCPSocketState t: state) {
+			if(t==null) continue;
+			if((mask & ~t.mask) != mask) return false;
+		}
+		return true;
+	}
+	
+	
+	/**
+	 * Determines if the passed mask is enabled for any the specified socket states
+	 * @param mask The mask to test
+	 * @param state The socket states to test for
+	 * @return true if the passed mask is enabled for at least one of the specified socket states, false otherwise
+	 */
 	public static boolean enabledForAny(int mask, TCPSocketState...state) {
 		if(state==null) throw new IllegalArgumentException("The passed state was null", new Throwable());
 		for(TCPSocketState t: state) {
 			if(t==null) continue;
-			if((mask| t.mask) == mask) return true;
+			if((mask | t.mask) == mask) return true;
 		}
 		return false;
 	}
 	
-	
-	public boolean isEnabled(int mask) {		
-		return (mask| this.mask) == mask;
+	/**
+	 * Determines if the passed mask is disabled for any the specified socket states
+	 * @param mask The mask to test
+	 * @param state The socket states to test for
+	 * @return true if the passed mask is disabled for at least one of the specified socket states, false otherwise
+	 */
+	public static boolean disabledForAny(int mask, TCPSocketState...state) {
+		if(state==null) throw new IllegalArgumentException("The passed state was null", new Throwable());
+		for(TCPSocketState t: state) {
+			if(t==null) continue;
+			if((mask & ~t.mask) == mask) return true;
+		}
+		return false;
 	}
+	
+	/**
+	 * Determines if the passed mask is enabled for this socket state
+	 * @param mask the mask to test
+	 * @return true if the passed mask is enabled for this socket state, false otherwise
+	 */
+	public boolean isEnabled(int mask) {		
+		return (mask | this.mask) == mask;
+	}
+	
+	/**
+	 * Enables the passed mask for this socket state and returns it
+	 * @param mask The mask to modify
+	 * @return the modified mask
+	 */
+	public int enable(int mask) {
+		return (mask | this.mask);
+	}
+	
+	/**
+	 * Disables the passed mask for this socket state and returns it
+	 * @param mask The mask to modify
+	 * @return the modified mask
+	 */
+	public int disable(int mask) {
+		return (mask & ~this.mask);
+	}
+	
+	/**
+	 * Returns an array of socket states that enabled in the passed mask
+	 * @param mask The masks to get the states for 
+	 * @return an array of socket states that enabled in the passed mask
+	 */
+	public static TCPSocketState[] getEnabledStates(int mask) {
+		Set<TCPSocketState> enabled = new HashSet<TCPSocketState>();
+		for(TCPSocketState t: values()) {
+			if(t.isEnabled(mask)) enabled.add(t);
+		}
+		return enabled.toArray(new TCPSocketState[enabled.size()]);
+	}
+	
+	/**
+	 * Returns a compound name representing all the socket states that enabled in the passed mask
+	 * @param mask The masks to get the states for 
+	 * @return a compound name representing all the socket states that enabled in the passed mask
+	 */
+	public static String getEnabledStatesName(int mask) {
+		return Arrays.toString(getEnabledStates(mask)).replace("[", "").replace("]", "").replace(" ", "").replace(',', '|');
+	}
+	
+	/**
+	 * Returns the masked int for the passed NetStat socket state int array
+	 * @param arr a NetStat socket state int array (an array of 14 ints)
+	 * @return a socket state mask
+	 */
+	public static int getMaskedArray(int[] arr) {
+		return enable(valueOf(arr));
+	}
+	
 	
 	
 	public static void main(String[] args) {
@@ -184,9 +301,15 @@ public enum TCPSocketState {
 		for(TCPSocketState t: values()) {
 			if(t.isEnabled(mask)) SimpleLogger.info("Enabled for [", t, "]");
 		}
-		SimpleLogger.info("Enabled for All CloseWait and FinWait2:", enabledForAll(mask, TCP_CLOSE_WAIT, TCP_FIN_WAIT2)); 
-		SimpleLogger.info("Enabled for All CloseWait and FinWait2 and TimeWait:", enabledForAll(mask, TCP_CLOSE_WAIT, TCP_FIN_WAIT2, TCP_TIME_WAIT));
-		SimpleLogger.info("Enabled for Any CloseWait and FinWait2 and TimeWait:", enabledForAny(mask, TCP_CLOSE_WAIT, TCP_FIN_WAIT2, TCP_TIME_WAIT));
+		SimpleLogger.info("Enabled for All CloseWait and FinWait2:", enabledForAll(mask, TCP_CLOSE_WAIT, TCP_FIN_WAIT2), "  ", getEnabledStatesName(mask)); 
+		SimpleLogger.info("Enabled for All CloseWait and FinWait2 and TimeWait:", enabledForAll(mask, TCP_CLOSE_WAIT, TCP_FIN_WAIT2, TCP_TIME_WAIT), "  ", getEnabledStatesName(mask));
+		SimpleLogger.info("Adding TimeWait");
+		mask = TCP_TIME_WAIT.enable(mask);
+		SimpleLogger.info("Enabled for All CloseWait and FinWait2 and TimeWait:", enabledForAll(mask, TCP_CLOSE_WAIT, TCP_FIN_WAIT2, TCP_TIME_WAIT), "  ", getEnabledStatesName(mask));
+		SimpleLogger.info("Disabling TimeWait");
+		mask = TCP_TIME_WAIT.disable(mask);
+		SimpleLogger.info("Enabled for All CloseWait and FinWait2 and TimeWait:", enabledForAll(mask, TCP_CLOSE_WAIT, TCP_FIN_WAIT2, TCP_TIME_WAIT), "  ", getEnabledStatesName(mask));
+		
 	}
 	
 	/**
@@ -210,7 +333,7 @@ public enum TCPSocketState {
 	 * @param codes A netstat array of socket state codes
 	 * @return the decoded TCPSocketState array
 	 */
-	public static TCPSocketState[] valueOfName(int[] codes) {
+	public static TCPSocketState[] valueOf(int...codes) {
 		int[] c = nvl(codes, "TCPSocketState Codes");
 		Set<TCPSocketState> states = new HashSet<TCPSocketState>();
 		for(int i = 1; i < codes.length; i++) {

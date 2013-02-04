@@ -36,11 +36,6 @@
 		  <artifactId>jfreechart</artifactId>
 		</dependency>
 		
-		<!-- Camel Bindy -->
-		<dependency>
-		  <groupId>org.apache.camel</groupId>
-		  <artifactId>camel-bindy</artifactId>
-		</dependency>
 		
 	
 		<!--  SNMP Events -->
@@ -79,14 +74,6 @@
 			<version>${project.version}</version>
 		</dependency>	
 		<dependency>
-			<groupId>org.apache.camel</groupId>
-			<artifactId>camel-core</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.camel</groupId>
-			<artifactId>camel-spring</artifactId>
-		</dependency>
-		<dependency>
 		  <groupId>org.springframework</groupId>
 		  <artifactId>spring-web</artifactId>
 		</dependency>
@@ -97,7 +84,7 @@
 		</dependency>
 		<dependency>
 		  <groupId>org.springframework</groupId>
-		  <artifactId>org.springframework.orm</artifactId>
+		  <artifactId>spring-orm</artifactId>
 		</dependency>
 		<dependency>
 		  <groupId>net.javacrumbs</groupId>
@@ -105,11 +92,6 @@
 		  <version>1.2</version>
 		</dependency>
 		   
-		
-		<dependency>
-			<groupId>org.apache.camel</groupId>
-			<artifactId>camel-netty</artifactId>
-		</dependency>
 			<dependency>
 			  <groupId>com.github.stephenc.high-scale-lib</groupId>
 			  <artifactId>high-scale-lib</artifactId>
@@ -124,7 +106,7 @@
 			</dependency>
 			<dependency>
 			 <groupId>net.opentsdb</groupId>
-			 <artifactId>core</artifactId>
+			 <artifactId>opentsdb</artifactId>
 			</dependency>
 			
 			
@@ -187,10 +169,7 @@
 			</dependency>
 			
 		<!-- testing -->
-		<dependency>
-			<groupId>org.apache.camel</groupId>
-			<artifactId>camel-test-spring</artifactId>
-		</dependency>
+		
 		  <dependency>
 		    <groupId>de.flapdoodle.embed</groupId>
 		    <artifactId>de.flapdoodle.embed.mongo</artifactId>
@@ -210,11 +189,6 @@
 					<target>1.7</target>
 				</configuration>
 			</plugin>
-			<!-- allows the route to be ran via 'mvn camel:run' -->
-			<plugin>
-				<groupId>org.apache.camel</groupId>
-				<artifactId>camel-maven-plugin</artifactId>
-			</plugin>
 			<plugin>
 	        <groupId>org.apache.maven.plugins</groupId>
 	        <artifactId>maven-shade-plugin</artifactId>
@@ -228,7 +202,6 @@
 	            <configuration>
 	              <artifactSet>
 	                <excludes>
-	               	  <exclude>org.apache.camel:*</exclude>
 	                  <exclude>org.slf4j:log4j-over-slf4j</exclude>	
 	                  <exclude>ch.qos.logback:*</exclude>	 	                                                
 
@@ -285,3 +258,34 @@
 		</plugins>
 	</build>
 </project>
+
+
+<!--  CAMEL Tear-Outs
+		<dependency>
+			<groupId>org.apache.camel</groupId>
+			<artifactId>camel-test-spring</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.camel</groupId>
+			<artifactId>camel-core</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.camel</groupId>
+			<artifactId>camel-spring</artifactId>
+		</dependency>
+		
+		<dependency>
+		  <groupId>org.apache.camel</groupId>
+		  <artifactId>camel-bindy</artifactId>
+		</dependency>
+		
+		<dependency>
+			<groupId>org.apache.camel</groupId>
+			<artifactId>camel-netty</artifactId>
+		</dependency>
+			
+			<plugin>
+				<groupId>org.apache.camel</groupId>
+				<artifactId>camel-maven-plugin</artifactId>
+			</plugin>
+			-->

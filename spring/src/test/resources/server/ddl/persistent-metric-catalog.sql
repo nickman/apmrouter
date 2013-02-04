@@ -81,47 +81,47 @@ CREATE TRIGGER IF NOT EXISTS METRIC_TRG  AFTER INSERT ON METRIC FOR EACH ROW CAL
 --    Time Series
 -- =============================================================================
 
-CREATE ALIAS IF NOT EXISTS MAKE_MV FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.make";
-CREATE ALIAS IF NOT EXISTS UPSERT_MV FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.make_and_add";
-
-CREATE ALIAS IF NOT EXISTS IS_MV FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.isType";
-CREATE ALIAS IF NOT EXISTS UPDATE_MV FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.add";
-CREATE DOMAIN IF NOT EXISTS METRIC_VALUE AS OTHER CHECK IS_MV(VALUE);
-
-CREATE TABLE IF NOT EXISTS PUBLIC.METRIC_VALUES  (
-	ID LONG NOT NULL  COMMENT 'The ID of the metric that these values are for',
-	V METRIC_VALUE NOT NULL COMMENT 'The live time-series values for the referenced metric'  
-);
-
-ALTER TABLE PUBLIC.METRIC_VALUES ADD CONSTRAINT IF NOT EXISTS PUBLIC.METRIC_VALUES_PK PRIMARY KEY(ID);
-ALTER TABLE PUBLIC.METRIC_VALUES ADD CONSTRAINT IF NOT EXISTS PUBLIC.METRIC_VALUES_FK FOREIGN KEY(ID) REFERENCES PUBLIC.METRIC(METRIC_ID);
-
-CREATE ALIAS IF NOT EXISTS ALL_VALUES FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.allvalues";
-CREATE ALIAS IF NOT EXISTS MV FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.getValues";
-
-CREATE VIEW IF NOT EXISTS METRIC_DATA AS SELECT * FROM MV(0, -1);
-CREATE VIEW IF NOT EXISTS RICH_METRIC_DATA AS SELECT AGENT_ID, TYPE_ID, NAMESPACE, NARR, NAME, D.* FROM METRIC_DATA D, METRIC M WHERE M.METRIC_ID = D.ID;
+--CREATE ALIAS IF NOT EXISTS MAKE_MV FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.make";
+--CREATE ALIAS IF NOT EXISTS UPSERT_MV FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.make_and_add";
+--
+--CREATE ALIAS IF NOT EXISTS IS_MV FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.isType";
+--CREATE ALIAS IF NOT EXISTS UPDATE_MV FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.add";
+--CREATE DOMAIN IF NOT EXISTS METRIC_VALUE AS OTHER CHECK IS_MV(VALUE);
+--
+--CREATE TABLE IF NOT EXISTS PUBLIC.METRIC_VALUES  (
+--	ID LONG NOT NULL  COMMENT 'The ID of the metric that these values are for',
+--	V METRIC_VALUE NOT NULL COMMENT 'The live time-series values for the referenced metric'  
+--);
+--
+--ALTER TABLE PUBLIC.METRIC_VALUES ADD CONSTRAINT IF NOT EXISTS PUBLIC.METRIC_VALUES_PK PRIMARY KEY(ID);
+--ALTER TABLE PUBLIC.METRIC_VALUES ADD CONSTRAINT IF NOT EXISTS PUBLIC.METRIC_VALUES_FK FOREIGN KEY(ID) REFERENCES PUBLIC.METRIC(METRIC_ID);
+--
+--CREATE ALIAS IF NOT EXISTS ALL_VALUES FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.allvalues";
+--CREATE ALIAS IF NOT EXISTS MV FOR "org.helios.apmrouter.destination.h2timeseries.H2TimeSeries.getValues";
+--
+--CREATE VIEW IF NOT EXISTS METRIC_DATA AS SELECT * FROM MV(0, -1);
+--CREATE VIEW IF NOT EXISTS RICH_METRIC_DATA AS SELECT AGENT_ID, TYPE_ID, NAMESPACE, NARR, NAME, D.* FROM METRIC_DATA D, METRIC M WHERE M.METRIC_ID = D.ID;
 
 -- =============================================================================
 --    Unsafe Time Series
 -- =============================================================================
 
-CREATE ALIAS IF NOT EXISTS UNSAFE_MAKE_MV FOR "org.helios.apmrouter.destination.h2timeseries.UnsafeH2TimeSeries.make";
-CREATE ALIAS IF NOT EXISTS UNSAFE_UPSERT_MV FOR "org.helios.apmrouter.destination.h2timeseries.UnsafeH2TimeSeries.make_and_add";
-CREATE ALIAS IF NOT EXISTS UNSAFE_IS_MV FOR "org.helios.apmrouter.destination.h2timeseries.UnsafeH2TimeSeries.isType";
-CREATE ALIAS IF NOT EXISTS UNSAFE_UPDATE_MV FOR "org.helios.apmrouter.destination.h2timeseries.UnsafeH2TimeSeries.add";
-
-CREATE DOMAIN IF NOT EXISTS UNSAFE_METRIC_VALUE AS BINARY CHECK UNSAFE_IS_MV(VALUE);
-
-CREATE TABLE IF NOT EXISTS UNSAFE_METRIC_VALUES( ID LONG NOT NULL  COMMENT 'The ID of the metric that these values are for', V UNSAFE_METRIC_VALUE NOT NULL COMMENT 'The time series for this metric');
-ALTER TABLE PUBLIC.UNSAFE_METRIC_VALUES ADD CONSTRAINT IF NOT EXISTS PUBLIC.UNSAFE_METRIC_VALUES_PK PRIMARY KEY(ID);
-ALTER TABLE PUBLIC.UNSAFE_METRIC_VALUES ADD CONSTRAINT IF NOT EXISTS PUBLIC.UNSAFE_METRIC_VALUES_FK FOREIGN KEY(ID) REFERENCES PUBLIC.METRIC(METRIC_ID);
-
-CREATE ALIAS IF NOT EXISTS UNSAFE_ALL_VALUES FOR "org.helios.apmrouter.destination.h2timeseries.UnsafeH2TimeSeries.allvalues";
-CREATE ALIAS IF NOT EXISTS UNSAFE_MV FOR "org.helios.apmrouter.destination.h2timeseries.UnsafeH2TimeSeries.getValues";
-
-CREATE VIEW IF NOT EXISTS UNSAFE_METRIC_DATA AS SELECT * FROM UNSAFE_MV(0, -1);
-CREATE VIEW IF NOT EXISTS UNSAFE_RICH_METRIC_DATA AS SELECT AGENT_ID, TYPE_ID, NAMESPACE, NARR, NAME, D.* FROM UNSAFE_METRIC_DATA D, METRIC M WHERE M.METRIC_ID = D.ID;
+--CREATE ALIAS IF NOT EXISTS UNSAFE_MAKE_MV FOR "org.helios.apmrouter.destination.h2timeseries.UnsafeH2TimeSeries.make";
+--CREATE ALIAS IF NOT EXISTS UNSAFE_UPSERT_MV FOR "org.helios.apmrouter.destination.h2timeseries.UnsafeH2TimeSeries.make_and_add";
+--CREATE ALIAS IF NOT EXISTS UNSAFE_IS_MV FOR "org.helios.apmrouter.destination.h2timeseries.UnsafeH2TimeSeries.isType";
+--CREATE ALIAS IF NOT EXISTS UNSAFE_UPDATE_MV FOR "org.helios.apmrouter.destination.h2timeseries.UnsafeH2TimeSeries.add";
+--
+--CREATE DOMAIN IF NOT EXISTS UNSAFE_METRIC_VALUE AS BINARY CHECK UNSAFE_IS_MV(VALUE);
+--
+--CREATE TABLE IF NOT EXISTS UNSAFE_METRIC_VALUES( ID LONG NOT NULL  COMMENT 'The ID of the metric that these values are for', V UNSAFE_METRIC_VALUE NOT NULL COMMENT 'The time series for this metric');
+--ALTER TABLE PUBLIC.UNSAFE_METRIC_VALUES ADD CONSTRAINT IF NOT EXISTS PUBLIC.UNSAFE_METRIC_VALUES_PK PRIMARY KEY(ID);
+--ALTER TABLE PUBLIC.UNSAFE_METRIC_VALUES ADD CONSTRAINT IF NOT EXISTS PUBLIC.UNSAFE_METRIC_VALUES_FK FOREIGN KEY(ID) REFERENCES PUBLIC.METRIC(METRIC_ID);
+--
+--CREATE ALIAS IF NOT EXISTS UNSAFE_ALL_VALUES FOR "org.helios.apmrouter.destination.h2timeseries.UnsafeH2TimeSeries.allvalues";
+--CREATE ALIAS IF NOT EXISTS UNSAFE_MV FOR "org.helios.apmrouter.destination.h2timeseries.UnsafeH2TimeSeries.getValues";
+--
+--CREATE VIEW IF NOT EXISTS UNSAFE_METRIC_DATA AS SELECT * FROM UNSAFE_MV(0, -1);
+--CREATE VIEW IF NOT EXISTS UNSAFE_RICH_METRIC_DATA AS SELECT AGENT_ID, TYPE_ID, NAMESPACE, NARR, NAME, D.* FROM UNSAFE_METRIC_DATA D, METRIC M WHERE M.METRIC_ID = D.ID;
 
 -- =============================================================================
 --    Chronicle Time Series

@@ -24,7 +24,6 @@
  */
 package org.helios.apmrouter.catalog;
 
-import java.sql.SQLException;
 import java.util.Map;
 
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;

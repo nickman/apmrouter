@@ -56,6 +56,7 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.context.NoSuchMessageException;
 import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.core.env.Environment;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 
@@ -452,7 +453,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	 * @return
 	 * @see org.springframework.context.support.AbstractApplicationContext#getApplicationListeners()
 	 */
-	public Collection<ApplicationListener> getApplicationListeners() {
+	public Collection<ApplicationListener<?>> getApplicationListeners() {
 		return delegate.getApplicationListeners();
 	}
 
@@ -571,17 +572,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 		return delegate.isPrototype(name);
 	}
 
-	/**
-	 * @param name
-	 * @param targetType
-	 * @return
-	 * @throws NoSuchBeanDefinitionException
-	 * @see org.springframework.context.support.AbstractApplicationContext#isTypeMatch(java.lang.String, java.lang.Class)
-	 */
-	public boolean isTypeMatch(String name, Class targetType)
-			throws NoSuchBeanDefinitionException {
-		return delegate.isTypeMatch(name, targetType);
-	}
+
 
 	/**
 	 * @param name
@@ -627,27 +618,8 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 		return delegate.getBeanDefinitionNames();
 	}
 
-	/**
-	 * @param type
-	 * @return
-	 * @see org.springframework.context.support.AbstractApplicationContext#getBeanNamesForType(java.lang.Class)
-	 */
-	public String[] getBeanNamesForType(Class type) {
-		return delegate.getBeanNamesForType(type);
-	}
 
-	/**
-	 * @param type
-	 * @param includeNonSingletons
-	 * @param allowEagerInit
-	 * @return
-	 * @see org.springframework.context.support.AbstractApplicationContext#getBeanNamesForType(java.lang.Class, boolean, boolean)
-	 */
-	public String[] getBeanNamesForType(Class type,
-			boolean includeNonSingletons, boolean allowEagerInit) {
-		return delegate.getBeanNamesForType(type, includeNonSingletons,
-				allowEagerInit);
-	}
+
 
 	/**
 	 * @param type
@@ -791,5 +763,50 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	 */
 	public ObjectName getObjectName() {
 		return objectName;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.springframework.context.ApplicationContext#getApplicationName()
+	 */
+	@Override
+	public String getApplicationName() {
+		return delegate.getApplicationName();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.springframework.core.env.EnvironmentCapable#getEnvironment()
+	 */
+	@Override
+	public Environment getEnvironment() {
+		return delegate.getEnvironment();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.springframework.beans.factory.ListableBeanFactory#getBeanNamesForType(java.lang.Class)
+	 */
+	@Override
+	public String[] getBeanNamesForType(Class<?> type) {
+		return delegate.getBeanNamesForType(type);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.springframework.beans.factory.ListableBeanFactory#getBeanNamesForType(java.lang.Class, boolean, boolean)
+	 */
+	@Override
+	public String[] getBeanNamesForType(Class<?> type, boolean includeNonSingletons, boolean allowEagerInit) {
+		return delegate.getBeanNamesForType(type, includeNonSingletons, allowEagerInit);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.springframework.beans.factory.BeanFactory#isTypeMatch(java.lang.String, java.lang.Class)
+	 */
+	@Override
+	public boolean isTypeMatch(String name, Class<?> targetType) throws NoSuchBeanDefinitionException {
+		return delegate.isTypeMatch(name, targetType);
 	}
 }

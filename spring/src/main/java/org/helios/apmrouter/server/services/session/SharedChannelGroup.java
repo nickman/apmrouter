@@ -133,6 +133,24 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 		return instance;
 	}
 	
+	/**
+	 * Builds the SharedChannelGroup singleton instance
+	 * @param mcs the MetricCatalogService to init with
+	 * @return the SharedChannelGroup singleton instance
+	 */
+	public static SharedChannelGroup getInstance(MetricCatalogService mcs) {
+		if(instance==null) {
+			synchronized(lock) {
+				if(instance==null) {
+					instance = new SharedChannelGroup();
+					instance.setMetricCatalogService(mcs);
+				}
+			}
+		}
+		return instance;
+	}
+	
+	
 	
 	
 	/**
