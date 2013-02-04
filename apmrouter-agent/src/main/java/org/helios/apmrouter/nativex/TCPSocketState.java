@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.nativex;
 
+import static org.helios.apmrouter.util.BitMaskedEnum.Support.generateIntMap;
+import static org.helios.apmrouter.util.BitMaskedEnum.Support.getIntBitMask;
 import static org.helios.apmrouter.util.Methods.nvl;
 
 import java.util.Arrays;
@@ -33,17 +35,18 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.helios.apmrouter.util.BitMaskedEnum;
 import org.helios.apmrouter.util.SimpleLogger;
 
 /**
  * <p>Title: TCPSocketState</p>
- * <p>Description: </p> 
+ * <p>Description: A functional bitmasked enum representing TCP socket states</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.nativex.TCPSocketState</code></p>
  */
 
-public enum TCPSocketState {
+public enum TCPSocketState implements BitMaskedEnum {
 	/** The socket state for ESTABLISHED */
 	TCP_ESTABLISHED(1),
 
@@ -87,23 +90,12 @@ public enum TCPSocketState {
 	TCP_UNKNOWN(14);
 	
 	/** A decoding map to decode the NetFlag code to a TCPSocketState */
-	public static final Map<Integer, TCPSocketState> CODE2ENUM;
+	public static final Map<Integer, TCPSocketState> CODE2ENUM = generateIntMap(TCPSocketState.values());
 	
-	static {
-		TCPSocketState[] values = TCPSocketState.values();
-		Map<Integer, TCPSocketState> tmp = new HashMap<Integer, TCPSocketState>(values.length);
-		for(TCPSocketState t: values) {
-			tmp.put(t.code, t);
-		}
-		CODE2ENUM = Collections.unmodifiableMap(tmp);
-	}
-	
-	private static final String bits = "00000000000000";
-			
 	
 	private TCPSocketState(int code) {
 		this.code = code;
-		mask = Integer.parseInt("1" + bits.substring(0, code-1), 2);
+		mask = getIntBitMask(this);
 	}
 	
 	/** The code for this state */

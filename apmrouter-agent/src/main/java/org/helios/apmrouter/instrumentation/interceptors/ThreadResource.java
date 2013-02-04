@@ -24,7 +24,12 @@
  */
 package org.helios.apmrouter.instrumentation.interceptors;
 
+import java.util.Map;
+
+
+import org.helios.apmrouter.nativex.TCPSocketState;
 import org.helios.apmrouter.util.BitMaskedEnum;
+import static org.helios.apmrouter.util.BitMaskedEnum.Support.*;
 
 /**
  * <p>Title: ThreadResource</p>
@@ -34,7 +39,7 @@ import org.helios.apmrouter.util.BitMaskedEnum;
  * <p><code>org.helios.apmrouter.instrumentation.interceptors.ThreadResource</code></p>
  */
 
-public enum ThreadResource implements BitMaskedEnum {
+public enum ThreadResource implements BitMaskedEnum, BitMaskedEnum.ShortBitMaskOperations {
 	/** The elapsed time in ms. */
 	TIME_MS,
 	/** The elapsed time in ns. */
@@ -54,12 +59,14 @@ public enum ThreadResource implements BitMaskedEnum {
 	/** The total time the thread waited in ms. */
 	WAIT_TIME;
 	
+	/** A decoding map to decode the NetFlag code to a TCPSocketState */
+	public static final Map<Integer, ThreadResource> CODE2ENUM = generateIntMap(ThreadResource.values());
+	
+	
 	private ThreadResource() {
-		mask = Support.getBitMask(this);
+		mask = getShortBitMask(this);
 	}
 	
-	/** A bit mask template */
-	public static final String MASK_BITS = "000000000";
 	/** The binary mask for this ThreadResource */
 	private final short mask;
 	
@@ -80,4 +87,71 @@ public enum ThreadResource implements BitMaskedEnum {
 	public static void log(Object msg) {
 		System.out.println(msg);
 	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.BitMaskedEnum.ShortBitMaskOperations#isEnabled(short)
+	 */
+	@Override
+	public boolean isEnabled(short mask) {		
+		return (mask | this.mask) == mask;	
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.BitMaskedEnum.ShortBitMaskOperations#enable(short)
+	 */
+	@Override
+	public short enable(short mask) {
+		return (short) (mask | this.mask);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.BitMaskedEnum.ShortBitMaskOperations#disable(short)
+	 */
+	@Override
+	public short disable(short mask) {
+		return (short) (mask & ~this.mask);
+	}
+	
+	/**
+	 * Accepts the passed int state and enables the passed enums on its bit mask 
+	 * @param initial The initial state code
+	 * @param enums The enums to enable
+	 * @return the modified state code
+	 */
+	public static short enable(short initial, ThreadResource...enums) {
+		return ShortBitMaskSupport.mask(initial, true, enums);
+	}
+	
+	/**
+	 * Creates an int state enabled for the passed enums on its bit mask 
+	 * @param enums The enums to enable
+	 * @return the state code
+	 */
+	public static short enable(ThreadResource...enums) {
+		return ShortBitMaskSupport.mask((short)0, true, enums);
+	}
+	
+	/**
+	 * Accepts the passed int state and disables the passed enums on its bit mask 
+	 * @param initial The initial state code
+	 * @param enums The enums to disable
+	 * @return the modified state code
+	 */
+	public static short disable(short initial, ThreadResource...enums) {
+		return ShortBitMaskSupport.mask(initial, false, enums);
+	}
+	
+	/**
+	 * Creates an int state disabled for the passed enums on its bit mask 
+	 * @param enums The enums to disable
+	 * @return the state code
+	 */
+	public static short disable(ThreadResource...enums) {
+		return ShortBitMaskSupport.mask((short)0, false, enums);
+	}	
+	
+	
 }
