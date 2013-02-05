@@ -24,11 +24,13 @@
  */
 package org.helios.apmrouter.util;
 
+import java.lang.reflect.Array;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
-
-import org.helios.apmrouter.nativex.TCPSocketState;
+import java.util.Set;
 
 /**
  * <p>Title: BitMaskedEnum</p>
@@ -258,6 +260,26 @@ public interface BitMaskedEnum {
 	 * @param <E> The expected type of the enum
 	 */
 	public static interface ShortBitMaskOperations<E extends Enum<E>> {
+		
+		/**
+		 * Returns the enum that has the passed ordinal.
+		 * Throws a runtime exception if the ordinal is invalid
+		 * @param ordinal The ordinal to get the enum for
+		 * @return the matched enum
+		 */
+		public E forOrdinal(short ordinal);
+		
+		/**
+		 * Returns the enum that has the passed code.
+		 * If the enum does not support a seperate code, this call should
+		 * simply delegate to {@link #forOrdinal(short)}.
+		 * Throws a runtime exception if the ordinal is invalid
+		 * @param code The code to get the enum for
+		 * @return the matched enum
+		 */
+		public E forCode(Number code);
+		
+		
 		/**
 		 * Determines if the passed mask is enabled for this enum entry
 		 * @param mask the mask to test
@@ -298,6 +320,29 @@ public interface BitMaskedEnum {
 	 * <p><code>org.helios.apmrouter.util.BitMaskedEnum.ShortBitMaskSupport</code></p>
 	 */
 	public static class ShortBitMaskSupport  {
+		
+		/**
+		 * Converts the passed ordinals or codes to their decoded enums and returns an array of unique enums represented therein
+		 * @param decodeMap A map of enum decodes
+		 * @param ordinals The oridnals or codes to decode
+		 * @return an array of enums
+		 */
+		@SuppressWarnings("unchecked")
+		public static <E extends ShortBitMaskOperations<?>> E[] decode(ShortBitMaskOperations<?> eInstance, short...ordinals) {
+			Class<?> eType = eInstance.getClass();
+			if(ordinals==null || ordinals.length<1) {
+				return (E[])Array.newInstance(eType, 0);
+			}
+			Set<E> decodes = new HashSet<E>(ordinals.length); 
+			for(short ordinal: ordinals) {
+				E decode = (E)eInstance.forOrdinal(ordinal);
+				if(decode!=null) {
+					decodes.add(decode);
+				}
+			}
+			return (E[])Array.newInstance(eType, decodes.size());			
+		}
+			
 
 		/**
 		 * Accepts the passed int state and enables or disables the passed enums on it
@@ -316,6 +361,44 @@ public interface BitMaskedEnum {
 			}
 			return mask;
 		}
-		
 	}
+	
+	
+	
+//	/**
+//	 * Accepts the passed int state and enables or disables the passed enum ordinals or codes on it
+//	 * @param initial The initial state code
+//	 * @param enable true to enable, false to disable
+//	 * @param enums The enums ordinals or codes to enable or disable
+//	 * @return the modified state code
+//	 */
+//	public static <E extends ShortBitMaskOperations<?>> short mask(short initial, final boolean enable, short...enums) {
+//		short mask = initial;
+//		if(enums!=null) {
+//			for(E en: enums) {
+//				if(en==null) continue;					
+//				mask = enable ? (short) (en.getMask() | mask) : (short) (en.getMask() & ~mask); 
+//			}
+//		}
+//		return mask;
+//	}
+
+	
+	
+	
+//	/**
+//	 * Determines if the passed mask is enabled or disabled for any the specified enum entries
+//	 * @param mask The mask to test
+//	 * @param state The socket states to test for
+//	 * @return true if the passed mask is enabled for at least one of the specified socket states, false otherwise
+//	 */
+//	public static boolean forAny(int mask, TCPSocketState...state) {
+//		if(state==null) throw new IllegalArgumentException("The passed state was null", new Throwable());
+//		for(TCPSocketState t: state) {
+//			if(t==null) continue;
+//			if((mask | t.mask) == mask) return true;
+//		}
+//		return false;
+//	}
+	
 }

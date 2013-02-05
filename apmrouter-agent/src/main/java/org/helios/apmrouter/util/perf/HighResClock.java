@@ -60,7 +60,7 @@ public class HighResClock implements Clock {
 	 * @see org.helios.apmrouter.util.SystemClock.Clock#time()
 	 */
 	@Override
-	public long time() {
+	public long time() {		
 		return START_DATE + (PERF.highResCounter()/TICK_FREQ);
 	}
 

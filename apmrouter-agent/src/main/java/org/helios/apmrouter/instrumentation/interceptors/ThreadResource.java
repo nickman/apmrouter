@@ -27,7 +27,7 @@ package org.helios.apmrouter.instrumentation.interceptors;
 import java.util.Map;
 
 
-import org.helios.apmrouter.nativex.TCPSocketState;
+
 import org.helios.apmrouter.util.BitMaskedEnum;
 import static org.helios.apmrouter.util.BitMaskedEnum.Support.*;
 
@@ -39,7 +39,7 @@ import static org.helios.apmrouter.util.BitMaskedEnum.Support.*;
  * <p><code>org.helios.apmrouter.instrumentation.interceptors.ThreadResource</code></p>
  */
 
-public enum ThreadResource implements BitMaskedEnum, BitMaskedEnum.ShortBitMaskOperations {
+public enum ThreadResource implements BitMaskedEnum, BitMaskedEnum.ShortBitMaskOperations<ThreadResource> {
 	/** The elapsed time in ms. */
 	TIME_MS,
 	/** The elapsed time in ns. */
@@ -63,6 +63,35 @@ public enum ThreadResource implements BitMaskedEnum, BitMaskedEnum.ShortBitMaskO
 	public static final Map<Integer, ThreadResource> CODE2ENUM = generateIntMap(ThreadResource.values());
 	
 	
+	
+	/**
+	 * <p>Title: ThreadResourceCollector</p>
+	 * <p>Description: Defines a class that will collect the start and end resource measurements for a {@link ThreadResource}</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.instrumentation.interceptors.ThreadResource.ThreadResourceCollector</code></p>
+	 */
+	public static interface ThreadResourceCollector {
+		/**
+		 * Captures the current value of the resource
+		 * @return the current value of the resource or -1L if the resource is not available.
+		 */
+		public long snapshot();
+	}
+	
+	protected static class NSTimer implements ThreadResourceCollector {
+
+		/**
+		 * {@inheritDoc}
+		 * @see org.helios.apmrouter.instrumentation.interceptors.ThreadResource.ThreadResourceCollector#snapshot()
+		 */
+		@Override
+		public long snapshot() {
+			return 0;
+		}
+		
+	}
+	
 	private ThreadResource() {
 		mask = getShortBitMask(this);
 	}
@@ -74,9 +103,32 @@ public enum ThreadResource implements BitMaskedEnum, BitMaskedEnum.ShortBitMaskO
 	 * Returns the binary mask for this ThreadResource
 	 * @return the binary mask for this ThreadResource
 	 */
+	@Override
 	public short getMask() {
 		return mask;
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.BitMaskedEnum.ShortBitMaskOperations#forOrdinal(short)
+	 */
+	@Override
+	public ThreadResource forOrdinal(short ordinal) {
+		ThreadResource t = CODE2ENUM.get(ordinal);
+		if(t==null) throw new IllegalArgumentException("The passed ordinal [" + ordinal + "] was invalid", new Throwable());
+		return t;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.BitMaskedEnum.ShortBitMaskOperations#forCode(java.lang.Number)
+	 */
+	@Override
+	public ThreadResource forCode(Number code) {
+		if(code==null) throw new IllegalArgumentException("The passed code was null", new Throwable());
+		return forOrdinal(code.shortValue());
+	}
+	
 
 	public static void main(String[] args) {
 		for(ThreadResource t: ThreadResource.values()) {

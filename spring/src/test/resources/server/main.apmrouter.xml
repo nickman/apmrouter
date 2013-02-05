@@ -112,7 +112,7 @@
  	</bean>
  	
  	
- 	
+ 	<bean id="metricLastTimeSeenService" class="org.helios.apmrouter.catalog.MetricLastTimeSeenService"/>
 
  	
  	<bean id="PatternRouter" class="org.helios.apmrouter.router.PatternRouter" >
