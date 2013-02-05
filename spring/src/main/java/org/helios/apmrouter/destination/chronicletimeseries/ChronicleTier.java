@@ -87,8 +87,8 @@ public class ChronicleTier implements ChronicleTierMXBean {
 
 	/** The number of values in each series entry */
 	protected static final int SERIES_SIZE_IN_LONGS = 5;
-	/** The header offset in each chronicle entry, ie. the length of the start time (long), end time (long) and size (int) */
-	protected static final int HEADER_OFFSET = 8 + 8 + 4; 
+	/** The header offset in each chronicle entry, ie. the length of the start time (long), end time (long), the size (int) and the status (byte) */
+	protected static final int HEADER_OFFSET = 8 + 8 + 4 + 1; 
 	/** The size of each series entry, ie. longs for TS, MIN, MAX, AVG and CNTS */
 	protected static final int SERIES_SIZE_IN_BYTES = SERIES_SIZE_IN_LONGS * 8; 
 	
@@ -116,9 +116,11 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	/** The series offset for the header start time */
 	public static final int H_START = 0;
 	/** The series offset for the header end time */
-	public static final int H_END = 8;
+	public static final int H_END = H_START + 8; //8;
 	/** The series offset for the header entry count */
-	public static final int H_SIZE = 16;
+	public static final int H_SIZE = H_END + 8; //16;
+	/** The series offset for the header entry status */
+	public static final int H_STATUS = H_SIZE + 4;
 	
 
 	/**
@@ -201,6 +203,30 @@ public class ChronicleTier implements ChronicleTierMXBean {
 			ex.finish();
 		}
 	}
+	
+	/**
+	 * Returns the entry status for the passed metric Id
+	 * @param metricId The metric Id to get the status for
+	 * @return the entry status
+	 */
+	public EntryStatus getEntryStatus(long metricId) {
+		UnsafeExcerpt<IndexedChronicle> ex = createUnsafeExcerpt(metricId);
+		try {
+			byte status = ex.readByte(H_STATUS);
+			return EntryStatus.ORD2ENUM.get(status);
+		} finally {
+			ex.finish();
+		}		
+	}
+	
+	/**
+	 * Returns the entry status name for the passed metric Id
+	 * @param metricId The metric Id to get the status for
+	 * @return the entry status name
+	 */
+	public String getEntryStatusName(long metricId) {
+		return getEntryStatus(metricId).name();
+	}
 
 	/**
 	 * Adds a new value to the corresponding series in this tier
@@ -223,7 +249,7 @@ public class ChronicleTier implements ChronicleTierMXBean {
 			}
 			if(pCount==0) {
 				ex.finish();
-				writeNewPeriod(period, metric);				
+				writeNewPeriod(period, metric);		
 				tickPeriods(period, period);
 				return null;
 			}
@@ -292,6 +318,7 @@ public class ChronicleTier implements ChronicleTierMXBean {
 		UnsafeExcerpt<IndexedChronicle> ex = createUnsafeExcerpt(metric.getToken());
 		ex.writeLongArray(new long[]{period, period + this.periodDurationMs});
 		ex.writeInt(1);
+		ex.writeByte(EntryStatus.ACTIVE.byteOrdinal());
 		long value = metric.getLongValue();
 		ex.writeLongArray(new long[]{period, value, value, value, 1});
 		ex.finish();
@@ -315,6 +342,7 @@ public class ChronicleTier implements ChronicleTierMXBean {
 			values[AVG] = tmpTotal==0 ? 0 : tmpTotal/2;
 		}
 		values[CNT]++;
+		ex.write(H_STATUS, EntryStatus.ACTIVE.byteOrdinal());		
 		ex.writeLongArray(HEADER_OFFSET, values);
 		if(finish) {
 			ex.finish();
@@ -487,6 +515,7 @@ public class ChronicleTier implements ChronicleTierMXBean {
 		ex.writeLong(time);
 		ex.writeLong(time);
 		ex.writeInt(0);
+		ex.writeByte(EntryStatus.ACTIVE.byteOrdinal());
 		int extendSize = periods * SERIES_SIZE_IN_LONGS;
 		for(int i = 0; i < extendSize; i++) {
 			ex.writeLong(-1L);

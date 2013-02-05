@@ -163,3 +163,12 @@ ALTER TABLE PUBLIC.INTERVAL_INCREMENTOR ADD CONSTRAINT IF NOT EXISTS PUBLIC.INTE
 
 UPDATE HOST SET CONNECTED = NULL, AGENTS = 0;
 UPDATE AGENT SET CONNECTED = NULL, URI = NULL;
+
+
+----select * from metric order by last_seen desc
+--select namespace, name, last_seen, max(ts)
+--from metric m, cmetric_data c
+--where m.metric_id  = c.id  
+--and last_seen > sysdate -1
+--group by namespace, name, last_seen
+--order by last_seen desc

@@ -24,17 +24,22 @@
  */
 package org.helios.apmrouter.server.net.listener.netty.handlers;
 
+import java.lang.reflect.Method;
 import java.net.SocketAddress;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeoutException;
 
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.catalog.MetricCatalogService;
+import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
+import org.helios.apmrouter.collections.LongSlidingWindow;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
@@ -44,6 +49,7 @@ import org.helios.apmrouter.router.PatternRouter;
 import org.helios.apmrouter.server.services.session.DecoratedChannelMBean;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.helios.apmrouter.trace.DirectMetricCollection;
+import org.helios.apmrouter.trace.MetricSubmitter;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.helios.apmrouter.util.TimeoutQueueMap;
@@ -54,6 +60,8 @@ import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedMetric;
+import org.springframework.jmx.support.MetricType;
 
 /**
  * <p>Title: AgentMetricHandler</p>
@@ -63,7 +71,7 @@ import org.springframework.jmx.export.annotation.ManagedAttribute;
  * <p><code>org.helios.apmrouter.server.net.listener.netty.handlers.AgentMetricHandler</code></p>
  */
 
-public class AgentMetricHandler extends AbstractAgentRequestHandler  {
+public class AgentMetricHandler extends AbstractAgentRequestHandler implements MetricSubmitter  {
 	/** The metric catalog */
 	protected IMetricCatalog metricCatalog = ICEMetricCatalog.getInstance();
 	/** The pattern router for handing off metrics to */
@@ -71,8 +79,15 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	/** The metric catalog service */
 	protected MetricCatalogService metricCatalogService = null;
 	
+	
 	/** A timeout map of agent addresses for which there is a pending reset confirm */
 	protected final TimeoutQueueMap<SocketAddress, SocketAddress> pendingResets = new TimeoutQueueMap<SocketAddress, SocketAddress>(15000);
+	
+	/** Sliding window of processMetrics elapsed times in ns. */
+	protected final LongSlidingWindow processMetricsTimesNs = new ConcurrentLongSlidingWindow(60);
+	/** Sliding window of processMetrics elapsed time per metric in ns. */
+	protected final LongSlidingWindow processTimePerMetricNs = new ConcurrentLongSlidingWindow(60);
+
 	
 	/** The OpCodes this handler accepts */
 	protected final OpCode[] OP_CODES = new OpCode[]{ OpCode.SEND_METRIC, OpCode.SEND_METRIC_DIRECT, OpCode.RESET_CONFIRM };
@@ -85,6 +100,43 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	public OpCode[] getHandledOpCodes() {
 		return OP_CODES;
 	}	
+	
+	/**
+	 * Returns the last elapsed time to process metrics in ns.
+	 * @return the last elapsed time to process metrics in ns.
+	 */
+	@ManagedMetric(category="LastProcessTimeNs", metricType=MetricType.GAUGE, description="The last elapsed time to process metrics in ns.")
+	public long getLastProcessTimeNs() {
+		return processMetricsTimesNs.isEmpty() ? -1L : processMetricsTimesNs.get(0);
+	}
+	
+	/**
+	 * Returns the rolling average elapsed time to process metrics in ns.
+	 * @return the rolling average elapsed time to process metrics in ns.
+	 */
+	@ManagedMetric(category="AverageProcessTimeNs", metricType=MetricType.GAUGE, description="The rolling average elapsed time to process metrics in ns.")
+	public long getAverageProcessTimeNs() {
+		return processMetricsTimesNs.isEmpty() ? -1L : processMetricsTimesNs.avg();
+	}
+	
+	/**
+	 * Returns the last per metric processing elapsed time in ns.
+	 * @return the last per metric processing elapsed time in ns.
+	 */
+	@ManagedMetric(category="LastPerMetricTimeNs", metricType=MetricType.GAUGE, description="The last per metric processing elapsed time in ns.")
+	public long getLastPerMetricTimeNs() {
+		return processTimePerMetricNs.isEmpty() ? -1L : processTimePerMetricNs.get(0);
+	}
+	
+	/**
+	 * Returns the rolling average per metric processing elapsed time in ns.
+	 * @return the rolling average per metric processing elapsed time in ns.
+	 */
+	@ManagedMetric(category="AveragePerMetricTimeNs", metricType=MetricType.GAUGE, description="The rolling average per metric processing elapsed time in ns.")
+	public long getAveragePerMetricTimeNs() {
+		return processTimePerMetricNs.isEmpty() ? -1L : processTimePerMetricNs.avg();
+	}
+	
 	
 
 	
@@ -120,8 +172,8 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	 * @param channel The channel the submitter is transmitting on
 	 */
 	public void processMetrics(Collection<IMetric> metrics, OpCode opCode, SocketAddress remoteAddress, Channel channel) {
+		long startTime = System.nanoTime();		
 		try {
-			
 			for(Iterator<IMetric> iter = metrics.iterator(); iter.hasNext();) {
 				IMetric metric = iter.next();
 				if(metric.getMetricId()==null) {
@@ -148,18 +200,34 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 			e.printStackTrace(System.err);					
 		}	
 		
-		if(metrics!=null) incr("MetricsReceived", metrics.size());
-		//dmc.destroy();
-		for(final IMetric metric: metrics) {
-			if(opCode==OpCode.SEND_METRIC_DIRECT) {
-				sendConfirm(channel, remoteAddress,  metric);
+		if(metrics!=null) {
+			incr("MetricsReceived", metrics.size());
+			if(channel!=null && remoteAddress!=null) {
+				for(final IMetric metric: metrics) {
+					if(opCode==OpCode.SEND_METRIC_DIRECT) {
+						sendConfirm(channel, remoteAddress,  metric);
+					}
+					if(metric.getToken()==-1) {			
+						incr("NonTokenizedMetrics");
+						sendToken(channel, remoteAddress,  metric);
+					}			
+				}
 			}
-			if(metric.getToken()==-1) {			
-				incr("NonTokenizedMetrics");
-				sendToken(channel, remoteAddress,  metric);
-			}			
+			metricCatalogService.touch(metrics);
+			router.route(metrics);
+			long elapsed = System.nanoTime()-startTime;
+			int metricCount = metrics.size();
+			long perMetric = rate(elapsed, metricCount);
+			processMetricsTimesNs.insert(elapsed);
+			processTimePerMetricNs.insert(perMetric);
 		}
-		router.route(metrics);
+		
+	}
+	
+	private long rate(double time, double count) {
+		if(time==0 || count==0) return 0;
+		double rate = time/count;
+		return (long)rate;
 	}
 	
 	
@@ -168,14 +236,16 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	 * @param remoteAddress The address of the remote agent
 	 */
 	protected void sendReset(SocketAddress remoteAddress) {
-		if(!pendingResets.containsKey(remoteAddress)) {
-			synchronized(pendingResets) {
-				if(!pendingResets.containsKey(remoteAddress)) {
-					ChannelBuffer rsetRequest = ChannelBuffers.buffer(1);
-					rsetRequest.writeByte(OpCode.RESET.op());
-					SharedChannelGroup.getInstance().getByRemote(remoteAddress).write(rsetRequest, remoteAddress);
-					pendingResets.put(remoteAddress, remoteAddress);
-					incr("ResetRequestsSent");
+		if(remoteAddress!=null) {  // local in-vm tracer will not have a remote address
+			if(!pendingResets.containsKey(remoteAddress)) {
+				synchronized(pendingResets) {
+					if(!pendingResets.containsKey(remoteAddress)) {
+						ChannelBuffer rsetRequest = ChannelBuffers.buffer(1);
+						rsetRequest.writeByte(OpCode.RESET.op());
+						SharedChannelGroup.getInstance().getByRemote(remoteAddress).write(rsetRequest, remoteAddress);
+						pendingResets.put(remoteAddress, remoteAddress);
+						incr("ResetRequestsSent");
+					}
 				}
 			}
 		}
@@ -373,14 +443,19 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	@Override
 	public Set<String> getSupportedMetricNames() {
 		Set<String> metrics = new HashSet<String>(super.getSupportedMetricNames());
-		metrics.add("BytesReceived");
-		metrics.add("MetricsReceived");
-		metrics.add("ConfirmsSent");
-		metrics.add("TokensSent");
-		metrics.add("NonTokenizedMetrics");
-		metrics.add("ResetConfirmsReceived");
-		metrics.add("ResetRequestsSent");
-		metrics.add("TokenLookupDrop");
+		try {
+			for(Method method: this.getClass().getDeclaredMethods()) {
+				ManagedMetric mm = method.getAnnotation(ManagedMetric.class);
+				if(mm!=null) {
+					String name = mm.category();
+					if(name!=null && !name.trim().isEmpty()) {
+						metrics.add(name.trim());
+					}
+				}
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+		}
 		return metrics;
 	}	
 
@@ -403,6 +478,75 @@ public class AgentMetricHandler extends AbstractAgentRequestHandler  {
 	@Autowired(required=true)
 	public void setMetricCatalogService(MetricCatalogService metricCatalogService) {
 		this.metricCatalogService = metricCatalogService;
+	}
+	
+	//=====================================================================================
+	//   MetricSubmitter Impl
+	//=====================================================================================
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.MetricSubmitter#submitDirect(org.helios.apmrouter.metric.IMetric, long)
+	 */
+	@Override
+	public void submitDirect(IMetric metric, long timeout) throws TimeoutException {
+		processMetrics(Arrays.asList(metric), OpCode.SEND_METRIC, null, null);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.MetricSubmitter#submit(java.util.Collection)
+	 */
+	@Override
+	public void submit(Collection<IMetric> metrics) {
+		processMetrics(metrics, OpCode.SEND_METRIC, null, null);
+		
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.MetricSubmitter#submit(org.helios.apmrouter.metric.IMetric[])
+	 */
+	@Override
+	public void submit(IMetric... metrics) {
+		processMetrics(Arrays.asList(metrics), OpCode.SEND_METRIC, null, null);
+		
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.MetricSubmitter#getSentMetrics()
+	 */
+	@Override
+	public long getSentMetrics() {
+		return getMetricsReceived();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.MetricSubmitter#getDroppedMetrics()
+	 */
+	@Override
+	public long getDroppedMetrics() {
+		return getTokenLookupDrops();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.MetricSubmitter#resetStats()
+	 */
+	@Override
+	public void resetStats() {
+		resetMetrics();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.MetricSubmitter#getQueuedMetrics()
+	 */
+	@Override
+	public long getQueuedMetrics() {
+		return 0;
 	}
 
 

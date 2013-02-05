@@ -77,9 +77,11 @@ public class ChronicleTSAdapter {
 	
 	protected static void processId(ChronicleTier tier, SimpleResultSet rs, long metricId) {		
     	List<long[]> valueArrays = tier.getValues(metricId);
+    	String status = tier.getEntryStatusName(metricId);
     	for(long[] row: valueArrays) {
 	    	rs.addRow( 
 	    			metricId,
+	    			status,
 	    			new java.sql.Timestamp(row[PERIOD]), 
 	    			row[MIN], 
 	    			row[MAX], 
@@ -95,6 +97,7 @@ public class ChronicleTSAdapter {
 	public static SimpleResultSet newDef() {
 	    SimpleResultSet rs = new SimpleResultSet();
 	    rs.addColumn("ID", Types.NUMERIC, 255, 22);
+	    rs.addColumn("STATUS", Types.VARCHAR, 255, 0);
 	    rs.addColumn("TS", Types.TIMESTAMP, 1, 22);
 	    rs.addColumn("MIN", Types.NUMERIC, 255, 22);
 	    rs.addColumn("MAX", Types.NUMERIC, 255, 22);

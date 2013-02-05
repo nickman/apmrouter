@@ -227,10 +227,10 @@ public class MetricLastTimeSeenService extends ServerComponentBean implements Ru
 	}
 
 	/**
-	 * Returns the average last-seen processing time in ns.
-	 * @return the average last-seen processing time in ns.
+	 * Returns the rolling average last-seen processing time in ns.
+	 * @return the rolling average last-seen processing time in ns.
 	 */
-	@ManagedMetric(category="AverageLastSeenTimeNs", metricType=MetricType.GAUGE, description="The average last-seen processing time in ns.")
+	@ManagedMetric(category="AverageLastSeenTimeNs", metricType=MetricType.GAUGE, description="The rolling average last-seen processing time in ns.")
 	public long getAverageLastSeenTimeNs() {
 		return lastSeenTimesNs.isEmpty() ? -1L : lastSeenTimesNs.avg();
 	}
@@ -245,10 +245,10 @@ public class MetricLastTimeSeenService extends ServerComponentBean implements Ru
 	}
 	
 	/**
-	 * Returns the average coe processing time in ns.
-	 * @return the average coe processing time in ns.
+	 * Returns the rolling average coe processing time in ns.
+	 * @return the rolling average coe processing time in ns.
 	 */
-	@ManagedMetric(category="LastCOETimeNs", metricType=MetricType.GAUGE, description="The average coe processing time in ns.")
+	@ManagedMetric(category="AverageCOETimeNs", metricType=MetricType.GAUGE, description="The rolling average coe processing time in ns.")
 	public long getAverageCOETimeNs() {
 		return coeTimesNs.isEmpty() ? -1L : coeTimesNs.avg();
 	}

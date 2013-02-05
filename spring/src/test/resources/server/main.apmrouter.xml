@@ -75,6 +75,7 @@
  --> 
  	<bean id="MetricCatalog" class="org.helios.apmrouter.catalog.MetricCatalogInitializer">
  		<property name="catalogClassName" value="org.helios.apmrouter.metric.catalog.heap.StringKeyedHeapMetricCatalog" />
+ 		
  	</bean>
  	
  	<bean id="AgentMetricHandler" class="org.helios.apmrouter.server.net.listener.netty.handlers.AgentMetricHandler">

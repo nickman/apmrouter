@@ -138,5 +138,12 @@ public interface ChronicleTierMXBean {
 	 */
 	public long getPerMetricSize();
 	
+	/**
+	 * Returns the entry status name for the passed metric Id
+	 * @param metricId The metric Id to get the status for
+	 * @return the entry status name
+	 */
+	public String getEntryStatusName(long metricId);
+	
 	
 }

@@ -31,6 +31,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -45,6 +46,7 @@ import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.collections.LongSlidingWindow;
 import org.helios.apmrouter.destination.chronicletimeseries.ChronicleTSManager;
 import org.helios.apmrouter.destination.chronicletimeseries.ChronicleTier;
+import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
@@ -92,6 +94,9 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	 */
 	@Override
 	public void doStart() throws Exception {
+		if(realtime) {
+			info("\n\t#############################\n\tMetric Catalog [", getClass().getSimpleName(), "] is REALTIME\n\t#############################\n");
+		}
 		if(chronicleManager!=null) liveTier = chronicleManager.getLiveTier();
 		Connection conn = null;
 		PreparedStatement ps = null;
@@ -110,8 +115,8 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to add metric types", e);
 		} finally {
-			try { ps.close(); } catch (Exception e) {}
-			try { conn.close(); } catch (Exception e) {}
+			if(ps!=null) try { ps.close(); } catch (Exception e) {/* No Op */}
+			if(conn!=null) try { conn.close(); } catch (Exception e) {/* No Op */}
 		}
 		//SharedChannelGroup.getInstance().addSessionListener(this);
 	}
@@ -143,7 +148,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			if(!rset.next()) {
 				return null;
 			}
-			
+			// MetricLastTimeSeenService
 			
 			CharSequence[] namespace = rset.getString(4).replaceFirst("/", "").split("/");
 			ICEMetricCatalog.getInstance().setToken(token, rset.getString(1), rset.getString(2), rset.getString(5), MetricType.valueOf(rset.getInt(3)), namespace);
@@ -152,9 +157,9 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			sex.printStackTrace(System.err);
 			return null;
 		} finally {
-			if(rset!=null) try { rset.close(); } catch (Exception e) {}
-			if(ps!=null) try { ps.close(); } catch (Exception e) {}
-			if(conn!=null) try { conn.close(); } catch (Exception e) {}
+			if(rset!=null) try { rset.close(); } catch (Exception e) {/* No Op */}
+			if(ps!=null) try { ps.close(); } catch (Exception e) {/* No Op */}
+			if(conn!=null) try { conn.close(); } catch (Exception e) {/* No Op */}
 		}				
 	}
 	
@@ -193,10 +198,10 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	 * @see org.helios.apmrouter.catalog.MetricCatalogService#getID(long, java.lang.String, java.lang.String, int, java.lang.String, java.lang.String)
 	 */
 	@Override
-	public long getID(long token, String host, String agent, int typeId, String namespace, String name) {
-		if(token!=-1 && !realtime) return 0;
+	public long getID(long tokenRef, String host, String agent, int typeId, String namespace, String name) {
+		if(tokenRef!=-1 && !realtime) return 0;
 		SystemClock.startTimer();
-		token = liveTier.createNewMetric();
+		final long token = tokenRef!=-1 ? tokenRef : liveTier.createNewMetric();
 		incr("CallCount");		
 		Connection conn = null;
 		CallableStatement cs = null;		
@@ -226,10 +231,37 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			//throw new RuntimeException("Failed to get ID", e);
 			return 0;
 		} finally {
-			if(ps!=null) try { ps.close(); } catch (Exception e) {}
-			if(cs!=null) try { cs.close(); } catch (Exception e) {}
-			if(conn!=null) try { conn.close(); } catch (Exception e) {}
+			if(ps!=null) try { ps.close(); } catch (Exception e) {/* No Op */}
+			if(cs!=null) try { cs.close(); } catch (Exception e) {/* No Op */}
+			if(conn!=null) try { conn.close(); } catch (Exception e) {/* No Op */}
 		}
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.MetricCatalogService#touch(java.util.Collection)
+	 */
+	public int touch(Collection<IMetric> metrics) {
+		if(realtime && metrics!=null && !metrics.isEmpty()) {
+			Connection conn = null;
+			PreparedStatement ps = null;
+			try {
+				conn = ds.getConnection();
+				ps = conn.prepareStatement("UPDATE METRIC SET LAST_SEEN = systimestamp WHERE METRIC_ID = ?");
+				for(IMetric metric: metrics) {
+					ps.setLong(1, metric.getMetricId().getToken());
+					ps.addBatch();
+				}
+				return ps.executeBatch().length;
+			} catch (Exception ex) {
+				error("Failed to touch timestamps on [" + metrics.size() + "] metrics", ex);
+				return 0;
+			} finally {
+				if(ps!=null) try { ps.close(); } catch (Exception e) {/* No Op */}
+				if(conn!=null) try { conn.close(); } catch (Exception e) {/* No Op */}
+			}
+		}
+		return 0;
 	}
 	
 	/**
@@ -270,9 +302,9 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			if(cause!=null) cause.printStackTrace(System.err);
 			return null;
 		} finally {
-			if(rset!=null) try { rset.close(); } catch (Exception e) {}
-			if(ps!=null) try { ps.close(); } catch (Exception e) {}
-			if(conn!=null) try { conn.close(); } catch (Exception e) {}			
+			if(rset!=null) try { rset.close(); } catch (Exception e) {/* No Op */}
+			if(ps!=null) try { ps.close(); } catch (Exception e) {/* No Op */}
+			if(conn!=null) try { conn.close(); } catch (Exception e) {/* No Op */}			
 		}
 	}
 	
@@ -311,9 +343,9 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			if(cause!=null) cause.printStackTrace(System.err);
 			throw new RuntimeException("Failed to list hosts" , e);
 		} finally {
-			if(rset!=null) try { rset.close(); } catch (Exception e) {}
-			if(ps!=null) try { ps.close(); } catch (Exception e) {}
-			if(conn!=null) try { conn.close(); } catch (Exception e) {}
+			if(rset!=null) try { rset.close(); } catch (Exception e) {/* No Op */}
+			if(ps!=null) try { ps.close(); } catch (Exception e) {/* No Op */}
+			if(conn!=null) try { conn.close(); } catch (Exception e) {/* No Op */}
 		}
 		
 	}

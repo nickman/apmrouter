@@ -48,6 +48,9 @@ public class SeriesEntry implements SeriesEntryMBean {
 	protected long endPeriod = -1;
 	/** The number of periods in the window */
 	protected int periodCount = -1;
+	/** The up/down status for this entry */
+	protected EntryStatus status = null;
+	
 	/** The values recorded in each period in the window keyed by the timestamp of the period */
 	protected final Map<Long, long[]> periods = new TreeMap<Long, long[]>();
 	
@@ -57,6 +60,7 @@ public class SeriesEntry implements SeriesEntryMBean {
 		startPeriod = ex.readLong();
 		endPeriod = ex.readLong();		
 		periodCount = ex.readInt();		
+		status = EntryStatus.ORD2ENUM.get(ex.readByte());
 		if(includePeriods) {
 			for(int i = 0; i < periodCount; i++) {
 				long ts = ex.readLong();
@@ -122,6 +126,15 @@ public class SeriesEntry implements SeriesEntryMBean {
 	@Override
 	public int getPeriodCount() {
 		return periodCount;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.destination.chronicletimeseries.SeriesEntryMBean#getEntryStatus()
+	 */
+	@Override
+	public EntryStatus getEntryStatus() {
+		return status;
 	}
 
 	/**

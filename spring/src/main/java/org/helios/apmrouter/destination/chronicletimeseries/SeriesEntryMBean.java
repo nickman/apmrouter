@@ -60,6 +60,12 @@ public interface SeriesEntryMBean {
 	 * @return the periodCount
 	 */
 	public abstract int getPeriodCount();
+	
+	/**
+	 * Returns the metric status of this entry
+	 * @return the metric status of this entry
+	 */
+	public abstract EntryStatus getEntryStatus();
 
 	/**
 	 * Returns the values recorded in each period in the window keyed by the timestamp of the period

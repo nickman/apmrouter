@@ -83,8 +83,8 @@
 	</bean>
 	
 	<bean id="CatalogService" class="org.helios.apmrouter.catalog.jdbc.h2.H2JDBCMetricCatalog" depends-on="dbInit" >
-		<property name="realtime" value="false" />
-		<property name="chronicleManager" ref="chronicleTs" ></property>
+		<property name="realtime" value="true" />
+		<property name="chronicleManager" ref="chronicleTs" />		
 	</bean>
 	
 	<bean id="chronicleTs" class="org.helios.apmrouter.destination.chronicletimeseries.ChronicleTSManager">

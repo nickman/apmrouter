@@ -37,9 +37,6 @@
     
     <bean id="jqp" class="org.helios.apmrouter.catalog.api.impl.JSONQueryParser" />
  	
- 	<bean class="org.hibernate.transaction.JTATransactionFactory">
- 		<property name=""></property>
- 	</bean>
  
 <!-- 
     <bean id="transactionManager"

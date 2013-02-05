@@ -24,8 +24,10 @@
  */
 package org.helios.apmrouter.catalog;
 
+import java.util.Collection;
 import java.util.Map;
 
+import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.server.services.session.DecoratedChannel;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
@@ -68,6 +70,13 @@ public interface MetricCatalogService {
 	 * @return a delegate metric ID
 	 */
 	public IDelegateMetric getMetricID(long token);
+	
+	/**
+	 * Touches the last seen timestamp for a metric if {@link #isRealtime()}
+	 * @param metrics Touches the last seen timestamp for a metric
+	 * @return The number of updated records
+	 */
+	public int touch(Collection<IMetric> metrics);
 	
 	/**
 	 * Indicates if the metric catalog is real time 

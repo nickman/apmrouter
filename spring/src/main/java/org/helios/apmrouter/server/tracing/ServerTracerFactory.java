@@ -33,14 +33,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
 
-import org.helios.apmrouter.catalog.DChannelEvent;
 import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.metric.ICEMetric;
@@ -48,8 +45,8 @@ import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
-import org.helios.apmrouter.router.PatternRouter;
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.server.net.listener.netty.handlers.AgentMetricHandler;
 import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.ITracerFactory;
 import org.helios.apmrouter.trace.MetricSubmitter;
@@ -65,8 +62,6 @@ import org.springframework.jmx.support.MetricType;
  * <p><code>org.helios.apmrouter.server.tracing.ServerTracerFactory</code></p>
  */
 public class ServerTracerFactory extends ServerComponentBean implements MetricSubmitter, ITracerFactory {
-	/** The pattern router the server tracers will send to */
-	protected PatternRouter patternRouter = null;
 	/** The default tracer */
 	protected ITracer defaultTracer = new ServerTracerImpl(APMROUTER_HOST_NAME, APMROUTER_AGENT_NAME, this);
 	/** A map of created tracers keyed by host/agent */
@@ -75,6 +70,8 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	protected MetricCatalogService metricCatalogService = null;
 	/** The metric catalog */
 	protected IMetricCatalog metricCatalog = ICEMetricCatalog.getInstance();
+	/** The delegate metricSubmitter */
+	protected MetricSubmitter metricSubmitter = null;
 	
 
 	
@@ -104,7 +101,9 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 */
 	@Override
 	protected void doStart() throws Exception {
-		metricCatalogService.hostAgentState(true, APMROUTER_HOST_NAME, "", APMROUTER_AGENT_NAME, LOCAL_SENDER_URI.toString());		
+		metricCatalogService.hostAgentState(true, APMROUTER_HOST_NAME, "", APMROUTER_AGENT_NAME, LOCAL_SENDER_URI.toString());
+		metricSubmitter = applicationContext.getBean(AgentMetricHandler.class);
+		info("Set ServerTracerFactory MetricSubmitter");
 	}
 	
 	/**
@@ -113,7 +112,7 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 */
 	@Override
 	protected void doStop() {
-		patternRouter = null;
+		metricSubmitter = null;
 		info("Stopping all local agents");
 		for(ITracer tracer: tracers.values()) {
 			metricCatalogService.hostAgentState(false, tracer.getHost(), "", tracer.getAgent(), LOCAL_SENDER_URI.toString());
@@ -181,12 +180,11 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 
 	
 	/**
-	 * Sets the pattern router the server tracers will send to
-	 * @param patternRouter the patternRouter to set
-	 */
-	@Autowired(required=true)
-	public void setPatternRouter(PatternRouter patternRouter) {
-		this.patternRouter = patternRouter;
+	 * Sets the metric submitter the server tracers will send to
+	 * @param metricSubmitter the metric submitter to use
+	 */	
+	public void setMetricSubmitter(MetricSubmitter metricSubmitter) {
+		this.metricSubmitter = metricSubmitter;
 	}
 
 
@@ -195,9 +193,9 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 * @see org.helios.apmrouter.sender.ISender#getSentMetrics()
 	 */
 	@Override
-	@ManagedMetric(category="ServerSender", metricType=MetricType.COUNTER, description="the number of metrics sent")
+	@ManagedMetric(category="ServerSender", metricType=MetricType.COUNTER, description="The number of metrics sent")
 	public long getSentMetrics() {
-		return getMetricValue("MetricsSent");
+		return metricSubmitter.getSentMetrics();
 	}
 
 	/**
@@ -207,7 +205,7 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	@Override
 	@ManagedMetric(category="ServerSender", metricType=MetricType.COUNTER, description="the number of metrics dropped")
 	public long getDroppedMetrics() {
-		return getMetricValue("MetricsDropped");
+		return metricSubmitter.getDroppedMetrics();
 	}
 
 	/**
@@ -292,12 +290,12 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 		final int metricCount = processMetrics(metrics);
 		if(metricCount==0) return;
 		try {
-			if(patternRouter==null) {
+			if(metricSubmitter==null) {
 				incr("MetricsDropped");
 				warn("ServerTracerFactory has not been started yet. Dropped [", metricCount, "] metrics");				
 				return;
 			}			
-			patternRouter.route(metrics);
+			metricSubmitter.submit(metrics);
 			incr("MetricsSent");
 		} catch (Exception e) {
 			incr("MetricsFailed");
