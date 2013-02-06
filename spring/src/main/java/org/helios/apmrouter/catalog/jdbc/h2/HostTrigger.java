@@ -35,6 +35,7 @@ import javax.management.Notification;
 /**
  * <p>Title: HostTrigger</p>
  * <p>Description: Trigger fired when a new host is inserted</p> 
+ * <p>Called by <b><code>HOST_TRG  AFTER INSERT ON HOST FOR EACH</code></b></p>
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.catalog.jdbc.h2.HostTrigger</code></p>

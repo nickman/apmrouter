@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.catalog.jdbc.h2;
 
+import javax.management.ObjectName;
+
 /**
  * <p>Title: AbstractTriggerMBean</p>
  * <p>Description: Base trigger mbean interface</p> 
@@ -49,4 +51,46 @@ public interface AbstractTriggerMBean {
 	 * @return the size of the notification queue
 	 */	
 	public int getQueueSize();	
+	
+	/**
+	 * Returns this trigger's JMX {@link ObjectName}
+	 * @return this trigger's JMX {@link ObjectName}
+	 */
+	public ObjectName getOn();
+
+	/**
+	 * Returns the schema that this trigger is installed in
+	 * @return the schema that this trigger is installed in
+	 */
+	public String getSchemaName();
+
+	/**
+	 * Returns the name of the trigger
+	 * @return the name of the trigger
+	 */
+	public String getTriggerName();
+
+	/**
+	 * Returns the table that this trigger is attached to
+	 * @return the table that this trigger is attached to
+	 */
+	public String getTableName();
+
+	/**
+	 * Indicates if this trigger is fired before the operation, or after
+	 * @return true if this trigger is fired before the operation, false if after
+	 */
+	public boolean isBefore();
+
+	/**
+	 * Returns the bitmask of the operations that this trigger fires on
+	 * @return the bitmask of the operations that this trigger fires on
+	 */
+	public int getType();
+	
+	/**
+	 * Returns the names of the operations that this trigger fires on
+	 * @return the names of the operations that this trigger fires on
+	 */
+	public String getTypeNames();	
 }

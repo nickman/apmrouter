@@ -53,6 +53,16 @@ public abstract class AbstractTrigger extends NotificationBroadcasterSupport imp
 	protected final Logger log = Logger.getLogger(getClass());
 	/** A counter of the number of calls to this trigger */
 	protected final AtomicLong callCount = new AtomicLong(0L);
+	/** The schema name where the trigger resides */
+	protected String schemaName = null;
+	/** The H2 trigger name */
+	protected String triggerName = null; 
+	/** The table name that the trigger is attached to  */
+	protected String tableName = null;
+	/** Indicates if the trigger is fired before the op, or after  */
+	protected boolean before = false;
+	/** The operation types that this trigger is fired on */
+	protected int type = -1;
 	
 	/**
 	 * Creates a new AbstractTrigger
@@ -114,9 +124,76 @@ public abstract class AbstractTrigger extends NotificationBroadcasterSupport imp
 	 */
 	@Override
 	public void init(Connection conn, String schemaName, String triggerName, String tableName, boolean before, int type) throws SQLException {
-		/* No Op */
+		this.schemaName = schemaName;
+		this.triggerName = triggerName;
+		this.tableName = tableName;
+		this.before = before;
+		this.type = type;
 	}
 	
+	/**
+	 * Returns this trigger's JMX {@link ObjectName}
+	 * @return this trigger's JMX {@link ObjectName}
+	 */
+	@Override
+	public ObjectName getOn() {
+		return on;
+	}
+
+	/**
+	 * Returns the schema that this trigger is installed in
+	 * @return the schema that this trigger is installed in
+	 */
+	@Override
+	public String getSchemaName() {
+		return schemaName;
+	}
+
+	/**
+	 * Returns the name of the trigger
+	 * @return the name of the trigger
+	 */
+	@Override
+	public String getTriggerName() {
+		return triggerName;
+	}
+
+	/**
+	 * Returns the table that this trigger is attached to
+	 * @return the table that this trigger is attached to
+	 */
+	@Override
+	public String getTableName() {
+		return tableName;
+	}
+
+	/**
+	 * Indicates if this trigger is fired before the operation, or after
+	 * @return true if this trigger is fired before the operation, false if after
+	 */
+	@Override
+	public boolean isBefore() {
+		return before;
+	}
+
+	/**
+	 * Returns the bitmask of the operations that this trigger fires on
+	 * @return the bitmask of the operations that this trigger fires on
+	 */
+	@Override
+	public int getType() {
+		return type;
+	}
+	
+	/**
+	 * Returns the names of the operations that this trigger fires on
+	 * @return the names of the operations that this trigger fires on
+	 */
+	@Override
+	public String getTypeNames() {
+		return TriggerOp.getEnabledStatesName(type);
+	}
+
 	/**
 	 * {@inheritDoc}
 	 * @see org.h2.api.Trigger#close()

@@ -34,6 +34,7 @@ import javax.management.Notification;
 /**
  * <p>Title: AgentTrigger</p>
  * <p>Description: H2 new agent trigger</p> 
+ * <p>Called by <b><code>AGENT_TRG  AFTER INSERT ON AGENT FOR EACH ROW</code></b></p>
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.catalog.jdbc.h2.AgentTrigger</code></p>
@@ -53,8 +54,12 @@ public class AgentTrigger extends AbstractTrigger implements AgentTriggerMBean {
 	 */
 	@Override
 	public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
-		log.info("\n\t=================\n\tNEW AGENT:" + Arrays.toString(newRow) + "\n\t=================\n");
-		sendNotification(NEW_AGENT, newRow);
+		if(TriggerOp.SELECT.isEnabled(type)) {
+			log.info("\n\t=================\n\tSELECT TRIGGER:\n\tOldRow:" + Arrays.toString(oldRow) + "\n\tNewRow:" + Arrays.toString(newRow) + "\n\t=================\n");
+		} else {
+			log.info("\n\t=================\n\tNEW AGENT:" + Arrays.toString(newRow) + "\n\t=================\n");
+			sendNotification(NEW_AGENT, newRow);			
+		}
 	}
 
 }

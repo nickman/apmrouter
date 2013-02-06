@@ -49,7 +49,7 @@ public class SeriesEntry implements SeriesEntryMBean {
 	/** The number of periods in the window */
 	protected int periodCount = -1;
 	/** The up/down status for this entry */
-	protected EntryStatus status = null;
+	protected EntryStatus status = EntryStatus.ACTIVE;
 	
 	/** The values recorded in each period in the window keyed by the timestamp of the period */
 	protected final Map<Long, long[]> periods = new TreeMap<Long, long[]>();
@@ -60,7 +60,7 @@ public class SeriesEntry implements SeriesEntryMBean {
 		startPeriod = ex.readLong();
 		endPeriod = ex.readLong();		
 		periodCount = ex.readInt();		
-		status = EntryStatus.ORD2ENUM.get(ex.readByte());
+		status = EntryStatus.forByte(ex.readByte());
 		if(includePeriods) {
 			for(int i = 0; i < periodCount; i++) {
 				long ts = ex.readLong();
@@ -78,6 +78,7 @@ public class SeriesEntry implements SeriesEntryMBean {
 		b.append(metricId);
 		b.append("\nStart Period:").append(new Date(startPeriod));
 		b.append("\nEnd Period:").append(new Date(endPeriod));
+		b.append("\nStatus:").append(status.name());
 		b.append("\nPeriod Count:").append(periodCount).append("/").append(periods.size());
 		if(!periods.isEmpty()) {
 			for(Map.Entry<Long, long[]> pentry: periods.entrySet()) {

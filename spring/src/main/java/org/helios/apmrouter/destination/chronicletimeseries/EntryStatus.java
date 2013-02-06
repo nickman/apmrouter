@@ -46,4 +46,11 @@ public enum EntryStatus {
 	public byte byteOrdinal() {
 		return (byte)ordinal();
 	}
+	
+	
+	public static EntryStatus forByte(byte b) {
+		if(b==0) return ACTIVE;
+		else if(b==1) return STALE;
+		else throw new IllegalArgumentException("Invalid byte [" + b + "]", new Throwable());
+	}
 }

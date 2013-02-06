@@ -88,7 +88,10 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	/** The number of values in each series entry */
 	protected static final int SERIES_SIZE_IN_LONGS = 5;
 	/** The header offset in each chronicle entry, ie. the length of the start time (long), end time (long), the size (int) and the status (byte) */
-	protected static final int HEADER_OFFSET = 8 + 8 + 4 + 1; 
+	protected static final int HEADER_OFFSET = 8 + 8 + 4 + 1;
+//	/** The header offset in each chronicle entry, ie. the length of the start time (long), end time (long), the size (int) */
+//	protected static final int HEADER_OFFSET = 8 + 8 + 4; 
+	
 	/** The size of each series entry, ie. longs for TS, MIN, MAX, AVG and CNTS */
 	protected static final int SERIES_SIZE_IN_BYTES = SERIES_SIZE_IN_LONGS * 8; 
 	
@@ -212,8 +215,8 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	public EntryStatus getEntryStatus(long metricId) {
 		UnsafeExcerpt<IndexedChronicle> ex = createUnsafeExcerpt(metricId);
 		try {
-			byte status = ex.readByte(H_STATUS);
-			return EntryStatus.ORD2ENUM.get(status);
+			//return EntryStatus.ACTIVE;
+			return EntryStatus.forByte(ex.readByte(H_STATUS));
 		} finally {
 			ex.finish();
 		}		
@@ -224,6 +227,7 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	 * @param metricId The metric Id to get the status for
 	 * @return the entry status name
 	 */
+	@Override
 	public String getEntryStatusName(long metricId) {
 		return getEntryStatus(metricId).name();
 	}
@@ -508,20 +512,24 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	 * @return the index of the new entry
 	 */
 	public synchronized long createNewMetric() {		
-		
-		Excerpt<IndexedChronicle> ex = chronicle.createExcerpt();
-		ex.startExcerpt(entrySize);
-		long time = SystemClock.period(periodDuration);		
-		ex.writeLong(time);
-		ex.writeLong(time);
-		ex.writeInt(0);
-		ex.writeByte(EntryStatus.ACTIVE.byteOrdinal());
-		int extendSize = periods * SERIES_SIZE_IN_LONGS;
-		for(int i = 0; i < extendSize; i++) {
-			ex.writeLong(-1L);
+		try {
+			Excerpt<IndexedChronicle> ex = chronicle.createExcerpt();
+			ex.startExcerpt(entrySize);
+			long time = SystemClock.period(periodDuration);		
+			ex.writeLong(time);
+			ex.writeLong(time);
+			ex.writeInt(0);
+			ex.writeByte(EntryStatus.ACTIVE.byteOrdinal());
+			int extendSize = periods * SERIES_SIZE_IN_LONGS;
+			for(int i = 0; i < extendSize; i++) {
+				ex.writeLong(-1L);
+			}
+			ex.finish();		
+			return ex.index();
+		} catch (Exception ex) {
+			log.error("Failed to create new metric entry", ex);
+			throw new RuntimeException("Failed to create new metric entry", ex);
 		}
-		ex.finish();		
-		return ex.index();
 	}	
 	
 	
@@ -531,6 +539,7 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	 * @param includePeriods Defines if the dump should include period data
 	 * @return A formatted string
 	 */
+	@Override
 	public String dump(long index, boolean includePeriods) {
 		String s = new SeriesEntry(createUnsafeExcerpt(), index, includePeriods).toString();
 		return s;

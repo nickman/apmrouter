@@ -22,10 +22,6 @@
         </configuration>
       </plugin>
       <plugin>
-        <groupId>org.apache.camel</groupId>
-        <artifactId>camel-maven-plugin</artifactId>
-      </plugin>
-      <plugin>
         <artifactId>maven-shade-plugin</artifactId>
         <version>1.7.1</version>
         <executions>
@@ -37,7 +33,6 @@
             <configuration>
               <artifactSet>
                 <excludes>
-                  <exclude>org.apache.camel:*</exclude>
                   <exclude>org.slf4j:log4j-over-slf4j</exclude>
                   <exclude>ch.qos.logback:*</exclude>
                 </excludes>
@@ -100,46 +95,6 @@
         <exclusion>
           <artifactId>de.flapdoodle.embed.process</artifactId>
           <groupId>de.flapdoodle.embed</groupId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.camel</groupId>
-      <artifactId>camel-bindy</artifactId>
-      <version>2.10.0</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.camel</groupId>
-      <artifactId>camel-core</artifactId>
-      <version>2.10.0</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.camel</groupId>
-      <artifactId>camel-spring</artifactId>
-      <version>2.10.0</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.camel</groupId>
-      <artifactId>camel-netty</artifactId>
-      <version>2.10.0</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.camel</groupId>
-      <artifactId>camel-test-spring</artifactId>
-      <version>2.10.0</version>
-      <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <artifactId>camel-test</artifactId>
-          <groupId>org.apache.camel</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>spring-test</artifactId>
-          <groupId>org.springframework</groupId>
         </exclusion>
       </exclusions>
     </dependency>
