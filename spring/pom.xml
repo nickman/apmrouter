@@ -16,7 +16,24 @@
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 	</properties>
 	<dependencies>
-		<!-- MongoDb -->
+		
+		<!-- logging -->
+		
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-log4j12</artifactId>
+		</dependency>
+		
+		<dependency>
+			<groupId>log4j</groupId>
+			<artifactId>log4j</artifactId>
+		</dependency>
+		
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+		</dependency>
+	<!-- MongoDb -->
    <dependency>
       <groupId>org.springframework.data</groupId>
       <artifactId>spring-data-mongodb</artifactId>
@@ -44,20 +61,6 @@
 		  <artifactId>snmp4j</artifactId>
 		</dependency>
 	
-		<!-- logging -->
-		<dependency>
-			<groupId>log4j</groupId>
-			<artifactId>log4j</artifactId>
-		</dependency>
-		
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-api</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-log4j12</artifactId>
-		</dependency>
 	
 		<dependency>
 		  <groupId>com.google.code.gson</groupId>
@@ -96,6 +99,21 @@
 			  <groupId>com.github.stephenc.high-scale-lib</groupId>
 			  <artifactId>high-scale-lib</artifactId>
 			</dependency>
+			
+			<!--  OpenTSDB -->
+
+			<dependency>
+			 <groupId>net.opentsdb</groupId>
+			 <artifactId>opentsdb</artifactId>
+			 <exclusions>
+			 	<exclusion>
+			 		<artifactId>logback-classic</artifactId>
+			 		<groupId>ch.qos.logback</groupId>
+			 	</exclusion>
+			 </exclusions>
+			 
+			</dependency>
+			
 			<dependency>
 			  <groupId>org.hbase</groupId>
 			  <artifactId>asynchbase</artifactId>
@@ -104,20 +122,19 @@
 			  <groupId>com.stumbleupon</groupId>
 			  <artifactId>async</artifactId>
 			</dependency>
-			<dependency>
-			 <groupId>net.opentsdb</groupId>
-			 <artifactId>opentsdb</artifactId>
-			</dependency>
 			
 			
 			<!--  nash server -->			
-			<dependency>
-			  <groupId>org.helios</groupId>
-			  <artifactId>nash</artifactId>  
-			</dependency>
 		
 		<!--  Metric Catalog DB Pooling -->
 		<dependency>
+			 <exclusions>
+			 	<exclusion>
+			 		<artifactId>logback-classic</artifactId>
+			 		<groupId>ch.qos.logback</groupId>
+			 	</exclusion>
+			 </exclusions>
+
 		  <groupId>commons-dbcp</groupId>
 		  <artifactId>commons-dbcp</artifactId>
 		</dependency>

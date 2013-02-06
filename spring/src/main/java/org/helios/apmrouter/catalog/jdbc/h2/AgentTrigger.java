@@ -60,6 +60,8 @@ public class AgentTrigger extends AbstractTrigger implements AgentTriggerMBean {
 			log.info("\n\t=================\n\tNEW AGENT:" + Arrays.toString(newRow) + "\n\t=================\n");
 			sendNotification(NEW_AGENT, newRow);			
 		}
+//		log.info("\n\t=================\n\tNEW AGENT:" + Arrays.toString(newRow) + "\n\t=================\n");
+//		sendNotification(NEW_AGENT, newRow);			
 	}
 
 }
