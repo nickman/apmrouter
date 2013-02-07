@@ -41,6 +41,7 @@ import javax.sql.DataSource;
 
 import org.helios.apmrouter.catalog.DChannelEvent;
 import org.helios.apmrouter.catalog.DChannelEventType;
+import org.helios.apmrouter.catalog.EntryStatus;
 import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.collections.LongSlidingWindow;
@@ -98,6 +99,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			info("\n\t#############################\n\tMetric Catalog [", getClass().getSimpleName(), "] is REALTIME\n\t#############################\n");
 		}
 		if(chronicleManager!=null) liveTier = chronicleManager.getLiveTier();
+		liveTier.addStatusListener(this);
 		Connection conn = null;
 		PreparedStatement ps = null;
 		try {
@@ -119,6 +121,15 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			if(conn!=null) try { conn.close(); } catch (Exception e) {/* No Op */}
 		}
 		//SharedChannelGroup.getInstance().addSessionListener(this);
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.EntryStatusChangeListener#onEntryStatusChange(long, long, org.helios.apmrouter.catalog.EntryStatus, org.helios.apmrouter.catalog.EntryStatus)
+	 */
+	@Override
+	public void onEntryStatusChange(long entryId, long timestamp, EntryStatus priorState, EntryStatus newState) {
+		
 	}
 	
 

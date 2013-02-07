@@ -40,7 +40,7 @@ import org.helios.apmrouter.server.services.session.SharedChannelGroup;
  * <p><code>org.helios.apmrouter.catalog.MetricCatalogService</code></p>
  */
 
-public interface MetricCatalogService {
+public interface MetricCatalogService extends EntryStatusChangeListener {
 	/**
 	 * Returns the unique identifier for a metric
 	 * @param token The metric ID which may be -1 meaning the metric does not exist yet

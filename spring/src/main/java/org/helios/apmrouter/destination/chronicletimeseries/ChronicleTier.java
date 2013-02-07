@@ -30,12 +30,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.ObjectName;
 
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.catalog.EntryStatus;
+import org.helios.apmrouter.catalog.EntryStatusChangeListener;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.tsmodel.Tier;
@@ -84,6 +88,9 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	protected final AtomicLong startPeriod = new AtomicLong(Long.MAX_VALUE);
 	/** The latest period end time in this tier */
 	protected final AtomicLong endPeriod = new AtomicLong(Long.MIN_VALUE);
+	
+	/** A set of {@link EntryStatus} change listeners to be notified when an entry changes state */
+	protected final Set<EntryStatusChangeListener> statusListeners = new CopyOnWriteArraySet<EntryStatusChangeListener>();
 
 	/** The number of values in each series entry */
 	protected static final int SERIES_SIZE_IN_LONGS = 5;
@@ -180,6 +187,38 @@ public class ChronicleTier implements ChronicleTierMXBean {
 		}
 		log.info("Initialized tier [" + chronicleName + "] with [" + chronicle.size() + "] entries");
 	}
+	
+	/**
+	 * Registers a new {@link EntryStatusChangeListener}.
+	 * @param statusListener the listener to register
+	 */
+	public void addStatusListener(EntryStatusChangeListener statusListener) {
+		if(statusListener!=null) {
+			statusListeners.add(statusListener);
+		}
+	}
+	
+	/**
+	 * Removes a registered {@link EntryStatusChangeListener}.
+	 * @param statusListener the listener to remove
+	 */
+	public void removeStatusListener(EntryStatusChangeListener statusListener) {
+		if(statusListener!=null) {
+			statusListeners.remove(statusListener);
+		}
+	}
+	
+	/**
+	 * Fires a status change event to all registered listeners through the manager
+	 * @param entryId The id of the entry that changed state
+	 * @param timestamp The timestamp of the change in ms.
+	 * @param priorState The prior state
+	 * @param newState The new state
+	 */
+	protected void fireEventStatusChangeEvent(long entryId, long timestamp, EntryStatus priorState, EntryStatus newState) {
+		manager.fireEventStatusChangeEvent(entryId, timestamp, priorState, newState);
+	}
+	
 	
 	/**
 	 * Returns a list containing the period data arrays in this tier for the passed metric Id.
@@ -405,6 +444,39 @@ public class ChronicleTier implements ChronicleTierMXBean {
 		return new SeriesEntry(createUnsafeExcerpt(), metricId, true);
 	}
 	
+	
+	/**
+	 * Performs a status check on this entry.
+	 * If the state requires updating, the new state will be returned,
+	 * otherwise null will be returned.
+	 * @param metricId The metric id of the entry to check.
+	 * @param currentTime The effective time of this check in ms.
+	 * @param staleThreshold The maximum age of the entry  in ms. before it is marked stale
+	 * @param offLineThreshold  The maximum age of the entry  in ms. before it is marked offline
+	 * @return the changed state or null if there was no change.
+	 */
+	public EntryStatus statusCheck(long metricId, long currentTime, long staleThreshold, long offLineThreshold) {
+		SeriesEntry se = new SeriesEntry(createUnsafeExcerpt(), metricId, false);
+		
+		final long elapsed = currentTime-se.getStartPeriodTimestamp();
+		final EntryStatus status = se.getEntryStatus();
+		if(elapsed >= offLineThreshold) {
+			if(status!=EntryStatus.OFFLINE) {
+				se.updateStatus(EntryStatus.OFFLINE);
+				fireEventStatusChangeEvent(metricId, currentTime, status, EntryStatus.OFFLINE);
+				return EntryStatus.OFFLINE;
+			}
+		} else 	if(elapsed >= staleThreshold) {
+			if(status!=EntryStatus.STALE) {
+				se.updateStatus(EntryStatus.STALE);
+				fireEventStatusChangeEvent(metricId, currentTime, status, EntryStatus.STALE);
+				return EntryStatus.STALE;
+			}
+		}
+
+		return null;
+	}
+	
 	/**
 	 * Reads a series entry from the series for the passed index
 	 * @param index The chronicle index to read the series for
@@ -426,7 +498,13 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	protected void writeSeriesEntry(long index, int seriesIndex, long[] values) {
 		if(seriesIndex<0) throw new IllegalArgumentException("The index cannot be < 0", new Throwable());
 		if(index<0) throw new IllegalArgumentException("The metric ID cannot be < 0", new Throwable());
-		createUnsafeExcerpt(index).writeLongArray(HEADER_OFFSET + (seriesIndex * SERIES_SIZE_IN_BYTES), values);
+		UnsafeExcerpt<IndexedChronicle> ex = createUnsafeExcerpt(index); 
+		EntryStatus status = EntryStatus.forByte(ex.readByte(H_STATUS)); 
+		ex.writeLongArray(HEADER_OFFSET + (seriesIndex * SERIES_SIZE_IN_BYTES), values);
+		if(status!=EntryStatus.ACTIVE) {
+			ex.write(H_STATUS, EntryStatus.ACTIVE.byteOrdinal());
+			fireEventStatusChangeEvent(index, SystemClock.time(), status, EntryStatus.ACTIVE);
+		}
 	}
 	
 	/**

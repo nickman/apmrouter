@@ -27,6 +27,8 @@ package org.helios.apmrouter.destination.chronicletimeseries;
 import java.util.Date;
 import java.util.Map;
 
+import org.helios.apmrouter.catalog.EntryStatus;
+
 /**
  * <p>Title: SeriesEntryMBean</p>
  * <p>Description: MBean interface to render {@link SeriesEntry} instances as OpenTypes.</p> 
@@ -50,8 +52,8 @@ public interface SeriesEntryMBean {
 	public abstract Date getStartPeriod();
 
 	/**
-	 * Returns the start time of the last period in the window
-	 * @return the start time of the last period in the window
+	 * Returns the end time of the last period in the window
+	 * @return the end time of the last period in the window
 	 */
 	public abstract Date getEndPeriod();
 
@@ -72,5 +74,24 @@ public interface SeriesEntryMBean {
 	 * @return the period data
 	 */
 	public abstract Map<Long, long[]> getPeriods();
+	
+	/**
+	 * Returns the start timestamp of the first period in the window
+	 * @return the start timestamp of the first period in the window
+	 */
+	public long getStartPeriodTimestamp();
+	
+	/**
+	 * Returns the end timestamp of the last period in the window
+	 * @return the end timestamp of the last period in the window
+	 */
+	public long getEndPeriodTimestamp();
+	
+	/**
+	 * Sets the status of this entry
+	 * @param status The status to set
+	 * @return the prior status, or null if the status was unchanged
+	 */
+	public EntryStatus updateStatus(EntryStatus status);
 
 }

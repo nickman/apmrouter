@@ -38,17 +38,18 @@ import java.util.List;
  */
 
 public class TimeSeriesModel {
-	
+	/** The initial model definition */
+	protected final String model;
 	/** The timeseries tiers */
 	protected final LinkedHashSet<Tier> tiers = new LinkedHashSet<Tier>();
 	
 	/**
 	 * Creates a new TimeSeriesModel
-	 * @param model
+	 * @param modelDef The model definition
 	 */
-	private TimeSeriesModel(String model) {
-		if(model==null) throw new IllegalArgumentException("The passed model was null", new Throwable());
-		model = model.trim().toLowerCase().replace(" ", "");
+	private TimeSeriesModel(String modelDef) {
+		if(modelDef==null || modelDef.trim().isEmpty()) throw new IllegalArgumentException("The passed model was null or empty", new Throwable());
+		this.model = modelDef.trim().toLowerCase().replace(" ", "");
 		String[] frags = model.split("\\|");
 		Tier previousTier = null;
 		for(int i = 0; i < frags.length; i++) {
@@ -63,6 +64,14 @@ public class TimeSeriesModel {
 			}
 			previousTier = tier;
 		}			
+	}
+	
+	/**
+	 * Returns the model definition this model was built with
+	 * @return the model definition this model was built with
+	 */
+	public String getModelDef() {
+		return model;
 	}
 	
 	/**

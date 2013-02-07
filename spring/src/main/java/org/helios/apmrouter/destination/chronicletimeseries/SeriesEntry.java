@@ -28,6 +28,8 @@ import java.util.Date;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.helios.apmrouter.catalog.EntryStatus;
+
 import vanilla.java.chronicle.impl.IndexedChronicle;
 import vanilla.java.chronicle.impl.UnsafeExcerpt;
 
@@ -50,12 +52,21 @@ public class SeriesEntry implements SeriesEntryMBean {
 	protected int periodCount = -1;
 	/** The up/down status for this entry */
 	protected EntryStatus status = EntryStatus.ACTIVE;
+	/** The excerpt used to read/write this entry */
+	protected final UnsafeExcerpt<IndexedChronicle> excerpt;
 	
 	/** The values recorded in each period in the window keyed by the timestamp of the period */
 	protected final Map<Long, long[]> periods = new TreeMap<Long, long[]>();
 	
+	/**
+	 * Creates a new SeriesEntry for the specified metric
+	 * @param ex The excerpt to read with
+	 * @param metricId The metric id to read
+	 * @param includePeriods true to incliude the period detail, false for the header only
+	 */
 	SeriesEntry(UnsafeExcerpt<IndexedChronicle> ex, long metricId, boolean includePeriods) {
 		if(!ex.index(metricId)) throw new IllegalArgumentException("Invalid index [" + metricId + "]", new Throwable());
+		excerpt = ex;
 		this.metricId = metricId;
 		startPeriod = ex.readLong();
 		endPeriod = ex.readLong();		
@@ -110,6 +121,16 @@ public class SeriesEntry implements SeriesEntryMBean {
 	public Date getStartPeriod() {
 		return new Date(startPeriod);
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.destination.chronicletimeseries.SeriesEntryMBean#getStartPeriodTimestamp()
+	 */
+	@Override
+	public long getStartPeriodTimestamp() {
+		return startPeriod;
+	}
+	
 
 	/**
 	 * {@inheritDoc}
@@ -119,6 +140,16 @@ public class SeriesEntry implements SeriesEntryMBean {
 	public Date getEndPeriod() {
 		return new Date(endPeriod);
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.destination.chronicletimeseries.SeriesEntryMBean#getEndPeriodTimestamp()
+	 */
+	@Override
+	public long getEndPeriodTimestamp() {
+		return endPeriod;
+	}
+	
 
 	/**
 	 * {@inheritDoc}
@@ -145,5 +176,16 @@ public class SeriesEntry implements SeriesEntryMBean {
 	@Override
 	public Map<Long, long[]> getPeriods() {
 		return periods;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.destination.chronicletimeseries.SeriesEntryMBean#updateStatus(org.helios.apmrouter.catalog.EntryStatus)
+	 */
+	@Override
+	public EntryStatus updateStatus(final EntryStatus status) {
+		EntryStatus tmp = this.status;
+		this.status = status;
+		return this.status!=tmp ? tmp : null; 
 	}
 }

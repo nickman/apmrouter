@@ -22,7 +22,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.destination.chronicletimeseries;
+package org.helios.apmrouter.catalog;
 
 import java.util.Map;
 
@@ -37,20 +37,37 @@ import org.helios.apmrouter.util.BitMaskedEnum;
  */
 
 public enum EntryStatus {
+	/** The entry is active and has had recent inserts */
 	ACTIVE,
-	STALE;
+	/** The entry is stale and has not seen inserts within the stale window */
+	STALE,
+	/** The entry is offline and has not seen inserts within one time series tier */
+	OFFLINE;
 	
 	/** A decode map for Byte -> EntryStatus */
 	public static final Map<Byte, EntryStatus> ORD2ENUM = BitMaskedEnum.Support.generateByteMap(EntryStatus.values());
 	
+	/**
+	 * Returns the byte ordinal for this EntryStatus
+	 * @return the byte ordinal
+	 */
 	public byte byteOrdinal() {
 		return (byte)ordinal();
 	}
 	
 	
+	/**
+	 * Returns the EntryStatus with the specified byte ordinal
+	 * @param b The byte ordinal to get an EntryStatus for 
+	 * @return an EntryStatus 
+	 */
 	public static EntryStatus forByte(byte b) {
-		if(b==0) return ACTIVE;
-		else if(b==1) return STALE;
-		else throw new IllegalArgumentException("Invalid byte [" + b + "]", new Throwable());
+		switch(b) {
+			case 0: return ACTIVE;
+			case 1: return STALE;
+			case 2: return OFFLINE;
+			default: throw new IllegalArgumentException("Invalid byte [" + b + "]", new Throwable());
+				
+		}
 	}
 }

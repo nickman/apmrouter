@@ -162,19 +162,19 @@ public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 					if(metricSet==null) {
 						metricSet = new LinkedHashSet<long[]>(widthAsInt);
 						metricSet.add(new long[]{
-								rset.getTimestamp(2).getTime(), rset.getLong(3), rset.getLong(4), rset.getLong(5), rset.getLong(6)
+								rset.getTimestamp(3).getTime(), rset.getLong(4), rset.getLong(5), rset.getLong(6), rset.getLong(7)
 						});						
 					} else {
 						channel.write(request.response().setContent(new Object[]{id, stepWidth, metricSet}));  // TODO: replace this with a pojo
 						metricSet = new LinkedHashSet<long[]>(widthAsInt);
 						metricSet.add(new long[]{
-								rset.getTimestamp(2).getTime(), rset.getLong(3), rset.getLong(4), rset.getLong(5), rset.getLong(6)
+								rset.getTimestamp(3).getTime(), rset.getLong(4), rset.getLong(5), rset.getLong(6), rset.getLong(7)
 						});						
 					}
 					currentId = id;
 				} else {
 					metricSet.add(new long[]{
-							rset.getTimestamp(2).getTime(), rset.getLong(3), rset.getLong(4), rset.getLong(5), rset.getLong(6)
+							rset.getTimestamp(3).getTime(), rset.getLong(4), rset.getLong(5), rset.getLong(6), rset.getLong(7)
 					});						
 				}				
 			}
