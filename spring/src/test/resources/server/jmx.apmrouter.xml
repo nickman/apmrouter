@@ -16,7 +16,7 @@
 	<bean id="ExtendedThreadManager" class="org.helios.apmrouter.jmx.threadinfo.ExtendedThreadManager" factory-method="install" >
 		<property name="maxDepth" value="50" />
 	</bean>
-	
+
 	<bean id="MBeanServerJMXUrl" class="javax.management.remote.JMXServiceURL"
 		lazy-init="false" depends-on="systemProperties" >
 		<constructor-arg type="java.lang.String"

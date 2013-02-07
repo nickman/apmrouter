@@ -95,7 +95,7 @@
 					populateNode(node, callback);
 				}
 			},					
-			plugins : [ "themes", "ui", "types", "json_data", "crrm", "unique", "cookies"],
+			plugins : [ "themeroller", "themes", "ui", "types", "json_data", "crrm", "unique", "cookies"],
 			types : {
 				'types' : {
 		            'root' : {
@@ -188,6 +188,7 @@
 			}
 		});
 		metricTree = $.jstree._reference('#metricTree');
+		
 		
 		//$.apmr.connect(); 
 	}
