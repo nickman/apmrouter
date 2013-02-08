@@ -65,7 +65,7 @@ public class SeriesEntry implements SeriesEntryMBean {
 	 * @param includePeriods true to incliude the period detail, false for the header only
 	 */
 	SeriesEntry(UnsafeExcerpt<IndexedChronicle> ex, long metricId, boolean includePeriods) {
-		if(!ex.index(metricId)) throw new IllegalArgumentException("Invalid index [" + metricId + "]", new Throwable());
+		if(!ex.index(metricId)) throw new InvalidIndexExcetpion("Invalid index [" + metricId + "]", new Throwable());
 		excerpt = ex;
 		this.metricId = metricId;
 		startPeriod = ex.readLong();
@@ -186,6 +186,7 @@ public class SeriesEntry implements SeriesEntryMBean {
 	public EntryStatus updateStatus(final EntryStatus status) {
 		EntryStatus tmp = this.status;
 		this.status = status;
+		this.excerpt.write(ChronicleTier.H_STATUS, this.status.byteOrdinal());
 		return this.status!=tmp ? tmp : null; 
 	}
 }

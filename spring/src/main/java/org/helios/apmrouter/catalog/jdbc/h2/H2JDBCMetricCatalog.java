@@ -99,7 +99,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			info("\n\t#############################\n\tMetric Catalog [", getClass().getSimpleName(), "] is REALTIME\n\t#############################\n");
 		}
 		if(chronicleManager!=null) liveTier = chronicleManager.getLiveTier();
-		liveTier.addStatusListener(this);
+		chronicleManager.addStatusListener(this);
 		Connection conn = null;
 		PreparedStatement ps = null;
 		try {

@@ -89,8 +89,6 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	/** The latest period end time in this tier */
 	protected final AtomicLong endPeriod = new AtomicLong(Long.MIN_VALUE);
 	
-	/** A set of {@link EntryStatus} change listeners to be notified when an entry changes state */
-	protected final Set<EntryStatusChangeListener> statusListeners = new CopyOnWriteArraySet<EntryStatusChangeListener>();
 
 	/** The number of values in each series entry */
 	protected static final int SERIES_SIZE_IN_LONGS = 5;
@@ -188,25 +186,6 @@ public class ChronicleTier implements ChronicleTierMXBean {
 		log.info("Initialized tier [" + chronicleName + "] with [" + chronicle.size() + "] entries");
 	}
 	
-	/**
-	 * Registers a new {@link EntryStatusChangeListener}.
-	 * @param statusListener the listener to register
-	 */
-	public void addStatusListener(EntryStatusChangeListener statusListener) {
-		if(statusListener!=null) {
-			statusListeners.add(statusListener);
-		}
-	}
-	
-	/**
-	 * Removes a registered {@link EntryStatusChangeListener}.
-	 * @param statusListener the listener to remove
-	 */
-	public void removeStatusListener(EntryStatusChangeListener statusListener) {
-		if(statusListener!=null) {
-			statusListeners.remove(statusListener);
-		}
-	}
 	
 	/**
 	 * Fires a status change event to all registered listeners through the manager

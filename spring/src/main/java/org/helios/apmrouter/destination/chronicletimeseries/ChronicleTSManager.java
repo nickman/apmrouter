@@ -24,17 +24,37 @@
  */
 package org.helios.apmrouter.destination.chronicletimeseries;
 
+import java.lang.Thread.UncaughtExceptionHandler;
+import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.log4j.Logger;
 import org.helios.apmrouter.catalog.EntryStatus;
+import org.helios.apmrouter.catalog.EntryStatusChangeListener;
 import org.helios.apmrouter.catalog.jdbc.h2.adapters.chronicle.ChronicleTSAdapter;
+import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.tsmodel.Tier;
 import org.helios.apmrouter.tsmodel.TimeSeriesModel;
+import org.helios.apmrouter.util.SystemClock;
+import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedMetric;
+import org.springframework.jmx.export.annotation.ManagedOperation;
+import org.springframework.jmx.support.MetricType;
 
 /**
  * <p>Title: ChronicleTSManager</p>
@@ -58,7 +78,7 @@ import org.springframework.jmx.export.annotation.ManagedAttribute;
  * TODO: Fill-Ins for sticky metrics ?  Physical or implied
  */
 
-public class ChronicleTSManager extends ServerComponentBean {
+public class ChronicleTSManager extends ServerComponentBean implements UncaughtExceptionHandler, Runnable {
 	/** The time series model */
 	private final TimeSeriesModel timeSeriesModel;
 	/** A map of the time-series chronicle-tiers keyed by the tier name */
@@ -73,8 +93,75 @@ public class ChronicleTSManager extends ServerComponentBean {
 	protected int offLinePeriods = 20;
 	/** The offLine window length in ms. */
 	protected long offLineWindowSize = -1L;
+	/** Status check timeout in ms. */
+	protected long statusCheckTimeout = 5000;
+	
+
+	/** Flag indicating if a status check is running */
+	protected final AtomicBoolean statusCheckRunning = new AtomicBoolean(false);
+	/** The manager's worker thread pool */
+	protected ExecutorService threadPool = null;
+	/** The manager's period scheduler */
+	protected ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1, new ThreadFactory(){
+		final AtomicInteger serial = new AtomicInteger(0);
+		@Override
+		public Thread newThread(Runnable r) {
+			Thread t = new Thread(r, "TimeSeriesScheduler#" + serial.incrementAndGet());
+			t.setPriority(Thread.MAX_PRIORITY);
+			t.setDaemon(true);
+			t.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {				
+				@Override
+				public void uncaughtException(Thread t, Throwable e) {
+					error("Uncaught exception in TimeSeries scheduler [", t, "]", e);
+					
+				}
+			});
+			return t;
+		}
+	});
+	
+	/** The number of processing threads to create */
+	protected final int workerThreadCount = ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors();
+	/** A shared latch reference */
+	protected final AtomicReference<CountDownLatch> latch = new AtomicReference<CountDownLatch>(null);
+	/** The worker tasks to execute */
+	protected final StatusCheckWorker[] workers;
+	
+	/** A set of {@link EntryStatus} change listeners to be notified when an entry changes state */
+	protected final Set<EntryStatusChangeListener> statusListeners = new CopyOnWriteArraySet<EntryStatusChangeListener>();
+	
+	/** Long sliding window of the elapsed times in ns. for status checks */
+	protected final ConcurrentLongSlidingWindow statusCheckElapsedNs = new ConcurrentLongSlidingWindow(100); 
+	/** Long sliding window of the number of entries checked in the last status checks */
+	protected final ConcurrentLongSlidingWindow totalEntriesChecked = new ConcurrentLongSlidingWindow(30); 
+	/** Long sliding window of the number of entries set to stale in the last status checks */
+	protected final ConcurrentLongSlidingWindow totalStaleEntries = new ConcurrentLongSlidingWindow(30); 
+	/** Long sliding window of the number of entries set to offline in the last status checks */
+	protected final ConcurrentLongSlidingWindow totalOffLineEntries = new ConcurrentLongSlidingWindow(30); 
+	/** Long sliding window of the number of exceptions in the last status checks */
+	protected final ConcurrentLongSlidingWindow statusExceptions = new ConcurrentLongSlidingWindow(30); 
+	
+	
 	
 	// default ts model = p=15s,t=5m
+	
+	/**
+	 * Sets the thread pool
+	 * @param threadPool the thread pool
+	 */
+	public void setExecutorService(ExecutorService threadPool) {
+		this.threadPool = threadPool;		
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.Thread.UncaughtExceptionHandler#uncaughtException(java.lang.Thread, java.lang.Throwable)
+	 */
+	@Override
+	public void uncaughtException(Thread t, Throwable e) {
+		error("Uncaught exception in TimeSeries worker [", t, "]", e);
+	}
+	
 	
 	/**
 	 * Returns the number of periods in the live tier that marks a metric stale
@@ -148,20 +235,11 @@ public class ChronicleTSManager extends ServerComponentBean {
 	}
 	
 	/**
-	 * Creates a new ChronicleTSManager
-	 * @param timeSeriesConfig The string representation of the time series configuration
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
 	 */
-	public ChronicleTSManager(String timeSeriesConfig) {
-		timeSeriesModel = TimeSeriesModel.create(timeSeriesConfig);
-		tiers = new HashMap<String, ChronicleTier>(timeSeriesModel.getTierCount());
-		List<Tier[]> _tiers = timeSeriesModel.getModelTierPairs();
-		for(int i = _tiers.size()-1; i >= 0; i--) {
-			Tier[] tierPair = _tiers.get(i);
-			ChronicleTier cTier = new ChronicleTier(tierPair[0], tierPair[1]==null ? null : getTier(tierPair[1].getName()), this);
-			tiers.put(tierPair[0].getName(), cTier);			
-		}
-		liveTier = tiers.get("live");
-		if(liveTier==null) throw new IllegalStateException("There was no live tier", new Throwable());
+	@Override
+	protected void doStart() throws Exception {
 		recalcStaleWindowSize();
 		recalcOffLineWindowSize();
 		Thread t = new Thread() {
@@ -179,6 +257,173 @@ public class ChronicleTSManager extends ServerComponentBean {
 		t.setPriority(Thread.MAX_PRIORITY);
 		Runtime.getRuntime().addShutdownHook(t);
 		ChronicleTSAdapter.setCts(this);
+		scheduler.scheduleAtFixedRate(new Runnable(){
+			@Override
+			public void run() {
+				if(!statusCheckRunning.compareAndSet(false, true)) {
+					warn("StatusCheck already running when scheduled fired");
+				} else {
+					runStatusCheck();
+				}
+			}
+		}, liveTier.getPeriodDuration(), liveTier.getPeriodDuration(), TimeUnit.SECONDS);
+		threadPool.execute(new Runnable() {
+			@Override
+			public void run() {
+				statusCheckRunning.set(true);
+				runStatusCheck();
+			}
+		});
+	}
+	
+	/**
+	 * Runs an entry status check on the live tier
+	 */
+	@ManagedOperation(description="Runs an entry status check on the live tier")
+	public void statusCheck() {
+		threadPool.execute(new Runnable() {
+			@Override
+			public void run() {
+				statusCheckRunning.set(true);
+				runStatusCheck();
+			}
+		});
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.Runnable#run()
+	 */
+	@Override
+	public void run() {
+		
+	}
+	
+	/**
+	 * Scans the live tier for stale and off line metrics
+	 */
+	protected void runStatusCheck() {
+		debug("TimeSeries Live Tier Status Check Started");
+		try {
+			CountDownLatch cdl = new CountDownLatch(workerThreadCount);					
+			latch.set(cdl);
+			for(StatusCheckWorker worker: workers) {
+				threadPool.execute(worker);
+			}
+			SystemClock.startTimer();
+			try {
+				if(cdl.await(statusCheckTimeout, TimeUnit.MILLISECONDS)) {
+					long totalUpdates = 0;
+					long totalStales = 0;
+					long totalOffLines = 0;		
+					long totalExceptions = 0;
+					for(StatusCheckWorker worker: workers) {
+						totalUpdates += worker.totalUpdates;
+						totalStales += worker.totalStales;
+						totalOffLines += worker.totalOffLines;
+						totalExceptions += worker.totalInvalidIndexes;
+						totalExceptions += worker.totalExceptions;
+					}
+					totalEntriesChecked.insert(totalUpdates);
+					totalStaleEntries.insert(totalStales);
+					totalOffLineEntries.insert(totalOffLines);
+					statusExceptions.insert(totalExceptions);
+					ElapsedTime et = SystemClock.endTimer();
+					statusCheckElapsedNs.insert(et.elapsedNs);
+					debug("Status check complete in ", et);
+				} else {
+					error("Scheduler thread timed out after [", statusCheckTimeout, "] ms waiting for status check");
+				}
+			} catch (Exception ex) {
+				error("Scheduler thread interrupted while waiting for status check", ex);
+			}
+		} finally {
+			statusCheckRunning.set(false);
+		}
+	}
+	
+	private class StatusCheckWorker implements Runnable {
+		protected final ChronicleTier tier;
+		protected final int indexMod;
+		protected final int workers;
+		protected final Logger log;
+		protected long totalUpdates = 0;
+		protected long totalStales = 0;
+		protected long totalOffLines = 0;
+		protected long totalInvalidIndexes = 0;
+		protected long totalExceptions = 0;
+		
+		/**
+		 * Creates a new StatusCheckWorker
+		 * @param tier The tier that will be checked
+		 * @param indexMod The index mod that this worker handles
+		 * @param workers The total number of workers
+		 */
+		public StatusCheckWorker(ChronicleTier tier, int indexMod, int workers) {
+			super();
+			log =  Logger.getLogger(getClass().getName() + ".#" + indexMod );
+			this.tier = tier;
+			this.indexMod = indexMod;
+			this.workers = workers;
+		}
+		/**
+		 * {@inheritDoc}
+		 * @see java.lang.Runnable#run()
+		 */
+		@Override
+		public void run() {
+			totalUpdates = 0;
+			totalStales = 0;
+			totalOffLines = 0;		
+			totalInvalidIndexes = 0;
+			totalExceptions = 0;
+			try {
+				final long now = SystemClock.time();
+				for(long index = 0; index < tier.getSize(); index++) {
+					if(index%workers == indexMod) {
+						try {
+							EntryStatus status = tier.statusCheck(index, now, staleWindowSize, offLineWindowSize);							
+							totalUpdates++;
+							if(EntryStatus.STALE==status) {
+								totalStales++;
+								log.debug("Metric marked STALE:" + index);
+							} else if(EntryStatus.OFFLINE==status) {
+								totalOffLines++;
+								log.debug("Metric marked OFFLINE:" + index);
+							}
+						} catch (InvalidIndexExcetpion iie) {
+							totalInvalidIndexes++;
+						} catch (Exception ex) {
+							totalExceptions++;
+						}
+					}
+				}
+			} finally {
+				latch.get().countDown();
+			}
+		}
+	}
+	
+	/**
+	 * Creates a new ChronicleTSManager
+	 * @param timeSeriesConfig The string representation of the time series configuration
+	 */
+	public ChronicleTSManager(String timeSeriesConfig) {
+		timeSeriesModel = TimeSeriesModel.create(timeSeriesConfig);
+		tiers = new HashMap<String, ChronicleTier>(timeSeriesModel.getTierCount());
+		List<Tier[]> _tiers = timeSeriesModel.getModelTierPairs();
+		for(int i = _tiers.size()-1; i >= 0; i--) {
+			Tier[] tierPair = _tiers.get(i);
+			ChronicleTier cTier = new ChronicleTier(tierPair[0], tierPair[1]==null ? null : getTier(tierPair[1].getName()), this);
+			tiers.put(tierPair[0].getName(), cTier);			
+		}
+		liveTier = tiers.get("live");
+		if(liveTier==null) throw new IllegalStateException("There was no live tier", new Throwable());
+		workers = new StatusCheckWorker[workerThreadCount];
+		for(int i = 0; i < workerThreadCount; i++) {
+			workers[i] = new StatusCheckWorker(liveTier, i, workerThreadCount); 
+		}
+		
 	}
 	
 	/**
@@ -202,8 +447,15 @@ public class ChronicleTSManager extends ServerComponentBean {
 	 * @param priorState The prior state
 	 * @param newState The new state
 	 */
-	protected void fireEventStatusChangeEvent(long entryId, long timestamp, EntryStatus priorState, EntryStatus newState) {
-		
+	protected void fireEventStatusChangeEvent(final long entryId, final long timestamp, final EntryStatus priorState, final EntryStatus newState) {
+		threadPool.execute(new Runnable() {
+			@Override
+			public void run() {
+				for(EntryStatusChangeListener listener: statusListeners) {
+					listener.onEntryStatusChange(entryId, timestamp, priorState, newState);
+				}
+			}
+		});		
 	}
 	
 	
@@ -228,6 +480,151 @@ public class ChronicleTSManager extends ServerComponentBean {
 		if(ct==null) throw new IllegalArgumentException("The passed tier name [" + name + "] was invalid", new Throwable());
 		return ct;
 	}
+	/**
+	 * Registers a new {@link EntryStatusChangeListener}.
+	 * @param statusListener the listener to register
+	 */
+	public void addStatusListener(EntryStatusChangeListener statusListener) {
+		if(statusListener!=null) {
+			statusListeners.add(statusListener);
+		}
+	}
 	
+	/**
+	 * Removes a registered {@link EntryStatusChangeListener}.
+	 * @param statusListener the listener to remove
+	 */
+	public void removeStatusListener(EntryStatusChangeListener statusListener) {
+		if(statusListener!=null) {
+			statusListeners.remove(statusListener);
+		}
+	}
+
+	/**
+	 * Returns the status check timeout in ms.
+	 * @return the status check timeout in ms.
+	 */
+	@ManagedAttribute(description="The status check timeout in ms.")
+	public long getStatusCheckTimeout() {
+		return statusCheckTimeout;
+	}
+
+	/**
+	 * Sets the status check timeout in ms.
+	 * @param statusCheckTimeout the status check timeout in ms.
+	 */
+	@ManagedAttribute(description="The status check timeout in ms.")
+	public void setStatusCheckTimeout(long statusCheckTimeout) {
+		this.statusCheckTimeout = statusCheckTimeout;
+	}
+	
+	/**
+	 * Returns the elapsed time of the most recent entry status check in ns.
+	 * @return the elapsed time of the most recent entry status check in ns.
+	 */
+	@ManagedMetric(category="ChronicleTimeSeries", displayName="LastStatusCheckTimeNs", metricType=MetricType.GAUGE, description="The elapsed time of the most recent entry status check in ns.")
+	public long getLastStatusCheckTimeNs() {
+		return statusCheckElapsedNs.isEmpty() ? -1L : statusCheckElapsedNs.get(0);
+	}
+	
+	/**
+	 * Returns the rolling average elapsed time of the last 100 status checks in ns.
+	 * @return the rolling average elapsed time of the last 100 status checks in ns.
+	 */
+	@ManagedMetric(category="ChronicleTimeSeries", displayName="AverageStatusCheckTimeNs", metricType=MetricType.GAUGE, description="The rolling average elapsed time of the last 100 status checks in ns.")
+	public long getAverageStatusCheckTimeNs() {
+		return statusCheckElapsedNs.isEmpty() ? -1L : statusCheckElapsedNs.avg();
+	}
+	
+	/**
+	 * Returns the elapsed time of the most recent entry status check in ms.
+	 * @return the elapsed time of the most recent entry status check in ms.
+	 */
+	@ManagedMetric(category="ChronicleTimeSeries", displayName="LastStatusCheckTimeMs", metricType=MetricType.GAUGE, description="The elapsed time of the most recent entry status check in ms.")
+	public long getLastStatusCheckTimeMs() {
+		return TimeUnit.MILLISECONDS.convert(getLastStatusCheckTimeNs(), TimeUnit.NANOSECONDS);
+	}
+	
+	/**
+	 * Returns the rolling average elapsed time of the last 100 status checks in ms.
+	 * @return the rolling average elapsed time of the last 100 status checks in ms.
+	 */
+	@ManagedMetric(category="ChronicleTimeSeries", displayName="AverageStatusCheckTimeMs", metricType=MetricType.GAUGE, description="The rolling average elapsed time of the last 100 status checks in Ms.")
+	public long getAverageStatusCheckTimeMs() {
+		return TimeUnit.MILLISECONDS.convert(getAverageStatusCheckTimeNs(), TimeUnit.NANOSECONDS);
+	}
+	
+	/**
+	 * Returns the number of entries checked in the last status check
+	 * @return the number of entries checked in the last status check
+	 */
+	@ManagedMetric(category="ChronicleTimeSeries", displayName="LastEntriesChecked", metricType=MetricType.GAUGE, description="The the number of entries checked in the last status check")
+	public long getLastEntriesChecked() {
+		return totalEntriesChecked.isEmpty() ? -1L : totalEntriesChecked.get(0);
+	}
+
+	/**
+	 * Returns the rolling average of entries checked in the last 30 status checks
+	 * @return the rolling average of entries checked in the last 30 status checks
+	 */
+	@ManagedMetric(category="ChronicleTimeSeries", displayName="AverageEntriesChecked", metricType=MetricType.GAUGE, description="The the rolling average of entries checked in the last 30 status checks")
+	public long getAverageEntriesChecked() {
+		return totalEntriesChecked.isEmpty() ? -1L : totalEntriesChecked.avg();
+	}
+
+	/**
+	 * Returns the number of stale entries in the last status check
+	 * @return the number of stale entries in the last status check
+	 */
+	@ManagedMetric(category="ChronicleTimeSeries", displayName="LastStaleEntries", metricType=MetricType.GAUGE, description="The the number of stale entries in the last status check")
+	public long getLastStaleEntries() {
+		return totalStaleEntries.isEmpty() ? -1L : totalStaleEntries.get(0);
+	}
+
+	/**
+	 * Returns the rolling average of stale entries in the last 30 status checks
+	 * @return the rolling average of stale entries in the last 30 status checks
+	 */
+	@ManagedMetric(category="ChronicleTimeSeries", displayName="AverageStaleEntries", metricType=MetricType.GAUGE, description="The the rolling average of stale entries in the last 30 status checks")
+	public long getAverageStaleEntries() {
+		return totalStaleEntries.isEmpty() ? -1L : totalStaleEntries.avg();
+	}
+
+	/**
+	 * Returns the number of offline entries in the last status check
+	 * @return the number of offline entries in the last status check
+	 */
+	@ManagedMetric(category="ChronicleTimeSeries", displayName="LastOffLineEntries", metricType=MetricType.GAUGE, description="The the number of offline entries in the last status check")
+	public long getLastOffLineEntries() {
+		return totalOffLineEntries.isEmpty() ? -1L : totalOffLineEntries.get(0);
+	}
+
+	/**
+	 * Returns the rolling average of offline entries in the last 30 status checks
+	 * @return the rolling average of offline entries in the last 30 status checks
+	 */
+	@ManagedMetric(category="ChronicleTimeSeries", displayName="AverageOffLineEntries", metricType=MetricType.GAUGE, description="The the rolling average of offline entries in the last 30 status checks")
+	public long getAverageOffLineEntries() {
+		return totalOffLineEntries.isEmpty() ? -1L : totalOffLineEntries.avg();
+	}
+
+	/**
+	 * Returns the number of status check exceptions in the last status check
+	 * @return the number of status check exceptions in the last status check
+	 */
+	@ManagedMetric(category="ChronicleTimeSeries", displayName="StatusExceptions", metricType=MetricType.GAUGE, description="The the number of statusExceptions in the last status check")
+	public long getLastStatusExceptions() {
+		return statusExceptions.isEmpty() ? -1L : statusExceptions.get(0);
+	}
+
+	/**
+	 * Returns the rolling average of status check exceptions in the last 30 status checks
+	 * @return the rolling average of status check exceptions in the last 30 status checks
+	 */
+	@ManagedMetric(category="ChronicleTimeSeries", displayName="StatusExceptions", metricType=MetricType.GAUGE, description="The the rolling average of statusExceptions in the last 30 status checks")
+	public long getAverageStatusExceptions() {
+		return statusExceptions.isEmpty() ? -1L : statusExceptions.avg();
+	}
+
 
 }

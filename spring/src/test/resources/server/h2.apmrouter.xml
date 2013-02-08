@@ -87,8 +87,24 @@
 		<property name="chronicleManager" ref="chronicleTs" />		
 	</bean>
 	
+	<bean id="TimeSeriesWorkerPool" class="org.helios.apmrouter.util.thread.ManagedThreadPool">
+		<qualifier value="TimeSeriesWorker"/>
+		<constructor-arg>
+			<bean id="TimeSeriesWorker" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+				<property name="corePoolSize" value="5" />
+				<property name="maximumPoolSize" value="10" />
+				<property name="coreThreadsStarted" value="3" />
+				<property name="daemonThreads" value="true" />
+				<property name="fairQueue" value="false" />
+				<property name="queueSize" value="10000" />
+				<property name="keepAliveTime" value="20000" />
+			</bean>
+		</constructor-arg>
+	</bean>
+	
 	<bean id="chronicleTs" class="org.helios.apmrouter.destination.chronicletimeseries.ChronicleTSManager">
 		<constructor-arg value="p=15s,t=5m" />
+		<property name="executorService" ref="TimeSeriesWorkerPool"/>
 	</bean>
 	
 
