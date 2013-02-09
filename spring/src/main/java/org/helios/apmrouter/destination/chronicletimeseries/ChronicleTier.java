@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +41,7 @@ import javax.management.ObjectName;
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.catalog.EntryStatus;
 import org.helios.apmrouter.catalog.EntryStatusChangeListener;
+import org.helios.apmrouter.catalog.EntryStatus.EntryStatusChange;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.tsmodel.Tier;
@@ -189,13 +191,10 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	
 	/**
 	 * Fires a status change event to all registered listeners through the manager
-	 * @param entryId The id of the entry that changed state
-	 * @param timestamp The timestamp of the change in ms.
-	 * @param priorState The prior state
-	 * @param newState The new state
+	 * @param changeMap the map containing the status changes
 	 */
-	protected void fireEventStatusChangeEvent(long entryId, long timestamp, EntryStatus priorState, EntryStatus newState) {
-		manager.fireEventStatusChangeEvent(entryId, timestamp, priorState, newState);
+	protected void fireEventStatusChangeEvent(final Map<EntryStatus, EntryStatusChange> changeMap) {
+		manager.fireEventStatusChangeEvent(changeMap);
 	}
 	
 	
@@ -340,10 +339,14 @@ public class ChronicleTier implements ChronicleTierMXBean {
 		UnsafeExcerpt<IndexedChronicle> ex = createUnsafeExcerpt(metric.getToken());
 		ex.writeLongArray(new long[]{period, period + this.periodDurationMs});
 		ex.writeInt(1);
+		byte priorStatus = ex.readByte(H_STATUS);
 		ex.writeByte(EntryStatus.ACTIVE.byteOrdinal());
 		long value = metric.getLongValue();
 		ex.writeLongArray(new long[]{period, value, value, value, 1});
 		ex.finish();
+		if(priorStatus!=EntryStatus.ACTIVE.byteOrdinal()) {
+			fireEventStatusChangeEvent(EntryStatus.EntryStatusChange.getChangeMap(SystemClock.time(), metric.getMetricId().getToken(), EntryStatus.ACTIVE));
+		}
 	}
 	
 	/**
@@ -364,11 +367,16 @@ public class ChronicleTier implements ChronicleTierMXBean {
 			values[AVG] = tmpTotal==0 ? 0 : tmpTotal/2;
 		}
 		values[CNT]++;
+		byte priorStatus = ex.readByte(H_STATUS);
 		ex.write(H_STATUS, EntryStatus.ACTIVE.byteOrdinal());		
 		ex.writeLongArray(HEADER_OFFSET, values);
 		if(finish) {
 			ex.finish();
 		}
+		if(priorStatus!=EntryStatus.ACTIVE.byteOrdinal()) {
+			fireEventStatusChangeEvent(EntryStatus.EntryStatusChange.getChangeMap(SystemClock.time(), metric.getMetricId().getToken(), EntryStatus.ACTIVE));
+		}
+
 	}
 	
 	/**
@@ -442,13 +450,11 @@ public class ChronicleTier implements ChronicleTierMXBean {
 		if(elapsed >= offLineThreshold) {
 			if(status!=EntryStatus.OFFLINE) {
 				se.updateStatus(EntryStatus.OFFLINE);
-				fireEventStatusChangeEvent(metricId, currentTime, status, EntryStatus.OFFLINE);
 				return EntryStatus.OFFLINE;
 			}
 		} else 	if(elapsed >= staleThreshold) {
 			if(status!=EntryStatus.STALE) {
 				se.updateStatus(EntryStatus.STALE);
-				fireEventStatusChangeEvent(metricId, currentTime, status, EntryStatus.STALE);
 				return EntryStatus.STALE;
 			}
 		}
@@ -482,7 +488,7 @@ public class ChronicleTier implements ChronicleTierMXBean {
 		ex.writeLongArray(HEADER_OFFSET + (seriesIndex * SERIES_SIZE_IN_BYTES), values);
 		if(status!=EntryStatus.ACTIVE) {
 			ex.write(H_STATUS, EntryStatus.ACTIVE.byteOrdinal());
-			fireEventStatusChangeEvent(index, SystemClock.time(), status, EntryStatus.ACTIVE);
+			fireEventStatusChangeEvent(EntryStatus.EntryStatusChange.getChangeMap(SystemClock.time(), index, EntryStatus.ACTIVE));
 		}
 	}
 	

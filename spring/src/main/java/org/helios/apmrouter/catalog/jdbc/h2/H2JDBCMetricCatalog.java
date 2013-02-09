@@ -30,6 +30,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Collection;
 import java.util.HashMap;
@@ -43,7 +44,9 @@ import org.helios.apmrouter.catalog.DChannelEvent;
 import org.helios.apmrouter.catalog.DChannelEventType;
 import org.helios.apmrouter.catalog.EntryStatus;
 import org.helios.apmrouter.catalog.MetricCatalogService;
+import org.helios.apmrouter.catalog.EntryStatus.EntryStatusChange;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
+import org.helios.apmrouter.collections.ConcurrentLongSortedSet;
 import org.helios.apmrouter.collections.LongSlidingWindow;
 import org.helios.apmrouter.destination.chronicletimeseries.ChronicleTSManager;
 import org.helios.apmrouter.destination.chronicletimeseries.ChronicleTier;
@@ -125,10 +128,40 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.catalog.EntryStatusChangeListener#onEntryStatusChange(long, long, org.helios.apmrouter.catalog.EntryStatus, org.helios.apmrouter.catalog.EntryStatus)
+	 * @see org.helios.apmrouter.catalog.EntryStatusChangeListener#onEntryStatusChange(java.util.Map)
 	 */
 	@Override
-	public void onEntryStatusChange(long entryId, long timestamp, EntryStatus priorState, EntryStatus newState) {
+	public void onEntryStatusChange(Map<EntryStatus, EntryStatusChange> changeMap) {
+		Connection conn = null;
+		PreparedStatement ps = null;
+		long start = System.currentTimeMillis();
+		try {
+			conn = ds.getConnection();
+			ps = conn.prepareStatement("UPDATE METRIC SET STATE=?, LAST_SEEN=? WHERE METRIC_ID=?");
+			for(Map.Entry<EntryStatus, EntryStatusChange> entry: changeMap.entrySet()) {
+				byte status = entry.getKey().byteOrdinal();
+				ConcurrentLongSortedSet metricIds = entry.getValue().getMetricIds();
+				Timestamp ts = new Timestamp(entry.getValue().getTimestamp());				
+				for(int i = 0; i < metricIds.size(); i++) {
+					ps.setByte(1, status);
+					ps.setTimestamp(2, ts);
+					ps.setLong(3, metricIds.get(i));
+					ps.addBatch();
+				}
+				ps.executeBatch();
+			}
+			ps.close(); ps = null;
+			conn.close(); conn = null; 
+			long elapsed = System.currentTimeMillis()-start;
+			if("TRACE".equals(getLevel())) {
+				trace(new StringBuilder(EntryStatus.renderStatusCounts(changeMap)).append("\n\tUpdate Elapsed:").append(elapsed).append(" ms."));
+			}
+		} catch (Exception e) {
+			throw new RuntimeException("Exception processing entry status updates", e);
+		} finally {
+			if(ps!=null) try { ps.close(); } catch (Exception e) {/* No Op */}
+			if(conn!=null) try { conn.close(); } catch (Exception e) {/* No Op */}
+		}
 		
 	}
 	

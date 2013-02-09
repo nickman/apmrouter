@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.catalog.EntryStatus;
+import org.helios.apmrouter.catalog.EntryStatus.EntryStatusChange;
 import org.helios.apmrouter.catalog.EntryStatusChangeListener;
 import org.helios.apmrouter.catalog.jdbc.h2.adapters.chronicle.ChronicleTSAdapter;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
@@ -124,6 +125,10 @@ public class ChronicleTSManager extends ServerComponentBean implements UncaughtE
 	protected final int workerThreadCount = ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors();
 	/** A shared latch reference */
 	protected final AtomicReference<CountDownLatch> latch = new AtomicReference<CountDownLatch>(null);
+	/** A shared EntryStatusChange reference */
+	protected final AtomicReference<Map<EntryStatus, EntryStatusChange>> changeCollector = new AtomicReference<Map<EntryStatus, EntryStatusChange>>(null);
+	
+	
 	/** The worker tasks to execute */
 	protected final StatusCheckWorker[] workers;
 	
@@ -305,7 +310,10 @@ public class ChronicleTSManager extends ServerComponentBean implements UncaughtE
 	protected void runStatusCheck() {
 		debug("TimeSeries Live Tier Status Check Started");
 		try {
-			CountDownLatch cdl = new CountDownLatch(workerThreadCount);					
+			
+			CountDownLatch cdl = new CountDownLatch(workerThreadCount);
+			Map<EntryStatus, EntryStatusChange> changeMap = EntryStatusChange.getChangeMap(SystemClock.time());
+			changeCollector.set(changeMap);
 			latch.set(cdl);
 			for(StatusCheckWorker worker: workers) {
 				threadPool.execute(worker);
@@ -314,13 +322,11 @@ public class ChronicleTSManager extends ServerComponentBean implements UncaughtE
 			try {
 				if(cdl.await(statusCheckTimeout, TimeUnit.MILLISECONDS)) {
 					long totalUpdates = 0;
-					long totalStales = 0;
-					long totalOffLines = 0;		
+					long totalStales = changeMap.get(EntryStatus.STALE).getMetricIds().size();
+					long totalOffLines = changeMap.get(EntryStatus.OFFLINE).getMetricIds().size();		
 					long totalExceptions = 0;
 					for(StatusCheckWorker worker: workers) {
 						totalUpdates += worker.totalUpdates;
-						totalStales += worker.totalStales;
-						totalOffLines += worker.totalOffLines;
 						totalExceptions += worker.totalInvalidIndexes;
 						totalExceptions += worker.totalExceptions;
 					}
@@ -328,6 +334,10 @@ public class ChronicleTSManager extends ServerComponentBean implements UncaughtE
 					totalStaleEntries.insert(totalStales);
 					totalOffLineEntries.insert(totalOffLines);
 					statusExceptions.insert(totalExceptions);
+					if((totalStales + totalOffLines)>0) {
+						fireEventStatusChangeEvent(changeMap);
+					}
+
 					ElapsedTime et = SystemClock.endTimer();
 					statusCheckElapsedNs.insert(et.elapsedNs);
 					debug("Status check complete in ", et);
@@ -348,8 +358,6 @@ public class ChronicleTSManager extends ServerComponentBean implements UncaughtE
 		protected final int workers;
 		protected final Logger log;
 		protected long totalUpdates = 0;
-		protected long totalStales = 0;
-		protected long totalOffLines = 0;
 		protected long totalInvalidIndexes = 0;
 		protected long totalExceptions = 0;
 		
@@ -373,10 +381,11 @@ public class ChronicleTSManager extends ServerComponentBean implements UncaughtE
 		@Override
 		public void run() {
 			totalUpdates = 0;
-			totalStales = 0;
-			totalOffLines = 0;		
 			totalInvalidIndexes = 0;
 			totalExceptions = 0;
+			final Map<EntryStatus, EntryStatusChange> changeMap = changeCollector.get();
+			
+
 			try {
 				final long now = SystemClock.time();
 				for(long index = 0; index < tier.getSize(); index++) {
@@ -384,12 +393,8 @@ public class ChronicleTSManager extends ServerComponentBean implements UncaughtE
 						try {
 							EntryStatus status = tier.statusCheck(index, now, staleWindowSize, offLineWindowSize);							
 							totalUpdates++;
-							if(EntryStatus.STALE==status) {
-								totalStales++;
-								log.debug("Metric marked STALE:" + index);
-							} else if(EntryStatus.OFFLINE==status) {
-								totalOffLines++;
-								log.debug("Metric marked OFFLINE:" + index);
+							if(status!=null) {
+								changeMap.get(status).addMetricIds(index);
 							}
 						} catch (InvalidIndexExcetpion iie) {
 							totalInvalidIndexes++;
@@ -442,17 +447,14 @@ public class ChronicleTSManager extends ServerComponentBean implements UncaughtE
 	
 	/**
 	 * Fires a status change event to all registered listeners
-	 * @param entryId The id of the entry that changed state
-	 * @param timestamp The timestamp of the change in ms.
-	 * @param priorState The prior state
-	 * @param newState The new state
+	 * @param changeMap the change map with all the status changes
 	 */
-	protected void fireEventStatusChangeEvent(final long entryId, final long timestamp, final EntryStatus priorState, final EntryStatus newState) {
+	protected void fireEventStatusChangeEvent(final Map<EntryStatus, EntryStatusChange> changeMap) {
 		threadPool.execute(new Runnable() {
 			@Override
 			public void run() {
 				for(EntryStatusChangeListener listener: statusListeners) {
-					listener.onEntryStatusChange(entryId, timestamp, priorState, newState);
+					listener.onEntryStatusChange(changeMap);
 				}
 			}
 		});		

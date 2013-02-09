@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS  PUBLIC.METRIC(
     LEVEL SMALLINT NOT NULL COMMENT 'The number of namespaces in the namespace',
     NAME VARCHAR2(60) COMMENT 'The point of the metric name',
     FIRST_SEEN TIMESTAMP NOT NULL COMMENT 'The first time this metric was seen',
+    STATE TINYINT DEFAULT 0 NOT NULL COMMENT 'The status of this metric (ACTIVE, STALE, OFFLINE) Decode byte with org.helios.apmrouter.destination.chronicletimeseries.EntryStatus',
     LAST_SEEN TIMESTAMP COMMENT 'The last time this metric was seen'
 ) ;       
               
@@ -67,7 +68,7 @@ CREATE ALIAS IF NOT EXISTS HOSTAGENTSTATE FOR "org.helios.apmrouter.catalog.jdbc
 CREATE ALIAS IF NOT EXISTS PARENT FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.parent";
 CREATE ALIAS IF NOT EXISTS ROOT FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.root";
 CREATE ALIAS IF NOT EXISTS ASSIGNED FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.getAssigned";
-
+CREATE ALIAS IF NOT EXISTS STATUS FOR "org.helios.apmrouter.catalog.jdbc.h2.H2StoredProcedure.decode";
 
 -- =============================================================================
 --    New element triggers

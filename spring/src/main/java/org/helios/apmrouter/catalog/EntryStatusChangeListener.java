@@ -24,6 +24,10 @@
  */
 package org.helios.apmrouter.catalog;
 
+import java.util.Map;
+
+import org.helios.apmrouter.catalog.EntryStatus.EntryStatusChange;
+
 /**
  * <p>Title: EntryStatusChangeListener</p>
  * <p>Description: Defines a class that listens on entry status changes for entries in the live tier.</p> 
@@ -35,10 +39,7 @@ package org.helios.apmrouter.catalog;
 public interface EntryStatusChangeListener {
 	/**
 	 * Fired on a change in state of a live tier entry
-	 * @param entryId The id of the entry that changed state
-	 * @param timestamp The timestamp of the change in ms.
-	 * @param priorState The prior state
-	 * @param newState The new state
+	 * @param changeMap map of EntryStatusChanges keyed by the entry status
 	 */
-	public void onEntryStatusChange(long entryId, long timestamp, EntryStatus priorState, EntryStatus newState);
+	public void onEntryStatusChange(Map<EntryStatus, EntryStatusChange> changeMap);
 }

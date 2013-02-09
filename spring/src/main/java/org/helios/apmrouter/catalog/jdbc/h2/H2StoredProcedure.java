@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 import org.h2.tools.SimpleResultSet;
+import org.helios.apmrouter.catalog.EntryStatus;
 
 /**
  * <p>Title: H2StoredProcedure</p>
@@ -53,6 +54,20 @@ public class H2StoredProcedure {
 	private static final int[] ARR_ONE_TWO = {1,2};
 	/** Constant int array of 1, 2 and three */
 	private static final int[] ARR_ONE_TWO_THREE = {1,2,3};
+	
+	/**
+	 * Decodes the passed int to an EntryStatus name
+	 * @param code the into to decode
+	 * @return the status name
+	 */
+	public static String decode(int code) {
+		try {
+			return EntryStatus.forByte((byte)code).name();			
+		} catch (Exception ex) {
+			return "INVALID CODE:" + code;
+		}
+	}
+		
 	
 	/**
 	 * Called when an agent connects or disconnects (or times out)
