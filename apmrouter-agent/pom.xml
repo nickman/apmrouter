@@ -24,7 +24,7 @@
 			<artifactId>junit</artifactId>
 		</dependency>
 		<dependency>
-		  <groupId>org.hyperic</groupId>
+		  <groupId>org.fusesource</groupId>
 		  <artifactId>sigar</artifactId>
 		</dependency>
 	
