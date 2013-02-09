@@ -10,9 +10,9 @@
 		<module>apmrouter-agent</module>		
 		<module>spring</module>
 		<module>jagent</module>
-		<module>codahale</module>
+		<!--module>codahale</module>
 		<module>apmrouter-web</module>
-		<module>apmrouter-cl</module>
+		<module>apmrouter-cl</module-->
   </modules>
 	<properties>
 		<chronicle.version>1.2-SNAPSHOT</chronicle.version>
@@ -291,7 +291,7 @@
 			
 			<!-- SIGAR -->
 		      <dependency>
-			<groupId>org.hyperic</groupId>
+			<groupId>org.fusesource</groupId>
 			<artifactId>sigar</artifactId>
 			<version>${sigar.version}</version>
 		      </dependency>
