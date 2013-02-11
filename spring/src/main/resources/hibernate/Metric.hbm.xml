@@ -49,6 +49,12 @@
                 <comment>The first time this metric was seen</comment>
             </column>
         </property>
+        <property name="state" type="byte" update="false">
+            <column name="STATE" not-null="true">
+                <comment>The state of the metric</comment>
+            </column>
+        </property>
+        
         <property name="lastSeen" type="timestamp">
             <column name="LAST_SEEN" length="23">
                 <comment>The last time this metric was seen</comment>

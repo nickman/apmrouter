@@ -12,7 +12,9 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.zip.GZIPOutputStream;
 
 import org.helios.apmrouter.util.IO;
@@ -125,7 +127,17 @@ public enum MetricType  implements IMetricDataAccessor {
 		return (this==DELTA_COUNTER|| this==DELTA_GAUGE);
 	}
 	
-	
+	/**
+	 * Returns an array of long metric types
+	 * @return an array of long metric types
+	 */
+	public static MetricType[] getLongMetricTypes() {
+		Set<MetricType> set = new HashSet<MetricType>();
+		for(MetricType mt: MetricType.values()) {
+			if(mt.isLong()) set.add(mt);
+		}
+		return set.toArray(new MetricType[set.size()]);
+	}
 	
 	/**
 	 * Decodes the passed ordinal to a MetricType.

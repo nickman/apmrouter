@@ -209,5 +209,11 @@ public class CatalogJSONDataService extends ServerComponentBean {
 		this.marshaller = marshaller;
 	}
 	
+	@JSONRequestHandler(name="metricuri")
+	public void resolveMetricURI(JsonRequest request, Channel channel) {
+		
+	}
+	
+	
 	
 }

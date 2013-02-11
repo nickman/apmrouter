@@ -7,6 +7,7 @@ import java.util.Date;
 
 import javax.management.Notification;
 
+import org.helios.apmrouter.catalog.EntryStatus;
 import org.helios.apmrouter.catalog.jdbc.h2.AbstractTrigger;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -42,21 +43,25 @@ public class Metric implements java.io.Serializable, DomainObject {
 	private String name;
 	@Expose(serialize=false)
 	private Date firstSeen;
+	@SerializedName("state")
+	private byte state;
+	
 	@Expose(serialize=false)
 	private Date lastSeen;
 
 	public Metric() {
 	}
 
-	public Metric(TraceType traceType, Agent agent, int level, Date firstSeen) {
+	public Metric(TraceType traceType, Agent agent, int level, Date firstSeen, byte state) {
 		this.traceType = traceType;
 		this.agent = agent;
 		this.level = level;
 		this.firstSeen = firstSeen;
+		this.state = state;
 	}
 
 	public Metric(TraceType traceType, Agent agent, String namespace, String[] narr, 
-			int level, String name, Date firstSeen, Date lastSeen) {
+			int level, String name, Date firstSeen, byte state, Date lastSeen) {
 		this.traceType = traceType;
 		this.agent = agent;
 		this.namespace = namespace;
@@ -64,6 +69,7 @@ public class Metric implements java.io.Serializable, DomainObject {
 		this.level = level;
 		this.name = name;
 		this.firstSeen = firstSeen;
+		this.state = state;;
 		this.lastSeen = lastSeen;
 	}
 	
@@ -90,8 +96,9 @@ public class Metric implements java.io.Serializable, DomainObject {
 		this.narr = (String[])rowData[4];
 		this.level = (Short)rowData[5];
 		this.name = (String)rowData[6];
-		this.firstSeen = rowData[7]==null ? null : new Date(((java.sql.Timestamp)rowData[7]).getTime());;
-		this.lastSeen = rowData[8]==null ? null : new Date(((java.sql.Timestamp)rowData[8]).getTime());;
+		this.firstSeen = rowData[7]==null ? null : new Date(((java.sql.Timestamp)rowData[7]).getTime());		
+		this.lastSeen = rowData[8]==null ? null : new Date(((java.sql.Timestamp)rowData[8]).getTime());
+		this.state = 0;
 	}
 	
 	
@@ -123,6 +130,19 @@ public class Metric implements java.io.Serializable, DomainObject {
 	public String getNamespace() {
 		return this.namespace;
 	}
+	
+	public EntryStatus getEntryState() {
+		return EntryStatus.forByte(state);
+	}
+	
+	public byte getState() {
+		return state;
+	}
+	
+	public void setState(byte state) {
+		this.state = state;
+	}
+	
 
 	public void setNamespace(String namespace) {
 		this.namespace = namespace;
@@ -181,6 +201,8 @@ public class Metric implements java.io.Serializable, DomainObject {
 		builder.append(agent.getName());
 		builder.append(", host=");
 		builder.append(agent.getHost().getName());
+		builder.append(", level=").append(getLevel());
+		builder.append(", state=").append(getEntryState());
 		builder.append("]");
 		return builder.toString();
 	}

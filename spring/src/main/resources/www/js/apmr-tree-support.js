@@ -161,7 +161,19 @@
 		                    'image' : 'img/chart-folder_16_16.png'
 		                }, valid_children : [ 'metric-folder', 'folder', 'metric' ],
 		                select_node : function(me) {
-		                	console.info("Selected Node:[%o]", me);
+		                	var _path = metricTree.get_path($(me));
+		                	_path.shift();
+		                	var gridKey = _path.join('/');
+		                	$('#metricSearchEntry').val(gridKey);
+//		    				var agentId = $(node).attr('agent');
+//		    				var level = parseInt($(node).attr('level')) +1;
+//		    				var parent = $(node).attr('folder');
+//		    				var parentPrefix = '/' + metricTree.get_path('#' + parentId).slice(4).join('/');
+//		    				//console.info("Populating Level Metrics and Folder [%s]", parent);
+//		    				$.apmr.findLevelMetricsForAgentWithParent(level, agentId, parentPrefix + '%', function(data) {							
+		                	
+		                	console.info("Selected Metric Folder:%o", metricTree.get_path($(me)));
+		                	console.info("Selected Metric Folder:%o", metricTree.get_path($(me), true));
 		                }
 		            },
 		            'folder' : {
@@ -170,7 +182,8 @@
 		                    'image' : 'img/folder_16_16.png'
 		                }, valid_children : [ 'metric-folder', 'folder', 'metric' ],
 		                select_node : function(me) {
-		                	console.info("Selected Node:[%o]", me);
+		                	console.info("Selected Folder:%o", metricTree.get_path($(me)));
+		                	console.info("Selected Folder:%o", metricTree.get_path($(me), true));
 		                }				                
 		            },
 		            'metric' : {

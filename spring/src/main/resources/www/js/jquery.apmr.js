@@ -478,7 +478,14 @@
 		$.apmr.svcOp("catalog", "nq", {name:"metricById", p : {'metricId' : metricId}}, callback || function(data){
 			console.info("metricById Response:%o", data);
 		});										
+	},
+	
+	$.apmr.metricUri = function(uri, callback) {
+		
 	}
+	
+	
+	//  select * from metric where agent_id = 1 and level = 2 and namespace = '/platform=os/resource=netstat'
 	
 	
 	

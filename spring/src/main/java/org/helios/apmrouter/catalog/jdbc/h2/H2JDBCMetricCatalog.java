@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import javax.sql.DataSource;
 
@@ -87,9 +88,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	protected boolean realtime = false;
 	
 	/** Sliding windows of catalog call elapsed times in ns. */
-	protected final LongSlidingWindow elapsedTimesNs = new ConcurrentLongSlidingWindow(15);
-	/** Sliding windows of catalog call elapsed times in ms. */
-	protected final LongSlidingWindow elapsedTimesMs = new ConcurrentLongSlidingWindow(15); 
+	protected final LongSlidingWindow elapsedTimesNs = new ConcurrentLongSlidingWindow(50);
 	
 	
 	/**
@@ -215,6 +214,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	 * @param name The metric name
 	 * @return The metric ID or -1 if one was not found
 	 */
+	@Override
 	public long isAssigned(String host, String agent, String namespace, String name)  {
 		Connection conn = null;
 		CallableStatement cs = null;
@@ -249,7 +249,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 		incr("CallCount");		
 		Connection conn = null;
 		CallableStatement cs = null;		
-		PreparedStatement ps = null;
+		//PreparedStatement ps = null;
 		try {
 			conn = ds.getConnection();
 			cs = realtime ? conn.prepareCall("? = CALL TOUCH(?,?,?,?,?,?)") : conn.prepareCall("? = CALL GET_ID(?,?,?,?,?,?)");
@@ -266,7 +266,6 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			incr("AssignedMetricIDs");
 			ElapsedTime et = SystemClock.endTimer();
 			elapsedTimesNs.insert(et.elapsedNs);
-			elapsedTimesMs.insert(et.elapsedMs);			
 			return id;
 		} catch (Exception e) {
 			error("Failed to get ID for [" , String.format("%s/%s%s:%s", host, agent, namespace, name) , "]", e);
@@ -275,7 +274,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			//throw new RuntimeException("Failed to get ID", e);
 			return 0;
 		} finally {
-			if(ps!=null) try { ps.close(); } catch (Exception e) {/* No Op */}
+			//if(ps!=null) try { ps.close(); } catch (Exception e) {/* No Op */}
 			if(cs!=null) try { cs.close(); } catch (Exception e) {/* No Op */}
 			if(conn!=null) try { conn.close(); } catch (Exception e) {/* No Op */}
 		}
@@ -285,6 +284,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.catalog.MetricCatalogService#touch(java.util.Collection)
 	 */
+	@Override
 	public int touch(Collection<IMetric> metrics) {
 		if(realtime && metrics!=null && !metrics.isEmpty()) {
 			Connection conn = null;
@@ -334,8 +334,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			int agentId = rset.getInt(3);
 			String[] domain = rset.getString(4).split("\\.");
 			ElapsedTime et = SystemClock.endTimer();
-			elapsedTimesNs.insert(et.elapsedNs);
-			elapsedTimesMs.insert(et.elapsedMs);	
+			elapsedTimesNs.insert(et.elapsedNs);			
 			return DChannelEvent.newEvent(connected ? DChannelEventType.IDENT : DChannelEventType.CLOSED, 
 					domain, host, hostId, agent, agentId, 
 					connected ? agentCount==1 : agentCount<1 
@@ -363,6 +362,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	 * @param onlineOnly If true, only lists online hosts
 	 * @return A map of host names keyed by host ID
 	 */
+	@Override
 	public Map<Integer, String> listHosts(boolean onlineOnly) {
 		SystemClock.startTimer();
 		incr("CallCount");		
@@ -378,8 +378,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 				map.put(rset.getInt(2), rset.getString(1));
 			}
 			ElapsedTime et = SystemClock.endTimer();
-			elapsedTimesNs.insert(et.elapsedNs);
-			elapsedTimesMs.insert(et.elapsedMs);
+			elapsedTimesNs.insert(et.elapsedNs);			
 			return map;
 		} catch (Exception e) {
 			error("Failed to list hosts" , e);
@@ -426,8 +425,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	@Override
 	public void resetMetrics() {
 		super.resetMetrics();
-		elapsedTimesNs.clear();
-		elapsedTimesMs.clear();
+		elapsedTimesNs.clear();		
 	}
 	
 	/**
@@ -459,21 +457,21 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	}	
 	
 	/**
-	 * Returns the sliding average elapsed time in ns. of the last 15 catalog calls
-	 * @return the sliding average elapsed time in ns. of the last 15 catalog calls
+	 * Returns the sliding average elapsed time in ns. of the last 50 catalog calls
+	 * @return the sliding average elapsed time in ns. of the last 50 catalog calls
 	 */
-	@ManagedMetric(category="MetricCatalogService", metricType=org.springframework.jmx.support.MetricType.GAUGE, description="The sliding average elapsed time in ns. of the last 15 catalog calls")
+	@ManagedMetric(category="MetricCatalogService", displayName="AverageCallTimeNs", metricType=org.springframework.jmx.support.MetricType.GAUGE, description="The sliding average elapsed time in ns. of the last 50 catalog calls")
 	public long getAverageCallTimeNs() {
 		return elapsedTimesNs.avg();
 	}
 	
 	/**
-	 * Returns the sliding average elapsed time in ms. of the last 15 catalog calls
-	 * @return the sliding average elapsed time in ms. of the last 15 catalog calls
+	 * Returns the sliding average elapsed time in ms. of the last 50 catalog calls
+	 * @return the sliding average elapsed time in ms. of the last 50 catalog calls
 	 */
-	@ManagedMetric(category="MetricCatalogService", metricType=org.springframework.jmx.support.MetricType.GAUGE, description="The sliding average elapsed time in ms. of the last 15 catalog calls")
+	@ManagedMetric(category="MetricCatalogService", displayName="AverageCallTimeMs",  metricType=org.springframework.jmx.support.MetricType.GAUGE, description="The sliding average elapsed time in ms. of the last 50 catalog calls")
 	public long getAverageCallTimeMs() {
-		return elapsedTimesMs.avg();
+		return TimeUnit.MILLISECONDS.convert(getAverageCallTimeNs(), TimeUnit.NANOSECONDS);
 	}	
 	
 

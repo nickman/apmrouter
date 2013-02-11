@@ -6,6 +6,7 @@
 		margin: 0;
 		padding: 0;
 		display: inline-block;
+		vertical-align: middle;
 	}
 	
 	.csubscriber-off {
@@ -16,6 +17,7 @@
 		margin: 0;
 		padding: 0;
 		display: inline-block;
+		vertical-align: middle;
 	}
 
 	.csubscriber-retry {
@@ -25,5 +27,6 @@
 		height: 16px;
 		margin: 0;
 		padding: 0;
-		display: inline-block;		
+		display: inline-block;	
+		vertical-align: middle;	
 	}
