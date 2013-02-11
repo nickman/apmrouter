@@ -46,6 +46,13 @@
       <version>1.26</version>
       <scope>test</scope>
     </dependency>	
+    
+		<!--  Google Guava -->
+		<dependency>
+		  <groupId>com.google.guava</groupId>
+		  <artifactId>guava</artifactId>
+		</dependency>
+    
 	
 		<!--  JFree -->
 		<dependency>

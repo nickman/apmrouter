@@ -10,13 +10,14 @@
 		<module>apmrouter-agent</module>		
 		<module>spring</module>
 		<module>jagent</module>
-		<module>codahale</module>
+		<!--module>codahale</module>
 		<module>apmrouter-web</module>
-		<module>apmrouter-cl</module>
+		<module>apmrouter-cl</module-->
   </modules>
 	<properties>
 		<chronicle.version>1.2-SNAPSHOT</chronicle.version>
 		<json.version>20090211</json.version>
+		<guava.version>11.0.1</guava.version>
 		<slf4j.version>1.6.6</slf4j.version>
 		<log4j.version>1.2.16</log4j.version>
 		<junit.version>4.8.2</junit.version>
@@ -67,7 +68,7 @@
 				<version>${log4j.version}</version>
 			</dependency>
 			  
-			<dependency
+			<dependency>
 				<groupId>org.slf4j</groupId>
 				<artifactId>slf4j-log4j12</artifactId>
 				<version>${slf4j.version}</version>
@@ -237,6 +238,12 @@
 			  <version>${jmx-optiona.version}</version>			  
 			</dependency>
 			
+			<!--  Google Guava -->
+			<dependency>
+			  <groupId>com.google.guava</groupId>
+			  <artifactId>guava</artifactId>
+			  <version>${guava.version}</version>
+			</dependency>
 			
 			
 			
@@ -291,7 +298,7 @@
 			
 			<!-- SIGAR -->
 		      <dependency>
-			<groupId>org.hyperic</groupId>
+			<groupId>org.fusesource</groupId>
 			<artifactId>sigar</artifactId>
 			<version>${sigar.version}</version>
 		      </dependency>
