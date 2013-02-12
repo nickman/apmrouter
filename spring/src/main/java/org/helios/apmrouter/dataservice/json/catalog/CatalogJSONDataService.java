@@ -219,7 +219,7 @@ public class CatalogJSONDataService extends ServerComponentBean {
 		try {
 			String muri = request.getArgument("uri");
 			MetricURI metricUri = MetricURI.getMetricURI(muri);
-			session = sessionFactory.openSession();
+			session = sessionFactory.openSession(new org.helios.apmrouter.catalog.api.impl.DataServiceInterceptor());
 			//Object obj = metricUri.execute(session).toArray(new DomainObject[0]);
 			channel.write(request.response().setContent(metricUri.execute(session)));
 		} catch (Exception ex) {

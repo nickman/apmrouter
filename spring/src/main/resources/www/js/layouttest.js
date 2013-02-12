@@ -47,12 +47,7 @@ function initMain() {
     					console.info("East OnResize");
     					//return true;
     				},
-    				east__onresize_end : function() {
-    					$('#metricDisplayTable').height($('#metricDisplayGrid').height());
-    					$('#metricDisplayTable').width($('#metricDisplayGrid').width());    					    					
-    					console.info("East OnResize End");
-    					//return true;    					
-    				},
+    				east__onresize_end : resizeMetricGrid,
     				
 					north__onresize : function() {
 						metricDisplayLayout.resizeAll();
@@ -105,8 +100,10 @@ function initMain() {
     		        "bCollapse" : true,
     		        "bScrollCollapse": true    		        
     		    }); 
+    			resizeMetricGrid();
     			$('#metricDisplayTable_wrapper').css('height', '100%');
     			$('#metricDisplayTable_wrapper').css('width', '100%');
+    			$('#metricDisplayGrid div.fg-toolbar').css('padding', '0px')
     			var defaultColor = $('#metricSearchEntry').css('background');
     			$('#metricSearchEntry').keydown(function (e) {
     				var target = this;
@@ -141,6 +138,22 @@ function initMain() {
     	
     });
     
+}
+
+function resizeMetricGrid() {
+	var oSettings = metricGrid.fnSettings();
+	var barHeights = 0;
+	$('#metricDisplayGrid div.fg-toolbar').each(function(k,v){
+		barHeights += $(v).height()+2;
+	});
+	console.info("Toolbar:%s", barHeights);
+	$('#metricDisplayGrid thead').each(function(k,v){
+		barHeights += $(v).height()+2;
+	});
+	oSettings.oScroll.sY = $('#metricDisplayGrid').height()-(barHeights);
+	metricGrid.fnDraw();
+	return true;    					
+	
 }
 
 function onSelectedMetricFolder(uri) {
