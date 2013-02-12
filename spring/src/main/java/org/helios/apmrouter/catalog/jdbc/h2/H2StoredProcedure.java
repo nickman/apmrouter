@@ -73,7 +73,7 @@ public class H2StoredProcedure {
 	 * Called when an agent connects or disconnects (or times out)
 	 * @param conn The H2 supplied connection
 	 * @param connected true for a connect, false for a disconnect
-	 * @param host The host name
+	 * @param hostx The host name
 	 * @param ip The host IP address
 	 * @param agent The agent name
 	 * @param agentURI The agent's listening URI
@@ -85,8 +85,10 @@ public class H2StoredProcedure {
 	 * </ol>
 	 * @throws SQLException thrown on any SQL error
 	 */
-	public synchronized static ResultSet hostAgentState(Connection conn, boolean connected, String host, String ip, String agent, String agentURI) throws SQLException {
-		Object[] results = key(conn, "SELECT HOST_ID, AGENTS, DOMAIN FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, DOMAIN, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE_TWO_THREE, host, domain(host), ip);
+	public synchronized static ResultSet hostAgentState(Connection conn, boolean connected, String hostx, String ip, String agent, String agentURI) throws SQLException {
+		String _host = noDomain(hostx);
+		String _domain = domain(hostx);
+		Object[] results = key(conn, "SELECT HOST_ID, AGENTS, DOMAIN FROM HOST WHERE NAME=? AND DOMAIN=?", new Object[]{_host, _domain}, "INSERT INTO HOST (NAME, DOMAIN, IP, FIRST_CONNECTED, LAST_CONNECTED, CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE_TWO_THREE, _host, _domain, ip);
 		int hostId = ((Number)results[0]).intValue();
 		int agentCount = ((Number)results[1]).intValue();
 		String domain = results[2].toString();
@@ -131,9 +133,9 @@ public class H2StoredProcedure {
 		    rs.addRow(agentCount, hostId, agentId, domain);
 		    return rs;			
 		} catch (Exception ex) {
-			throw new SQLException("Failed to touch agentHost State [" + String.format("%s/%s", host, agent) + "]", ex);
+			throw new SQLException("Failed to touch agentHost State [" + String.format("%s/%s/%s", _domain, _host, agent) + "]", ex);
 		} finally {
-			if(ps!=null) try { ps.close(); } catch (Exception ex) {}
+			if(ps!=null) try { ps.close(); } catch (Exception ex) {/* No Op */}
 		}
 	}
 	
@@ -141,7 +143,7 @@ public class H2StoredProcedure {
 	 * Upsert on a metric's last seen timestamp.
 	 * @param conn The h2 provided connection
 	 * @param token The metric ID which may be -1 meaning the metric does not exist yet
-	 * @param host The host name
+	 * @param hostx The host name
 	 * @param agent The agent name
 	 * @param typeId The metric type
 	 * @param namespace The metric namespace
@@ -149,11 +151,13 @@ public class H2StoredProcedure {
 	 * @return the newly assigned metric id if the incoming token was -1, 0 if the metric already existed and was timestamp updated.
 	 * @throws SQLException thrown on any error
 	 */
-	public static long touch(Connection conn, long token, String host, String agent, int typeId, String namespace, String name) throws SQLException {
+	public static long touch(Connection conn, long token, String hostx, String agent, int typeId, String namespace, String name) throws SQLException {
+		String _host = noDomain(hostx);
+		String _domain = domain(hostx);		
 		PreparedStatement ps = null;
 		try {
 			if(token==-1) {
-				long newToken = getID(conn, token, host, agent, typeId, namespace, name);
+				long newToken = getID(conn, token, _domain, _host, agent, typeId, namespace, name);
 				return newToken;
 			}
 			ps = conn.prepareStatement("UPDATE METRIC SET LAST_SEEN = CURRENT_TIMESTAMP WHERE METRIC_ID = ?");
@@ -161,10 +165,45 @@ public class H2StoredProcedure {
 			ps.executeUpdate();
 			return 0;
 		} catch (Exception e) {
-			throw new SQLException("Failed to touch metric [" + String.format("%s/%s%s:%s", host, agent, namespace, name) + "]", e);
+			throw new SQLException("Failed to touch metric [" + String.format("%s/%s/%s%s:%s", _domain, _host, agent, namespace, name) + "]", e);
 		} finally {
-			if(ps!=null && !ps.isClosed()) try { ps.close(); } catch (Exception e) {}
+			if(ps!=null && !ps.isClosed()) try { ps.close(); } catch (Exception e) {/* No Op */}
 		}
+	}
+	
+	/**
+	 * Returns the unique identifier for a metric
+	 * @param conn The h2 provided connection
+	 * @param token The metric ID which may be -1 meaning the metric does not exist yet
+	 * @param domainx The domnain name
+	 * @param hostx The host name
+	 * @param agent The agent name
+	 * @param typeId The metric type
+	 * @param namespace The metric namespace
+	 * @param name The metric name
+	 * @return the assigned ID
+	 * @throws SQLException thrown on any error
+	 */
+	public static long getID(Connection conn, long token, String domainx, String hostx, String agent, int typeId, String namespace, String name) throws SQLException {
+		String _host = noDomain(hostx);
+		String _domain = null;
+		if(domainx==null || domainx.trim().isEmpty()) {
+			_domain = domain(hostx);
+		} else {
+			_domain = domainx;
+		}
+		int hostId = ((Number)key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=? AND DOMAIN=?", new Object[]{_host, _domain}, "INSERT INTO HOST (NAME, DOMAIN, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE, _host, _domain)[0]).intValue();
+		Object[] nums = key(conn, "SELECT AGENT_ID,MIN_LEVEL FROM AGENT WHERE NAME=? AND HOST_ID=?", new Object[]{agent, hostId}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE_TWO, hostId, agent, nsLevel(namespace));
+		int agentId = ((Number)nums[0]).intValue();
+		int agentMinLevel = ((Number)nums[1]).intValue();
+		int nsLevel = nsLevel(namespace);
+		nums = key(conn, "SELECT METRIC_ID FROM METRIC WHERE AGENT_ID=? AND NAMESPACE=? AND NAME=?", new Object[]{agentId, namespace, name}, 
+				"INSERT INTO METRIC (METRIC_ID, AGENT_ID, TYPE_ID, NAMESPACE, NARR, LEVEL, NAME, FIRST_SEEN, LAST_SEEN) VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE, token, agentId, typeId, namespace, nsItems(namespace), nsLevel, name);
+		long metricId = ((Number)nums[0]).longValue();
+		if(nsLevel<agentMinLevel) {
+			setAgentMinLevel(conn, agentId, nsLevel);
+		}
+		return metricId;
 	}
 	
 	/**
@@ -180,41 +219,33 @@ public class H2StoredProcedure {
 	 * @throws SQLException thrown on any error
 	 */
 	public static long getID(Connection conn, long token, String host, String agent, int typeId, String namespace, String name) throws SQLException {
-		
-		int hostId = ((Number)key(conn, "SELECT HOST_ID FROM HOST WHERE NAME=?", new Object[]{host}, "INSERT INTO HOST (NAME, DOMAIN, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE, host, domain(host))[0]).intValue();
-		Object[] nums = key(conn, "SELECT AGENT_ID,MIN_LEVEL FROM AGENT WHERE NAME=? AND HOST_ID=?", new Object[]{agent, hostId}, "INSERT INTO AGENT (HOST_ID, NAME, MIN_LEVEL, FIRST_CONNECTED, LAST_CONNECTED) VALUES (?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE_TWO, hostId, agent, nsLevel(namespace));
-		int agentId = ((Number)nums[0]).intValue();
-		int agentMinLevel = ((Number)nums[1]).intValue();
-		int nsLevel = nsLevel(namespace);
-		nums = key(conn, "SELECT METRIC_ID FROM METRIC WHERE AGENT_ID=? AND NAMESPACE=? AND NAME=?", new Object[]{agentId, namespace, name}, 
-				"INSERT INTO METRIC (METRIC_ID, AGENT_ID, TYPE_ID, NAMESPACE, NARR, LEVEL, NAME, FIRST_SEEN, LAST_SEEN) VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)", ARR_ONE, token, agentId, typeId, namespace, nsItems(namespace), nsLevel, name);
-		long metricId = ((Number)nums[0]).longValue();
-		if(nsLevel<agentMinLevel) {
-			setAgentMinLevel(conn, agentId, nsLevel);
-		}
-		return metricId;
+		return getID(conn, token, null, host, agent, typeId, namespace, name);
 	}
 	
 	/**
 	 * Finds the assigned metric ID for the passed host/agent/name and namespace
 	 * @param conn The connection
-	 * @param host The host name
+	 * @param hostx The host name
 	 * @param agent The agent name
 	 * @param namespace The metric namespace
 	 * @param name The metric name
 	 * @return The metric ID or -1 if one was not found
 	 */
-	public static long getAssigned(Connection conn, String host, String agent, String namespace, String name) {
+	public static long getAssigned(Connection conn, String hostx, String agent, String namespace, String name) {
 		PreparedStatement ps = null;
 		ResultSet rset = null;
+		String _host = noDomain(hostx);
+		String _domain = domain(hostx);		
+		
 		try {
 			ps = conn.prepareStatement("SELECT METRIC_ID FROM METRIC M, AGENT A, HOST H WHERE M.AGENT_ID = A.AGENT_ID AND A.HOST_ID = H.HOST_ID " + 
-					" AND H.NAME = ? AND A.NAME=? AND M.NAME=? and M.NAMESPACE=?"
+					" AND H.NAME = ? AND H.DOMAIN=? AND A.NAME=? AND M.NAME=? and M.NAMESPACE=?"
 			);
-			ps.setString(1, host);
-			ps.setString(2, agent);
-			ps.setString(3, name);
-			ps.setString(4, namespace);
+			ps.setString(1, _host);
+			ps.setString(2, _domain);
+			ps.setString(3, agent);
+			ps.setString(4, name);
+			ps.setString(5, namespace);
 			rset = ps.executeQuery();
 			if(!rset.next()) return -1L;
 			return rset.getLong(1);
@@ -235,7 +266,7 @@ public class H2StoredProcedure {
 			ps.setInt(2, agentId);
 			ps.executeUpdate();
 		} finally {
-			if(ps!=null) try { ps.close(); } catch (Exception ex) {}
+			if(ps!=null) try { ps.close(); } catch (Exception ex) {/* No Op */}
 		}
 	}
 	
@@ -309,6 +340,16 @@ public class H2StoredProcedure {
 		return b.delete(0, b.indexOf(".")+1).reverse().toString();		
 	}
 	
+	/**
+	 * Extracts and returns the unqualified name of the passed host name (i.e. the host without the domain)
+	 * @param fqHostName The (possibly fully qualified) host name 
+	 * @return The unqualified host name
+	 */
+	public static String noDomain(String fqHostName) {
+		int index = fqHostName.lastIndexOf('.');
+		if(index==-1) return fqHostName.trim();
+		return fqHostName.substring(index+1).trim();
+	}
 	
 	/**
 	 * Acquires a key
@@ -348,8 +389,8 @@ public class H2StoredProcedure {
 		} catch (Exception e) {
 			throw new SQLException("Failed to find key for [" + selectSql + "]", e);
 		} finally {
-			if(rset!=null && !rset.isClosed()) try { rset.close(); } catch (Exception e) {}
-			if(ps!=null && !ps.isClosed()) try { ps.close(); } catch (Exception e) {}
+			if(rset!=null && !rset.isClosed()) try { rset.close(); } catch (Exception e) {/* No Op */}
+			if(ps!=null && !ps.isClosed()) try { ps.close(); } catch (Exception e) {/* No Op */}
 		}
 	}
 	
