@@ -164,7 +164,8 @@
 		                	var _path = metricTree.get_path($(me));
 		                	_path.shift();
 		                	var gridKey = _path.join('/');
-		                	$('#metricSearchEntry').val(gridKey);
+		                	onSelectedMetricFolder(gridKey);
+		                	
 //		    				var agentId = $(node).attr('agent');
 //		    				var level = parseInt($(node).attr('level')) +1;
 //		    				var parent = $(node).attr('folder');
@@ -172,8 +173,8 @@
 //		    				//console.info("Populating Level Metrics and Folder [%s]", parent);
 //		    				$.apmr.findLevelMetricsForAgentWithParent(level, agentId, parentPrefix + '%', function(data) {							
 		                	
-		                	console.info("Selected Metric Folder:%o", metricTree.get_path($(me)));
-		                	console.info("Selected Metric Folder:%o", metricTree.get_path($(me), true));
+//		                	console.info("Selected Metric Folder:%o", metricTree.get_path($(me)));
+//		                	console.info("Selected Metric Folder:%o", metricTree.get_path($(me), true));
 		                }
 		            },
 		            'folder' : {

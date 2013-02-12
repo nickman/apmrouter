@@ -196,7 +196,6 @@ public class CatalogJSONDataService extends ServerComponentBean {
 		} finally {
 			if(session!=null && session.isOpen()) try { session.close(); } catch (Exception e) {/* No Op */}
 		}
- 
 	}
 	
 
@@ -209,9 +208,25 @@ public class CatalogJSONDataService extends ServerComponentBean {
 		this.marshaller = marshaller;
 	}
 	
+	/**
+	 * Processes the resolution of a client supplied {@link MetricURI} into a list of matching metrics
+	 * @param request The JSON request
+	 * @param channel The channel to write the response to
+	 */
 	@JSONRequestHandler(name="metricuri")
 	public void resolveMetricURI(JsonRequest request, Channel channel) {
-		
+		Session session = null;
+		try {
+			String muri = request.getArgument("uri");
+			MetricURI metricUri = MetricURI.getMetricURI(muri);
+			session = sessionFactory.openSession();
+			//Object obj = metricUri.execute(session).toArray(new DomainObject[0]);
+			channel.write(request.response().setContent(metricUri.execute(session)));
+		} catch (Exception ex) {
+			error("Failed to resolve MetricURI [" + request + "]", ex);
+		} finally {
+			if(session!=null && session.isOpen()) try { session.close(); } catch (Exception e) {/* No Op */}
+		}
 	}
 	
 	

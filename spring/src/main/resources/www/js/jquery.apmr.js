@@ -481,7 +481,10 @@
 	},
 	
 	$.apmr.metricUri = function(uri, callback) {
-		
+		var _uri = uri;
+		$.apmr.svcOp("catalog", "metricuri", {'uri' : uri}, callback || function(data){
+			console.info("MetricURI [%s] Response:%o", _uri, data);
+		});												
 	}
 	
 	

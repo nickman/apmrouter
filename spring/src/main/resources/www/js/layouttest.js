@@ -1,5 +1,14 @@
 var topLayouts = {};
-var metricDisplayGrid = null;
+var metricGrid = null;
+var metricGridColumnModel = [
+                 			{ "sTitle": "MetricId", "bVisible":    false },                             
+                			{ "sTitle": "Domain" },
+                			{ "sTitle": "Host" },                			
+                			{ "sTitle": "Agent" },
+                			{ "sTitle": "Namespace" },
+                			{ "sTitle": "Name" }
+                ];
+
 function initMain() {
     $(document).ready(function() {
     	addThemeSwitcher();
@@ -19,24 +28,52 @@ function initMain() {
     			topLayouts.metricLayout = $('#metricLayout').layout();
     			topLayouts.metricDisplayLayout = $('#metricDisplayLayout').layout({    				
     				//center__onresize : "metricDisplayLayout.resizeAll",
+    				center__onresize : function() {
+    					console.info("Center OnResize");
+    					//return true;    					
+    				},
+    				center__onresize_end : function() {
+    					//metricDisplayLayout.resizeAll();
+    					//$('#metricDisplayTable').height($('#metricDisplayGrid').height());
+    					//$('#metricDisplayTable').width($('#metricDisplayGrid').width());    					
+    					console.info("Center OnResize End");
+    					//return true;
+    				},
     				east__onresize : function() {
     					metricDisplayLayout.resizeAll();
-    	    			metricDisplayGrid.setGridHeight($('#metricDisplayGrid').height()-25, true);
-    	    			metricDisplayGrid.setGridWidth($('#metricDisplayGrid').width()-10, true);
-    					
-    					console.info("East Resized");
-    					return true;    					
+    					$('#metricDisplayTable').height($('#metricDisplayGrid').height());
+    					$('#metricDisplayTable').width($('#metricDisplayGrid').width());
+    					metricGrid.fnDraw();
+    					console.info("East OnResize");
+    					//return true;
     				},
+    				east__onresize_end : function() {
+    					$('#metricDisplayTable').height($('#metricDisplayGrid').height());
+    					$('#metricDisplayTable').width($('#metricDisplayGrid').width());    					    					
+    					console.info("East OnResize End");
+    					//return true;    					
+    				},
+    				
 					north__onresize : function() {
 						metricDisplayLayout.resizeAll();
-						console.info("North Resized");
+						console.info("North OnResize");
+						//return true;
 					},
+					north__onresize_end : function() {
+						metricDisplayLayout.resizeAll();
+						console.info("North OnResize End");
+						//return true;
+					},
+					
     				south__onresize : function() {
     					metricDisplayLayout.resizeAll();
-    					console.info("South Resized");
+    					console.info("South OnResize");
+    					//return true;
     				},
-    				south__onresize_end : function() {},
-    				east__onresize_end : function() {
+    				south__onresize_end : function() {
+    					//metricDisplayLayout.resizeAll();
+    					console.info("South OnResize End");
+    					//return true;    					
     				},
     			
     				center__spacing_closed: 0,
@@ -56,56 +93,27 @@ function initMain() {
     					$("#metricLayout").css("cursor", "default");
     				}, 3000);
     			});
-    			metricDisplayGrid = $("#metricDisplayTable").jqGrid({    			   	
-    				datatype: "json",
-    			   	//colNames:['Inv No','Date', 'Client', 'Amount','Tax','Total','Notes'],
-    			   	colNames:['Time','Domain', 'Host', 'Agent', 'Namespace', 'Name', 'Min', 'Max', 'Avg', 'Cnt'],
-    			   	colModel:[
-    			   		{name:'Time',index:'time', width:55},
-    			   		{name:'Domain',index:'domain', width:90},
-    			   		{name:'Host',index:'host', width:100},
-    			   		{name:'Agent',index:'agent', width:80, align:"right"},
-    			   		{name:'NS',index:'ns', width:80, align:"right"},		
-    			   		{name:'Name',index:'name', width:80,align:"right"},		
-    			   		{name:'Min',index:'min', width:15},		
-    			   		{name:'Max',index:'max', width:15},
-    			   		{name:'Avg',index:'avg', width:15},
-    			   		{name:'Cnt',index:'cnt', width:15}
-    			   	],
-    			   	rowNum:1,
-    			   	//rowList:[10,20,30],
-    			   	//pager: '#metricDisplayPager',
-    			   	sortname: 'id',
-    			    viewrecords: true,
-    			    sortorder: "desc"
-    			});    			
-    			$('#metricDisplayGrid')
-    			metricDisplayGrid.setGridHeight($('#metricDisplayGrid').height()-25, true);
-    			metricDisplayGrid.setGridWidth($('#metricDisplayGrid').width()-10, true);
-//    			$('#metricDisplayLayout').resize( function(e){
-//    				console.info("Resized jqGrid:%s,%s,%o",$('#metricDisplayLayout').width(), $('#metricDisplayLayout').height(), e);
-//    				metricDisplayGrid.setGridHeight($('#metricDisplayGrid').height()-2, true);
-//        			metricDisplayGrid.setGridWidth($('#metricDisplayGrid').width()-2, true);
-//        			
-//    			});
-    			/*
-    			metricDisplayGrid.setGridWidth(parseInt($('#metricDisplayGrid').width())-10, true);
-    			$('window').bind('resize', function(e){
-    				metricDisplayGrid.setGridWidth(parseInt($('#metricDisplayGrid').width())-10, true);
-    				console.info("Resized jqGrid");
-    			});
-    			*/
     			
-    			//$('#tab0').height($('#tab0').parent().parent().height() - parseInt($('#tab0').parent().parent().children('ul').height()));
-    			
-    			// //$("#metricBrowserGrid").jqGrid('addRowData',v.fqn, v);
+    			metricGrid = $('#metricDisplayTable').dataTable({
+    		        "bJQueryUI": true,
+    		        "sPaginationType": "full_numbers",
+    		        "aoColumns" : metricGridColumnModel,
+    		        "bInfo" : true,
+    		        "bPaginate" : false,
+    		        "bSort" : true,
+    		        "sScrollY": "90px",
+    		        "bCollapse" : true,
+    		        "bScrollCollapse": true    		        
+    		    }); 
+    			$('#metricDisplayTable_wrapper').css('height', '100%');
+    			$('#metricDisplayTable_wrapper').css('width', '100%');
     			var defaultColor = $('#metricSearchEntry').css('background');
     			$('#metricSearchEntry').keydown(function (e) {
     				var target = this;
     				var subscribedColor = '#FFF68F'; 
     				
     				if (e.keyCode == 13) {
-    					metricDisplayGrid.clearGridData();
+    					metricGrid.clearGridData();
     					var expr = $("#metricSearchEntry").val();
     					$.cookie('metric_browser.gridMaskInput', expr, { expires: 365 });
     					// Retrieve Latest
@@ -133,7 +141,26 @@ function initMain() {
     	
     });
     
-    function handleMetricSearchAutoComplete(request, response) {
-    	
-    }
 }
+
+function onSelectedMetricFolder(uri) {
+	console.info("Processing URI [%s]", uri);
+	$('#metricSearchEntry').val(uri);
+	$.apmr.metricUri(uri, function(data) {
+		metricGrid.fnClearTable();
+		console.info("Refreshing Grid with [%s] Records. First Record:[%o]", data.msg.length, data.msg[0]);
+		$.each(data.msg, function(index, metric){
+			metricGrid.fnAddData([
+			   metric.id,
+			   metric.ag.host.domain,
+			   metric.ag.host.name,
+			   metric.ag.name,
+			   metric.ns,
+			   metric.name
+			]);			
+		});
+//		console.info("============== DATA ==============");
+//		console.dir(data);
+	});
+}
+

@@ -27,20 +27,23 @@ package org.helios.apmrouter.dataservice.json.catalog;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.regex.Pattern;
 
+import org.helios.apmrouter.cache.CacheStatistics;
 import org.helios.apmrouter.catalog.domain.Metric;
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.metric.MetricType;
+import org.hibernate.Session;
 import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.criterion.Restrictions;
 
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheStats;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 
 /**
  * <p>Title: MetricURI</p>
@@ -125,9 +128,9 @@ public class MetricURI {
 	/** The default max cache size */
 	public static final long DEFAULT_METRIC_URI_CACHE_MAXSIZE = 500;
 	/** A cache of MetricURIs keyed by the string value of the URI */
-	private static Cache<String, MetricURI> metricURICache;
+	private static LoadingCache<String, MetricURI> metricURICache;
 	/** The cache stats for the metricURICache */
-	private static final CacheStats cacheStats;
+	private static final CacheStatistics cacheStatistics;
 	// =======================================================================
 	
 	
@@ -138,10 +141,16 @@ public class MetricURI {
 			longCodes[i] = longTypes[i].ordinal();
 		}
 		DEFAULT_TYPES = longCodes;
-		metricURICache = CacheBuilder.newBuilder()
+		metricURICache = CacheBuilder.newBuilder().softValues().recordStats()
 				.maximumSize(ConfigurationHelper.getLongSystemThenEnvProperty(METRIC_URI_CACHE_MAXSIZE_PROP, DEFAULT_METRIC_URI_CACHE_MAXSIZE))
-				.build();
-		cacheStats = metricURICache.stats();
+				.build(new CacheLoader<String, MetricURI>(){
+					@Override
+					public MetricURI load(String key) throws Exception {
+						return new MetricURI(key);
+					}					
+				});
+		cacheStatistics = new CacheStatistics(metricURICache, "MetricURI");
+		cacheStatistics.register();
 	}
 	
 	/**
@@ -166,13 +175,8 @@ public class MetricURI {
 	public static MetricURI getMetricURI(final URI uri) {
 		if(uri==null) throw new RuntimeException("The passed URI was null", new Throwable());
 		final String key = uri.toString().trim();
-		try {
-			return metricURICache.get(key, new Callable<MetricURI>(){
-				@Override
-				public MetricURI call() throws Exception {
-					return new MetricURI(uri);
-				}
-			});
+		try {			
+			return metricURICache.get(key);
 		} catch (Exception ex) {
 			throw new RuntimeException("Failed to create MetricURI for [" + uri + "]", ex);
 		}
@@ -291,6 +295,11 @@ public class MetricURI {
 		return defaultValue;
 	}
 	
+	/**
+	 * Generates a hibernate detached criteria for the passed MetricURI
+	 * @param metricUri The MetricURI 
+	 * @return the detached criteria
+	 */
 	protected static DetachedCriteria generateCriteria(MetricURI metricUri) {
 		DetachedCriteria criteria = DetachedCriteria.forClass(Metric.class)
 				.createAlias("agent", "a")
@@ -339,99 +348,89 @@ public class MetricURI {
 	public DetachedCriteria getDetachedCriteria() {
 		return this.detachedCriteria;
 	}
+	
+	/**
+	 * Executes the MetricURI's detached criteria and returns a list of matching metrics
+	 * @param session A hibernate session to execute with
+	 * @return a list of matching metrics
+	 */
+	@SuppressWarnings("unchecked")
+	public List<Metric> execute(Session session) {
+		return detachedCriteria.getExecutableCriteria(session).list();
+	}
 
+	/**
+	 * Returns the underlying URI that represents this MetricURI
+	 * @return the underlying URI that represents this MetricURI
+	 */
 	public URI getMetricUri() {
 		return metricUri;
 	}
 
+	/**
+	 * Returns the metric domain 
+	 * @return the metric domain
+	 */
 	public String getDomain() {
 		return domain;
 	}
 
+	/**
+	 * Returns the metric host 
+	 * @return the metric host
+	 */
 	public String getHost() {
 		return host;
 	}
 
+	/**
+	 * Returns the metric agent 
+	 * @return the metric agent
+	 */
 	public String getAgent() {
 		return agent;
 	}
 
+	/**
+	 * Returns the metric namespace
+	 * @return the metric namespace
+	 */
 	public String getNamespace() {
 		return namespace;
 	}
 
-	public boolean isRecursive() {
-		return recursive;
-	}
 
+	/**
+	 * Returns the maximum depth to recurse from the starting point
+	 * @return the maximum depth to recurse 
+	 */
 	public int getMaxDepth() {
 		return maxDepth;
 	}
 
+	/**
+	 * Returns the metric name specified in the URI
+	 * @return the metric name
+	 */
 	public String getMetricName() {
 		return metricName;
 	}
 
+	/**
+	 * Returns an array of the metric type ordinals specified in the URI
+	 * @return an array of the metric type ordinals
+	 */
 	public int[] getMetricType() {
 		return metricType;
 	}
 
+	/**
+	 * Returns an array of the metric status ordinals specified in the URI
+	 * @return an array of the metric status ordinals
+	 */
 	public int[] getMetricStatus() {
 		return metricStatus;
 	}
-	// =======================================================================
-	//    MetricURI cache stats
-	// =======================================================================
 	
-	public static class MetricURICache {
-
-		public long requestCount() {
-			return cacheStats.requestCount();
-		}
-	
-		public long hitCount() {
-			return cacheStats.hitCount();
-		}
-	
-		public double hitRate() {
-			return cacheStats.hitRate();
-		}
-	
-		public long missCount() {
-			return cacheStats.missCount();
-		}
-	
-		public double missRate() {
-			return cacheStats.missRate();
-		}
-	
-		public long loadCount() {
-			return cacheStats.loadCount();
-		}
-	
-		public long loadSuccessCount() {
-			return cacheStats.loadSuccessCount();
-		}
-	
-		public long loadExceptionCount() {
-			return cacheStats.loadExceptionCount();
-		}
-	
-		public double loadExceptionRate() {
-			return cacheStats.loadExceptionRate();
-		}
-	
-		public long totalLoadTime() {
-			return cacheStats.totalLoadTime();
-		}
-	
-		public double averageLoadPenalty() {
-			return cacheStats.averageLoadPenalty();
-		}
-	
-		public long evictionCount() {
-			return cacheStats.evictionCount();
-		}
-	}
 
 }
