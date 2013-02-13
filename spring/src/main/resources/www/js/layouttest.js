@@ -22,6 +22,7 @@ function initMain() {
     			}	        			
     		}
     	); 
+    	addTreeTooltipListener();
     	$('#top-toolbar').children().css('vertical-align', 'middle');
     	$('#maintabs').tabs({
     		show: function() {
@@ -152,7 +153,8 @@ function initMain() {
     						$(this).toggleClass('selectedGridMetricEven'); 
     						$(this).toggleClass('even');    						
     					}
-    					$(this).toggleClass('selectedGridMetric')
+    					$(this).toggleClass('selectedGridMetric');
+    					ChartModel.find($(this).data('metric').id, function(model){model.renderChart({'auto' : true});});
     					
     				}
     				$(this).toggleClass('selectedGridMetric');
@@ -217,22 +219,42 @@ function onSelectedMetricFolder(uri) {
 					.attr('col', colId);
 					//.data('metricId', metricData.msg[rowId].ns); //data.msg[rowId-1].id
 				});				
-			} else {
-				console.info("Skipping row [%s]", k);
 			}
 		});
-//		console.info("============== DATA ==============");
-//		console.dir(data);
 	});
 }
 
-/*
-var metricGridColumnModel = [
-	{ "sTitle": "MetricId", "bVisible":    false },                             
-{ "sTitle": "Domain" },
-{ "sTitle": "Host" },                			
-{ "sTitle": "Agent" },
-{ "sTitle": "Namespace" },
-{ "sTitle": "Name" }
-];
-*/
+function addTreeTooltipListener() {
+	$('#metricTree ins.jstree-icon').livequery(
+		// registers a tooltip
+		function(){			
+			var target = $(this);
+			var path = metricTree.get_path(target.parent('li[rel]').first());
+			//target = target.parent('a[href="#"]').first();
+			if(path!=false) {
+				path.shift();
+				if(path.length>0) {					
+					var txt = path.join("/");
+//					var iconSrc = target.children('a[href="#"]').first().children('ins.jstree-icon').css('background-image');
+//					iconSrc = iconSrc.replace('url(', '').replace(')','');
+					console.info("Registering tooltip for [%s]", txt);
+					target.tooltip({
+//						extraClass: 'ui-tooltip',
+						bodyHandler: function() {
+							var t = target;
+							var iconSrc = t.parent().children('a[href="#"]').first().children('ins.jstree-icon').css('background-image');
+							iconSrc = iconSrc.replace('url(', '').replace(')','');
+							
+						     return $("<div><p style='vertical-align: middle; display: inline-block;'>" + txt + "</p>&nbsp;<img style='vertical-align: middle; display: inline-block;' src='" + iconSrc + "'></img></div>").css('background-image', iconSrc).css('display', 'block').css('display', 'inline-block').css('vertical-align', 'middle');
+//							return $("<div>" + txt + "</div>");
+						}
+					});					
+				}
+			}
+			
+		}, 
+		// noop ?
+		function(){
+		}
+	);
+}

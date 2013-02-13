@@ -73,6 +73,7 @@ public class Agent {
 	 * @param args One parameter processed which is the URL to an XML config
 	 */
 	public static void main(String[] args)  {
+		final long start = System.currentTimeMillis();
 		appendToBootClassPath();
 		installBoostrapInstrumentation();
 		coreClassLoader = getIsolatedClassLoader();
@@ -84,7 +85,12 @@ public class Agent {
 			//Class<?> bootClass = Class.forName(BOOT_CLASS);
 			Method method = bootClass.getDeclaredMethod("boot", URLClassLoader.class, String.class, Instrumentation.class);
 			method.invoke(null, args.length==0 ? null : Thread.currentThread().getContextClassLoader(), args[0], instrumentation);
-			log("\n\t=============================\n\tAPMRouter JavaAgent v " + version(Agent.class) + " Successfully Started\n\t=============================\n");
+			final long elapsed = System.currentTimeMillis()-start;
+			log("\n\t=============================================================================" 
+					+ "\n\tAPMRouter JavaAgent v " + version(Agent.class) + " Successfully Started"
+					+ "\n\tCurrent Server URI:" + System.getProperty("org.helios.apmrouter.uri", "udp://localhost:2094") 
+					+ "\n\tAgent start time:" + elapsed + " ms"
+					+ "\n\t=============================================================================\n");
 		} catch (Exception e) {
 			System.err.println("Failed to load apmrouter java-agent core. Stack trace follows:");
 			e.printStackTrace(System.err);

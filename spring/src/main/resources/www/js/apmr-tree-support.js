@@ -183,8 +183,8 @@
 		                    'image' : 'img/folder_16_16.png'
 		                }, valid_children : [ 'metric-folder', 'folder', 'metric' ],
 		                select_node : function(me) {
-		                	console.info("Selected Folder:%o", metricTree.get_path($(me)));
-		                	console.info("Selected Folder:%o", metricTree.get_path($(me), true));
+//		                	console.info("Selected Folder:%o", metricTree.get_path($(me)));
+//		                	console.info("Selected Folder:%o", metricTree.get_path($(me), true));
 		                }				                
 		            },
 		            'metric' : {
