@@ -98,7 +98,11 @@ function initMain() {
     		        "bSort" : true,
     		        "sScrollY": "90px",
     		        "bCollapse" : true,
-    		        "bScrollCollapse": true    		        
+    		        "bScrollCollapse": true,
+    		        "sRowSelect": "multi"
+    		        
+    		        
+    		        	
     		    }); 
     			resizeMetricGrid();
     			$('#metricDisplayTable_wrapper').css('height', '100%');
@@ -125,6 +129,35 @@ function initMain() {
     				}
     				
     			});
+//    			$('#metricDisplayTable tr').click( function() {
+//    		        $(this).toggleClass('row_selected');
+//    		    });    			
+    			$('#metricDisplayTable tbody tr').live('click', function (data) {
+    				if($(this).hasClass('selectedGridMetric')) {
+    					// UN-SELECTING
+    					if($(this).hasClass('selectedGridMetricOdd')) {
+    						$(this).toggleClass('selectedGridMetricOdd'); 
+    						$(this).toggleClass('odd');
+    					} else {
+    						$(this).toggleClass('selectedGridMetricEven'); 
+    						$(this).toggleClass('even');    						
+    					}
+    					$(this).toggleClass('selectedGridMetric')
+    				} else {
+    					// SELECTING
+    					if($(this).hasClass('odd')) {
+    						$(this).toggleClass('selectedGridMetricOdd'); 
+    						$(this).toggleClass('odd');
+    					} else {
+    						$(this).toggleClass('selectedGridMetricEven'); 
+    						$(this).toggleClass('even');    						
+    					}
+    					$(this).toggleClass('selectedGridMetric')
+    					
+    				}
+    				$(this).toggleClass('selectedGridMetric');
+    				console.info("===== Clicked Row  ===== [%o]", data.srcElement);
+    			});    			
     		}
     	});
     	$( "#metricSearchEntry" ).autocomplete({
@@ -159,7 +192,9 @@ function resizeMetricGrid() {
 function onSelectedMetricFolder(uri) {
 	console.info("Processing URI [%s]", uri);
 	$('#metricSearchEntry').val(uri);
+	var metricData = null;
 	$.apmr.metricUri(uri, function(data) {
+		metricData = data;
 		metricGrid.fnClearTable();
 		console.info("Refreshing Grid with [%s] Records. First Record:[%o]", data.msg.length, data.msg[0]);
 		$.each(data.msg, function(index, metric){
@@ -172,8 +207,32 @@ function onSelectedMetricFolder(uri) {
 			   metric.name
 			]);			
 		});
+		$('#metricDisplayTable tr').each(function(k,v){
+			var rowId = k-1;
+			if(rowId>=0) {
+				$(v).data('metric', metricData.msg[rowId]);
+				$(v).children('td').each(function(colId, col){					
+					$(col).attr('id', 'row-' + rowId + '-col-' + colId)
+					.attr('row', rowId)
+					.attr('col', colId);
+					//.data('metricId', metricData.msg[rowId].ns); //data.msg[rowId-1].id
+				});				
+			} else {
+				console.info("Skipping row [%s]", k);
+			}
+		});
 //		console.info("============== DATA ==============");
 //		console.dir(data);
 	});
 }
 
+/*
+var metricGridColumnModel = [
+	{ "sTitle": "MetricId", "bVisible":    false },                             
+{ "sTitle": "Domain" },
+{ "sTitle": "Host" },                			
+{ "sTitle": "Agent" },
+{ "sTitle": "Namespace" },
+{ "sTitle": "Name" }
+];
+*/

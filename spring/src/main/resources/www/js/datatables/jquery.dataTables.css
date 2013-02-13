@@ -219,3 +219,19 @@ table.dataTable thead td:active {
 	-webkit-overflow-scrolling: touch;
 }
 
+/*
+table.display tr.even.row_selected td {
+	background-color: #B0BED9;
+}
+
+table.display tr.odd.row_selected td {
+	background-color: #9FAFD1;
+}
+*/
+
+.selectedGridMetricOdd {
+	background-color: #F6F209;	
+}
+.selectedGridMetricEven {
+	background-color: #F6F209;	
+}
