@@ -445,7 +445,6 @@ public class MetricURI {
 	 * @param timeout Set a timeout for the underlying JDBC query in seconds
 	 * @return a list of matching metrics
 	 */
-	@SuppressWarnings("unchecked")
 	public List<Metric> execute(Session session, int timeout) {
 		return detachedCriteria.getExecutableCriteria(session).setTimeout(timeout).list();
 	}
@@ -454,8 +453,7 @@ public class MetricURI {
 	 * Executes the MetricURI's detached criteria and returns a list of matching metrics with no timeout
 	 * @param session A hibernate session to execute with
 	 * @return a list of matching metrics
-	 */
-	@SuppressWarnings("unchecked")
+	 */	
 	public List<Metric> execute(Session session) {
 		return detachedCriteria.getExecutableCriteria(session).list();
 	}	
