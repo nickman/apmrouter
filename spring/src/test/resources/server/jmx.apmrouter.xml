@@ -39,12 +39,17 @@
 	</bean>
 	
 	<bean id="gconsole" class="org.helios.apmrouter.GroovyService" />
+	
+	<bean id="liveBeansView" class="org.springframework.context.support.LiveBeansView"/>
+		
+	
 
 	 
 	<bean id="exporter" class="org.springframework.jmx.export.MBeanExporter">
 		<property name="beans">
 			<map>
 				<entry key="org.helios.jmx:service=JMXConnectorServer,protocol=rmi" value-ref="MBeanServerConnector" />				
+				<entry key="DefaultDomain:application=/APMRouterServer" value-ref="liveBeansView" />
 			</map>
 		</property>
 		<property name="server" ref="MBeanServer" />

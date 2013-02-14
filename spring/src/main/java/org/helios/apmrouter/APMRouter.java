@@ -35,6 +35,7 @@ import java.util.Set;
 import org.apache.log4j.Logger;
 import org.apache.log4j.xml.DOMConfigurator;
 import org.helios.apmrouter.spring.ctx.ApplicationContextService;
+import org.helios.apmrouter.spring.ctx.NamedGenericXmlApplicationContext;
 import org.helios.apmrouter.util.io.ConfigurableFileExtensionFilter;
 import org.helios.apmrouter.util.io.RecursiveDirectorySearch;
 import org.springframework.context.support.GenericXmlApplicationContext;
@@ -57,7 +58,7 @@ public class APMRouter {
 	public static final String ROOT_DISPLAY_NAME = "APMRouterRootAppCtx";
 	
 	/** The booted spring context */
-	private static GenericXmlApplicationContext appContext = null;
+	private static NamedGenericXmlApplicationContext appContext = null;
 	/** The main thread, when interrupted shuts down the server */
 	private static Thread MAIN_THREAD = null;
 	
@@ -129,8 +130,9 @@ public class APMRouter {
 			if(log4jUrl!=null) {
 				System.out.println("Loading log4j config from [" + log4jUrl + "]");
 			}
-			appContext = new GenericXmlApplicationContext();
+			appContext = new NamedGenericXmlApplicationContext();
 			appContext.setDisplayName(ROOT_DISPLAY_NAME);
+			appContext.setApplicationName("APMRouterServer");
 			appContext.load(configFiles);
 			ApplicationContextService.register(appContext);
 			appContext.refresh();			
