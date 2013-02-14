@@ -25,6 +25,7 @@
 package org.helios.apmrouter.dataservice.json.catalog;
 
 import java.net.URI;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -101,13 +102,13 @@ public class MetricURI {
 	public static final Pattern PATH_PARSER = Pattern.compile("/");
 	/** The comma parser */
 	public static final Pattern COM_PARSER = Pattern.compile(",");
+	/** The name bit parser*/
+	public static final Pattern NAME_BIT_PARSER = Pattern.compile(":");
 	
 	/** Option key for a recursive query */
 	public static final String OPT_RECURSIVE = "rec";
 	/** Option key for the max depth of the query */
 	public static final String OPT_MAX_DEPTH = "maxd";
-	/** Option key for the max depth of the query */
-	public static final String OPT_METRIC_NAME = "name";
 	/** Option key for the metric type filter of the query, parse as comma separated ints */
 	public static final String OPT_METRIC_TYPE = "type";
 	/** Option key for the status filter of the query, parse as comma separated ints */
@@ -203,13 +204,30 @@ public class MetricURI {
 		if(path==null || path.trim().isEmpty()) {
 			throw new IllegalArgumentException("Unexpected empty or null path", new Throwable());
 		}
-		String[] splitPath = PATH_PARSER.split(uri.getPath());
+		String cleanedPath = null;
+		String uriPath = uri.getPath().trim();
+		int cIndex = uriPath.lastIndexOf(':');
+		if(cIndex==-1) {
+			cleanedPath = uriPath;
+			metricName = null;
+		} else {
+			String[] bitsOfPath = NAME_BIT_PARSER.split(uriPath);
+			if(bitsOfPath.length>2) {
+				cleanedPath = uriPath.substring(0, cIndex);
+				metricName = uriPath.substring(cIndex).replace('*', '%');
+			} else {
+				metricName = bitsOfPath[1].replace('*', '%');
+				cleanedPath = bitsOfPath[0];
+			}
+		}
+		String[] splitPath = PATH_PARSER.split(cleanedPath);
+		
 		if(splitPath.length<3) {
 			throw new IllegalArgumentException("Unexpected path length (<3) [" + uri + "]", new Throwable());
 		}
-		domain = splitPath[0];
-		host = splitPath[1];
-		agent = splitPath[2];
+		domain = splitPath[0].replace('*', '%');
+		host = splitPath[1].replace('*', '%');
+		agent = splitPath[2].replace('*', '%');
 		if(splitPath.length>3) {
 			StringBuilder b = new StringBuilder();
 			for(int i = 3; i < splitPath.length; i++) {
@@ -228,16 +246,49 @@ public class MetricURI {
 			}
 		}
 		recursive = opt(paramMap, OPT_RECURSIVE, false);
-		maxDepth = opt(paramMap, OPT_MAX_DEPTH, DEFAULT_DEPTH)[0];
-		metricName = paramMap.get(OPT_METRIC_NAME);
-		metricType = opt(paramMap, OPT_METRIC_TYPE, DEFAULT_TYPES);
+		maxDepth = opt(paramMap, OPT_MAX_DEPTH, DEFAULT_DEPTH)[0];		 
+		metricType = getTypes(paramMap);
 		metricStatus = opt(paramMap, OPT_METRIC_STATUS, DEFAULT_METRIC_STATUS);
 		detachedCriteria = generateCriteria(this);
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		StringBuilder builder = new StringBuilder();
+		builder.append("MetricURI [");
+		builder.append("\n\tdomain:");
+		builder.append(domain);
+		builder.append("\n\thost:");
+		builder.append(host);
+		builder.append("\n\tagent:");
+		builder.append(agent);
+		builder.append("\n\tnamespace:");
+		builder.append(namespace);
+		builder.append("\n\tmaxDepth:");
+		builder.append(maxDepth);
+		builder.append("\n\tmetricName:");
+		builder.append(metricName);
+		builder.append("\n\tmetricTypes:");
+		builder.append(Arrays.toString(metricType));
+		builder.append("\n\tmetricStatus:");
+		builder.append(Arrays.toString(metricStatus));
+		builder.append("\n]");
+		return builder.toString();
+	}
+
 	public static void main(String[] args) {
 		//new MetricURI("DefaultDomain/njw810/APMRouterServer/platform=os/resource=netstat?recursive=false&status=0|1");
-		MetricURI m = new MetricURI("DefaultDomain/njw810/APMRouterServer/platform=os/resource=netstat?recursive=false&status=0,1");
+		MetricURI m = new MetricURI("DefaultDomain/njw810/APMRouterServer/platform=os/resource=netstat:FooBar?recursive=false&status=0,1");
+		try {
+			URI uri = new URI("DefaultDomain/njw810/APMRouterServer/platform=os/resource=netstat:FooBar?recursive=false&status=0,1");
+			log("URI Path" + uri.getPath());
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+		}
 		log("MetricURI:" + m);
 	}
 	
@@ -296,6 +347,26 @@ public class MetricURI {
 	}
 	
 	/**
+	 * Extracts the type specifications from the option map
+	 * @param optMap The option map
+	 * @return an array of {@link MetricType} ordinals
+	 */
+	public static int[] getTypes(Map<String, String> optMap) {
+		if(optMap.containsKey(OPT_METRIC_TYPE)) {
+			String optValue = optMap.get(OPT_METRIC_TYPE);
+			if(optValue.trim().isEmpty()) return DEFAULT_TYPES;
+			String[] values = COM_PARSER.split(optValue);
+			
+			int[] intValues = new int[values.length];			
+			for(int i = 0; i < values.length; i++) {
+				intValues[i] = MetricType.valueOfName(values[i]).ordinal();
+			}
+			return intValues;
+		}
+		return DEFAULT_TYPES;		
+	}
+	
+	/**
 	 * Generates a hibernate detached criteria for the passed MetricURI
 	 * @param metricUri The MetricURI 
 	 * @return the detached criteria
@@ -304,10 +375,29 @@ public class MetricURI {
 		DetachedCriteria criteria = DetachedCriteria.forClass(Metric.class)
 				.createAlias("agent", "a")
 				.createAlias("traceType", "t")
-				.createAlias("a.host", "h")				
-				.add(Restrictions.eq("h.domain", metricUri.domain))
-				.add(Restrictions.eq("h.name", metricUri.host))
-				.add(Restrictions.eq("a.name", metricUri.agent));
+				.createAlias("a.host", "h");
+		
+				if(!"%".equals(metricUri.domain)) {
+					criteria.add(metricUri.domain.indexOf('%')==-1 ? 
+							Restrictions.eq("h.domain", metricUri.domain) : 
+								Restrictions.like("h.domain", metricUri.domain));
+
+				}
+				if(!"%".equals(metricUri.host)) {
+					criteria.add(metricUri.host.indexOf('%')==-1 ? 
+							Restrictions.eq("h.name", metricUri.host) : 
+								Restrictions.like("h.name", metricUri.host));
+				}
+				if(!"%".equals(metricUri.agent)) {
+					criteria.add(metricUri.agent.indexOf('%')==-1 ? 
+							Restrictions.eq("a.name", metricUri.agent) : 
+								Restrictions.like("a.name", metricUri.agent));
+				}
+				
+				
+				
+//				.add(Restrictions.eq("h.name", metricUri.host))
+//				.add(Restrictions.eq("a.name", metricUri.agent));
 		if(metricUri.maxDepth>0) {
 			criteria.add(Restrictions.and(
 					Restrictions.like("namespace", metricUri.namespace + "%"), 
@@ -319,7 +409,7 @@ public class MetricURI {
 		if(metricUri.metricName!=null) {
 			String mn = metricUri.metricName.replace('*', '%');
 			if(mn.indexOf('%')!=-1 || mn.indexOf('?')!=-1) {
-				criteria.add(Restrictions.ilike("name", mn));
+				criteria.add(Restrictions.like("name", mn));
 			} else {
 				criteria.add(Restrictions.eq("name", mn));
 			}
@@ -352,12 +442,23 @@ public class MetricURI {
 	/**
 	 * Executes the MetricURI's detached criteria and returns a list of matching metrics
 	 * @param session A hibernate session to execute with
+	 * @param timeout Set a timeout for the underlying JDBC query in seconds
+	 * @return a list of matching metrics
+	 */
+	@SuppressWarnings("unchecked")
+	public List<Metric> execute(Session session, int timeout) {
+		return detachedCriteria.getExecutableCriteria(session).setTimeout(timeout).list();
+	}
+	
+	/**
+	 * Executes the MetricURI's detached criteria and returns a list of matching metrics with no timeout
+	 * @param session A hibernate session to execute with
 	 * @return a list of matching metrics
 	 */
 	@SuppressWarnings("unchecked")
 	public List<Metric> execute(Session session) {
 		return detachedCriteria.getExecutableCriteria(session).list();
-	}
+	}	
 
 	/**
 	 * Returns the underlying URI that represents this MetricURI

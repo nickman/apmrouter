@@ -170,9 +170,14 @@ public enum MetricType  implements IMetricDataAccessor {
 	 */
 	public static MetricType valueOfName(CharSequence name) {
 		String n = nvl(name, "MetricType Name").toString().trim().toUpperCase();
-		try {
+		try {			
 			return MetricType.valueOf(n);
 		} catch (Exception e) {
+			int id = -1;
+			try { id = Integer.parseInt(n); } catch (Exception ex) {}
+			if(id!=-1) {
+				return MetricType.valueOf(id);
+			}
 			throw new IllegalArgumentException("The passed name [" + name + "] is not a valid MetricType name", new Throwable());
 		}
 	}

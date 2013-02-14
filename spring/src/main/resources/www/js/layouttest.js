@@ -6,7 +6,8 @@ var metricGridColumnModel = [
                 			{ "sTitle": "Host" },                			
                 			{ "sTitle": "Agent" },
                 			{ "sTitle": "Namespace" },
-                			{ "sTitle": "Name" }
+                			{ "sTitle": "Name" },
+                			{ "sTitle": "Type" }
                 ];
 
 function initMain() {
@@ -82,13 +83,6 @@ function initMain() {
     					
     			});
     			topLayouts.metricDisplayLayout.sizePane('south', '50%');
-    			$('#metricSearchButton').button().bind('click', function(e) {
-    				console.debug("Searching......");
-    				$("#metricLayout").css("cursor", "progress");
-    				setTimeout(function(){
-    					$("#metricLayout").css("cursor", "default");
-    				}, 3000);
-    			});
     			
     			metricGrid = $('#metricDisplayTable').dataTable({
     		        "bJQueryUI": true,
@@ -110,23 +104,21 @@ function initMain() {
     			$('#metricDisplayTable_wrapper').css('width', '100%');
     			$('#metricDisplayGrid div.fg-toolbar').css('padding', '0px')
     			var defaultColor = $('#metricSearchEntry').css('background');
-    			$('#metricSearchEntry').keydown(function (e) {
-    				var target = this;
-    				var subscribedColor = '#FFF68F'; 
-    				
+    			$('#metricSearchButton').click(function() {
+    				console.info("CLICK!");
+    				execSearch();
+    			});
+    			$('#metricSearchEntry').keydown(function (e) {    				
     				if (e.keyCode == 13) {
-    					metricGrid.clearGridData();
-    					var expr = $("#metricSearchEntry").val();
-    					$.cookie('metric_browser.gridMaskInput', expr, { expires: 365 });
-    					// Retrieve Latest
-    					
-    					if(e.ctrlKey) {
-    						console.info("Ctrl-Enter [%s]", expr);
-    						$('#metricSearchEntry').css('background', subscribedColor);
-    					} else {
-    						console.info("Enter [%s]", expr);
-    						$('#metricSearchEntry').css('background', defaultColor);
-    					}
+						execSearch();
+//    					
+//    					if(e.ctrlKey) {
+//    						console.info("Ctrl-Enter [%s]", expr);
+//    						$('#metricSearchEntry').css('background', subscribedColor);
+//    					} else {
+//    						console.info("Enter [%s]", expr);
+//    						$('#metricSearchEntry').css('background', defaultColor);
+//    					}
     				}
     				
     			});
@@ -157,19 +149,18 @@ function initMain() {
     					ChartModel.find($(this).data('metric').id, function(model){model.renderChart({'auto' : true});});
     					
     				}
-    				$(this).toggleClass('selectedGridMetric');
-    				console.info("===== Clicked Row  ===== [%o]", data.srcElement);
+    				$(this).toggleClass('selectedGridMetric');    				
     			});    			
     		}
     	});
-    	$( "#metricSearchEntry" ).autocomplete({
-    	    source: function( request, response ) {
-    	            var matcher = new RegExp( "^" + $.ui.autocomplete.escapeRegex( request.term ), "i" );
-    	            response( $.grep( tags, function( item ){
-    	                return matcher.test( item );
-    	            }) );
-    	        }
-    	});
+//    	$( "#metricSearchEntry" ).autocomplete({
+//    	    source: function( request, response ) {
+//    	            var matcher = new RegExp( "^" + $.ui.autocomplete.escapeRegex( request.term ), "i" );
+//    	            response( $.grep( tags, function( item ){
+//    	                return matcher.test( item );
+//    	            }) );
+//    	        }
+//    	});
     	
     });
     
@@ -191,7 +182,7 @@ function resizeMetricGrid() {
 	
 }
 
-function onSelectedMetricFolder(uri) {
+function onSelectedMetricFolder(uri, callback) {
 	console.info("Processing URI [%s]", uri);
 	$('#metricSearchEntry').val(uri);
 	var metricData = null;
@@ -206,7 +197,8 @@ function onSelectedMetricFolder(uri) {
 			   metric.ag.host.name,
 			   metric.ag.name,
 			   metric.ns,
-			   metric.name
+			   metric.name,
+			   metric.type.typeName
 			]);			
 		});
 		$('#metricDisplayTable tr').each(function(k,v){
@@ -221,7 +213,24 @@ function onSelectedMetricFolder(uri) {
 				});				
 			}
 		});
+		if(callback!=null) {
+			callback.apply();
+		}
 	});
+}
+
+function execSearch() {	
+	$("body").css("cursor", "progress");
+	var timeout = setTimeout(function(){
+		$("#metricLayout").css("cursor", "default");
+	}, 5000);
+	metricGrid.fnClearTable();
+	var expr = $("#metricSearchEntry").val();
+	$.cookie('metric_browser.gridMaskInput', expr, { expires: 365 });
+	onSelectedMetricFolder(expr, function(){
+		clearTimeout(timeout);
+		$("body").css("cursor", "default");
+	});	
 }
 
 function addTreeTooltipListener() {

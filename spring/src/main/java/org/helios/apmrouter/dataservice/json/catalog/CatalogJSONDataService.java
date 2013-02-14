@@ -35,11 +35,13 @@ import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.catalog.api.impl.DataServiceInterceptor;
 import org.helios.apmrouter.catalog.domain.AgentMetricSet;
 import org.helios.apmrouter.catalog.domain.DomainObject;
+import org.helios.apmrouter.catalog.domain.Metric;
 import org.helios.apmrouter.dataservice.json.JSONRequestHandler;
 import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.dataservice.json.JsonResponse;
 import org.helios.apmrouter.dataservice.json.marshalling.JSONMarshaller;
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.util.SystemClock;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -218,10 +220,13 @@ public class CatalogJSONDataService extends ServerComponentBean {
 		Session session = null;
 		try {
 			String muri = request.getArgument("uri");
+			SystemClock.startTimer();
 			MetricURI metricUri = MetricURI.getMetricURI(muri);
-			session = sessionFactory.openSession(new org.helios.apmrouter.catalog.api.impl.DataServiceInterceptor());
-			//Object obj = metricUri.execute(session).toArray(new DomainObject[0]);
-			channel.write(request.response().setContent(metricUri.execute(session)));
+			//session = sessionFactory.openSession(new org.helios.apmrouter.catalog.api.impl.DataServiceInterceptor());
+			//Object obj = metricUri.execute(session).toArray(new DomainObject[0]);			
+			List<Metric> metrics = metricUri.execute(session);
+			channel.write(request.response().setContent(metrics));
+			info("Metric URI Query ", SystemClock.endTimer());
 		} catch (Exception ex) {
 			error("Failed to resolve MetricURI [" + request + "]", ex);
 		} finally {
