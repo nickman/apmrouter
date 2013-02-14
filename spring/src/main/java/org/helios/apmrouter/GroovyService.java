@@ -53,6 +53,7 @@ public class GroovyService extends ServerComponentBean {
 			for(String beanName: applicationContext.getBeanDefinitionNames()) {
 				beans.put(beanName, applicationContext.getBean(beanName));
 			}
+			beans.put("RootCtx", applicationContext);
 			Binding binding = new Binding(beans);
 			Class<?> clazz = Class.forName("groovy.ui.Console");
 			Constructor<?> ctor = clazz.getDeclaredConstructor(Binding.class);
