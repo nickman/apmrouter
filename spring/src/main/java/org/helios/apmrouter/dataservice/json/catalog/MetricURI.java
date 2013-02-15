@@ -57,12 +57,9 @@ import com.google.common.cache.LoadingCache;
  * 		<li><b>Agent</b></li>
  * 		<li><b>Namespace</b></li>
  *  </ul></li>
- * 	<li><b>recursive:</b></li>
  * 	<li><b>maxdepth:</b></li>
- * 	<li><b>metricname:</b></li>
  * 	<li><b>metrictype:</b></li>
  * 	<li><b>status:</b></li>
- * 	<li><b>currentvalue:</b></li>
  * </ol></p>
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
@@ -120,6 +117,11 @@ public class MetricURI {
 	private static final int[] DEFAULT_TYPES;
 	/** The default metric statuses */
 	private static final int[] DEFAULT_METRIC_STATUS = new int[]{0,1};
+	
+	/** The escaped single character wild card */
+	public static final String ONE_CHAR_WILDCARD = "\\_";
+	/** The escaped multiple character wild card */
+	public static final String MULTI_CHAR_WILDCARD = "\\%";
 	
 	// =======================================================================
 	//    MetricURI caching configuration and impl
@@ -233,7 +235,7 @@ public class MetricURI {
 			for(int i = 3; i < splitPath.length; i++) {
 				b.append("/").append(splitPath[i]);
 			}
-			namespace = b.toString();
+			namespace = b.toString().replace('*', '%');
 		} else {
 			namespace = null;
 		}
@@ -404,14 +406,18 @@ public class MetricURI {
 					Restrictions.le("level", metricUri.maxDepth)
 			));
 		} else {
-			criteria.add(Restrictions.eq("namespace", metricUri.namespace));
+			if(metricUri.namespace.indexOf('%')!=-1) {
+				criteria.add(Restrictions.like("namespace", metricUri.namespace));
+			} else {
+				criteria.add(Restrictions.eq("namespace", metricUri.namespace));
+			}			
 		}
 		if(metricUri.metricName!=null) {
-			String mn = metricUri.metricName.replace('*', '%');
-			if(mn.indexOf('%')!=-1 || mn.indexOf('?')!=-1) {
-				criteria.add(Restrictions.like("name", mn));
+			
+			if(metricUri.metricName.indexOf('%')!=-1) {
+				criteria.add(Restrictions.like("name", metricUri.metricName));
 			} else {
-				criteria.add(Restrictions.eq("name", mn));
+				criteria.add(Restrictions.eq("name", metricUri.metricName));
 			}
 		}
 		if(metricUri.metricType!=null && metricUri.metricType.length>0) {
@@ -445,6 +451,7 @@ public class MetricURI {
 	 * @param timeout Set a timeout for the underlying JDBC query in seconds
 	 * @return a list of matching metrics
 	 */
+	@SuppressWarnings("unchecked")
 	public List<Metric> execute(Session session, int timeout) {
 		return detachedCriteria.getExecutableCriteria(session).setTimeout(timeout).list();
 	}
@@ -454,6 +461,7 @@ public class MetricURI {
 	 * @param session A hibernate session to execute with
 	 * @return a list of matching metrics
 	 */	
+	@SuppressWarnings("unchecked")
 	public List<Metric> execute(Session session) {
 		return detachedCriteria.getExecutableCriteria(session).list();
 	}	
