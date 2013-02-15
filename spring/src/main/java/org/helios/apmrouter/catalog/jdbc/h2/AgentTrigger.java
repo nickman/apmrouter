@@ -25,11 +25,14 @@
 package org.helios.apmrouter.catalog.jdbc.h2;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Arrays;
 
 import javax.management.MBeanNotificationInfo;
 import javax.management.Notification;
+
+import org.helios.apmrouter.catalog.EntryStatus;
 
 /**
  * <p>Title: AgentTrigger</p>
@@ -41,6 +44,13 @@ import javax.management.Notification;
  */
 
 public class AgentTrigger extends AbstractTrigger implements AgentTriggerMBean {
+	/** The ID of the column containing the conncted timestamp for an agent */
+	public static final int CONNECT_COLUMN_ID = 6;
+	/** The ID of the column containing the agent id for an agent */
+	public static final int AGENT_COLUMN_ID = 0;
+	/** The ID of the column containing the agent name for an agent */
+	public static final int AGENT_NAME_ID = 2;
+	
 	/**
 	 * Creates a new AgentTrigger
 	 */
@@ -54,14 +64,36 @@ public class AgentTrigger extends AbstractTrigger implements AgentTriggerMBean {
 	 */
 	@Override
 	public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
-		if(TriggerOp.SELECT.isEnabled(type)) {
-			log.info("\n\t=================\n\tSELECT TRIGGER:\n\tOldRow:" + Arrays.toString(oldRow) + "\n\tNewRow:" + Arrays.toString(newRow) + "\n\t=================\n");
-		} else {
+		if(TriggerOp.UPDATE.isEnabled(type)) {
+			// An agent has gone off-line, so we need to cascade this event down to the
+			// agent's metrics and mark them off-line.
+			if(newRow!=null && newRow[CONNECT_COLUMN_ID]==null) {
+				int rowsUpdated = markAgentMetricsDown(conn, (Long)newRow[AGENT_COLUMN_ID]);
+				log.info("Marked [" + rowsUpdated + "] metrics OFFLINE for agent [" + newRow[AGENT_NAME_ID] + "]");
+			}
+		} else if(TriggerOp.INSERT.isEnabled(type)) {
 			log.info("\n\t=================\n\tNEW AGENT:" + Arrays.toString(newRow) + "\n\t=================\n");
-			sendNotification(NEW_AGENT, newRow);			
+			//sendNotification(NEW_AGENT, newRow);								
 		}
-//		log.info("\n\t=================\n\tNEW AGENT:" + Arrays.toString(newRow) + "\n\t=================\n");
-//		sendNotification(NEW_AGENT, newRow);			
+	}
+	
+	/**
+	 * Updates the STATE of all an agent's metrics to {@link EntryStatus#OFFLINE}.
+	 * @param conn The trigger provided connection
+	 * @param agentId The id of the agent to update metrics for
+	 * @return the number of metrics updated
+	 * @throws SQLException thrown on any SQL exception
+	 */
+	protected int markAgentMetricsDown(Connection conn, long agentId) throws SQLException {
+		PreparedStatement ps = null;		
+		try {
+			ps = conn.prepareStatement("UPDATE METRIC SET STATE = ? WHERE AGENT_ID = ?");
+			ps.setInt(1, EntryStatus.OFFLINE.ordinal());
+			ps.setLong(2, agentId);
+			return ps.executeUpdate();
+		} finally {
+			if(ps!=null) try { ps.close(); } catch (Exception ex) { /* No Op */ }
+		}
 	}
 
 }

@@ -76,6 +76,7 @@ CREATE ALIAS IF NOT EXISTS STATUS FOR "org.helios.apmrouter.catalog.jdbc.h2.H2St
 
 CREATE TRIGGER IF NOT EXISTS HOST_TRG  AFTER INSERT ON HOST FOR EACH ROW CALL "org.helios.apmrouter.catalog.jdbc.h2.HostTrigger";
 CREATE TRIGGER IF NOT EXISTS AGENT_TRG  AFTER INSERT ON AGENT FOR EACH ROW CALL "org.helios.apmrouter.catalog.jdbc.h2.AgentTrigger";
+CREATE TRIGGER IF NOT EXISTS AGENT_UPDATE_TRG  AFTER UPDATE ON AGENT FOR EACH ROW CALL "org.helios.apmrouter.catalog.jdbc.h2.AgentTrigger";
 --CREATE TRIGGER IF NOT EXISTS AGENT_SELECT_TRG  BEFORE SELECT ON AGENT CALL "org.helios.apmrouter.catalog.jdbc.h2.AgentSelectTrigger";
 CREATE TRIGGER IF NOT EXISTS METRIC_TRG  AFTER INSERT ON METRIC FOR EACH ROW CALL "org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger";
 
