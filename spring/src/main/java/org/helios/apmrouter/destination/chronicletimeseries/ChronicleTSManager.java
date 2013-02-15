@@ -188,6 +188,17 @@ public class ChronicleTSManager extends ServerComponentBean implements UncaughtE
 			recalcStaleWindowSize();
 		}
 	}
+	
+	/**
+	 * An update of a metric's entry status in the live tier triggered by the h2 metric table trigger.
+	 * Since this is coming from the metric table, no event is needed.
+	 * @param metricId The id of the metric to update
+	 * @param status The status to update to
+	 */
+	public void triggeredStatusUpdate(long metricId, EntryStatus status) {
+		liveTier.triggeredStatusUpdate(metricId, status);
+	}
+	
 
 
 	/**

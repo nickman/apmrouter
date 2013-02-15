@@ -463,6 +463,21 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	}
 	
 	/**
+	 * An update of a metric's entry status in the live tier triggered by the h2 metric table trigger.
+	 * Since this is coming from the metric table, no event is needed.
+	 * @param metricId The id of the metric to update
+	 * @param status The status to update to
+	 */
+	public void triggeredStatusUpdate(long metricId, EntryStatus status) {
+		try {
+			SeriesEntry se = new SeriesEntry(createUnsafeExcerpt(), metricId, false);
+			se.updateStatus(status);
+		} catch (Exception ex) {
+			/* No Op */
+		}
+	}
+	
+	/**
 	 * Reads a series entry from the series for the passed index
 	 * @param index The chronicle index to read the series for
 	 * @param seriesIndex The index of the series entry to read
