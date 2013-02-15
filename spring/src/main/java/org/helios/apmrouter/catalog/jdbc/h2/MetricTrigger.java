@@ -31,8 +31,13 @@ import java.util.Arrays;
 
 import javax.management.MBeanNotificationInfo;
 import javax.management.Notification;
+import javax.management.ObjectName;
 
+import org.helios.apmrouter.catalog.EntryStatus;
+import org.helios.apmrouter.destination.chronicletimeseries.ChronicleTier;
+import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.util.SystemClock;
 
 /**
  * <p>Title: MetricTrigger</p>
@@ -45,6 +50,21 @@ import org.helios.apmrouter.metric.MetricType;
 public class MetricTrigger extends AbstractTrigger implements MetricTriggerMBean {
 	protected static final int INCR_ID = MetricType.INCREMENTOR.ordinal();
 	protected static final int INT_INCR_ID = MetricType.INTERVAL_INCREMENTOR.ordinal();
+	
+	/** The ID of the column containing the metric id for a metric */
+	public static final int METRIC_COLUMN_ID = 0;
+	/** The ID of the column containing the state for a metric */
+	public static final int STATE_COLUMN_ID = 8;
+
+	
+//	/** The JMX ObjectName's prefix to which the tier name is appended to create the full object name */
+//	public static final ObjectName LIVE_TIER_OBJECT_NAME = JMXHelper.objectName("org.helios.apmrouter.timeseries:type=chronicle,name=live");
+//	/** The JMX notification type for metric status updates */
+//	public static final String ENTRY_STATUS_UPDATE_TYPE = "metric.status.update";
+
+	/** The event status message format */
+	public static final String EVENT_STATUS_MESSAGE = "%s:" + EntryStatus.OFFLINE.byteOrdinal();
+	
 	/**
 	 * Creates a new MetricTrigger
 	 */
@@ -57,14 +77,29 @@ public class MetricTrigger extends AbstractTrigger implements MetricTriggerMBean
 	 * @see org.h2.api.Trigger#fire(java.sql.Connection, java.lang.Object[], java.lang.Object[])
 	 */
 	@Override
-	public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
-		short typeId = (Short)newRow[2];
-		if(INCR_ID==typeId || INT_INCR_ID==typeId) {
-			addIncr(conn, (Long)newRow[0], typeId);
+	public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {		
+		if(TriggerOp.INSERT.isEnabled(type)) {
+			short typeId = (Short)newRow[2];
+			if(INCR_ID==typeId || INT_INCR_ID==typeId) {
+				addIncr(conn, (Long)newRow[0], typeId);
+			}
+			//sendNotification(NEW_METRIC, newRow);
+		} else if(TriggerOp.UPDATE.isEnabled(type)) {
+			if(newRow!=null && newRow[STATE_COLUMN_ID].equals(EntryStatus.OFFLINE.byteOrdinal())) {
+				sendOffLineNotification((Long)newRow[METRIC_COLUMN_ID]);
+			}
 		}
-		if(log.isDebugEnabled()) log.debug("\n\t=================\n\tNEW AGENT:" + Arrays.toString(newRow) + "\n\t=================\n");
-		sendNotification(NEW_METRIC, newRow);
+		callCount.incrementAndGet();
 	}
+	
+	/**
+	 * Sends a notification indicating a metric Id has been set OFFLINE
+	 * @param metricId The metric ID
+	 */
+	protected void sendOffLineNotification(long metricId) {
+		sendNotification(new Notification(ChronicleTier.ENTRY_STATUS_UPDATE_TYPE, ChronicleTier.LIVE_TIER_OBJECT_NAME, NewElementTriggers.serial.incrementAndGet(), SystemClock.time(), String.format(EVENT_STATUS_MESSAGE, metricId)));		
+	}
+	
 	
 	/**
 	 * Adds the incrementor for the passed metric ID

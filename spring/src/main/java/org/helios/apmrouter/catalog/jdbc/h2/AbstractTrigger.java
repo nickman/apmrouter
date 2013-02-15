@@ -48,7 +48,7 @@ import org.helios.apmrouter.util.SystemClock;
  */
 public abstract class AbstractTrigger extends NotificationBroadcasterSupport implements Trigger, AbstractTriggerMBean {
 	/** The trigger's JMX ObjectName */
-	protected final ObjectName on;
+	protected ObjectName on;
 	/** Instance logger */
 	protected final Logger log = Logger.getLogger(getClass());
 	/** A counter of the number of calls to this trigger */
@@ -70,15 +70,6 @@ public abstract class AbstractTrigger extends NotificationBroadcasterSupport imp
 	 */
 	protected AbstractTrigger(MBeanNotificationInfo...infos) {
 		super(NewElementTriggers.threadPool, infos);
-		on = JMXHelper.objectName(NewElementTriggers.class.getPackage().getName(), "trigger", getClass().getSimpleName());
-		if(JMXHelper.getHeliosMBeanServer().isRegistered(on)) {
-			try { JMXHelper.getHeliosMBeanServer().unregisterMBean(on); } catch (Exception ex) {}
-		}
-		try {
-			JMXHelper.getHeliosMBeanServer().registerMBean(this, on);
-		} catch (Exception ex) {
-			throw new RuntimeException("Failed to register H2 Trigger [" + on + "]", ex);
-		}
 		log.info("Created Trigger [" + getClass().getSimpleName() + "]");
 	}
 	
@@ -129,6 +120,17 @@ public abstract class AbstractTrigger extends NotificationBroadcasterSupport imp
 		this.tableName = tableName;
 		this.before = before;
 		this.type = type;
+		on = JMXHelper.objectName(NewElementTriggers.class.getPackage().getName(), "trigger", getClass().getSimpleName(), "type", TriggerOp.getEnabledStatesName(type));
+		if(JMXHelper.getHeliosMBeanServer().isRegistered(on)) {
+			try { JMXHelper.getHeliosMBeanServer().unregisterMBean(on); } catch (Exception ex) {/* No Op */}
+		}
+		try {
+			JMXHelper.getHeliosMBeanServer().registerMBean(this, on);
+		} catch (Exception ex) {
+			throw new RuntimeException("Failed to register H2 Trigger [" + on + "]", ex);
+		}
+		log.info("Initialized Trigger [" + getClass().getSimpleName() + "]  Type [" + TriggerOp.getEnabledStatesName(type) + "]");
+		
 	}
 	
 	/**

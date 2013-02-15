@@ -44,7 +44,7 @@ public class ScriptExecution {
 	protected final DataSource dataSource;
 	/** The script source to run */
 	protected final String scriptSource;
-	
+	/** Indicates if 
 	/** Instance logger */
 	protected Logger log = Logger.getLogger(getClass());
 	

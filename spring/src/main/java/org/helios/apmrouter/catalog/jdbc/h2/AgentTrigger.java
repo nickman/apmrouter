@@ -46,6 +46,9 @@ import org.helios.apmrouter.catalog.EntryStatus;
 public class AgentTrigger extends AbstractTrigger implements AgentTriggerMBean {
 	/** The ID of the column containing the conncted timestamp for an agent */
 	public static final int CONNECT_COLUMN_ID = 6;
+	/** The ID of the column containing the conncted URI for an agent */
+	public static final int URI_COLUMN_ID = 7;
+	
 	/** The ID of the column containing the agent id for an agent */
 	public static final int AGENT_COLUMN_ID = 0;
 	/** The ID of the column containing the agent name for an agent */
@@ -67,14 +70,15 @@ public class AgentTrigger extends AbstractTrigger implements AgentTriggerMBean {
 		if(TriggerOp.UPDATE.isEnabled(type)) {
 			// An agent has gone off-line, so we need to cascade this event down to the
 			// agent's metrics and mark them off-line.
-			if(newRow!=null && newRow[CONNECT_COLUMN_ID]==null) {
-				int rowsUpdated = markAgentMetricsDown(conn, (Long)newRow[AGENT_COLUMN_ID]);
+			if(newRow!=null && newRow[CONNECT_COLUMN_ID]==null && !"RESTART".equals(newRow[URI_COLUMN_ID])) {
+				int rowsUpdated = markAgentMetricsDown(conn, (Integer)newRow[AGENT_COLUMN_ID]);
 				log.info("Marked [" + rowsUpdated + "] metrics OFFLINE for agent [" + newRow[AGENT_NAME_ID] + "]");
 			}
 		} else if(TriggerOp.INSERT.isEnabled(type)) {
 			log.info("\n\t=================\n\tNEW AGENT:" + Arrays.toString(newRow) + "\n\t=================\n");
 			//sendNotification(NEW_AGENT, newRow);								
 		}
+		callCount.incrementAndGet();
 	}
 	
 	/**
@@ -84,12 +88,12 @@ public class AgentTrigger extends AbstractTrigger implements AgentTriggerMBean {
 	 * @return the number of metrics updated
 	 * @throws SQLException thrown on any SQL exception
 	 */
-	protected int markAgentMetricsDown(Connection conn, long agentId) throws SQLException {
+	protected int markAgentMetricsDown(Connection conn, int agentId) throws SQLException {
 		PreparedStatement ps = null;		
 		try {
 			ps = conn.prepareStatement("UPDATE METRIC SET STATE = ? WHERE AGENT_ID = ?");
 			ps.setInt(1, EntryStatus.OFFLINE.ordinal());
-			ps.setLong(2, agentId);
+			ps.setInt(2, agentId);
 			return ps.executeUpdate();
 		} finally {
 			if(ps!=null) try { ps.close(); } catch (Exception ex) { /* No Op */ }

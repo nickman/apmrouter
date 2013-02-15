@@ -56,6 +56,7 @@ public class HostTrigger extends AbstractTrigger implements HostTriggerMBean {
 	@Override
 	public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {
 		log.info("\n\t=================\n\tNEW HOST:" + Arrays.toString(newRow) + "\n\t=================\n");
+		callCount.incrementAndGet();
 		//sendNotification(NEW_HOST, newRow);
 	}
 }

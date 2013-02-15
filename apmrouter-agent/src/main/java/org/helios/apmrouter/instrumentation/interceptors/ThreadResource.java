@@ -60,7 +60,7 @@ public enum ThreadResource implements BitMaskedEnum, BitMaskedEnum.ShortBitMaskO
 	WAIT_TIME;
 	
 	/** A decoding map to decode the NetFlag code to a TCPSocketState */
-	public static final Map<Integer, ThreadResource> CODE2ENUM = generateIntMap(ThreadResource.values());
+	public static final Map<Integer, ThreadResource> CODE2ENUM = generateIntMaskMap(ThreadResource.values());
 	
 	
 	

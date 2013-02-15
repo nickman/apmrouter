@@ -24,7 +24,8 @@
  */
 package org.helios.apmrouter.catalog.jdbc.h2;
 
-import static org.helios.apmrouter.util.BitMaskedEnum.Support.generateIntMap;
+import static org.helios.apmrouter.util.BitMaskedEnum.Support.generateIntOrdinalMap;
+import static org.helios.apmrouter.util.BitMaskedEnum.Support.generateIntMaskMap;
 import static org.helios.apmrouter.util.BitMaskedEnum.Support.getIntBitMask;
 
 import java.util.Arrays;
@@ -32,8 +33,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-
 import org.helios.apmrouter.util.BitMaskedEnum;
+import org.helios.apmrouter.util.BitMaskedEnum.IntBitMaskOperations;
 
 /**
  * <p>Title: TriggerOp</p>
@@ -43,7 +44,7 @@ import org.helios.apmrouter.util.BitMaskedEnum;
  * <p><code>org.helios.apmrouter.catalog.jdbc.h2.TriggerOp</code></p>
  */
 
-public enum TriggerOp implements BitMaskedEnum {
+public enum TriggerOp implements BitMaskedEnum, IntBitMaskOperations<TriggerOp> {
 	/** The INSERT trigger operation */
 	INSERT(1),
 
@@ -56,9 +57,36 @@ public enum TriggerOp implements BitMaskedEnum {
 	/** The SELECT trigger operation */
 	SELECT(8);
 	
-	/** A decoding map to decode the int code to a TriggerOp */
-	public static final Map<Integer, TriggerOp> CODE2ENUM = generateIntMap(TriggerOp.values());
+	/** A decoding map to decode the ordinal code to a TriggerOp */
+	public static final Map<Integer, TriggerOp> ORD2ENUM = generateIntOrdinalMap(TriggerOp.values());
+	/** A decoding map to decode the mask to matching TriggerOps */
+	public static final Map<Integer, TriggerOp> MASK2ENUM = generateIntMaskMap(TriggerOp.values());
+	
+	
+	public static void main(String[] args) {
+		for(Map.Entry<Integer, TriggerOp> to: MASK2ENUM.entrySet()) {
+			System.out.println(to.getValue().name() + ":" + to.getKey());
+		}
+		System.out.println(getNamesFor(0));
+	}
 
+	/**
+	 * Returns a string containing the pipe delimited names of the TriggersOps that are enabled in the passed mask
+	 * @param mask The mask to render
+	 * @return a string containing the pipe delimited names of the TriggersOps that are enabled in the passed mask
+	 */
+	public static String getNamesFor(int mask) {
+		if(mask<0) throw new IllegalArgumentException("Invalid mask value [" + mask + "]", new Throwable());
+		StringBuilder b = new StringBuilder();		
+		for(TriggerOp to: values()) {
+			if(to.isEnabled(mask)) {
+				b.append(to.name()).append("|");
+			}
+		}
+		if(b.length()<1) b.append("NONE");
+		else b.deleteCharAt(b.length()-1);
+		return b.toString();
+	}
 	
 	private TriggerOp(int code) {
 		this.code = code;
@@ -126,6 +154,35 @@ public enum TriggerOp implements BitMaskedEnum {
 	 */
 	public static String getEnabledStatesName(int mask) {
 		return Arrays.toString(getEnabledStates(mask)).replace("[", "").replace("]", "").replace(" ", "").replace(',', '|');
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.BitMaskedEnum.IntBitMaskOperations#forOrdinal(int)
+	 */
+	@Override
+	public TriggerOp forOrdinal(int ordinal) {
+		TriggerOp op = ORD2ENUM.get(ordinal);
+		if(op!=null) return op;
+		throw new IllegalArgumentException("The passed ordinal [" + ordinal + "] is invalid", new Throwable());
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.BitMaskedEnum.IntBitMaskOperations#forCode(java.lang.Number)
+	 */
+	@Override
+	public TriggerOp forCode(Number code) {		
+		return forOrdinal(code.intValue());
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.BitMaskedEnum.IntBitMaskOperations#disable(int)
+	 */
+	@Override
+	public int disable(int mask) {
+		return mask & ~code;
 	}
 	
 	

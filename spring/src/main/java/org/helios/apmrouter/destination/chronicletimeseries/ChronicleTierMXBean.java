@@ -145,5 +145,11 @@ public interface ChronicleTierMXBean {
 	 */
 	public String getEntryStatusName(long metricId);
 	
+	/**
+	 * Returns the total number of metric offline notifications received.
+	 * @return the total number of metric offline notifications received.
+	 */
+	public long getOffLineNotificationCount();	
+	
 	
 }

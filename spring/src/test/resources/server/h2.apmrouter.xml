@@ -24,6 +24,7 @@
 	      p:username="sa"	      
 	      p:password=""	      
 	      p:initial-size="2"
+	      p:logAbandoned="true"
 	      p:max-active="5"  
 	      p:pool-prepared-statements="true"
 	      p:validation-query="SELECT SYSTIME"

@@ -31,17 +31,20 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Pattern;
 
+import javax.management.Notification;
+import javax.management.NotificationFilter;
+import javax.management.NotificationListener;
 import javax.management.ObjectName;
 
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.catalog.EntryStatus;
-import org.helios.apmrouter.catalog.EntryStatusChangeListener;
 import org.helios.apmrouter.catalog.EntryStatus.EntryStatusChange;
+import org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger;
+import org.helios.apmrouter.catalog.jdbc.h2.NewElementTriggers;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.tsmodel.Tier;
@@ -59,7 +62,7 @@ import vanilla.java.chronicle.impl.UnsafeExcerpt;
  * <p><code>org.helios.apmrouter.destination.chronicletimeseries.ChronicleTier</code></p>
  */
 
-public class ChronicleTier implements ChronicleTierMXBean {
+public class ChronicleTier implements ChronicleTierMXBean, NotificationListener {
 	/** The chronicle file name */
 	protected final String chronicleName;
 	/** The tier pattern */
@@ -90,6 +93,8 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	protected final AtomicLong startPeriod = new AtomicLong(Long.MAX_VALUE);
 	/** The latest period end time in this tier */
 	protected final AtomicLong endPeriod = new AtomicLong(Long.MIN_VALUE);
+	/** The number of metric offline notifications received */
+	protected final AtomicLong offlineNotifications = new AtomicLong(0);
 	
 
 	/** The number of values in each series entry */
@@ -132,6 +137,14 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	/** The series offset for the header entry status */
 	public static final int H_STATUS = H_SIZE + 4;
 	
+	/** The JMX ObjectName's prefix to which the tier name is appended to create the full object name */
+	public static final String OBJECT_NAME_PREFIX = "org.helios.apmrouter.timeseries:type=chronicle,name=";
+	/** The JMX ObjectName for the live tier */
+	public static final ObjectName LIVE_TIER_OBJECT_NAME = JMXHelper.objectName("org.helios.apmrouter.timeseries:type=chronicle,name=live");
+	/** The JMX notification type for metric status updates */
+	public static final String ENTRY_STATUS_UPDATE_TYPE = "metric.status.update";
+	/** The JMX ObjectName for the MetricTrigger */
+	public static final ObjectName METRIC_TRIGGER_OBJECT_NAME = JMXHelper.objectName(NewElementTriggers.class.getPackage().getName(), "trigger", MetricTrigger.class.getSimpleName(), "type", "*UPDATE*");
 
 	/**
 	 * Creates a new ChronicleTier and initializes the underlying chronicle
@@ -148,7 +161,7 @@ public class ChronicleTier implements ChronicleTierMXBean {
 		periods = (int) tier.getPeriodCount();
 		periodDuration = tier.getPeriodDuration().seconds;
 		periodDurationMs = TimeUnit.MILLISECONDS.convert(periodDuration, TimeUnit.SECONDS);
-		objectName = JMXHelper.objectName(new StringBuilder("org.helios.apmrouter.timeseries:type=chronicle,name=").append(chronicleName));
+		objectName = JMXHelper.objectName(new StringBuilder(OBJECT_NAME_PREFIX).append(chronicleName));
 		entrySize = HEADER_OFFSET + (SERIES_SIZE_IN_BYTES * periods);
 		
 		if(!CHRONICLE_HOME_DIR.exists()) {
@@ -169,6 +182,22 @@ public class ChronicleTier implements ChronicleTierMXBean {
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to create chronicle on path [" + chroniclePath + "]", e);
 		}		
+		// Register for notifications from the metric trigger
+		try {
+			for(ObjectName mtName: JMXHelper.getHeliosMBeanServer().queryNames(METRIC_TRIGGER_OBJECT_NAME, null)) {
+				JMXHelper.getHeliosMBeanServer().addNotificationListener(mtName, this, new NotificationFilter(){
+					/**  */
+					private static final long serialVersionUID = -8194483721587020208L;
+					@Override
+					public boolean isNotificationEnabled(Notification notification) {
+						return ENTRY_STATUS_UPDATE_TYPE.equals(notification.getType());
+					}
+				}, null);
+			}
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to register as MetricTrigger notification listener", e);
+		}		
+		
 		log.info("Initialized chronicle [" + chronicle.name() + "] on path [" + chroniclePath + "] with size [" + chronicle.size() + "]");
 	}
 	
@@ -195,6 +224,38 @@ public class ChronicleTier implements ChronicleTierMXBean {
 	 */
 	protected void fireEventStatusChangeEvent(final Map<EntryStatus, EntryStatusChange> changeMap) {
 		manager.fireEventStatusChangeEvent(changeMap);
+	}
+	
+	/** Colon Splitter Pattern */
+	public static final Pattern COLON_SPLITTER = Pattern.compile(":");
+	
+	/**
+	 * <p>Listener for notifications from the H2 metric table trigger indicating a status change for a metric.</p>
+	 * {@inheritDoc}
+	 * @see javax.management.NotificationListener#handleNotification(javax.management.Notification, java.lang.Object)
+	 */
+	@Override
+	public void handleNotification(Notification notification, Object handback) {
+		if(notification!=null && ENTRY_STATUS_UPDATE_TYPE.equals(notification.getType())) {
+			try {
+				String[] msg = COLON_SPLITTER.split(notification.getMessage());
+				long metricId = Long.parseLong(msg[0]);
+				byte status = Byte.parseByte(msg[1]);
+				EntryStatus es = EntryStatus.forByte(status);
+				triggeredStatusUpdate(metricId, es);
+				offlineNotifications.incrementAndGet();
+			} catch (Exception ex) {
+				log.error("Failed to process entry change notification", ex);
+			}
+		}		
+	}	
+	
+	/**
+	 * Returns the total number of metric offline notifications received.
+	 * @return the total number of metric offline notifications received.
+	 */
+	public long getOffLineNotificationCount() {
+		return offlineNotifications.incrementAndGet();
 	}
 	
 	
@@ -893,5 +954,7 @@ public class ChronicleTier implements ChronicleTierMXBean {
 		}		
 		return b.toString();
 	}
+
+
 		
 }

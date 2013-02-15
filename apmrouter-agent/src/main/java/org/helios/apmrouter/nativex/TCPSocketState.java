@@ -24,7 +24,7 @@
  */
 package org.helios.apmrouter.nativex;
 
-import static org.helios.apmrouter.util.BitMaskedEnum.Support.generateIntMap;
+import static org.helios.apmrouter.util.BitMaskedEnum.Support.generateIntMaskMap;
 import static org.helios.apmrouter.util.BitMaskedEnum.Support.getIntBitMask;
 import static org.helios.apmrouter.util.Methods.nvl;
 
@@ -90,7 +90,7 @@ public enum TCPSocketState implements BitMaskedEnum {
 	TCP_UNKNOWN(14);
 	
 	/** A decoding map to decode the NetFlag code to a TCPSocketState */
-	public static final Map<Integer, TCPSocketState> CODE2ENUM = generateIntMap(TCPSocketState.values());
+	public static final Map<Integer, TCPSocketState> CODE2ENUM = generateIntMaskMap(TCPSocketState.values());
 	
 	
 	private TCPSocketState(int code) {
