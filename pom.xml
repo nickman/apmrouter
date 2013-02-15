@@ -13,6 +13,7 @@
 		<!--module>codahale</module>
 		<module>apmrouter-web</module>
 		<module>apmrouter-cl</module-->
+    <module>apmcollectors</module>
   </modules>
 	<properties>
 		<chronicle.version>1.2-SNAPSHOT</chronicle.version>
