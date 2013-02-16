@@ -68,9 +68,11 @@ public class BaseTestCase {
 			String[] frags = cn.split("\\.");
 			scn = frags[frags.length-1];
 		}
+		log("\n\t==================================\n\tRunning Test [" + name.getMethodName() + "]\n\tThread:" + Thread.currentThread().toString() + "\n\t==================================\n");
 		
-		log("[" + scn  + "]-->" + name.getMethodName());
 	}
+	
+	
 	
 	/** The metric catalog impl classes to test */
 	protected static final String[] METRIC_CAT_CLASSES = new String[]{
