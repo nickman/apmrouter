@@ -24,12 +24,14 @@
  */
 package org.helios.collector.core;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 
 import javax.management.ObjectName;
 
@@ -48,11 +50,17 @@ import org.helios.collector.BlackoutInfo;
  * <p>Description: Base class for all collectors</p> 
  * <p>Company: Helios Development Group</p>
  * @author Sandeep Malhotra (smalhotra@heliosdev.org)
+ * 
  */
 public abstract class AbstractCollector extends ServerComponentBean implements 
-					  Runnable, 
+					  Callable<CollectionResult>, 
 					  Collector, 
 					  AbstractCollectorMXBean{
+	//TODO: 
+	// Emit notification
+	// Expose methods and attributes to JMX
+	// streamline lifecycle
+	//
 	
 	/** The scheduler shared amongst all collector instances */
 	protected static final ScheduledThreadPoolExecutor scheduler = ScheduledThreadPoolFactory.newScheduler("Monitor");
@@ -206,6 +214,27 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	/** Default JMX domain name for all collectors in case COLLECTORS_DOMAIN_PROPERTY is not specified*/
 	protected static final String COLLECTORS_DOMAIN_DEFAULT="org.helios.collectors";	
 	
+	/** Used during collect process  */
+	protected final ReentrantLock collectorLock = new ReentrantLock();
+	
+	/**
+	 * Scheduled collect call should wait for this period if the current  
+	 * CollectorState is RESETTING
+	 */
+	protected long waitPeriodIfAlreadyCollecting = 0L;
+	
+	/** Flag to indicate whether reset is called on this collector */
+	protected AtomicBoolean resetFlag = new AtomicBoolean(false);
+	
+	/** Indicates that the collector should be reset every resetCount collections. */
+	protected int resetCount;	
+	
+	/** Total number of collectors running at this time time in this JVM. */
+	protected static AtomicInteger numberOfCollectorsRunning = new AtomicInteger();	
+	
+	/** Reference of a POJO that stores information about the last collection result  */
+	protected CollectionResult collectionResult;
+	
 	static {
 		Runtime.getRuntime().addShutdownHook(new Thread(){
 			@Override
@@ -215,16 +244,6 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 		});
 	}
 
-	/**
-	 * 
-	 */
-	public void collect() {
-		SystemClock.startTimer();
-		//doCollect(collectionSweep);
-		ElapsedTime et = SystemClock.endTimer();
-		//collectionSweep++;
-		tracer.traceGauge(et.elapsedMs, "ElpasedTimeMs", "Collectors", getClass().getSimpleName());		
-	}
 
 	/**
 	 * Returns collection period for this collector
@@ -242,40 +261,6 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	public void setCollectPeriod(long period) {
 		collectionPeriod = period;		
 	}
-
-	/**
-	 * Triggers the start of this collector
-	 */
-	public void startCollector() {
-		long collectPeriod = getCollectPeriod();
-		scheduleHandle = scheduler.scheduleWithFixedDelay(this, 1, collectPeriod, TimeUnit.MILLISECONDS);
-		info("Started collection schedule with frequency of ["+ collectPeriod + "] ms.");		
-	}
-
-	/**
-	 * Schedule the start of this collector after specified seconds
-	 */
-	public void startCollector(long seconds) {
-		info("Delaying start of [" + getClass().getSimpleName() + "] for [" + seconds + "] seconds");
-		scheduler.schedule(new Runnable(){
-			public void run() { startCollector(); }
-		}, seconds, TimeUnit.SECONDS);		
-	}
-
-	@Override
-	public void stopCollector() {
-		if(scheduleHandle!=null) {
-			scheduleHandle.cancel(false);
-			info("Stopped collector ["+ getClass().getSimpleName() + "]");
-		}		
-	}
-
-//	/**
-//	 * Set properties for this collector
-//	 */
-//	public void setProperties(Properties p) {
-//		if(p!=null) configProps.putAll(p);		
-//	}	
 	
 	/**
 	 * Indicates whether this collector is started
@@ -388,7 +373,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 		return maxRestartAttempts;
 	}	
 
-	/*  ==================  CUSTOM LIFECYCLE OVERRIDE METHODS =============================*/
+	/*  ==================  CUSTOM LIFECYCLE METHODS =============================*/
 	
 	/**
 	 * This method can be overridden by concrete implementation classes 
@@ -479,22 +464,236 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	}
 	
 	/**
-	 * Schedule this collector to be triggered right away
+	 * To be implemented by concrete classes for any custom startup tasks
 	 */
-	public void scheduleCollect() {
-		long collectPeriod = getCollectPeriod();
-		scheduleHandle = scheduler.scheduleWithFixedDelay(this, 1000, collectPeriod, TimeUnit.MILLISECONDS);
-		info("Started collection schedule with frequency of ["+ collectPeriod + "] ms. for collector [" + this.getBeanName() + "]");
+	public void startCollector() {}
+
+//	public void collect() {
+//		SystemClock.startTimer();
+//		//doCollect(collectionSweep);
+//		ElapsedTime et = SystemClock.endTimer();
+//		//collectionSweep++;
+//		tracer.traceGauge(et.elapsedMs, "ElpasedTimeMs", "Collectors", getClass().getSimpleName());		
+//	}	
+	
+	/**
+	 * This method can be overridden by concrete implementation classes 
+	 * for any custom pre collect tasks that needs to be done.
+	 */
+	public void preCollect() {}
+	
+	/**
+	 * This method ties up the functionality and sequencing of pre, post and collectCallback methods.  It cannot be 
+	 * overridden by concrete collector classes
+	 */
+	public final void collect(){
+		//Check whether blackout period is active for this collector
+		if(blackoutInfo!=null && blackoutInfo.isBlackoutActive()){
+			debug("*** Skipping collection as blackout period is active...");
+			return;
+		}
+		
+		//Check whether this collector is running in a dormant mode
+		if(fallbackFrequencyActivated && iterationsToSkip!=-1){
+			if(actualSkipped < iterationsToSkip ){
+				actualSkipped++;
+				debug("*** Skipping iteration " + actualSkipped + " for collector " +this.getBeanName()+" as it is in fallbackFrequencyActivated mode");
+				return;
+			}else{
+				actualSkipped=0;
+			}
+		}
+		CollectorState currState = getState();
+		boolean errors=false;
+		boolean gotLock=false;
+		
+		if(collectorLock.isLocked()){
+			try{
+				gotLock = collectorLock.tryLock(waitPeriodIfAlreadyCollecting, TimeUnit.MILLISECONDS);
+				if(!gotLock){
+					if(currState == CollectorState.COLLECTING){
+						debug("The previous collect process is alreading running so skipping current collect call for bean: "+this.getBeanName());
+						return;
+					}else{
+						error("Unable to obtain a lock on collector bean: "+this.getBeanName());
+						return;
+					}
+				}
+			}catch(InterruptedException ex){}
+		}
+		if(resetFlag.get()==true || (resetCount>0 && totalCollectionCount!=0 && totalCollectionCount%resetCount==0)){
+			try{
+				this.reset();
+				resetFlag.getAndSet(false);
+			}catch(Exception ex){
+				if(logErrors)
+					log.error("An exception occured while resetting the collector bean: "+this.getBeanName(),ex);
+			}
+		}
+		if(getState() == CollectorState.STARTED){
+			try {
+				lastTimeCollectionStarted=System.currentTimeMillis();
+				setState(CollectorState.COLLECTING);
+				numberOfCollectorsRunning.incrementAndGet();
+				preCollect();
+				collectionResult = collectCallback();
+				if(collectionResult.getResultForLastCollection() == CollectionResult.Result.FAILURE){
+					throw new CollectorException(collectionResult.getAnyException());
+				}
+				lastTimeCollectionSucceeded=System.currentTimeMillis();
+				totalSuccessCount++;
+				if(fallbackFrequencyActivated){
+					/* This collector is running on a fallback frequency.  Since this collect call was
+					 * successful, switch the collect frequency back to normal schedule now. */
+					fallbackFrequencyActivated=false;
+					consecutiveFailureCount=0;
+					actualSkipped=0;
+					log.info("*** Frequency for collector: " + this.getBeanName() +" is switched back to normal now.");
+				}
+				info(banner("Completed Collect for", this.getBeanName()));
+			} catch (Exception ex){
+				lastTimeCollectionFailed=System.currentTimeMillis();
+				errors=true;
+				totalFailureCount++;
+				consecutiveFailureCount++;
+				if(consecutiveFailureCount>=failureThreshold && !fallbackFrequencyActivated){
+					log.info("*** Slowing down the collect frequency for bean: " + this.getBeanName() +" as it has exceeded the collectFailureThreshold parameter.");
+					fallbackFrequencyActivated=true;
+				}				
+//				this.sendNotification(new Notification("org.helios.collectors.exception.notification",this,notificationSerialNumber.incrementAndGet(),lastTimeCollectionFailed,this.getBeanName()));
+				if(logErrors)
+					log.error("Collection failed for bean collector: "+this.getBeanName(),ex);
+				//executeExceptionScript();
+			}finally {
+				totalCollectionCount++;
+				setState(currState);
+				if(!errors){
+					postCollect();
+					lastTimeCollectionCompleted=System.currentTimeMillis();
+					log.debug("Last Collection Elapsed Time: " + (lastTimeCollectionCompleted - lastTimeCollectionStarted)+ " milliseconds");
+				}
+				if(logCollectionResult) 
+					logCollectionResultDetails(collectionResult);
+				if(collectorLock.isLocked())
+					collectorLock.unlock();
+				numberOfCollectorsRunning.decrementAndGet();
+			}	
+		} else {
+			log.trace("Not executing collect method as the collector state is not STARTED.");
+		}
+	}
+
+	/**
+	 * @param collectionResult 
+	 * 
+	 */
+	private void logCollectionResultDetails(CollectionResult collectionResult) {
+		info(collectionResult);
 	}
 	
 	/**
-	 * Schedule this collector to be triggered after specified number of seconds
+	 * Collector specific collection tasks that should be implemented by concrete collector classes
 	 */
-	public void scheduleCollect(long seconds) {
-		info("Delaying start of [" + this.getBeanName() + "] for [" + seconds + "] seconds");
+	public abstract CollectionResult collectCallback();
+	
+	/**
+	 * This method can be overridden by concrete implementation classes 
+	 * for any custom pre collect tasks that needs to be done.
+	 */
+	public void postCollect() {}	
+	
+	/**
+	 * This method can be overridden by concrete implementation classes 
+	 * for any custom pre stop tasks that needs to be done.
+	 */
+	public void preStop() {}
+	
+	/**
+	 * This method ties up the functionality and sequencing of pre, post and stopCollector methods.  It cannot be 
+	 * overridden by concrete collector classes
+	 */
+	public final void doStop() {
+		if(getState()==CollectorState.STOPPED || getState()==CollectorState.STOPPING)
+			return;
+		setState(CollectorState.STOPPING);
+		try {
+			preStop();
+//			unregisterFromMBeanServer();
+			unscheduleCollect();
+//			unScheduleReset();			
+			stopCollector();
+			postStop();
+			setState(CollectorState.STOPPED);
+			info(banner("Collector", this.getBeanName()+" Stopped"));
+		} catch (Exception ex){
+			debug("An error occured while stopping collector bean: " + this.getBeanName(),ex); 
+		} 
+	}
+	
+	
+	/**
+	 * To be implemented by concrete classes for any custom stop tasks
+	 */
+	public void stopCollector() {}
+	
+	/**
+	 * This method can be overridden by concrete implementation classes 
+	 * for any custom post stop tasks that needs to be done.
+	 */
+	public void postStop() {
+		
+	}	
+
+//	/**
+//	 * This method can be overridden by concrete implementation classes 
+//	 * for any custom pre reset tasks that needs to be done.
+//	 */
+//	public void preReset() {}
+//	
+//	/**
+//	 * This method ties up the functionality and sequencing of pre, post and resetCollector methods.  It cannot be 
+//	 * overridden by concrete collector classes
+//	 */
+//	public final void reset(){
+//		CollectorState currState = getState();
+//		setState(CollectorState.RESETTING);
+//		// acquires a re-enterent lock to prevent collectorCallback from 
+//		// executing while reset is happening.
+//		collectorLock.lock();
+//		try {
+//			preReset();
+//			resetCollector();
+//			postReset();
+//			setState(currState);
+//			info(banner("Reset Completed for Collector", this.getBeanName()));
+//		} catch (Exception ex){
+//			debug("An error occured while resetting the collector bean: " + this.getBeanName(),ex);
+//		} finally {
+//			collectorLock.unlock();
+//		}		
+//	}
+//
+//	/**
+//	 * An additional convenience method provided for implementing task that needs to be 
+//	 * performed for resetting this collector
+//	 */
+//	public void resetCollector() {}
+//	
+	/**
+	 * This method can be overridden by concrete implementation classes 
+	 * for any custom post reset tasks that needs to be done.
+	 */
+	public void postReset() {}
+	
+	/**
+	 * Schedule this collector with fixed frequency  
+	 */
+	public void scheduleCollect() {
+		long collectPeriod = getCollectPeriod();
 		scheduler.schedule(new Runnable(){
-			public void run() { startCollector(); }
-		}, seconds, TimeUnit.SECONDS);
+			public void run() { collect(); }
+		}, collectPeriod, TimeUnit.MILLISECONDS);
+		info("Started collection schedule with frequency of ["+ collectPeriod + "] ms. for collector [" + this.getBeanName() + "]");
 	}
 	
 	/**
