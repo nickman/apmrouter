@@ -16,6 +16,45 @@
 	    <property name="dataSource" ref="DataSource"/>
 	  </bean>
 	  
+	 <bean id="DataSource" class="com.jolbox.bonecp.BoneCPDataSource" destroy-method="close">
+	   <property name="driverClass" value="org.h2.Driver" />
+	   <property name="jdbcUrl" value="jdbc:h2:file:~/.apmrouter/h2/db;JMX=TRUE;MULTI_THREADED=TRUE;DB_CLOSE_DELAY=-1" />
+	   <property name="username" value="sa"/>
+	   <property name="password" value=""/>
+	   <property name="idleConnectionTestPeriod" value="60"/>
+	   <property name="idleMaxAge" value="240"/>
+	   <property name="maxConnectionsPerPartition" value="30"/>
+	   <property name="minConnectionsPerPartition" value="10"/>
+	   <property name="partitionCount" value="3"/>
+	   <property name="acquireIncrement" value="5"/>
+	   <property name="statementsCacheSize" value="100"/>
+	   <property name="preparedStatementsCacheSize" value="100"/>
+	   <property name="releaseHelperThreads" value="3"/>
+	   <property name="statisticsEnabled" value="true"/>
+	   <property name="disableJMX" value="false"/>
+	   <property name="poolName" value="Catalog"/>
+	   <property name="connectionTestStatement" value="SELECT SYSTIME"/>
+	</bean>
+	
+	<!-- 
+	<bean id="DataSourceStats" class="com.jolbox.bonecp.Statistics">
+		<constructor-arg ref="DataSource" />
+	</bean>
+	-->
+
+	<bean id="h2exporter" class="org.springframework.jmx.export.MBeanExporter">
+		<property name="beans">
+			<map>
+				<entry key="org.h2:service=ConnectionPool,type=Catalog" value-ref="DataSource" />								
+				<!-- <entry key="org.h2:service=ConnectionPoolStats,type=Catalog" value-ref="DataSourceStats" /> -->				
+			</map>
+		</property>
+		<property name="server" ref="MBeanServer" />
+	</bean>	
+
+	
+<!--
+
 	 <bean id="DataSource"
 	      class="org.apache.commons.dbcp.BasicDataSource"
 	      destroy-method="close"
@@ -31,10 +70,6 @@
 	      p:test-on-borrow="true"
 	      p:test-while-idle="false"/>
 
-
-
-	
-<!--
 
 	 <bean id="DataSource"
 	      class="org.apache.commons.dbcp.BasicDataSource"
