@@ -136,15 +136,16 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 		long start = System.currentTimeMillis();
 		try {
 			conn = ds.getConnection();
-			ps = conn.prepareStatement("UPDATE METRIC SET STATE=?, LAST_SEEN=? WHERE METRIC_ID=?");
+			//ps = conn.prepareStatement("UPDATE METRIC SET STATE=?, LAST_SEEN=? WHERE METRIC_ID=?");
+			ps = conn.prepareStatement("UPDATE METRIC SET STATE=? WHERE METRIC_ID=?");
 			for(Map.Entry<EntryStatus, EntryStatusChange> entry: changeMap.entrySet()) {
 				byte status = entry.getKey().byteOrdinal();
 				ConcurrentLongSortedSet metricIds = entry.getValue().getMetricIds();
-				Timestamp ts = new Timestamp(entry.getValue().getTimestamp());				
+				//Timestamp ts = new Timestamp(entry.getValue().getTimestamp());				
 				for(int i = 0; i < metricIds.size(); i++) {
 					ps.setByte(1, status);
-					ps.setTimestamp(2, ts);
-					ps.setLong(3, metricIds.get(i));
+					//ps.setTimestamp(2, ts);
+					ps.setLong(2, metricIds.get(i));
 					ps.addBatch();
 				}
 				ps.executeBatch();

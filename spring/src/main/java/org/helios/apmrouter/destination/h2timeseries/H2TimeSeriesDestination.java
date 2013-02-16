@@ -77,6 +77,8 @@ import org.springframework.jmx.support.MetricType;
 	@ManagedNotification(notificationTypes={H2TimeSeriesDestination.NOTIF_TYPE}, name="javax.management.Notification", description="Notification issued when a subscribed metric has an interval roll")
 })
 public class H2TimeSeriesDestination extends BaseDestination implements FlushQueueReceiver<IMetric>,  NotificationListener, NotificationFilter {
+	/**  */
+	private static final long serialVersionUID = -3619596215620538601L;
 	/** The H2 data source */
 	protected DataSource dataSource = null;
 	/** The subscription service */
@@ -147,7 +149,7 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 	@Override
 	protected void doStart() throws Exception {
 		super.doStart();
-		flushQueue = (TimeSizeFlushQueue<IMetric>) new TimeSizeFlushQueue(getClass().getSimpleName(), sizeTrigger, timeTrigger, this);
+		flushQueue = new TimeSizeFlushQueue<IMetric>(getClass().getSimpleName(), sizeTrigger, timeTrigger, this);
 		unsafeSelectSql = new StringBuilder("select METRIC_ID, NVL2(V, V, UNSAFE_MAKE_MV(").append(timeSeriesStep).append(",").append(timeSeriesWidth).append(",false)) from METRIC M left outer join UNSAFE_METRIC_VALUES MV on MV.ID = m.METRIC_ID where  M.METRIC_ID IN (");
 		safeSelectSql = new StringBuilder("select METRIC_ID, NVL2(V, V, MAKE_MV(").append(timeSeriesStep).append(",").append(timeSeriesWidth).append(",false)) from METRIC M left outer join METRIC_VALUES MV on MV.ID = m.METRIC_ID where  M.METRIC_ID IN (");
 		liveTier = timeSeriesManager.getLiveTier();
@@ -162,6 +164,9 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 		registerSubListener();
 	}
 	
+	/**
+	 * @param items
+	 */
 	public void flushToSafe(Collection<IMetric> items) {
 		Set<IMetric> flushedItemss = new HashSet<IMetric>(items);
 		Map<Long, IMetric> metricMap = new HashMap<Long, IMetric>(flushedItemss.size());

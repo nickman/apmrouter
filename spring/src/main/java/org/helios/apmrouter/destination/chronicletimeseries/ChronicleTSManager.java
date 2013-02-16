@@ -113,8 +113,7 @@ public class ChronicleTSManager extends ServerComponentBean implements UncaughtE
 			t.setUncaughtExceptionHandler(new UncaughtExceptionHandler() {				
 				@Override
 				public void uncaughtException(Thread t, Throwable e) {
-					error("Uncaught exception in TimeSeries scheduler [", t, "]", e);
-					
+					error("Uncaught exception in TimeSeries scheduler [", t, "]", e);					
 				}
 			});
 			return t;

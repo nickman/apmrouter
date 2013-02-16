@@ -87,8 +87,7 @@ public abstract class AbstractTrigger extends NotificationBroadcasterSupport imp
 		} catch (Exception ex) {
 			throw new SQLException("Failed to enqueue notification for [" + getClass().getSimpleName() + "] with new row " + Arrays.toString(newRow), ex);
 		}
-		sendNotification(n);
-		callCount.incrementAndGet();
+		sendNotification(n);		
 	}
 	
 	/**

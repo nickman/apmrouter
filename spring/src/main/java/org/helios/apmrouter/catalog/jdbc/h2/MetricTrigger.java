@@ -27,15 +27,12 @@ package org.helios.apmrouter.catalog.jdbc.h2;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.Arrays;
 
 import javax.management.MBeanNotificationInfo;
 import javax.management.Notification;
-import javax.management.ObjectName;
 
 import org.helios.apmrouter.catalog.EntryStatus;
 import org.helios.apmrouter.destination.chronicletimeseries.ChronicleTier;
-import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.util.SystemClock;
 
@@ -48,22 +45,18 @@ import org.helios.apmrouter.util.SystemClock;
  */
 
 public class MetricTrigger extends AbstractTrigger implements MetricTriggerMBean {
+	/** The metric type ordinal for the incrementor metric type  */
 	protected static final int INCR_ID = MetricType.INCREMENTOR.ordinal();
+	/** The metric type ordinal for the interval incrementor metric type  */
 	protected static final int INT_INCR_ID = MetricType.INTERVAL_INCREMENTOR.ordinal();
 	
 	/** The ID of the column containing the metric id for a metric */
 	public static final int METRIC_COLUMN_ID = 0;
 	/** The ID of the column containing the state for a metric */
 	public static final int STATE_COLUMN_ID = 8;
-
 	
-//	/** The JMX ObjectName's prefix to which the tier name is appended to create the full object name */
-//	public static final ObjectName LIVE_TIER_OBJECT_NAME = JMXHelper.objectName("org.helios.apmrouter.timeseries:type=chronicle,name=live");
-//	/** The JMX notification type for metric status updates */
-//	public static final String ENTRY_STATUS_UPDATE_TYPE = "metric.status.update";
-
 	/** The event status message format */
-	public static final String EVENT_STATUS_MESSAGE = "%s:" + EntryStatus.OFFLINE.byteOrdinal();
+	public static final String EVENT_STATUS_MESSAGE = "%s:%s";
 	
 	/**
 	 * Creates a new MetricTrigger
@@ -83,21 +76,22 @@ public class MetricTrigger extends AbstractTrigger implements MetricTriggerMBean
 			if(INCR_ID==typeId || INT_INCR_ID==typeId) {
 				addIncr(conn, (Long)newRow[0], typeId);
 			}
-			//sendNotification(NEW_METRIC, newRow);
+			sendNotification(NEW_METRIC, newRow);
 		} else if(TriggerOp.UPDATE.isEnabled(type)) {
-			if(newRow!=null && newRow[STATE_COLUMN_ID].equals(EntryStatus.OFFLINE.byteOrdinal())) {
-				sendOffLineNotification((Long)newRow[METRIC_COLUMN_ID]);
+			if(newRow!=null && oldRow!=null && newRow[STATE_COLUMN_ID] != oldRow[STATE_COLUMN_ID]) {
+				sendStateChangeNotification((Long)newRow[METRIC_COLUMN_ID], (byte)newRow[STATE_COLUMN_ID]);				
 			}
 		}
 		callCount.incrementAndGet();
 	}
 	
 	/**
-	 * Sends a notification indicating a metric Id has been set OFFLINE
+	 * Sends a notification indicating a metric Id has changed state
 	 * @param metricId The metric ID
+	 * @param status The new {@link EntryStatus} byte ordinal
 	 */
-	protected void sendOffLineNotification(long metricId) {
-		sendNotification(new Notification(ChronicleTier.ENTRY_STATUS_UPDATE_TYPE, ChronicleTier.LIVE_TIER_OBJECT_NAME, NewElementTriggers.serial.incrementAndGet(), SystemClock.time(), String.format(EVENT_STATUS_MESSAGE, metricId)));		
+	protected void sendStateChangeNotification(long metricId, byte status) {
+		sendNotification(new Notification(ChronicleTier.ENTRY_STATUS_UPDATE_TYPE, ChronicleTier.LIVE_TIER_OBJECT_NAME, NewElementTriggers.serial.incrementAndGet(), SystemClock.time(), String.format(EVENT_STATUS_MESSAGE, metricId, status)));		
 	}
 	
 	
@@ -106,15 +100,16 @@ public class MetricTrigger extends AbstractTrigger implements MetricTriggerMBean
 	 * @param conn The H2 connection
 	 * @param metricId The new metric Id
 	 * @param typeId The {@link MetricType} ordinal
-	 * @throws SQLException
+	 * @throws SQLException thrown on any SQL error
+	 * FIXME: If metric is new, value is 1, otherwise it is +1
 	 */
 	protected void addIncr(Connection conn, long metricId, int typeId) throws SQLException {
 		PreparedStatement ps = null;
 		try {
 			ps = conn.prepareStatement(typeId==INCR_ID ?
-				"INSERT INTO INCREMENTOR (METRIC_ID, INC_VALUE, LAST_INC) VALUES (?, 0, CURRENT_TIMESTAMP)"
+				"INSERT INTO INCREMENTOR (METRIC_ID, INC_VALUE, LAST_INC) VALUES (?, 1, CURRENT_TIMESTAMP)"
 				:
-				"INSERT INTO INTERVAL_INCREMENTOR (METRIC_ID, INC_VALUE, LAST_INC) VALUES (?, 0, CURRENT_TIMESTAMP)"
+				"INSERT INTO INTERVAL_INCREMENTOR (METRIC_ID, INC_VALUE, LAST_INC) VALUES (?, 1, CURRENT_TIMESTAMP)"
 			);
 			ps.setLong(1, metricId);
 			ps.executeUpdate();
