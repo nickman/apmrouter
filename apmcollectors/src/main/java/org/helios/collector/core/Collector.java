@@ -32,10 +32,10 @@ package org.helios.collector.core;
  */
 public interface Collector {
 
-//	public void preInit();
-//	public void init();
-//	public void initCollector();
-//	public void postInit();
+	public void preInit();
+	public void init();
+	public void initCollector();
+	public void postInit();
 	
 	public void start() throws Exception;
 	public void preStart();
