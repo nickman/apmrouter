@@ -27,7 +27,7 @@
 
     	<dependency>
 			<groupId>org.helios.apmrouter</groupId>
-			<artifactId>spring</artifactId>
+			<artifactId>apmrouter-server</artifactId>
 			<version>${project.version}</version>
 			
 		</dependency>

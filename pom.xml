@@ -8,7 +8,7 @@
 	<name>apmrouter</name>
 	<modules>
 		<module>apmrouter-agent</module>		
-		<module>spring</module>
+		<module>apmrouter-server</module>		
 		<module>jagent</module>
 		<!--module>codahale</module>
 		<module>apmrouter-web</module>
