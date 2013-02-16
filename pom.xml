@@ -10,10 +10,11 @@
 		<module>apmrouter-agent</module>		
 		<module>apmrouter-server</module>		
 		<module>jagent</module>
+		<module>apmdestinations</module>		
 		<!--module>codahale</module>
 		<module>apmrouter-web</module>
 		<module>apmrouter-cl</module-->
-    <module>apmcollectors</module>
+		<module>apmcollectors</module>
   </modules>
 	<properties>
 		<chronicle.version>1.2-SNAPSHOT</chronicle.version>
@@ -22,7 +23,6 @@
 		<slf4j.version>1.6.6</slf4j.version>
 		<log4j.version>1.2.16</log4j.version>
 		<junit.version>4.8.2</junit.version>
-		<ehcache.version>2.6.0</ehcache.version>
 		<javassist.version>3.16.1-GA</javassist.version>
 		<camel.version>2.10.0</camel.version>
 		<snmp4j.version>1.9.1f</snmp4j.version>
@@ -36,33 +36,29 @@
 		<sigar.version>1.6.4</sigar.version>
 		<rrd4j.version>2.2-SNAPSHOT</rrd4j.version>
 		<h2.version>1.3.170</h2.version>
-		<commons.dbcp.version>1.4</commons.dbcp.version>
 		<spring.version>3.2.1.RELEASE</spring.version>
-		<ning.version>1.7.6</ning.version>
 		<jetty.version>8.1.7.v20120910</jetty.version>
 		<servlet.version>3.0.1</servlet.version>
 		<hibernate.version>3.3.2.GA</hibernate.version>
 		<gson.version>2.2.2</gson.version>
-		<json-lib.version>2.4</json-lib.version>
-		<xom.version>1.2.5</xom.version>
 		<groovy.version>2.0.1</groovy.version>
-		<json-simple.version>1.1.1</json-simple.version>
 		<spring-mongo.version>1.0.4.RELEASE</spring-mongo.version>
 		<flapdoodle.version>1.26</flapdoodle.version>
 		<jfree.version>1.0.9</jfree.version>
 		<yammer.version>3.0.0-SNAPSHOT</yammer.version>
 		<byteman.version>2.1.1-SNAPSHOT</byteman.version>
-		<asm.version>4.1</asm.version>
 		<jmx-optiona.version>1.0-b02-SNAPSHOT</jmx-optiona.version>
 		<javax-validation.version>1.0.0.GA</javax-validation.version>
-		<!-- Convenience property to set the GWT version -->
-		<gwtVersion>2.5.0-rc2</gwtVersion>
+		<bonecp.version>0.7.1.RELEASE</bonecp.version>
 		<!-- GWT needs at least java 1.5 -->
 		<webappDirectory>${project.build.directory}/${project.build.finalName}</webappDirectory>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
+			<!-- ==========================================================			
+			  Logging Dependencies, put first so they sort high in cp
+			    ========================================================== -->
 			<dependency>
 				<groupId>log4j</groupId>
 				<artifactId>log4j</artifactId>
@@ -74,9 +70,16 @@
 				<artifactId>slf4j-log4j12</artifactId>
 				<version>${slf4j.version}</version>
 			</dependency>
+			<dependency>
+				<groupId>org.slf4j</groupId>
+				<artifactId>slf4j-api</artifactId>
+				<version>${slf4j.version}</version>
+			</dependency>
 
 			
-			<!--   TEST   -->
+			<!-- ==========================================================			
+			  Testing Dependencies
+			    ========================================================== -->
 			
 			<dependency>
 				<groupId>junit</groupId>
@@ -84,123 +87,70 @@
 				<version>${junit.version}</version>
 				<scope>test</scope>
 			</dependency>
-			<dependency>
-				<groupId>org.apache.camel</groupId>
-				<artifactId>camel-test</artifactId>
-				<version>${camel.version}</version>
-				<scope>test</scope>
-			</dependency>
-			<dependency>
-				<groupId>org.apache.camel</groupId>
-				<artifactId>camel-test-spring</artifactId>
-				<version>${camel.version}</version>
-				<scope>test</scope>
-			</dependency>
-			  <dependency>
-			    <groupId>de.flapdoodle.embed</groupId>
-			    <artifactId>de.flapdoodle.embed.mongo</artifactId>
-			    <version>${flapdoodle.version}</version>
-			    <scope>test</scope>
-			  </dependency>	
 
 			  
 			  
-			  <!--  Byteman -->
+			<!-- ==========================================================			
+			  Byteman & AOP
+			    ========================================================== -->
 			  <dependency>
-	        <groupId>org.jboss.byteman</groupId>
-	        <artifactId>byteman</artifactId>
-	        <version>${byteman.version}</version>
-			  </dependency>
-			  
-			  <!-- GWT Console -->
-			  <dependency>
-			    <groupId>com.google.gwt</groupId>
-			    <artifactId>gwt-dev</artifactId>
-			    <version>${gwtVersion}</version>
-			    <scope>test</scope>
+			    <groupId>org.jboss.byteman</groupId>
+			    <artifactId>byteman</artifactId>
+			    <version>${byteman.version}</version>
 			  </dependency>
 			<dependency>
-			  <groupId>com.google.gwt</groupId>
-			  <artifactId>gwt-servlet</artifactId>
-			  <version>${gwtVersion}</version>
-			  <scope>runtime</scope>
-			</dependency>
-			<dependency>
-			  <groupId>com.google.gwt</groupId>
-			  <artifactId>gwt-user</artifactId>
-			  <version>${gwtVersion}</version>
-			  <scope>provided</scope>
-			</dependency>
-			<dependency>
-			  <groupId>javax.validation</groupId>
-			  <artifactId>validation-api</artifactId>
-			  <version>${javax-validation.version}</version>
-			  <scope>test</scope>
-			</dependency>
-			<dependency>
-			  <groupId>javax.validation</groupId>
-			  <artifactId>validation-api</artifactId>
-			  <version>${javax-validation.version}</version>
-			  <classifier>sources</classifier>
-			  <scope>test</scope>
-			</dependency>
-			  
-			
-			<!--   COMPILE/RUNTIME   -->
-			<dependency>
-			  <groupId>jfree</groupId>
-			  <artifactId>jfreechart</artifactId>
-			  <version>${jfree.version}</version>
+			  <groupId>org.javassist</groupId>
+			  <artifactId>javassist</artifactId>
+			  <version>${javassist.version}</version>
 			</dependency>
 			
-			<dependency>
-			  <groupId>org.apache.camel</groupId>
-			  <artifactId>camel-bindy</artifactId>
-			  <version>${camel.version}</version>
-			</dependency>
-
-			
-			<dependency>
-				<groupId>vanilla.java</groupId>
-				<artifactId>chronicle</artifactId>
-				<version>${chronicle.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>org.json</groupId>
-				<artifactId>json</artifactId>
-				<version>${json.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>org.slf4j</groupId>
-				<artifactId>slf4j-api</artifactId>
-				<version>${slf4j.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>net.sf.ehcache</groupId>
-				<artifactId>ehcache-core</artifactId>
-				<version>${ehcache.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>org.javassist</groupId>
-				<artifactId>javassist</artifactId>
-				<version>${javassist.version}</version>
-			</dependency>
+			<!-- ==========================================================			
+			  for h2 catalog and time series
+			    ========================================================== -->
 		      <dependency>
-			<groupId>org.ow2.asm</groupId>
-			<artifactId>asm-all</artifactId>
-			<version>${asm.version}</version>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<version>${h2.version}</version>
 		      </dependency>
 			
-			<dependency>
-				<groupId>org.apache.camel</groupId>
-				<artifactId>camel-core</artifactId>
-				<version>${camel.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>org.apache.camel</groupId>
-				<artifactId>camel-spring</artifactId>
-				<version>${camel.version}</version>
-			</dependency>
+		      <dependency>
+			<groupId>org.hibernate</groupId>
+			<artifactId>hibernate-core</artifactId>
+			<version>${hibernate.version}</version>
+		      </dependency>
+		      
+		      <dependency>
+			<groupId>vanilla.java</groupId>
+			<artifactId>chronicle</artifactId>
+			<version>${chronicle.version}</version>
+		      </dependency>
+		      
+		      <!-- ==========================
+			    JDBC Pooling Support 
+			      ========================== -->
+		      <dependency>
+			<groupId>com.jolbox</groupId>
+			<artifactId>bonecp</artifactId>
+			<classifier>jdk5</classifier>
+			<version>${bonecp.version}</version>
+		      </dependency>
+		      <dependency>
+			<groupId>com.jolbox</groupId>
+			<artifactId>bonecp-provider</artifactId>
+			<classifier>jdk5</classifier>
+			<version>${bonecp.version}</version>
+		      </dependency>
+		      <dependency>
+			<groupId>com.jolbox</groupId>
+			<artifactId>bonecp-spring</artifactId>
+			<classifier>jdk5</classifier>
+			<version>${bonecp.version}</version>
+		      </dependency>
+		      
+
+		      <!-- ==========================================================			
+			Spring container for apmrouter-server
+			  ========================================================== -->
 			<dependency>
 			  <groupId>org.springframework</groupId>
 			  <artifactId>spring-jdbc</artifactId>
@@ -216,169 +166,75 @@
 			  <artifactId>spring-web</artifactId>
 			  <version>${spring.version}</version>
 			</dependency>
+
+		      <!-- ==========================================================			
+			JSON Marshalling
+			  ========================================================== -->
 			
-			<!-- MongoDb -->
-			<dependency>
-			    <groupId>org.springframework.data</groupId>
-			    <artifactId>spring-data-mongodb</artifactId>
-			    <version>${spring-mongo.version}</version>
-			  </dependency>
+		      <dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>${json.version}</version>
+		      </dependency>
+		      <dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+			<version>${gson.version}</version>
+		      </dependency>
 			
-			
-			<dependency>
-				<groupId>org.apache.camel</groupId>
-				<artifactId>camel-netty</artifactId>
-				<version>${camel.version}</version>
-			</dependency>
-			
-			
-			<!-- JMXMP Server and Client Protocols -->
+		      <!-- ==========================================================			
+			JMX Support
+			  ========================================================== -->
 			<dependency>
 			  <groupId>com.sun.jdmk</groupId>
 			  <artifactId>jmx-optional</artifactId>
 			  <version>${jmx-optiona.version}</version>			  
 			</dependency>
 			
-			<!--  Google Guava -->
+		      <!-- ==========================================================			
+			Google Libs
+			  ========================================================== -->
 			<dependency>
 			  <groupId>com.google.guava</groupId>
 			  <artifactId>guava</artifactId>
 			  <version>${guava.version}</version>
 			</dependency>
 			
-			
-			
+		      <!-- ==========================================================			
+			Netty
+			  ========================================================== -->
 		      <dependency>
 			<groupId>io.netty</groupId>
 			<artifactId>netty</artifactId>
-			<version>${netty.version}</version>
+			<version>${netty.version}</version>				
 		      </dependency>
-			
-			<dependency>
-			  <groupId>org.snmp4j</groupId>
-			  <artifactId>snmp4j</artifactId>
-			  <version>${snmp4j.version}</version>
-			</dependency>		
-			<dependency>
-			  <groupId>com.github.stephenc.high-scale-lib</groupId>
-			  <artifactId>high-scale-lib</artifactId>
-			  <version>${high-scale-lib.version}</version>
-			</dependency>
-			<dependency>
-			 <groupId>com.cgbystrom</groupId>
-			 <artifactId>netty-tools</artifactId>
-			 <version>${netty-tools.version}</version>
-			</dependency>
-
-			
-			<!--  OpenTSDB -->
-
-			<dependency>
-			 <groupId>net.opentsdb</groupId>
-			 <artifactId>opentsdb</artifactId>
-			 <version>${tsdb.version}</version>
-			</dependency>
-			<dependency>
-			  <groupId>org.hbase</groupId>
-			  <artifactId>asynchbase</artifactId>
-			  <version>${hbase.version}</version>
-			</dependency>
-			<dependency>
-			  <groupId>com.stumbleupon</groupId>
-			  <artifactId>async</artifactId>
-			  <version>${async.version}</version>
-			</dependency>
-			
-			<!-- Nash Command Line Server -->
-			
-			<dependency>
-			  <groupId>org.helios</groupId>
-			  <artifactId>nash</artifactId>  
-			  <version>${nash.version}</version>
-			</dependency>
-			
-			<!-- SIGAR -->
+		      
+		      <!-- ==========================================================			
+			Sigar
+			  ========================================================== -->
 		      <dependency>
 			<groupId>org.fusesource</groupId>
 			<artifactId>sigar</artifactId>
 			<version>${sigar.version}</version>
 		      </dependency>
 
-			<!-- Asynch Http Client -->
-			 <dependency>
-			     <groupId>com.ning</groupId>
-			     <artifactId>async-http-client</artifactId>
-			     <version>${ning.version}</version>
-			 </dependency>
-			
-			 <!-- Jetty Web Server -->
-		      <dependency>
-			<groupId>org.eclipse.jetty.aggregate</groupId>
-			<artifactId>jetty-all-server</artifactId>
-			<version>${jetty.version}</version>
-		      </dependency>
-		      <dependency>
-			<groupId>javax.servlet</groupId>
-			<artifactId>javax.servlet-api</artifactId>
-			<version>${servlet.version}</version>
-		      </dependency>
-
-			 
-			 
-		      <!-- for time series -->
-		    <dependency>
-		      <groupId>com.h2database</groupId>
-		      <artifactId>h2</artifactId>
-		      <version>${h2.version}</version>
-		    </dependency>
-				<dependency>
-				  <groupId>org.hibernate</groupId>
-				  <artifactId>hibernate-core</artifactId>
-				  <version>${hibernate.version}</version>
-				</dependency>
+		      <!-- ==========================================================			
+			Miscellaneous, Collections, Utils
+			  ========================================================== -->
 			<dependency>
-			  <groupId>com.googlecode.json-simple</groupId>
-			  <artifactId>json-simple</artifactId>
-			  <version>${json-simple.version}</version>
+			  <groupId>com.github.stephenc.high-scale-lib</groupId>
+			  <artifactId>high-scale-lib</artifactId>
+			  <version>${high-scale-lib.version}</version>
 			</dependency>
-				
 
-				<!--  Groovy Console -->
-				<dependency>
-  				<groupId>org.codehaus.groovy</groupId>
-  				<artifactId>groovy-all</artifactId>
-  				<version>${groovy.version}</version>
-			</dependency>				
-				
-				<!-- JSON Marshalling -->
-				<dependency>
-				  <groupId>com.google.code.gson</groupId>
-				  <artifactId>gson</artifactId>
-				  <version>${gson.version}</version>
-				</dependency>
-				
-		    
-		  <!--  Metric Catalog DB Pooling -->
-		  <dependency>
-		    <groupId>commons-dbcp</groupId>
-		    <artifactId>commons-dbcp</artifactId>
-		    <version>${commons.dbcp.version}</version>
-		  </dependency>
-		    
-		      
-		    <dependency>
-		      <groupId>org.rrd4j</groupId>
-		      <artifactId>rrd4j</artifactId>
-		      <version>${rrd4j.version}</version>
-		    </dependency>
-
-		<!--  Yammer Codahale Extension -->
-		  <dependency>
-		      <groupId>com.yammer.metrics</groupId>
-		      <artifactId>metrics-core</artifactId>
-		      <version>${yammer.version}</version>
-		  </dependency>
-
+		      <!-- ==========================================================			
+			Scripting, Groovy Console
+			  ========================================================== -->
+		      <dependency>
+			<groupId>org.codehaus.groovy</groupId>
+			<artifactId>groovy-all</artifactId>
+			<version>${groovy.version}</version>
+		      </dependency>				
 			
 		</dependencies>
 	</dependencyManagement>

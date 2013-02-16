@@ -16,189 +16,182 @@
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 	</properties>
 	<dependencies>
-		
-		<!-- logging -->
-		
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-log4j12</artifactId>
-		</dependency>
-		
-		<dependency>
-			<groupId>log4j</groupId>
-			<artifactId>log4j</artifactId>
-		</dependency>
-		
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-api</artifactId>
-		</dependency>
-	<!-- MongoDb -->
-   <dependency>
-      <groupId>org.springframework.data</groupId>
-      <artifactId>spring-data-mongodb</artifactId>
-      <version>1.0.4.RELEASE</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>de.flapdoodle.embed</groupId>
-      <artifactId>de.flapdoodle.embed.mongo</artifactId>
-      <version>1.26</version>
-      <scope>test</scope>
-    </dependency>	
-    
-		<!--  Google Guava -->
-		<dependency>
-		  <groupId>com.google.guava</groupId>
-		  <artifactId>guava</artifactId>
-		</dependency>
-    
-	
-		<!--  JFree -->
-		<dependency>
-		  <groupId>jfree</groupId>
-		  <artifactId>jfreechart</artifactId>
-		</dependency>
-		
-		
-	
-		<!--  SNMP Events -->
-		<dependency>
-		  <groupId>org.snmp4j</groupId>
-		  <artifactId>snmp4j</artifactId>
-		</dependency>
-	
-	
-		<dependency>
-		  <groupId>com.google.code.gson</groupId>
-		  <artifactId>gson</artifactId>
-		</dependency>
-		<dependency>
-		  <groupId>org.hibernate</groupId>
-		  <artifactId>hibernate-core</artifactId>
-		</dependency>
-	
-		<dependency>
-			<groupId>org.helios.apmrouter</groupId>
-			<artifactId>apmrouter-agent</artifactId>
-			<version>${project.version}</version>
-		</dependency>	
-		<dependency>
-		  <groupId>org.springframework</groupId>
-		  <artifactId>spring-web</artifactId>
-		</dependency>
-		
-		<dependency>
-		  <groupId>org.springframework</groupId>
-		  <artifactId>spring-jdbc</artifactId>
-		</dependency>
-		<dependency>
-		  <groupId>org.springframework</groupId>
-		  <artifactId>spring-orm</artifactId>
-		</dependency>
-		<dependency>
-		  <groupId>net.javacrumbs</groupId>
-		  <artifactId>json-xml</artifactId>
-		  <version>1.2</version>
-		</dependency>
-		   
+			<!-- ==========================================================			
+			  Logging Dependencies, put first so they sort high in cp
+			    ========================================================== -->
+			<dependency>
+				<groupId>log4j</groupId>
+				<artifactId>log4j</artifactId>
+			</dependency>
+			  
+			<dependency>
+				<groupId>org.slf4j</groupId>
+				<artifactId>slf4j-log4j12</artifactId>
+			</dependency>
+			<dependency>
+				<groupId>org.slf4j</groupId>
+				<artifactId>slf4j-api</artifactId>
+			</dependency>
+
+			
+			<!-- ==========================================================			
+			  Testing Dependencies
+			    ========================================================== -->
+			
+			<dependency>
+				<groupId>junit</groupId>
+				<artifactId>junit</artifactId>
+				<scope>test</scope>
+			</dependency>
+
+			<!-- ==========================================================			
+			  APMRouter Agent Dependencies
+			    ========================================================== -->
+			<dependency>			  
+			  <groupId>org.helios.apmrouter</groupId>
+			  <artifactId>apmrouter-agent</artifactId>
+			  <version>${project.version}</version>
+			</dependency>
+			    
+			  
+			  
+			<!-- ==========================================================			
+			  Byteman & AOP
+			    ========================================================== -->
+			  <dependency>
+			    <groupId>org.jboss.byteman</groupId>
+			    <artifactId>byteman</artifactId>
+			  </dependency>
+			<dependency>
+			  <groupId>org.javassist</groupId>
+			  <artifactId>javassist</artifactId>
+			</dependency>
+			
+			<!-- ==========================================================			
+			  for h2 catalog and time series
+			    ========================================================== -->
+		      <dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+		      </dependency>
+			
+		      <dependency>
+			<groupId>org.hibernate</groupId>
+			<artifactId>hibernate-core</artifactId>
+		      </dependency>
+		      
+		      <dependency>
+			<groupId>vanilla.java</groupId>
+			<artifactId>chronicle</artifactId>
+		      </dependency>
+		      
+		      <!-- ==========================
+			    JDBC Pooling Support 
+			      ========================== -->
+		      <dependency>
+			<groupId>com.jolbox</groupId>
+			<artifactId>bonecp</artifactId>
+			<classifier>jdk5</classifier>
+		      </dependency>
+		      <dependency>
+			<groupId>com.jolbox</groupId>
+			<artifactId>bonecp-provider</artifactId>
+			<classifier>jdk5</classifier>
+		      </dependency>
+		      <dependency>
+			<groupId>com.jolbox</groupId>
+			<artifactId>bonecp-spring</artifactId>
+			<classifier>jdk5</classifier>
+		      </dependency>
+		      
+
+		      <!-- ==========================================================			
+			Spring container for apmrouter-server
+			  ========================================================== -->
+			<dependency>
+			  <groupId>org.springframework</groupId>
+			  <artifactId>spring-jdbc</artifactId>
+			</dependency>
+			<dependency>
+			  <groupId>org.springframework</groupId>
+			  <artifactId>spring-orm</artifactId>
+			</dependency>
+			<dependency>
+			  <groupId>org.springframework</groupId>
+			  <artifactId>spring-web</artifactId>
+			</dependency>
+
+		      <!-- ==========================================================			
+			JSON Marshalling
+			  ========================================================== -->
+			
+		      <dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+		      </dependency>
+		      <dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+		      </dependency>
+			
+		      <!-- ==========================================================			
+			JMX Support
+			  ========================================================== -->
+			<dependency>
+			  <groupId>com.sun.jdmk</groupId>
+			  <artifactId>jmx-optional</artifactId>
+			</dependency>
+			
+		      <!-- ==========================================================			
+			Google Libs
+			  ========================================================== -->
+			<dependency>
+			  <groupId>com.google.guava</groupId>
+			  <artifactId>guava</artifactId>
+			</dependency>
+			
+		      <!-- ==========================================================			
+			SNMP dependencies 
+			  ========================================================== -->
+			<dependency>
+			  <groupId>org.snmp4j</groupId>
+			  <artifactId>snmp4j</artifactId>
+			  <version>${snmp4j.version}</version>
+			</dependency>		
+			
+			
+		      <!-- ==========================================================			
+			Netty
+			  ========================================================== -->
+		      <dependency>
+			<groupId>io.netty</groupId>
+			<artifactId>netty</artifactId>
+		      </dependency>
+		      
+		      <!-- ==========================================================			
+			Sigar
+			  ========================================================== -->
+		      <dependency>
+			<groupId>org.fusesource</groupId>
+			<artifactId>sigar</artifactId>
+		      </dependency>
+
+		      <!-- ==========================================================			
+			Miscellaneous, Collections, Utils
+			  ========================================================== -->
 			<dependency>
 			  <groupId>com.github.stephenc.high-scale-lib</groupId>
 			  <artifactId>high-scale-lib</artifactId>
 			</dependency>
-			
-			<!--  OpenTSDB -->
 
-			<dependency>
-			 <groupId>net.opentsdb</groupId>
-			 <artifactId>opentsdb</artifactId>
-			 <exclusions>
-			 	<exclusion>
-			 		<artifactId>logback-classic</artifactId>
-			 		<groupId>ch.qos.logback</groupId>
-			 	</exclusion>
-			 </exclusions>
-			 
-			</dependency>
-			
-			<dependency>
-			  <groupId>org.hbase</groupId>
-			  <artifactId>asynchbase</artifactId>
-			</dependency>
-			<dependency>
-			  <groupId>com.stumbleupon</groupId>
-			  <artifactId>async</artifactId>
-			</dependency>
-			
-			
-			<!--  nash server -->			
+		      <!-- ==========================================================			
+			Scripting, Groovy Console
+			  ========================================================== -->
+		      <dependency>
+			<groupId>org.codehaus.groovy</groupId>
+			<artifactId>groovy-all</artifactId>
+		      </dependency>				
 		
-		<!--  Metric Catalog DB Pooling -->
-		<dependency>
-			 <exclusions>
-			 	<exclusion>
-			 		<artifactId>logback-classic</artifactId>
-			 		<groupId>ch.qos.logback</groupId>
-			 	</exclusion>
-			 </exclusions>
-
-		  <groupId>commons-dbcp</groupId>
-		  <artifactId>commons-dbcp</artifactId>
-		</dependency>
-		 <dependency>
-		      <groupId>com.h2database</groupId>
-		      <artifactId>h2</artifactId>
-		</dependency>
-		
-		<!--  JSON Formatting -->
-			<dependency>
-				<groupId>org.json</groupId>
-				<artifactId>json</artifactId>
-			</dependency>
-			
-		<!-- JSON SAX Parser -->
-			<dependency>
-			  <groupId>com.googlecode.json-simple</groupId>
-			  <artifactId>json-simple</artifactId>
-			</dependency>
-			
-			<!-- MongoDb -->
-			<dependency>
-			    <groupId>org.springframework.data</groupId>
-			    <artifactId>spring-data-mongodb</artifactId>
-			  </dependency>
-			
-		
-			
-			<!-- Asynch Http Client -->
-			 <dependency>
-			     <groupId>com.ning</groupId>
-			     <artifactId>async-http-client</artifactId>
-			 </dependency>
-			
-			<!--  Groovy Console -->
-			<dependency>
-  				<groupId>org.codehaus.groovy</groupId>
-  				<artifactId>groovy-all</artifactId>
-			</dependency>				
-		
-		
-			<dependency>
-				<groupId>org.javassist</groupId>
-				<artifactId>javassist</artifactId>
-			</dependency>		
-			<dependency>
-			 <groupId>com.cgbystrom</groupId>
-			 <artifactId>netty-tools</artifactId>
-			</dependency>
-			
-		<!-- testing -->
-		
-		  <dependency>
-		    <groupId>de.flapdoodle.embed</groupId>
-		    <artifactId>de.flapdoodle.embed.mongo</artifactId>
-		    <scope>test</scope>
-		  </dependency>	
 		
 	</dependencies>
 	<build>

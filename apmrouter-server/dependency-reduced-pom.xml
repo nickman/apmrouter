@@ -87,16 +87,10 @@
   </build>
   <dependencies>
     <dependency>
-      <groupId>de.flapdoodle.embed</groupId>
-      <artifactId>de.flapdoodle.embed.mongo</artifactId>
-      <version>1.26</version>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.8.2</version>
       <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <artifactId>de.flapdoodle.embed.process</artifactId>
-          <groupId>de.flapdoodle.embed</groupId>
-        </exclusion>
-      </exclusions>
     </dependency>
   </dependencies>
   <properties>
