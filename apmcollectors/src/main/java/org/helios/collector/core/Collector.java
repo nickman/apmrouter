@@ -32,10 +32,10 @@ package org.helios.collector.core;
  */
 public interface Collector {
 
-	public void preInit();
+	//public void preInit();
 	public void init();
 	public void initCollector();
-	public void postInit();
+	//public void postInit();
 	
 	public void start() throws Exception;
 	public void preStart();
@@ -44,7 +44,7 @@ public interface Collector {
 
 	public void collect();
 	public void preCollect();
-	public CollectionResult collectCallback();
+	public CollectionResult collectCallback() throws CollectorException;
 	public void postCollect();	
 	
 	public void stop()  throws Exception;
@@ -53,18 +53,18 @@ public interface Collector {
 	public void postStop();
 	
 	public void reset();
-	public void preReset();
+	//public void preReset();
 	public void resetCollector();
-	public void postReset();	
+	//public void postReset();	
 	
 	public void destroy() throws Exception;
-	public void preDestroy();
+	//public void preDestroy();
 	public void destroyCollector();
-	public void postDestroy();	
+	//public void postDestroy();	
 	
-	public boolean isRunning();
+	//public boolean isRunning();
 	//public String getState();
 	public long getCollectPeriod();
-	public void setCollectPeriod(long period);
-	public void startCollector(long seconds);
+	//public void setCollectPeriod(long period);
+	//public void startCollector(long seconds);
 }

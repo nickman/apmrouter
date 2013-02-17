@@ -26,7 +26,7 @@ package org.helios.collector.core;
 
 /**
  * <p>Title: CollectorException</p>
- * <p>Description: PLACEHOLDER</p> 
+ * <p>Description: Custom Exception thrown by Collectors</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.collector.core.CollectorException</code></p>

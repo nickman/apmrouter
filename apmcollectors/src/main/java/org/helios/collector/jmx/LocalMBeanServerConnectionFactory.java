@@ -22,22 +22,41 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.collector.core;
+package org.helios.collector.jmx;
+
+import javax.management.MBeanServer;
+import javax.management.MBeanServerConnection;
 
 /**
- * <p>Title: AbstractCollectorMXBean</p>
- * <p>Description: MXBean Interface for all collectors</p> 
- * <p>Company: Helios Development Group</p>
- * @author Sandeep Malhotra (smalhotra@heliosdev.org)
+ * <p>Title: LocalMBeanServerConnectionFactory</p>
+ * <p>Description: A faux MBeanServerConnectionFactory for local in-vm MBeanServers</p> 
+ * <p>Company: Helios Development Group LLC</p>
+ * @author Whitehead (nwhitehead AT heliosdev DOT org)
+ * @version $LastChangedRevision$
+ * <p><code>org.helios.collectors.jmx.LocalMBeanServerConnectionFactory</code></p>
  */
-public interface AbstractCollectorMXBean {
-	//public abstract void start()  throws Exception;
-	public abstract void collect();
-	//public abstract void stop()  throws Exception;
-	public abstract void reset();
-	//public abstract void destroy() throws Exception;
 
-	public abstract long getCollectPeriod();
-	public abstract void setCollectPeriod(long period);
+public class LocalMBeanServerConnectionFactory extends AbstractMBeanServerConnectionFactory {
+	/** The MBeanServer this factory was created for  */
+	protected final MBeanServer server;
+	/**  */
+	private static final long serialVersionUID = -2495126728370279542L;
+
+	/**
+	 * Creates a new LocalMBeanServerConnectionFactory
+	 */
+	public LocalMBeanServerConnectionFactory(MBeanServer server) {
+		super(HSPProtocol.lhsp);
+		this.server = server;
+	}
+
+	/**
+	 * @return
+	 * @throws Exception
+	 */
+	@Override
+	protected MBeanServerConnection _getConnection() throws Exception {		
+		return server;
+	}
 
 }

@@ -44,6 +44,8 @@ import org.helios.apmrouter.trace.TracerFactory;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.helios.collector.BlackoutInfo;
+import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedResource;
 
 /**
  * <p>Title: AbstractCollector</p>
@@ -52,18 +54,19 @@ import org.helios.collector.BlackoutInfo;
  * @author Sandeep Malhotra (smalhotra@heliosdev.org)
  * 
  */
+@ManagedResource
 public abstract class AbstractCollector extends ServerComponentBean implements 
 					  Callable<CollectionResult>, 
-					  Collector, 
+					  Collector,
 					  AbstractCollectorMXBean{
 	//TODO: 
 	// Emit notification
 	// Expose methods and attributes to JMX
 	// streamline lifecycle
-	//
+	// Replace JMX's dependency from Apache Commons pool to BoneCP
 	
 	/** The scheduler shared amongst all collector instances */
-	protected static final ScheduledThreadPoolExecutor scheduler = ScheduledThreadPoolFactory.newScheduler("Monitor");
+	protected static final ScheduledThreadPoolExecutor scheduler = ScheduledThreadPoolFactory.newScheduler("Collector");
 	/** The tracer instance */
 	protected final ITracer tracer = TracerFactory.getTracer();
 	/** The scheduler handle for this collector */
@@ -375,11 +378,11 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 
 	/*  ==================  CUSTOM LIFECYCLE METHODS =============================*/
 	
-	/**
-	 * This method can be overridden by concrete implementation classes 
-	 * for any custom pre initialization tasks that needs to be done.
-	 */
-	public void preInit() {}	
+//	/**
+//	 * This method can be overridden by concrete implementation classes 
+//	 * for any custom pre initialization tasks that needs to be done.
+//	 */
+//	public void preInit() {}	
 	
 	/**
 	 * Initializes basic resources that are critical for any collector to work properly.
@@ -389,9 +392,9 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	public final void init() {
 		setState(CollectorState.INITIALIZING);
 		try{
-			preInit();
+			//preInit();
 			initCollector();
-			postInit();
+			//postInit();
 			if(blackoutStart!=null && blackoutEnd!=null){
 				blackoutInfo = new BlackoutInfo(blackoutStart, blackoutEnd, beanName);
 				if(!blackoutInfo.isValidRange()){
@@ -416,11 +419,11 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	 */
 	public void initCollector(){}		
 	
-	/**
-	 * This method can be overridden by concrete implementation classes 
-	 * for any custom post initialization tasks that needs to be done.
-	 */
-	public void postInit(){}
+//	/**
+//	 * This method can be overridden by concrete implementation classes 
+//	 * for any custom post initialization tasks that needs to be done.
+//	 */
+//	public void postInit(){}
 
 	/**
 	 * This method can be overridden by concrete implementation classes 
@@ -464,6 +467,12 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	}
 	
 	/**
+	 * This method can be overridden by concrete implementation classes 
+	 * for any custom post startup tasks that needs to be done.
+	 */
+	public void postStart(){}	
+	
+	/**
 	 * To be implemented by concrete classes for any custom startup tasks
 	 */
 	public void startCollector() {}
@@ -475,6 +484,14 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 //		//collectionSweep++;
 //		tracer.traceGauge(et.elapsedMs, "ElpasedTimeMs", "Collectors", getClass().getSimpleName());		
 //	}	
+	
+	/**
+	 * Callback method for HeliosScheduler to trigger the start of a collection. 
+	 */
+	public CollectionResult call() throws CollectorException {
+		collect();
+		return collectionResult;
+	}	
 	
 	/**
 	 * This method can be overridden by concrete implementation classes 
@@ -538,7 +555,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 				preCollect();
 				collectionResult = collectCallback();
 				if(collectionResult.getResultForLastCollection() == CollectionResult.Result.FAILURE){
-					throw new CollectorException(collectionResult.getAnyException());
+					throw new Exception(collectionResult.getAnyException());
 				}
 				lastTimeCollectionSucceeded=System.currentTimeMillis();
 				totalSuccessCount++;
@@ -594,7 +611,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	/**
 	 * Collector specific collection tasks that should be implemented by concrete collector classes
 	 */
-	public abstract CollectionResult collectCallback();
+	public abstract CollectionResult collectCallback() throws CollectorException;
 	
 	/**
 	 * This method can be overridden by concrete implementation classes 
@@ -650,28 +667,55 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 //	 */
 //	public void preReset() {}
 //	
-//	/**
-//	 * This method ties up the functionality and sequencing of pre, post and resetCollector methods.  It cannot be 
-//	 * overridden by concrete collector classes
-//	 */
-//	public final void reset(){
-//		CollectorState currState = getState();
-//		setState(CollectorState.RESETTING);
-//		// acquires a re-enterent lock to prevent collectorCallback from 
-//		// executing while reset is happening.
-//		collectorLock.lock();
-//		try {
-//			preReset();
-//			resetCollector();
-//			postReset();
-//			setState(currState);
-//			info(banner("Reset Completed for Collector", this.getBeanName()));
-//		} catch (Exception ex){
-//			debug("An error occured while resetting the collector bean: " + this.getBeanName(),ex);
-//		} finally {
-//			collectorLock.unlock();
-//		}		
-//	}
+	/**
+	 * This method ties up the functionality and sequencing of pre, post and resetCollector methods.  It cannot be 
+	 * overridden by concrete collector classes
+	 */
+	public final void reset(){
+		CollectorState currState = getState();
+		setState(CollectorState.RESETTING);
+		// acquires a re-enterent lock to prevent collectorCallback from 
+		// executing while reset is happening.
+		collectorLock.lock();
+		try {
+			//preReset();
+			resetCollector();
+			//postReset();
+			setState(currState);
+			info(banner("Reset Completed for Collector", this.getBeanName()));
+		} catch (Exception ex){
+			debug("An error occured while resetting the collector bean: " + this.getBeanName(),ex);
+		} finally {
+			collectorLock.unlock();
+		}		
+	}
+
+	/**
+	 * An additional convenience method provided for implementing task that needs to be 
+	 * performed for resetting this collector
+	 */
+	public void resetCollector() {}
+
+	/**
+	 * This method ties up the functionality and sequencing of pre, post and destroyCollector methods.  It cannot be 
+	 * overridden by concrete collector classes
+	 */
+	public final void destroy() throws CollectorException{
+		try {
+			doStop();
+			destroyCollector();
+			info(banner("Collector", this.getBeanName()," Destroyed"));
+		} catch(Exception ex){
+			throw new CollectorException("An error occured while destroying collector bean: " + this.getBeanName(),ex);
+		}	
+	}
+	
+	/**
+	 * An additional convenience method provided for implementing task that needs to be 
+	 * performed for destroying this collector
+	 */
+	public void destroyCollector() {}	
+	
 //
 //	/**
 //	 * An additional convenience method provided for implementing task that needs to be 
@@ -679,18 +723,37 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 //	 */
 //	public void resetCollector() {}
 //	
+//	/**
+//	 * This method can be overridden by concrete implementation classes 
+//	 * for any custom post reset tasks that needs to be done.
+//	 */
+//	public void postReset() {}
+
 	/**
-	 * This method can be overridden by concrete implementation classes 
-	 * for any custom post reset tasks that needs to be done.
+	 * @return the current state of this collector
 	 */
-	public void postReset() {}
+	@ManagedAttribute
+	public String currentState() {
+		if(getState()==CollectorState.STARTED) return "Started";
+        else if(getState()==CollectorState.COLLECTING) return "Collecting";
+		else if(getState()==CollectorState.STOPPED) return "Stopped";
+		else if(getState()==CollectorState.INITIALIZED) return "Initialized";
+		else if(getState()==CollectorState.INITIALIZING) return "Initializing";
+        else if(getState()==CollectorState.INIT_FAILED) return "Initialization Failed";
+        else if(getState()==CollectorState.STARTING) return "Starting";
+        else if(getState()==CollectorState.START_FAILED) return "Start Failed";
+        else if(getState()==CollectorState.STOPPING) return "Stopping";
+        else if(getState()==CollectorState.CONSTRUCTED) return "Constructed";
+        else if(getState()==CollectorState.RESETTING) return "Resetting";
+        else return "Unknown";
+	}	
 	
 	/**
 	 * Schedule this collector with fixed frequency  
 	 */
 	public void scheduleCollect() {
 		long collectPeriod = getCollectPeriod();
-		scheduler.schedule(new Runnable(){
+		scheduleHandle = scheduler.schedule(new Runnable(){
 			public void run() { collect(); }
 		}, collectPeriod, TimeUnit.MILLISECONDS);
 		info("Started collection schedule with frequency of ["+ collectPeriod + "] ms. for collector [" + this.getBeanName() + "]");
