@@ -75,12 +75,13 @@ public abstract class AbstractTrigger extends NotificationBroadcasterSupport imp
 	
 	/**
 	 * Sends a notification of the passed type 
+	 * @param elementType The element type for which a new event is being broadcast (ie. METRIC, AGENT or HOST)
 	 * @param type The event type
 	 * @param newRow The contents of the new row
 	 * @throws SQLException Thrown if the thread is interrupted while waiting to enqueue the notification.
 	 */
-	protected void sendNotification(String type, Object[] newRow) throws SQLException {
-		Notification n = new Notification(type, on, NewElementTriggers.serial.incrementAndGet(), SystemClock.time(), "New Host Event [" + newRow[1] + "]");
+	protected void sendNotification(String elementType, String type, Object[] newRow) throws SQLException {
+		Notification n = new Notification(type, on, NewElementTriggers.serial.incrementAndGet(), SystemClock.time(), "New " + elementType + " Event [" + newRow[1] + "]");
 		n.setUserData(newRow);
 		try {
 			NewElementTriggers.notificationQueue.put(n);
@@ -89,6 +90,7 @@ public abstract class AbstractTrigger extends NotificationBroadcasterSupport imp
 		}
 		sendNotification(n);		
 	}
+	
 	
 	/**
 	 * Returns the number of calls to this trigger

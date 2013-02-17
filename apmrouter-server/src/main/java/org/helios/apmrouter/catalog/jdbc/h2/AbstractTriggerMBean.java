@@ -39,7 +39,7 @@ public interface AbstractTriggerMBean {
 	/** The JMX notification type for a new agent event */
 	public static final String NEW_AGENT = "h2.event.agent";
 	/** The JMX notification type for a new metric event */
-	public static final String NEW_METRIC = "h2.event.metric";	
+	public static final String NEW_METRIC = "h2.event.metric.";	
 	/**
 	 * Returns the number of calls to this trigger
 	 * @return the number of calls to this trigger

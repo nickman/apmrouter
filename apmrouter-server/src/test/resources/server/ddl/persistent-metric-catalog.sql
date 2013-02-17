@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS  PUBLIC.HOST(
 ) ;      
     
 
+-- Make sure to update org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger if you change this table.
 CREATE TABLE IF NOT EXISTS  PUBLIC.METRIC(
     METRIC_ID LONG  NOT NULL COMMENT 'The unique id of the metric.',
     AGENT_ID INTEGER NOT NULL COMMENT 'The  agent identifier for this metric',

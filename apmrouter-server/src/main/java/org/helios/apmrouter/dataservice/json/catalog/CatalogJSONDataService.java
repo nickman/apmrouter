@@ -61,6 +61,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class CatalogJSONDataService extends ServerComponentBean {
 	/** The metric catalog service */
 	protected MetricCatalogService catalog = null;
+	/** The MetridcURI subscription service */
+	protected MetricURISubscriptionService metricUriSubService = null;
+	
 	/** The hibernate session factory */
 	protected SessionFactory sessionFactory = null;
 	/** The Json marshaller */
@@ -84,6 +87,12 @@ public class CatalogJSONDataService extends ServerComponentBean {
 		}
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
 	protected void doStart() throws Exception {
 		super.doStart();
 		namedQueries.putAll((Map<String, NamedQueryDefinition>) namedQueriesField.get(sessionFactory));
@@ -217,22 +226,67 @@ public class CatalogJSONDataService extends ServerComponentBean {
 	 */
 	@JSONRequestHandler(name="metricuri")
 	public void resolveMetricURI(JsonRequest request, Channel channel) {
-		Session session = null;
+		String muri = request.getArgument("uri");
+		Boolean subscribe = request.getArgument("sub", Boolean.FALSE);
 		try {
-			String muri = request.getArgument("uri");
-			SystemClock.startTimer();
-			MetricURI metricUri = MetricURI.getMetricURI(muri);
-			//session = sessionFactory.openSession(new org.helios.apmrouter.catalog.api.impl.DataServiceInterceptor());
-			session = sessionFactory.openSession();
-			//Object obj = metricUri.execute(session).toArray(new DomainObject[0]);			
-			List<Metric> metrics = metricUri.execute(session);
-			channel.write(request.response().setContent(metrics));
-			info("Metric URI Query ", SystemClock.endTimer());
+			metricUriSubService.resolveMetricURI(MetricURI.getMetricURI(muri), request.response(), channel, subscribe);
 		} catch (Exception ex) {
-			error("Failed to resolve MetricURI [" + request + "]", ex);
-		} finally {
-			if(session!=null && session.isOpen()) try { session.close(); } catch (Exception e) {/* No Op */}
+			error("Failed to resolve MetricURI [" , request , "]", ex);
+			throw new RuntimeException("Failed to resolve MetricURI [" + request + "]", ex);
 		}
+	}
+	
+	
+	
+	/**
+	 * Subscribes the passed channel to the resolved {@link MetricURI}
+	 * @param request The JSON request
+	 * @param channel The channel to subscribe
+	 */
+	@JSONRequestHandler(name="submetricuri")
+	public void subscribeMetricURI(JsonRequest request, Channel channel) {
+		String muri = request.getArgument("uri");
+		try {
+			metricUriSubService.subscribeMetricURI(MetricURI.getMetricURI(muri), request.response(), channel);
+		} catch (Exception ex) {
+			error("Failed to subscribe to MetricURI [" , request , "]", ex);
+			throw new RuntimeException("Failed to subscribe to MetricURI [" + request + "]", ex);
+		}
+	}
+	
+	/**
+	 * Unsubscribes the passed channel to the resolved {@link MetricURI}
+	 * @param request The JSON request
+	 * @param channel The channel to unsubscribe
+	 */
+	@JSONRequestHandler(name="unsubmetricuri")
+	public void cancelMetricURISubscription(JsonRequest request, Channel channel) {
+		String muri = request.getArgument("uri");
+		try {
+			metricUriSubService.cancelMetricURISubscription(MetricURI.getMetricURI(muri), request.response(), channel);
+		} catch (Exception ex) {
+			error("Failed to unsubscribe from MetricURI [" , request , "]", ex);
+			throw new RuntimeException("Failed to unsubscribe from MetricURI [" + request + "]", ex);
+		}
+	}
+	
+	
+
+	/**
+	 * Returns the metric URI subscription service
+	 * @return the metric URI subscription service
+	 */
+	public MetricURISubscriptionService getMetricUriSubService() {
+		return metricUriSubService;
+	}
+
+	/**
+	 * Sets the metric URI subscription service
+	 * @param metricUriSubService the metric URI subscription service to set
+	 */
+	@Autowired(required=true)
+	public void setMetricUriSubService(MetricURISubscriptionService metricUriSubService) {
+		this.metricUriSubService = metricUriSubService;
 	}
 	
 	

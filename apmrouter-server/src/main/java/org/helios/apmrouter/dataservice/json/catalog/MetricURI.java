@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.regex.Pattern;
 
+import org.apache.log4j.Logger;
 import org.helios.apmrouter.cache.CacheStatistics;
 import org.helios.apmrouter.catalog.domain.Metric;
 import org.helios.apmrouter.jmx.ConfigurationHelper;
@@ -89,7 +90,10 @@ public class MetricURI {
 	protected final int[] metricStatus;
 	/** The hibernate detached criteria */
 	protected final DetachedCriteria detachedCriteria;
+	/** The metric Id retrieveal sql */
+	protected final String metricIdSql;
 	
+
 
 	/** The URI parameter parser */
 	public static final Pattern PARM_PARSER = Pattern.compile("&");
@@ -135,6 +139,9 @@ public class MetricURI {
 	/** The cache stats for the metricURICache */
 	private static final CacheStatistics cacheStatistics;
 	// =======================================================================
+	
+	/** Static class logger */
+	protected static final Logger LOG = Logger.getLogger(MetricURI.class);
 	
 	
 	static {
@@ -252,6 +259,7 @@ public class MetricURI {
 		metricType = getTypes(paramMap);
 		metricStatus = opt(paramMap, OPT_METRIC_STATUS, DEFAULT_METRIC_STATUS);
 		detachedCriteria = generateCriteria(this);
+		metricIdSql = generateCriteriaSQL(this);
 	}
 	
 	/**
@@ -438,6 +446,82 @@ public class MetricURI {
 	}
 	
 	/**
+	 * Generates a SQL statement for retrieving the metric Ids that are in the result set for the passed MetricURI
+	 * @param metricUri The MetricURI 
+	 * @return the SQL statement
+	 */
+	protected static String generateCriteriaSQL(MetricURI metricUri) {
+		StringBuilder sql = new StringBuilder("SELECT METRIC_ID FROM METRIC M, AGENT A, HOST H WHERE M.AGENT_ID = A.AGENT_ID AND A.HOST_ID = H.HOST_ID ");
+		
+				if(!"%".equals(metricUri.domain)) {
+					sql.append(metricUri.domain.indexOf('%')==-1 ?
+							"AND H.DOMAIN = '" + metricUri.domain + "' "
+							:
+							"AND H.DOMAIN LIKE '" + metricUri.domain + "' ");
+				}
+
+				if(!"%".equals(metricUri.host)) {
+					sql.append(metricUri.host.indexOf('%')==-1 ?
+							"AND H.NAME = '" + metricUri.host + "' "
+							:
+							"AND H.NAME LIKE '" + metricUri.host + "' ");
+				}
+
+				if(!"%".equals(metricUri.agent)) {
+					sql.append(metricUri.agent.indexOf('%')==-1 ?
+							"AND A.NAME = '" + metricUri.agent + "' "
+							:
+							"AND A.NAME LIKE '" + metricUri.agent + "' ");
+				}
+				
+		if(metricUri.maxDepth>0) {
+			sql.append(" AND (M.NAMESPACE LIKE '").append(metricUri.namespace).append("%").append("'")
+				.append(" AND M.LEVEL <= ").append(metricUri.maxDepth).append(") ");
+		} else {
+			if(metricUri.namespace.indexOf('%')!=-1) {
+				sql.append(" AND M.NAMESPACE LIKE '").append(metricUri.namespace).append("' ");
+			} else {
+				sql.append(" AND M.NAMESPACE = '").append(metricUri.namespace).append("' ");
+			}			
+		}
+		
+		if(metricUri.metricName!=null) {			
+			if(metricUri.metricName.indexOf('%')!=-1) {
+				sql.append(" AND M.NAME LIKE '").append(metricUri.metricName).append("' ");
+			} else {
+				sql.append(" AND M.NAME = '").append(metricUri.metricName).append("' ");
+			}
+		}
+		if(metricUri.metricType!=null && metricUri.metricType.length>0) {
+			Set<Short> types = new HashSet<Short>(metricUri.metricType.length);
+			for(int i : metricUri.metricType) {
+				types.add((short)i);
+			}
+			sql.append(" AND M.TYPE_ID IN (");
+			for(short typeId: types) {
+				sql.append(typeId).append(",");
+			}
+			sql.deleteCharAt(sql.length()-1);
+			sql.append(") ");			
+		}
+		if(metricUri.metricStatus!=null && metricUri.metricStatus.length>0) {
+			Set<Byte> statuses = new HashSet<Byte>(metricUri.metricStatus.length);
+			for(int i : metricUri.metricStatus) {
+				statuses.add((byte)i);
+			}
+			sql.append(" AND M.STATE IN (");
+			for(byte status: statuses) {
+				sql.append(status).append(",");
+			}
+			sql.deleteCharAt(sql.length()-1);
+			sql.append(") ");			
+		}
+		LOG.info("Generated SQL for Metric IDs [\n\t" + sql + "\n\t]");
+		return sql.toString();
+	}
+	
+	
+	/**
 	 * Returns the detached criteria for this MetricURI
 	 * @return the detached criteria 
 	 */
@@ -537,6 +621,13 @@ public class MetricURI {
 	 */
 	public int[] getMetricStatus() {
 		return metricStatus;
+	}
+	/**
+	 * Returns the sql to be used to retrieve the metric Ids for this metric URI
+	 * @return the sql to be used to retrieve the metric Ids for this metric URI
+	 */
+	public String getMetricIdSql() {
+		return metricIdSql;
 	}
 	
 

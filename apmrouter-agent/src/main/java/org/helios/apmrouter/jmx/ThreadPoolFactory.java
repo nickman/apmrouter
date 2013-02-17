@@ -24,9 +24,7 @@
  */
 package org.helios.apmrouter.jmx;
 
-import java.lang.management.ManagementFactory;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.SynchronousQueue;

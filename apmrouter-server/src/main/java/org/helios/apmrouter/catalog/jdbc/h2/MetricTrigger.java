@@ -26,7 +26,10 @@ package org.helios.apmrouter.catalog.jdbc.h2;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.management.MBeanNotificationInfo;
 import javax.management.Notification;
@@ -52,8 +55,113 @@ public class MetricTrigger extends AbstractTrigger implements MetricTriggerMBean
 	
 	/** The ID of the column containing the metric id for a metric */
 	public static final int METRIC_COLUMN_ID = 0;
+	/** The ID of the column containing the agent id for a metric */
+	public static final int AGENT_COLUMN_ID = 1;
+	/** The ID of the column containing the metric type id for a metric */
+	public static final int TYPE_COLUMN_ID = 2;
+	/** The ID of the column containing the metric namespace for a metric */
+	public static final int NAMESPACE_COLUMN_ID = 3;
+	/** The ID of the column containing the metric namespace array for a metric */
+	public static final int NARR_COLUMN_ID = 4;
+	/** The ID of the column containing the metric level for a metric */
+	public static final int LEVEL_COLUMN_ID = 5;
+	/** The ID of the column containing the metric name for a metric */
+	public static final int NAME_COLUMN_ID = 6;
+	/** The ID of the column containing the metric first seen timestamp for a metric */
+	public static final int FIRST_SEEN_COLUMN_ID = 7;
 	/** The ID of the column containing the state for a metric */
 	public static final int STATE_COLUMN_ID = 8;
+	/** The ID of the column containing the metric last seen timestamp for a metric */
+	public static final int LAST_SEEN_COLUMN_ID = 9;
+	
+	/** The SQL to pre-populate the cahe on trigger init */
+	public static final String PREPOP_SQL = "SELECT A.AGENT_ID, H.DOMAIN || '/' || H.NAME || '/' || A.NAME FROM HOST H, AGENT A WHERE A.HOST_ID = H.HOST_ID";
+	/** The SQL to get the cache entry on a cache miss */
+	public static final String CACHE_MISS_SQL = "SELECT H.DOMAIN || '/' || H.NAME || '/' || A.NAME FROM HOST H, AGENT A WHERE A.HOST_ID = H.HOST_ID AND A.AGENT_ID = ?";
+	
+	
+	/** A cache of <b><code>Domain/Host/Agent<code></b> prefixes for each agent Id */
+	protected static final Map<Integer, String> metricFqnPrefixCache = new ConcurrentHashMap<Integer, String>(128, 0.75f, 16);
+	
+	
+	/**
+	 * <p>Overriden to populate the {@link #metricFqnPrefixCache} cache</p>
+	 * {@inheritDoc}
+	 * @see org.h2.api.Trigger#init(java.sql.Connection, java.lang.String, java.lang.String, java.lang.String, boolean, int)
+	 */
+	@Override
+	public void init(Connection conn, String schemaName, String triggerName, String tableName, boolean before, int type) throws SQLException {
+		super.init(conn, schemaName, triggerName, tableName, before, type);
+		PreparedStatement ps = null;
+		ResultSet rset = null;
+		try {
+			ps = conn.prepareStatement(PREPOP_SQL);
+			rset = ps.executeQuery();
+			while(rset.next()) {
+				metricFqnPrefixCache.put(rset.getInt(1), rset.getString(2));
+			}
+			log.info("Populated AgentPrefix Cache with [" + metricFqnPrefixCache + "] Entries");
+		} finally {
+			if(rset!=null) try { rset.close(); } catch (Exception e) {/* No Op */}
+			if(ps!=null) try { ps.close(); } catch (Exception e) {/* No Op */}			
+		}
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.jdbc.h2.MetricTriggerMBean#getAgentPrefix(int, java.sql.Connection)
+	 */
+	@Override
+	public String getAgentPrefix(int agentId, Connection conn) {
+		String prefix = metricFqnPrefixCache.get(agentId);
+		if(prefix==null) {
+			synchronized(metricFqnPrefixCache) {
+				prefix = metricFqnPrefixCache.get(agentId);
+				if(prefix==null) {
+					PreparedStatement ps = null;
+					ResultSet rset = null;
+					try {
+						ps = conn.prepareStatement(CACHE_MISS_SQL);
+						ps.setInt(agentId, 1);
+						rset = ps.executeQuery();
+						if(rset.next()) {
+							prefix = rset.getString(1);
+							metricFqnPrefixCache.put(agentId, prefix);
+							return prefix;
+						}
+						return null;						
+					} catch (Exception ex) {
+						return null;
+					} finally {
+						if(rset!=null) try { rset.close(); } catch (Exception e) {/* No Op */}
+						if(ps!=null) try { ps.close(); } catch (Exception e) {/* No Op */}			
+					}					
+				}
+			}
+		}
+		return prefix;
+	}
+	
+	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.jdbc.h2.MetricTriggerMBean#getAgentPrefixCacheSize()
+	 */
+	@Override
+	public int getAgentPrefixCacheSize() {
+		return metricFqnPrefixCache.size();
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.jdbc.h2.MetricTriggerMBean#flushAgentPrefixCache()
+	 */
+	@Override
+	public void flushAgentPrefixCache() {
+		metricFqnPrefixCache.clear();
+	}
+	
 	
 	/** The event status message format */
 	public static final String EVENT_STATUS_MESSAGE = "%s:%s";
@@ -76,7 +184,9 @@ public class MetricTrigger extends AbstractTrigger implements MetricTriggerMBean
 			if(INCR_ID==typeId || INT_INCR_ID==typeId) {
 				addIncr(conn, (Long)newRow[0], typeId);
 			}
-			sendNotification(NEW_METRIC, newRow);
+			String newMetricType = new StringBuilder(NEW_METRIC).append(getAgentPrefix((Integer)newRow[AGENT_COLUMN_ID], conn))
+				.append(newRow[NAMESPACE_COLUMN_ID]).append(":").append(newRow[NAME_COLUMN_ID]).toString();
+			sendNotification("METRIC", newMetricType, newRow);
 		} else if(TriggerOp.UPDATE.isEnabled(type)) {
 			if(newRow!=null && oldRow!=null && newRow[STATE_COLUMN_ID] != oldRow[STATE_COLUMN_ID]) {
 				sendStateChangeNotification((Long)newRow[METRIC_COLUMN_ID], (byte)newRow[STATE_COLUMN_ID]);				

@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.catalog.jdbc.h2;
 
+import java.sql.Connection;
+
 /**
  * <p>Title: MetricTriggerMBean</p>
  * <p>Description: H2 new metric trigger JMX interface</p> 
@@ -33,5 +35,22 @@ package org.helios.apmrouter.catalog.jdbc.h2;
  */
 
 public interface MetricTriggerMBean extends AbstractTriggerMBean {
-
+	/**
+	 * Returns the number of entries in the Agent FQN prefix cache
+	 * @return the number of entries in the Agent FQN prefix cache
+	 */
+	public int getAgentPrefixCacheSize();
+	
+	/**
+	 * Flushes the Agent FQN prefix cache
+	 */
+	public void flushAgentPrefixCache();
+	
+	/**
+	 * Returns the agent FQN prefix for the passed agent Id.
+	 * @param agentId The agent id of the agent to get the agent FQN prefix for  
+	 * @param conn The connection that will be used to query the value if there is no cache hit
+	 * @return the agent FQN prefix or null if one was not found.
+	 */
+	public String getAgentPrefix(int agentId, Connection conn);
 }
