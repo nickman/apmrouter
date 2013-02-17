@@ -80,10 +80,6 @@
 			<artifactId>hibernate-core</artifactId>
 		      </dependency>
 		      
-		      <dependency>
-			<groupId>vanilla.java</groupId>
-			<artifactId>chronicle</artifactId>
-		      </dependency>
 		      
 		      <!-- ==========================
 			    JDBC Pooling Support 

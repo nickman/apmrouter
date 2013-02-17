@@ -119,11 +119,6 @@
 			<version>${hibernate.version}</version>
 		      </dependency>
 		      
-		      <dependency>
-			<groupId>vanilla.java</groupId>
-			<artifactId>chronicle</artifactId>
-			<version>${chronicle.version}</version>
-		      </dependency>
 		      
 		      <!-- ==========================
 			    JDBC Pooling Support 
