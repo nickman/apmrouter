@@ -74,8 +74,8 @@ public class Metric implements java.io.Serializable, DomainObject {
 	 * @param notif The new metric notification emitted from the H2 catalog DB
 	 */
 	public Metric(Notification notif) {
-		if(notif==null) throw new IllegalArgumentException("The passed notification was null", new Throwable());
-		if(!AbstractTrigger.NEW_METRIC.equals(notif.getType())) throw new IllegalArgumentException("The passed notification was not the right type [" + notif.getType() + "] for a metric", new Throwable());
+		if(notif==null) throw new IllegalArgumentException("The passed notification was null", new Throwable());		
+		if(!notif.getType().startsWith(AbstractTrigger.NEW_METRIC)) throw new IllegalArgumentException("The passed notification was not the right type [" + notif.getType() + "] for a metric", new Throwable());
 		Object[] rowData = (Object[])notif.getUserData();		
 		if(rowData==null) {
 			throw new IllegalArgumentException("The passed metric notification has a null UserData", new Throwable());
