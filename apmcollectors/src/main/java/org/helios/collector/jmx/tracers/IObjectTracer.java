@@ -22,35 +22,20 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.collector.jmx;
-
-import org.apache.log4j.Logger;
+package org.helios.collector.jmx.tracers;
 
 /**
- * <p>Title: AbstractObjectFormatter </p>
- * <p>Description: Base Class for all Object Tracers</p> 
+ * <p>Title: IObjectTracer</p>
+ * <p>Description: Interface defining the behavior of object tracers
+ *  which take a JMX attribute of an arbitrary type and render metrics from it. </p> 
  * <p>Company: Helios Development Group</p>
  * @author Sandeep Malhotra (smalhotra@heliosdev.org)
+ * 		   Whitehead (whitehead.nicholas@gmail.com)	
  */
-public abstract class AbstractObjectFormatter implements IObjectFormatter {
-	protected String metricName = null;
-	protected Logger log = null;
-
-	/**
-	 * @return the metricName
-	 */
-	public String getMetricName() {
-		if(metricName!=null && metricName.trim().length()>0)
-			return metricName;
-		else
-			return "";		
-	}
-
-	/**
-	 * @param metricName the metricName to set
-	 */
-	public void setMetricName(String metricName) {
-		this.metricName = metricName;
-	}
-
+public interface IObjectTracer {
+	public boolean trace(Object obj);
+	public String getSegmentPrefix();
+	public String getSegmentSuffix();
+	public String getMetricName();
+	public void prepareBindings(Object...args);
 }

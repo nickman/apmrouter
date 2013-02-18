@@ -24,7 +24,6 @@
  */
 package org.helios.collector.jmx.tracers;
 
-import org.helios.collector.jmx.AbstractObjectFormatter;
 
 /**
  * <p>Title: ServiceMBeanStateTracer</p>

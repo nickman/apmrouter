@@ -22,32 +22,35 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.collector.jmx;
+package org.helios.collector.jmx.tracers;
+
+import org.apache.log4j.Logger;
 
 /**
- * <p>Title: MBeanServerConnectionFactoryException </p>
- * <p>Description: Exception thrown when MBeanServerConnectionFactory fails to 
- * get a connection.</p> 
+ * <p>Title: AbstractObjectFormatter </p>
+ * <p>Description: Base Class for all Object Tracers</p> 
  * <p>Company: Helios Development Group</p>
  * @author Sandeep Malhotra (smalhotra@heliosdev.org)
  */
-public class MBeanServerConnectionFactoryException extends Exception {
+public abstract class AbstractObjectFormatter implements IObjectFormatter {
+	protected String metricName = null;
+	protected Logger log = null;
 
-	private static final long serialVersionUID = -4843320653008707859L;
-
-	public MBeanServerConnectionFactoryException() {
+	/**
+	 * @return the metricName
+	 */
+	public String getMetricName() {
+		if(metricName!=null && metricName.trim().length()>0)
+			return metricName;
+		else
+			return "";		
 	}
 
-	public MBeanServerConnectionFactoryException(String message) {
-		super(message);
-	}
-
-	public MBeanServerConnectionFactoryException(Throwable cause) {
-		super(cause);
-	}
-
-	public MBeanServerConnectionFactoryException(String message, Throwable cause) {
-		super(message, cause);
+	/**
+	 * @param metricName the metricName to set
+	 */
+	public void setMetricName(String metricName) {
+		this.metricName = metricName;
 	}
 
 }

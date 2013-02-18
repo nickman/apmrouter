@@ -22,7 +22,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.collector.jmx;
+package org.helios.collector.jmx.connection;
 
 import java.io.IOException;
 import java.util.Map;
@@ -31,6 +31,7 @@ import javax.management.MBeanServerConnection;
 import javax.management.remote.JMXServiceURL;
 
 import org.apache.log4j.Logger;
+import org.helios.collector.jmx.HSPProtocol;
 import org.springframework.jmx.export.annotation.ManagedResource;
 
 /**

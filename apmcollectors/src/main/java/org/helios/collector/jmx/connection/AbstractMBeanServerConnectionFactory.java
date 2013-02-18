@@ -22,12 +22,10 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.collector.jmx;
+package org.helios.collector.jmx.connection;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
@@ -45,7 +43,6 @@ import javax.management.MBeanInfo;
 import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServerConnection;
 import javax.management.NotCompliantMBeanException;
-import javax.management.Notification;
 import javax.management.NotificationFilter;
 import javax.management.NotificationListener;
 import javax.management.ObjectInstance;
@@ -56,6 +53,7 @@ import javax.management.remote.JMXServiceURL;
 
 import org.apache.commons.collections.ListUtils;
 import org.apache.log4j.Logger;
+import org.helios.collector.jmx.HSPProtocol;
 import org.helios.collector.jmx.identifiers.AbstractMBeanServerIdentifier;
 import org.helios.collector.jmx.identifiers.DefaultMBeanServerIdentifier;
 import org.helios.collector.jmx.identifiers.IMBeanServerIdentifier;

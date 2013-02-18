@@ -28,7 +28,6 @@ import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.Map;
 
-import org.helios.collector.jmx.AbstractObjectFormatter;
 
 /**
  * <p>Title: CollectionSizeFormatter</p>
@@ -46,7 +45,7 @@ public class CollectionSizeFormatter extends AbstractObjectFormatter {
 	 * If the object is null, or not a collection/map/array or an exception occurs, a <code>"0"</code> will be returned.
 	 * @param obj The object to extract a size from.
 	 * @return A number in the form of a string representing the size of the underlying object.
-	 * @see org.helios.collectors.jmx.IObjectFormatter#format(java.lang.Object)
+	 * @see org.helios.collector.jmx.tracers.collectors.jmx.IObjectFormatter#format(java.lang.Object)
 	 */
 	@SuppressWarnings("unchecked")
 	public String format(Object obj) {

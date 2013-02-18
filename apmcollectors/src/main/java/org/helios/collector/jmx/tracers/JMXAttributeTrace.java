@@ -22,10 +22,11 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.collector.jmx;
+package org.helios.collector.jmx.tracers;
 
 import java.util.ArrayList;
 import java.util.List;
+
 
 /**
  * <p>Title: JMXAttributeTrace </p>

@@ -22,7 +22,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.collector.jmx;
+package org.helios.collector.jmx.tracers;
 
 /**
  * <p>Title: IObjectFormatter</p>

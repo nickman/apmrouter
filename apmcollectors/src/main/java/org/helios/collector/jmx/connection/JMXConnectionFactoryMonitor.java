@@ -22,7 +22,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.collector.jmx;
+package org.helios.collector.jmx.connection;
 
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -40,7 +40,6 @@ import javax.management.Query;
 import javax.management.QueryExp;
 
 import org.apache.log4j.Logger;
-import org.helios.collector.jmx.connection.ConnectionVerifier;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.jmx.ScheduledThreadPoolFactory;
 import org.springframework.jmx.export.annotation.ManagedResource;

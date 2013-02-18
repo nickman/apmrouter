@@ -22,20 +22,32 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.collector.jmx;
+package org.helios.collector.jmx.connection;
 
 /**
- * <p>Title: IObjectTracer</p>
- * <p>Description: Interface defining the behavior of object tracers
- *  which take a JMX attribute of an arbitrary type and render metrics from it. </p> 
+ * <p>Title: MBeanServerConnectionFactoryException </p>
+ * <p>Description: Exception thrown when MBeanServerConnectionFactory fails to 
+ * get a connection.</p> 
  * <p>Company: Helios Development Group</p>
  * @author Sandeep Malhotra (smalhotra@heliosdev.org)
- * 		   Whitehead (whitehead.nicholas@gmail.com)	
  */
-public interface IObjectTracer {
-	public boolean trace(Object obj);
-	public String getSegmentPrefix();
-	public String getSegmentSuffix();
-	public String getMetricName();
-	public void prepareBindings(Object...args);
+public class MBeanServerConnectionFactoryException extends Exception {
+
+	private static final long serialVersionUID = -4843320653008707859L;
+
+	public MBeanServerConnectionFactoryException() {
+	}
+
+	public MBeanServerConnectionFactoryException(String message) {
+		super(message);
+	}
+
+	public MBeanServerConnectionFactoryException(Throwable cause) {
+		super(cause);
+	}
+
+	public MBeanServerConnectionFactoryException(String message, Throwable cause) {
+		super(message, cause);
+	}
+
 }
