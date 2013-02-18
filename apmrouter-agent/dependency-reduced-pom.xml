@@ -27,10 +27,12 @@
           <compilerId>eclipse</compilerId>
           <source>1.6</source>
           <target>1.6</target>
+          <executable>${JAVA_1_7_HOME}/bin/javac</executable>
         </configuration>
       </plugin>
       <plugin>
         <artifactId>maven-eclipse-plugin</artifactId>
+        <version>2.9</version>
       </plugin>
       <plugin>
         <groupId>org.apache.camel</groupId>
@@ -40,9 +42,11 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
+        <version>1.2.1</version>
       </plugin>
       <plugin>
         <artifactId>maven-shade-plugin</artifactId>
+        <version>2.0</version>
         <executions>
           <execution>
             <phase>package</phase>
