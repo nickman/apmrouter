@@ -1,0 +1,9 @@
+#!/bin/bash
+pushd .
+mvn -DskipTests compile install
+cd ../jagent
+mvn clean install
+#cd ../codahale
+#mvn clean install
+popd
+

@@ -1,0 +1,219 @@
+RULE ServerSocket trace bind
+CLASS ^java.net.ServerSocket
+METHOD bind(SocketAddress)
+HELPER org.helios.apmrouter.byteman.APMAgentHelper
+AT EXIT
+IF TRUE
+DO traceBoundServerSocket($0, $1);
+ENDRULE
+
+RULE ServerSocket trace bind with backlog
+CLASS ^java.net.ServerSocket
+METHOD bind(SocketAddress, int)
+HELPER org.helios.apmrouter.byteman.APMAgentHelper
+AT EXIT
+IF TRUE
+DO traceBoundServerSocket($0, $1, $2);
+ENDRULE
+
+RULE ServerSocket trace accept
+CLASS ^java.net.ServerSocket
+METHOD accept()
+HELPER org.helios.apmrouter.byteman.APMAgentHelper
+AT EXIT
+IF TRUE
+DO traceServerSocketAccept($0, $!);
+ENDRULE
+
+# ================================================================================
+#		Socket Writes
+# ================================================================================
+
+RULE Socket write byte
+CLASS ^java.io.FileOutputStream
+METHOD write(int)
+HELPER org.helios.apmrouter.byteman.APMAgentHelper
+AT EXIT
+BIND isSocket:boolean =$this instanceof java.net.SocketOutputStream 
+IF isSocket
+DO traceSocketWriteByte($socket);
+ENDRULE
+
+RULE Socket write bytes offset
+CLASS ^java.net.SocketOutputStream
+METHOD write(byte[], int, int)
+HELPER org.helios.apmrouter.byteman.APMAgentHelper
+AT EXIT
+IF TRUE
+DO traceSocketWriteBytes($socket, $3);
+ENDRULE
+
+RULE Socket write byte array
+CLASS ^java.net.SocketOutputStream
+METHOD write(byte[])
+HELPER org.helios.apmrouter.byteman.APMAgentHelper
+AT EXIT
+IF TRUE
+DO traceSocketWriteBytes($socket, $1);
+ENDRULE
+
+
+# =============================
+#   LATEST
+# =============================
+
+RULE Socket write byte
+CLASS ^java.net.SocketOutputStream
+METHOD write(int)
+HELPER org.helios.apmrouter.byteman.APMSocketMonitorHelper
+AT ENTRY
+BIND socket:Socket = getFieldValue($0, "socket");
+IF TRUE
+DO setTriggering(false); 
+	traceln("Write Byte [" + socket + "]:1");
+	traceSocketWriteByte(socket);
+ENDRULE
+
+RULE Socket write bytes offset
+CLASS ^java.net.SocketOutputStream
+METHOD write(byte[], int, int)
+HELPER org.helios.apmrouter.byteman.APMSocketMonitorHelper
+AT ENTRY
+BIND socket:Socket = getFieldValue($0, "socket");
+IF TRUE
+DO setTriggering(false); 
+	traceln("Write Bytes [" + socket + "]:" + $3);
+	traceSocketWriteBytes(socket, $3);
+ENDRULE
+
+RULE Socket write bytes array
+CLASS ^java.net.SocketOutputStream
+METHOD write(byte[])
+HELPER org.helios.apmrouter.byteman.APMSocketMonitorHelper
+AT ENTRY
+BIND socket:Socket = getFieldValue($0, "socket");
+IF TRUE
+DO setTriggering(false); 
+	traceln("Write Bytes [" + socket + "]:" + $1.length);
+	traceSocketWriteBytes(socket, $1);
+ENDRULE
+
+#==============================================
+# This works with publified SocketStreams
+#==============================================
+RULE Socket write bytes offset
+CLASS ^java.net.SocketOutputStream
+METHOD write(byte[], int, int)
+HELPER org.helios.apmrouter.byteman.APMSocketMonitorHelper
+AT ENTRY
+#BIND socket:Socket = getFieldValue($0, "socket");
+BIND socket:Socket = $0.socket;
+IF TRUE
+DO setTriggering(false); 
+	traceln("Write Bytes [" + socket + "]:" + $3);
+	traceSocketWriteBytes(socket, $3);
+ENDRULE
+#==============================================
+
+
+
+# ===============================================
+#  Server Sockets
+# ===============================================
+
+RULE ServerSocket Bound
+CLASS ^java.net.ServerSocket
+METHOD bind
+HELPER org.helios.apmrouter.byteman.APMSocketMonitorHelper
+AT EXIT
+IF TRUE
+DO setTriggering(false);
+  trackServerSocket($0, $1);	
+  traceln("\n\t -----> Processed Bind");
+ENDRULE
+
+RULE ServerSocket Accepted
+CLASS ^java.net.ServerSocket
+METHOD accept
+HELPER org.helios.apmrouter.byteman.APMSocketMonitorHelper
+AT EXIT
+IF TRUE
+DO setTriggering(false);
+  serverSocketAccept($0, $!);	
+  traceln("\n\t -----> Processed Accept");
+ENDRULE
+
+
+RULE Socket Connect
+CLASS ^java.net.Socket
+METHOD connect
+HELPER org.helios.apmrouter.byteman.APMSocketMonitorHelper
+AT EXIT
+IF FALSE
+DO setTriggering(false); 
+	trackSocket($0);
+ENDRULE
+
+RULE Socket Close
+CLASS ^java.net.Socket
+METHOD close
+HELPER org.helios.apmrouter.byteman.APMSocketMonitorHelper
+AT EXIT
+IF FALSE
+DO setTriggering(false); 
+	socketClosed($0);
+ENDRULE
+
+
+#============================================
+#Focus on connections
+#============================================
+RULE ServerSocket bind
+CLASS ^java.net.ServerSocket
+METHOD bind
+HELPER org.helios.apmrouter.byteman.sockets.SocketMonitor
+AT EXIT
+IF TRUE
+DO setTriggering(false); 
+	serverSocketBind($0);	
+ENDRULE
+
+RULE ServerSocket pre-accept
+CLASS ^java.net.ServerSocket
+METHOD implAccept
+HELPER org.helios.apmrouter.byteman.sockets.SocketMonitor
+AT ENTRY
+IF TRUE
+DO setTriggering(false); 
+	serverSocketAccept($0, $1);	
+ENDRULE
+
+RULE ServerSocket post-accept
+CLASS ^java.net.ServerSocket
+METHOD accept
+HELPER org.helios.apmrouter.byteman.sockets.SocketMonitor
+AT EXIT
+IF TRUE
+DO setTriggering(false); 
+	serverSocketAccept($0, $1);	
+ENDRULE
+
+RULE ServerSocket close
+CLASS ^java.net.ServerSocket
+METHOD close
+HELPER org.helios.apmrouter.byteman.sockets.SocketMonitor
+AT EXIT
+IF TRUE
+DO setTriggering(false); 
+	serverSocketClose($0);	
+ENDRULE
+
+RULE Socket Close
+CLASS ^java.net.Socket
+METHOD close
+HELPER org.helios.apmrouter.byteman.sockets.SocketMonitor
+AT EXIT
+IF FALSE
+DO setTriggering(false); 
+	socketClose($0);
+ENDRULE
