@@ -15,8 +15,9 @@
 	 <bean id="txManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
 	    <property name="dataSource" ref="DataSource"/>
 	  </bean>
+
 	  
-	 <bean id="DataSource" class="com.jolbox.bonecp.BoneCPDataSource" destroy-method="close">
+	 <bean id="DataSource" class="com.jolbox.bonecp.BoneCPDataSource" destroy-method="close" >
 	   <property name="driverClass" value="org.h2.Driver" />
 	   <property name="jdbcUrl" value="jdbc:h2:file:~/.apmrouter/h2/db;JMX=TRUE;MULTI_THREADED=TRUE;DB_CLOSE_DELAY=-1" />
 	   <property name="username" value="sa"/>
@@ -33,12 +34,12 @@
 	   <property name="statisticsEnabled" value="true"/>
 	   <property name="disableJMX" value="false"/>
 	   <property name="poolName" value="Catalog"/>
-	   <property name="connectionTestStatement" value="SELECT SYSTIME"/>
+	   <property name="connectionTestStatement" value="SELECT SYSTIME"/>	   
 	</bean>
 	
-	 <bean id="OpenTSDBDataSource" class="com.jolbox.bonecp.BoneCPDataSource" destroy-method="close" depends-on="DataSource">
+	 <bean id="OpenTSDBDataSource" class="com.jolbox.bonecp.BoneCPDataSource" destroy-method="close">
 	   <property name="driverClass" value="org.h2.Driver" />
-	   <property name="jdbcUrl" value="jdbc:h2:file:~/.apmrouter/h2/db;JMX=TRUE;MULTI_THREADED=TRUE;DB_CLOSE_DELAY=-1;SCHEMA=OPENTSDB" />
+	   <property name="jdbcUrl" value="jdbc:h2:file:~/.apmrouter/h2/tsdb;JMX=TRUE;MULTI_THREADED=TRUE;DB_CLOSE_DELAY=-1" />
 	   <property name="username" value="TSDB"/>
 	   <property name="password" value=""/>
 	   <property name="idleConnectionTestPeriod" value="60"/>
