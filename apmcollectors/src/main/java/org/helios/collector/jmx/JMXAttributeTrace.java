@@ -159,7 +159,7 @@ public class JMXAttributeTrace {
 	 * @return the segmentPrefixElements
 	 */
 	public String[] getSegmentPrefixElements() {
-		return segmentPrefixElements.clone();
+		return (String[])segmentPrefixElements.clone();
 	}
 	
 	/**
@@ -185,7 +185,7 @@ public class JMXAttributeTrace {
 	 * @return the resolvedPrefix
 	 */
 	public String[] getResolvedPrefix() {
-		return resolvedPrefix.clone();
+		return (String[])resolvedPrefix.clone();
 	}
 	/**
 	 * @param resolvedPrefix the resolvedPrefix to set
