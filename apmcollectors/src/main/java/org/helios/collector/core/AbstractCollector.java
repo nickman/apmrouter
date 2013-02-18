@@ -32,6 +32,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.management.ObjectName;
 
@@ -238,6 +240,15 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	/** Reference of a POJO that stores information about the last collection result  */
 	protected CollectionResult collectionResult;
 	
+	protected static final Pattern namePattern = Pattern.compile("\\{(\\d++)\\}");
+	protected static final Pattern thisPattern = Pattern.compile("\\{THIS-PROPERTY:([a-zA-Z\\(\\)\\s-]+)}");
+	protected static final Pattern thisDomainPattern = Pattern.compile("\\{THIS-DOMAIN:([\\d+])}");	
+	protected static final Pattern segmentPattern = Pattern.compile("\\{SEGMENT:([\\d+])}");	
+	protected static final Pattern targetDomainPattern = Pattern.compile("\\{TARGET-DOMAIN:([\\d+])}");	
+	protected static final Pattern targetPattern = Pattern.compile("\\{TARGET-PROPERTY:([a-zA-Z\\(\\)\\s-]+)}");
+	/** The root tracing namespace where all collected metrics will be traced to */
+	protected String[] tracingNameSpace;
+	
 	static {
 		Runtime.getRuntime().addShutdownHook(new Thread(){
 			@Override
@@ -376,6 +387,21 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 		return maxRestartAttempts;
 	}	
 
+	/**
+	 * @return the tracingNameSpace
+	 */
+	@ManagedAttribute	
+	public String[] getTracingNameSpace() {
+		return tracingNameSpace.clone();
+	}
+
+	/**
+	 * @param tracingNameSpace the tracingNameSpace to set
+	 */
+	public void setTracingNameSpace(String[] tracingNameSpace) {
+		this.tracingNameSpace = tracingNameSpace;
+	}	
+	
 	/*  ==================  CUSTOM LIFECYCLE METHODS =============================*/
 	
 //	/**
@@ -768,5 +794,71 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 			info("Unscheduled collector [" + this.getBeanName() + "]");
 		}
 	}	
+	
+	/**
+	 * Applies pattern substitutions to the passed string for target properties from this MBean.
+	 * @param name A value to be formatted.
+	 * @return A formatted name.
+	 */
+	protected String formatName(String name) {
+		if(name.contains("{THIS-PROPERTY")) {
+			name = bindTokens(objectName, name, thisPattern);
+		}
+		if(name.contains("{THIS-DOMAIN")) {
+			name = bindTokens(objectName, name, thisDomainPattern);
+		}
+		if(name.contains("{SEGMENT")) {
+			name = bindTokens(objectName, name, segmentPattern);
+		}				
+		return name;
+	}
+	
+	/**
+	 * Applies pattern substitutions to the passed string for target properties from the target mbean.
+	 * @param name A value to be formatted.
+	 * @return A formatted name.
+	 */
+	protected String formatName(String name, ObjectName remoteMBean) {
+		if(name.contains("{TARGET-PROPERTY")) {
+			name = bindTokens(remoteMBean, name, targetPattern);
+		}
+		if(name.contains("{THIS-DOMAIN")) {
+			name = bindTokens(objectName, name, targetDomainPattern);
+		}				
+		return name;
+	}
+	
+	
+	/**
+	 * Takes the text passed and replaces tokens in accordance with the pattern 
+	 * supplied taking the substitution vale from properties in the passed object name.
+	 * @param targetObjectName The substitution values come from this object name.
+	 * @param text The original text that will be substituted.
+	 * @param p The pattern matcher to locate substitution tokens.
+	 * @return The substituted string.
+	 */
+	public String bindTokens(ObjectName targetObjectName, String text, Pattern p) {
+		Matcher matcher = p.matcher(text);
+		String token = null;
+		String property = null;
+		String propertyValue = null;
+		int pos = -1;
+		while(matcher.find()) {
+			token = matcher.group(0);
+			property = matcher.group(1);
+			propertyValue = targetObjectName.getKeyProperty(property);
+            if(token.toUpperCase().contains("DOMAIN")) {
+                pos = Integer.parseInt(property);
+                propertyValue = targetObjectName.getDomain().split("\\.")[pos];
+            } else if(token.toUpperCase().contains("SEGMENT")) {
+            	pos = Integer.parseInt(property);
+            	propertyValue = tracingNameSpace[pos];
+            } else {
+                propertyValue = targetObjectName.getKeyProperty(property);
+            }			
+			text = text.replace(token, propertyValue);
+		}
+		return text;
+	}		
 	
 }

@@ -41,7 +41,7 @@ import org.apache.log4j.Logger;
  * @author Sandeep Malhotra (smalhotra@heliosdev.org)
  */
 public class JMXObject {
-	protected ObjectName targetObjectName = null;
+	public ObjectName targetObjectName = null;
 	protected List<JMXAttributeTrace> targetAttributeTraces = new ArrayList<JMXAttributeTrace>();
 	protected Set<String> attributeNames = new HashSet<String>(); 
 	protected List<JMXAttributeTrace> resolvedAttributes = new ArrayList<JMXAttributeTrace>();
