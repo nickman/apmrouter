@@ -160,7 +160,16 @@ public abstract class BaseAsyncDestination extends BaseDestination implements Fl
 	public long getLastFlushSize() {
 		return flushSize.isEmpty() ? -1L : flushSize.get(0);
 	}		
-	
+
+	/**
+	 * Returns the current flush queue depth
+	 * @return the current flush queue depth
+	 */
+	@ManagedMetric(category="AsyncRoutingDestinations", metricType=MetricType.GAUGE, description="The current queue depth", displayName="FlushQueueDepth")
+	public long getFlushQueueDepth() {
+		return flushQueue.getQueueSize();
+	}		
+
 	
 	/**
 	 * {@inheritDoc}
