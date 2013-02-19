@@ -56,6 +56,11 @@
 			<version>0.3.9</version>
 		</dependency>		
 
+		<dependency>
+		  <groupId>trove</groupId>
+		  <artifactId>trove</artifactId>
+		  <version>3.0.0</version>
+		</dependency>
 
     		<dependency>
 			<groupId>log4j</groupId>
