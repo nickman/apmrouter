@@ -180,7 +180,7 @@ public class ApacheModStatusCollector extends URLCollector{
 				int x = scoreBoard.get(ch)+1;
 				scoreBoard.put(ch, x);
 			} catch (Exception e) {
-				log.trace(e.getMessage());
+				trace(e.getMessage());
 			}
 		}
 	}	

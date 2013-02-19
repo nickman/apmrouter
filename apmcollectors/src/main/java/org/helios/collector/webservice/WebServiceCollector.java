@@ -107,7 +107,7 @@ public class WebServiceCollector extends URLCollector {
 				requestEntity = new StringRequestEntity(requestXML, REQUEST_MIME_TYPE, null);
 			}catch(UnsupportedEncodingException uex){
 				if(logErrors)
-					log.error("An error occured while setting HTTPClient RequestEntity for bean collector: " + this.getBeanName(), uex);
+					error("An error occured while setting HTTPClient RequestEntity for bean collector: " + this.getBeanName(), uex);
 			}
 		}
 	}

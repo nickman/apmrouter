@@ -176,7 +176,7 @@ public class URLCollector extends SocketAbstractCollector {
 				   ":"+getPortTunnel().getLocalPort());
 				newUrl.append(url.getPath()==null?"":url.getPath());
 				newUrl.append(url.getQuery()==null?"":"?"+url.getQuery());
-				log.info("$$$$$$$$$$$$ Port tunnel is active so new URL is: "+newUrl);
+				info("$$$$$$$$$$$$ Port tunnel is active so new URL is: "+newUrl);
 				try{
 					this.url = new URL(newUrl.toString());
 				}catch(MalformedURLException muex){
@@ -194,7 +194,7 @@ public class URLCollector extends SocketAbstractCollector {
 			}
 			httpClient.getHttpConnectionManager().getParams().setConnectionTimeout(timeout);
 		} else {
-			log.error("Invalid URL string provided for collector bean: "+this.getBeanName());
+			error("Invalid URL string provided for collector bean: "+this.getBeanName());
 			throw new CollectorException("Invalid URL string provided for collector bean: "+this.getBeanName());	
 		}
 
@@ -209,7 +209,7 @@ public class URLCollector extends SocketAbstractCollector {
 					postMethod.setDoAuthentication(true);
 				}				
 			}else{
-				log.error("Check username and password provided for collector bean: "+this.getBeanName());
+				error("Check username and password provided for collector bean: "+this.getBeanName());
 				throw new CollectorException("Check username and password provided for collector bean: "+this.getBeanName());	
 			}
 		} else if (authType == AUTH_TYPE.CLIENT_CERT){
@@ -217,7 +217,7 @@ public class URLCollector extends SocketAbstractCollector {
 				try{
 					registerProtocolCertificate();
 					httpClient.getHostConfiguration().setHost(host, port,Protocol.getProtocol(myProtocolPrefix));
-					//log.trace("URL with custom protocol is: "+this.url.toString().replace(HTTPS_PROTOCOL, myProtocolPrefix));
+					//trace("URL with custom protocol is: "+this.url.toString().replace(HTTPS_PROTOCOL, myProtocolPrefix));
 					initializeHttpMethod(this.url.toString().replace(HTTPS_PROTOCOL, myProtocolPrefix));
 					/**
 					 * check whether call to initializeHttpMethod resulted in any issue.
@@ -228,15 +228,15 @@ public class URLCollector extends SocketAbstractCollector {
 						throw new CollectorException("Endpoint style is either missing or invalid for web service collector bean: "+ this.getBeanName());
 					}			
 				}catch(Exception ex){
-					log.error("Unable to register secure protocol for URL [ "+this.url+" ] of bean: " + this.getBeanName());
+					error("Unable to register secure protocol for URL [ "+this.url+" ] of bean: " + this.getBeanName());
 					throw new CollectorException("Unable to register secure protocol for URL [ "+this.url+" ] of bean: " + this.getBeanName(), ex);
 				}
 			} else {
-				log.error("KeyStoreLocation and/or KeyStorePassphrase is missing for a secure URL of bean: " + this.getBeanName());
+				error("KeyStoreLocation and/or KeyStorePassphrase is missing for a secure URL of bean: " + this.getBeanName());
 				throw new CollectorException("KeyStoreLocation and/or KeyStorePassphrase is missing for a secure URL of bean: " + this.getBeanName());
 			}
 		}
-		log.trace("Object [ "+getObjectName()+" ]"+getState());
+		trace("Object [ "+getObjectName()+" ]"+getState());
 	}
 	
 	private void initializeHttpMethod(String url) throws CollectorException{
@@ -249,15 +249,15 @@ public class URLCollector extends SocketAbstractCollector {
 				}else if(wsStyle.equalsIgnoreCase("SOAP")){
 					postMethod = new PostMethod(url);
 				}else{
-					log.error("Endpoint style is either missing or invalid for web service collector bean: "+ this.getBeanName());
+					error("Endpoint style is either missing or invalid for web service collector bean: "+ this.getBeanName());
 					this.state = CollectorState.START_FAILED;
 				}
 			}
 		}catch(IllegalArgumentException iaex){
-			log.error("Invalid URI passed for collector bean: "+ this.getBeanName()+ " - " + url);
+			error("Invalid URI passed for collector bean: "+ this.getBeanName()+ " - " + url);
 			throw new CollectorException("Invalid URI passed for collector bean: "+ this.getBeanName()+ " - " + url,iaex);
 		}catch(IllegalStateException isex){
-			log.error("Unrecognized protocol for URI passed for collector bean: "+ this.getBeanName()+ " - " + url);
+			error("Unrecognized protocol for URI passed for collector bean: "+ this.getBeanName()+ " - " + url);
 			throw new CollectorException("Unrecognized protocol for URI passed for collector bean: "+ this.getBeanName()+ " - " + url,isex);
 		}
 	}
@@ -277,7 +277,7 @@ public class URLCollector extends SocketAbstractCollector {
 		myProtocolPrefix = (HTTPS_PROTOCOL + uniqueCounter.incrementAndGet());
 		Protocol httpsProtocol = new Protocol(myProtocolPrefix,(ProtocolSocketFactory) easySSLPSFactory, port);
 		Protocol.registerProtocol(myProtocolPrefix, httpsProtocol);
-		log.trace("Protocol [ "+myProtocolPrefix+" ] registered for the first time");
+		trace("Protocol [ "+myProtocolPrefix+" ] registered for the first time");
 	}	
 	
 	/**
@@ -294,15 +294,15 @@ public class URLCollector extends SocketAbstractCollector {
 		if (f.exists()) {
 			try {
 				km = new KeyMaterial(keyStoreLocation, password);
-				log.trace("Keystore location is: " + keyStoreLocation + "");
+				trace("Keystore location is: " + keyStoreLocation + "");
 			} catch (GeneralSecurityException gse) {
 				if (logErrors){
-					log.error("Exception occured while loading keystore from the following location: "+keyStoreLocation, gse);
+					error("Exception occured while loading keystore from the following location: "+keyStoreLocation, gse);
 					throw gse;
 				}
 			}
 		} else {
-			log.error("Unable to load Keystore from the following location: " + keyStoreLocation );
+			error("Unable to load Keystore from the following location: " + keyStoreLocation );
 			throw new CollectorException("Unable to load Keystore from the following location: " + keyStoreLocation);
 		}
 		return km;
@@ -358,7 +358,7 @@ public class URLCollector extends SocketAbstractCollector {
 			host = this.url.getHost();
 			port = this.url.getPort() == -1 ? this.url.getDefaultPort():this.url.getPort();
 		}catch(MalformedURLException muex){
-			log.error("Incorrect URL format provided to monitor: [ " +this.url+ " ]",muex);
+			error("Incorrect URL format provided to monitor: [ " +this.url+ " ]",muex);
 		}
 	}
 
@@ -538,7 +538,7 @@ public class URLCollector extends SocketAbstractCollector {
 			if(httpClient!=null){
 				if(!isWebServiceEndpoint){
 					httpResponseCode = httpClient.executeMethod(getMethod);
-					log.trace("HTTP Response Code returned by URL ["+this.url.toString()+"] is: "+httpResponseCode);
+					trace("HTTP Response Code returned by URL ["+this.url.toString()+"] is: "+httpResponseCode);
 					reader = new BufferedReader(new InputStreamReader(getMethod.getResponseBodyAsStream()));
 				} else {
 					if(wsStyle.equalsIgnoreCase("SOAP")){
@@ -576,9 +576,9 @@ public class URLCollector extends SocketAbstractCollector {
 							}
 							//tracer.traceSticky(contentSize, "Content Size", getTracingNameSpace());
 							tracer.traceGauge(contentSize, "Content Size", getTracingNameSpace());
-							log.debug("Time taken for success/failure pattern matcher: " + (System.currentTimeMillis() - startT));
+							debug("Time taken for success/failure pattern matcher: " + (System.currentTimeMillis() - startT));
 						}catch(IOException iox){
-							log.debug("An error occured while matching the success/failure pattern..." + iox.getMessage());
+							debug("An error occured while matching the success/failure pattern..." + iox.getMessage());
 						}		
 						
 						if(failureContentMatched==1) 
@@ -595,7 +595,7 @@ public class URLCollector extends SocketAbstractCollector {
 			}
 		} catch(Exception ex){
 			if(logErrors){
-				log.error(ex.getMessage(),ex);
+				error(ex.getMessage(),ex);
 			}
 			result.setResultForLastCollection(CollectionResult.Result.FAILURE);
 			result.setAnyException(ex);
@@ -648,7 +648,7 @@ public class URLCollector extends SocketAbstractCollector {
 //		try{
 //			String oneLine = reader.readLine();
 //			while(oneLine!=null){
-//				log.trace(oneLine+"\n");
+//				trace(oneLine+"\n");
 //				tempBuilder.append(oneLine);
 //				oneLine=reader.readLine();
 //			}
