@@ -155,8 +155,10 @@ public class TimeSizeFlushQueue<T> implements Runnable {
 	 * @param sizeTrigger The flush size trigger
 	 * @param timeTrigger The flush time trigger
 	 * @param receiver The receiver runnable responsible for processing the flush
+	 * @param scheduler An externally provided scheduler. If null, uses the default shared scheduler.
+	 * @param threadPool An externally provided thread pool. If null, uses the default shared pool. 
 	 */
-	public TimeSizeFlushQueue(String name, int sizeTrigger, long timeTrigger, FlushQueueReceiver<T> receiver) {
+	public TimeSizeFlushQueue(String name, int sizeTrigger, long timeTrigger, FlushQueueReceiver<T> receiver, ScheduledExecutorService scheduler, ExecutorService threadPool) {
 		this.name = name;
 		log = Logger.getLogger(getClass().getName() + "." + this.name);
 		this.sizeTrigger.set(sizeTrigger);
@@ -165,16 +167,27 @@ public class TimeSizeFlushQueue<T> implements Runnable {
 		if(!bypassQueue) {
 			queue = new ArrayBlockingQueue<T>(sizeTrigger+2, false);
 			flushBuffer = new HashSet<T>(sizeTrigger+2);
-			this.scheduler = getDefaultScheduler();			
+			this.scheduler = scheduler==null ? getDefaultScheduler() : scheduler;			
 		} else {
 			queue = null;
 			flushBuffer = null;
 			this.scheduler = null;
 		}
 		this.receiver = receiver;		
-		this.flushThreadPool = getDefaultExecutor();
+		this.flushThreadPool = threadPool==null ? getDefaultExecutor() : threadPool;
 		schedule();
 		log.info("Created TimeSizeFlushQueue [" + this.name + "]");
+	}
+	
+	/**
+	 * Creates a new TimeSizeFlushQueue using the default shared scheduler and thread pool.
+	 * @param name The name for this flushQueue
+	 * @param sizeTrigger The flush size trigger
+	 * @param timeTrigger The flush time trigger
+	 * @param receiver The receiver runnable responsible for processing the flush
+	 */
+	public TimeSizeFlushQueue(String name, int sizeTrigger, long timeTrigger, FlushQueueReceiver<T> receiver) {
+		this(name, sizeTrigger, timeTrigger, receiver, null, null);
 	}
 	
 	/**
