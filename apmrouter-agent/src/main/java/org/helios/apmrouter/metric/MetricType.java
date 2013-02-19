@@ -158,6 +158,7 @@ public enum MetricType  implements IMetricDataAccessor {
 	 */
 	public static MetricType valueOf(Object metricCode) {
 		if(metricCode==null) throw new IllegalArgumentException("The passed metricCode was null", new Throwable());
+		if(metricCode instanceof MetricType) return (MetricType)metricCode;
 		if(metricCode instanceof Number) return valueOf(((Number)metricCode).intValue());
 		try { 
 			int type = Integer.parseInt(metricCode.toString().trim());
