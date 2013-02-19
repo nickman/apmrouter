@@ -357,4 +357,22 @@ public class APMAgentHelper extends Helper implements ITracer {
 		SimpleLogger.info(msg);
 	}
 
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#trace(java.lang.Object, java.lang.CharSequence, java.lang.Object, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric trace(Object value, CharSequence name, Object type, CharSequence... namespace) {
+		try { return trace(value, name, MetricType.valueOf(type), namespace); } catch (Exception ex) { return null; }
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#traceDirect(java.lang.Object, java.lang.CharSequence, java.lang.Object, java.lang.CharSequence[])
+	 */
+	@Override
+	public ICEMetric traceDirect(Object value, CharSequence name, Object type, CharSequence... namespace) {
+		return traceDirect(value, name, MetricType.valueOf(type), namespace);
+	}
+
 }

@@ -152,6 +152,21 @@ public enum MetricType  implements IMetricDataAccessor {
 	}
 	
 	/**
+	 * Attempts to decode an arbitrary object into a MetricType
+	 * @param metricCode The arbitrary object to convert
+	 * @return a MetricType if successfully converted.
+	 */
+	public static MetricType valueOf(Object metricCode) {
+		if(metricCode==null) throw new IllegalArgumentException("The passed metricCode was null", new Throwable());
+		if(metricCode instanceof Number) return valueOf(((Number)metricCode).intValue());
+		try { 
+			int type = Integer.parseInt(metricCode.toString().trim());
+			return valueOf(type);
+		} catch (NumberFormatException nfe) {/* No Op */}
+		return valueOfName(metricCode.toString());
+	}
+	
+	/**
 	 * Decodes the passed ordinal to a MetricType.
 	 * Throws a runtime exception if the ordinal is invalud
 	 * @param ordinal The ordinal to decode
