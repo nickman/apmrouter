@@ -32,6 +32,7 @@
 		<netty-tools.version>1.2.7</netty-tools.version>
 		<netty.version>3.5.8.Final</netty.version>
 		<tsdb.version>1.1.0</tsdb.version>
+		<tsdb2.version>1.0-SNAPSHOT</tsdb2.version>
 		<nash.version>1.0-SNAPSHOT</nash.version>
 		<sigar.version>1.6.4</sigar.version>
 		<rrd4j.version>2.2-SNAPSHOT</rrd4j.version>

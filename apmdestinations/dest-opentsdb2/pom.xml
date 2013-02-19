@@ -4,13 +4,13 @@
 	<parent>
 	  <groupId>org.helios.apmrouter</groupId>
 	  <artifactId>apmdestinations</artifactId>
-	 <version>1.0-SNAPSHOT</version>
+	  <version>1.0-SNAPSHOT</version>
 	</parent>
 	<groupId>org.helios.apmrouter</groupId>
-	<artifactId>dest-nash</artifactId>
+	<artifactId>dest-opentsdb2</artifactId>
 	<version>1.0-SNAPSHOT</version>
 	<packaging>jar</packaging>
-	<name>APMRouter Destination for Nash CL</name>
+	<name>APMRouter Destination for Embedded OpenTSDB</name>
 	
 	<build>
 		<defaultGoal>install</defaultGoal>
@@ -82,15 +82,14 @@
 		
 
 	      <!-- ==========================================================			
-		Nash dependencies 
+		OpenTSDB2 dependencies 
 		  ========================================================== -->
-	      <dependency>
-		<groupId>org.helios</groupId>
-		<artifactId>nash</artifactId>  
-		<version>${nash.version}</version>
-	      </dependency>
 		
-		
+		<dependency>
+		  <groupId>net.opentsdb</groupId>
+		  <artifactId>embedded-opentsdb</artifactId>
+		  <version>${tsdb2.version}</version>
+		</dependency>
 		
 		
 	</dependencies>

@@ -47,6 +47,13 @@
     
 		<dependency>
 		  <groupId>org.helios.apmrouter</groupId>
+		  <artifactId>apmrouter-server</artifactId>
+		  <version>${project.version}</version>
+		</dependency>
+
+
+		<dependency>
+		  <groupId>org.helios.apmrouter</groupId>
 		  <artifactId>apmrouter-agent</artifactId>
 		  <version>${project.version}</version>
 		</dependency>
@@ -70,6 +77,7 @@
 		<dependency>
 		  <groupId>org.helios</groupId>
 		  <artifactId>nash</artifactId>  
+		  <version>${project.version}</version>
 		</dependency>
 		
 
