@@ -346,7 +346,8 @@ public class JMXCollector extends AbstractCollector {
 //				log.error("MXBean Collection Error", mxe);
 //			}
 //		}
-		tracer.traceSticky(System.currentTimeMillis() - st, "Elapsed Time", availabilitySegment);
+		//tracer.traceSticky(System.currentTimeMillis() - st, "Elapsed Time", availabilitySegment);
+		tracer.traceGauge(System.currentTimeMillis() - st, "Elapsed Time", availabilitySegment);
 		return determineStatus(anySuccess, anyFailure, collectionResult);
 	}
 
@@ -379,7 +380,8 @@ public class JMXCollector extends AbstractCollector {
 	protected boolean availibilityCheck(CollectionResult result) {
 		try {
 			mBeanServerConnection.getAttribute(availabilityMBean, availabilityAttribute);
-			tracer.traceSticky(1, defaultAvailabilityLabel, availabilitySegment);
+			//tracer.traceSticky(1, defaultAvailabilityLabel, availabilitySegment);
+			tracer.traceGauge(1, defaultAvailabilityLabel, availabilitySegment);
 			return true;
 		} catch (Exception e) {
 			mBeanServerConnection=null;
@@ -575,9 +577,11 @@ public class JMXCollector extends AbstractCollector {
 	 */
 	protected void traceAvailability(int availability) {
 		if(availabilitySegment!=null) {
-			tracer.traceSticky(availability, defaultAvailabilityLabel, availabilitySegment);
+			//tracer.traceSticky(availability, defaultAvailabilityLabel, availabilitySegment);
+			tracer.traceGauge(availability, defaultAvailabilityLabel, availabilitySegment);
 		}else{
-			tracer.traceSticky(availability, defaultAvailabilityLabel, getTracingNameSpace());
+			tracer.traceGauge(availability, defaultAvailabilityLabel, getTracingNameSpace());
+			//tracer.traceSticky(availability, defaultAvailabilityLabel, getTracingNameSpace());
 		}
 	}
 
