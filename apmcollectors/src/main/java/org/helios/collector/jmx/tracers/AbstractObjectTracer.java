@@ -143,7 +143,7 @@ public abstract class AbstractObjectTracer implements IObjectTracer {
 			Iterator<Map.Entry<String,Object>> iterator = bindings.entrySet().iterator();
 			while(iterator.hasNext()){
 				Map.Entry<String,Object> singleObj = (Map.Entry<String,Object>)iterator.next();
-				log.trace(singleObj.getKey() + " -- " + singleObj.getValue());
+				trace(singleObj.getKey() + " -- " + singleObj.getValue());
 			}
 		}
 	}

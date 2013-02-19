@@ -214,14 +214,14 @@ public class JMXCollector extends AbstractCollector {
 //			if(this.virtualHostLocator!=null) {
 //				virtualHost = (String)JMXHelper.getAttribute(mBeanServerConnection, virtualHostLocator);
 //				if(virtualHost==null) {
-//					log.warn("A virtual host locator [" + virtualHostLocator + "] was supplied but could not be resolved. A virtual tracer will not be used." );
+//					warn("A virtual host locator [" + virtualHostLocator + "] was supplied but could not be resolved. A virtual tracer will not be used." );
 //				}
 //			}
 //			
 //			if(this.virtualAgentLocator!=null && this.virtualHostLocator!=null) {
 //				virtualAgent= (String)JMXHelper.getAttribute(mBeanServerConnection, virtualAgentLocator);
 //				if(virtualHost==null) {
-//					log.warn("A virtual agent locator [" + virtualAgentLocator + "] was supplied but could not be resolved. A virtual tracer will not be used." );
+//					warn("A virtual agent locator [" + virtualAgentLocator + "] was supplied but could not be resolved. A virtual tracer will not be used." );
 //				}
 //			}
 //			if(virtualHost!=null && virtualAgent!=null) {
@@ -279,7 +279,7 @@ public class JMXCollector extends AbstractCollector {
 					anyFailure=true;
 					mBeanServerConnection = null;
 					if(logErrors) 
-						log.error("Failed to read results from MBeanServer", ioex);
+						error("Failed to read results from MBeanServer", ioex);
 					traceDefaultsForOffline();
 					collectionResult.setAnyException(ioex);
 					return determineStatus(anySuccess, anyFailure, collectionResult);
@@ -299,7 +299,7 @@ public class JMXCollector extends AbstractCollector {
 						// Check whether this MBean has been processed before.  if yes, then used resolved 
 						// metric/segment/segmentPrefixElements instead of resolving tokens again
 						if(resolvedJMXObjects.containsKey(on.getCanonicalName())){
-							log.trace("Already have the key in cache: "+on.getCanonicalName());
+							trace("Already have the key in cache: "+on.getCanonicalName());
 							JMXObject cachedObject = resolvedJMXObjects.get(on.getCanonicalName());
 							if(cachedObject!=null){
 								processCachedObject(on, cachedObject, explodedResults);
@@ -311,7 +311,7 @@ public class JMXCollector extends AbstractCollector {
 						} else {
 							// Either a new MBean popped up as part of the returned results 
 							// or its the first poll of this JMXCollector
-							log.trace("**************** No entry in cache for key : "+on.getCanonicalName());
+							trace("**************** No entry in cache for key : "+on.getCanonicalName());
 							processNonCachedObject(on, tr, explodedResults,jmxAttributeTraces);
 							anySuccess=true;
 							// Mark Processing status to true - If this key already exist in the list, its status will be changed to true, if not
@@ -326,7 +326,7 @@ public class JMXCollector extends AbstractCollector {
 			} catch (Exception ex) {
 				anyFailure=true;
 				if(logErrors) 
-					log.error("Exception occured while tracing JMX Attributes for MBean: "+tr.getTargetObjectName(), ex);
+					error("Exception occured while tracing JMX Attributes for MBean: "+tr.getTargetObjectName(), ex);
 				continue;
 			}
 		}		
@@ -343,10 +343,11 @@ public class JMXCollector extends AbstractCollector {
 //		} catch (Exception mxe) {
 //			anyFailure=true;
 //			if(logErrors) {
-//				log.error("MXBean Collection Error", mxe);
+//				error("MXBean Collection Error", mxe);
 //			}
 //		}
-		tracer.traceSticky(System.currentTimeMillis() - st, "Elapsed Time", availabilitySegment);
+		//tracer.traceSticky(System.currentTimeMillis() - st, "Elapsed Time", availabilitySegment);
+		tracer.traceGauge(System.currentTimeMillis() - st, "Elapsed Time", availabilitySegment);
 		return determineStatus(anySuccess, anyFailure, collectionResult);
 	}
 
@@ -379,13 +380,14 @@ public class JMXCollector extends AbstractCollector {
 	protected boolean availibilityCheck(CollectionResult result) {
 		try {
 			mBeanServerConnection.getAttribute(availabilityMBean, availabilityAttribute);
-			tracer.traceSticky(1, defaultAvailabilityLabel, availabilitySegment);
+			//tracer.traceSticky(1, defaultAvailabilityLabel, availabilitySegment);
+			tracer.traceGauge(1, defaultAvailabilityLabel, availabilitySegment);
 			return true;
 		} catch (Exception e) {
 			mBeanServerConnection=null;
 			traceAvailability(0);
 			if(logErrors) {
-				log.error("Exception Running Availability Check for [" + availabilityMBean + "/" + availabilityAttribute, e);
+				error("Exception Running Availability Check for [" + availabilityMBean + "/" + availabilityAttribute, e);
 			}
 			result.setResultForLastCollection(CollectionResult.Result.FAILURE);
 			result.setAnyException(e);
@@ -458,13 +460,13 @@ public class JMXCollector extends AbstractCollector {
 		} catch (IOException ioe){
 			mBeanServerConnection = null;
 			if(logErrors) 
-				log.error("Failed to read results from MBeanServer", ioe);
+				error("Failed to read results from MBeanServer", ioe);
 		} catch (InstanceNotFoundException infex) {
 			if(logErrors) 
-				log.error("The specified object name does not exist: "+on.getCanonicalName(), infex);
+				error("The specified object name does not exist: "+on.getCanonicalName(), infex);
 		} catch (ReflectionException rex) {
 			if(logErrors) 
-				log.error("Error occured while executing getAttributes on this MBean: "+on.getCanonicalName(), rex);
+				error("Error occured while executing getAttributes on this MBean: "+on.getCanonicalName(), rex);
 		}
 		return explodedResults;
 	}
@@ -484,7 +486,7 @@ public class JMXCollector extends AbstractCollector {
 		} 
 		if(tr.getAttributeNames().size()<=0){
 				if(logErrors)
-					log.error("No target attributes defined for: "+tr.targetObjectName);
+					error("No target attributes defined for: "+tr.targetObjectName);
 				return false;
 		}
 		return true;
@@ -511,10 +513,10 @@ public class JMXCollector extends AbstractCollector {
 				if(! oTracer.trace(explodedResults.get(trace.getTargetAttributeName()))){
 					throw new Exception();
 				}
-				log.debug("** OTracer call completed in: "+ (System.currentTimeMillis()-start)+" milliseconds." );
+				debug("** OTracer call completed in: "+ (System.currentTimeMillis()-start)+" milliseconds." );
 			}catch(Exception ex){
 				if(logErrors)
-					log.error("There was an error rendering traces for object tracer: " + oTracer + " for Bean: " + this.getBeanName(),ex);
+					error("There was an error rendering traces for object tracer: " + oTracer + " for Bean: " + this.getBeanName(),ex);
 			}
 		}
 	}	
@@ -561,7 +563,7 @@ public class JMXCollector extends AbstractCollector {
 			traceAvailability(1);			
 			return true;
 		} catch (Exception e) {
-			if(logErrors) log.error("Failed to get an MBean Server Connection for bean: " + this.getBeanName() + e);
+			if(logErrors) error("Failed to get an MBean Server Connection for bean: " + this.getBeanName() + e);
 			traceAvailability(0);
 			traceDefaultsForOffline();
 			result.setResultForLastCollection(CollectionResult.Result.FAILURE);
@@ -575,9 +577,11 @@ public class JMXCollector extends AbstractCollector {
 	 */
 	protected void traceAvailability(int availability) {
 		if(availabilitySegment!=null) {
-			tracer.traceSticky(availability, defaultAvailabilityLabel, availabilitySegment);
+			//tracer.traceSticky(availability, defaultAvailabilityLabel, availabilitySegment);
+			tracer.traceGauge(availability, defaultAvailabilityLabel, availabilitySegment);
 		}else{
-			tracer.traceSticky(availability, defaultAvailabilityLabel, getTracingNameSpace());
+			tracer.traceGauge(availability, defaultAvailabilityLabel, getTracingNameSpace());
+			//tracer.traceSticky(availability, defaultAvailabilityLabel, getTracingNameSpace());
 		}
 	}
 
@@ -701,7 +705,7 @@ public class JMXCollector extends AbstractCollector {
 //								try {
 //									mBeanServerConnection.setAttribute(threadMXBean, new Attribute("ThreadContentionMonitoringEnabled", true));
 //								} catch (Exception e) {
-//									log.warn("Failed to enable ThreadContentionMonitoring for" + objectName, e);
+//									warn("Failed to enable ThreadContentionMonitoring for" + objectName, e);
 //									supportsThreadContention = false;
 //								}
 //							}
@@ -745,10 +749,10 @@ public class JMXCollector extends AbstractCollector {
 //				
 //			}
 //		} catch (InstanceNotFoundException ine) {
-//			if(logErrors) { log.warn("MXBean Collector (" + objectName + ") Could Not Locate MBean " + threadMXBean); }
+//			if(logErrors) { warn("MXBean Collector (" + objectName + ") Could Not Locate MBean " + threadMXBean); }
 //		} catch (Exception e) {
 //			if(logErrors) {
-//				log.error("Failed to process MXBean Threading Stats", e);
+//				error("Failed to process MXBean Threading Stats", e);
 //			}
 //		}
 //	}	
@@ -832,13 +836,13 @@ public class JMXCollector extends AbstractCollector {
 //				
 //			}
 //		} catch (InstanceNotFoundException ine) {
-//			if(logErrors) { log.warn("MXBean Collector (" + objectName + ") Could Not Locate MBean " + memoryPoolMXBean); }						
+//			if(logErrors) { warn("MXBean Collector (" + objectName + ") Could Not Locate MBean " + memoryPoolMXBean); }						
 //		} catch (IOException ioex){
-//			if(logErrors) { log.error("There are some issues connecting to the MBeanServer for bean " + this.getBeanName()); }
+//			if(logErrors) { error("There are some issues connecting to the MBeanServer for bean " + this.getBeanName()); }
 //			mBeanServerConnection=null;
 //		} catch (Exception e) {
 //			if(logErrors) {
-//				log.error("Failed to process MXBean Memory Pool Stats", e);
+//				error("Failed to process MXBean Memory Pool Stats", e);
 //			}			
 //		}
 //	}	
@@ -913,13 +917,13 @@ public class JMXCollector extends AbstractCollector {
 //				}
 //			}			
 //		} catch (InstanceNotFoundException ine) {
-//			if(logErrors) { log.warn("MXBean Collector (" + objectName + ") Could Not Locate MBean " + gcMXBean); }									
+//			if(logErrors) { warn("MXBean Collector (" + objectName + ") Could Not Locate MBean " + gcMXBean); }									
 //		} catch (IOException ioex){
-//			if(logErrors) { log.error("There are some issues connecting to the MBeanServer for bean " + this.getBeanName()); }
+//			if(logErrors) { error("There are some issues connecting to the MBeanServer for bean " + this.getBeanName()); }
 //			mBeanServerConnection=null;
 //		} catch (Exception e) {
 //			if(logErrors) {
-//				log.error("Failed to process MXBean Garbage Collector Stats", e);
+//				error("Failed to process MXBean Garbage Collector Stats", e);
 //			}			
 //		}
 //	}	
@@ -950,13 +954,13 @@ public class JMXCollector extends AbstractCollector {
 //				}
 //			}
 //		} catch (InstanceNotFoundException ine) {
-//			if(logErrors) { log.warn("MXBean Collector (" + objectName + ") Could Not Locate MBean " + clMXBean); }			
+//			if(logErrors) { warn("MXBean Collector (" + objectName + ") Could Not Locate MBean " + clMXBean); }			
 //		} catch (IOException ioex){
-//			if(logErrors) { log.error("There are some issues connecting to the MBeanServer for bean " + this.getBeanName()); }
+//			if(logErrors) { error("There are some issues connecting to the MBeanServer for bean " + this.getBeanName()); }
 //			mBeanServerConnection=null;
 //		} catch (Exception e) {
 //			if(logErrors) {
-//				log.error("Failed to process MXBean Class Loading Stats", e);
+//				error("Failed to process MXBean Class Loading Stats", e);
 //			}
 //		}
 //	}	
@@ -985,13 +989,13 @@ public class JMXCollector extends AbstractCollector {
 //			tracer.traceStickyDelta(totalComplilationTime, "Compile Time (Delta)", rootSegment);
 //			tracer.traceSticky(totalComplilationTime, "Total Compile Time", rootSegment);
 //		} catch (InstanceNotFoundException ine) {
-//			if(logErrors) { log.warn("MXBean Collector (" + objectName + ") Could Not Locate MBean " + jitMXBean); }			
+//			if(logErrors) { warn("MXBean Collector (" + objectName + ") Could Not Locate MBean " + jitMXBean); }			
 //		} catch (IOException ioex){
-//			if(logErrors) { log.error("There are some issues connecting to the MBeanServer for bean " + this.getBeanName()); }
+//			if(logErrors) { error("There are some issues connecting to the MBeanServer for bean " + this.getBeanName()); }
 //			mBeanServerConnection=null;
 //		} catch (Exception e) {
 //			if(logErrors) {
-//				log.error("Failed to process MXBean Class Loading Stats", e);
+//				error("Failed to process MXBean Class Loading Stats", e);
 //			}
 //		}
 //	}		
@@ -1026,13 +1030,13 @@ public class JMXCollector extends AbstractCollector {
 //			tracer.trace(buff.toString(), "JVM Input Arguments",rootSegment);
 //			runtimeCollected = true;
 //		} catch (InstanceNotFoundException ine) {
-//			if(logErrors) { log.warn("MXBean Collector (" + objectName + ") Could Not Locate MBean " + runTimeMXBean); }
+//			if(logErrors) { warn("MXBean Collector (" + objectName + ") Could Not Locate MBean " + runTimeMXBean); }
 //		} catch (IOException ioex){
-//			if(logErrors) { log.error("There are some issues connecting to the MBeanServer for bean " + this.getBeanName()); }
+//			if(logErrors) { error("There are some issues connecting to the MBeanServer for bean " + this.getBeanName()); }
 //			mBeanServerConnection=null;
 //		} catch (Exception e) {
 //			if(logErrors) {
-//				log.error("Failed to process MXBean Runtime Stats", e);
+//				error("Failed to process MXBean Runtime Stats", e);
 //			}
 //			runtimeCollected = false;
 //		}
@@ -1073,13 +1077,13 @@ public class JMXCollector extends AbstractCollector {
 //			rootSegment = StringHelper.append(tracingNameSpace,false,mxBeanSegment, "Memory");
 //			tracer.trace((Integer)mBeanServerConnection.getAttribute(memoryMXBean, "ObjectPendingFinalizationCount"), "Objects Pending Finalization",rootSegment);
 //		} catch (InstanceNotFoundException ine) {
-//			if(logErrors) { log.warn("MXBean Collector for bean collector " + this.getBeanName() + " could Not Locate MBean " + memoryMXBean); }												
+//			if(logErrors) { warn("MXBean Collector for bean collector " + this.getBeanName() + " could Not Locate MBean " + memoryMXBean); }												
 //		} catch (IOException ioex){
-//			if(logErrors) { log.error("There are some issues connecting to the MBeanServer for bean " + this.getBeanName()); }
+//			if(logErrors) { error("There are some issues connecting to the MBeanServer for bean " + this.getBeanName()); }
 //			mBeanServerConnection=null;
 //		}catch (Exception e) {
 //			if(logErrors) {
-//				log.error("Failed to process MXBean Memory Stats", e);
+//				error("Failed to process MXBean Memory Stats", e);
 //			}
 //		}
 //	}	

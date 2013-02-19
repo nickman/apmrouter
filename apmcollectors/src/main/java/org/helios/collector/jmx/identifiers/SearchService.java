@@ -58,10 +58,10 @@ public class SearchService {
 	 * @throws Exception
 	 *//*
 	public void start() throws Exception {
-		log.info("\n\t=====================\n\tStarting MBeanServerConnection Search Service\n\t=====================\n");
+		info("\n\t=====================\n\tStarting MBeanServerConnection Search Service\n\t=====================\n");
 		JMXHelper.getHeliosMBeanServer().registerMBean(this, JMXHelper.objectName(new StringBuilder(IMBeanServerConnectionFactory.CONNECTION_MBEAN_DOMAIN).append(":service=SearchService")));
 		
-		log.info("\n\t=====================\n\tStarted MBeanServerConnection Search Service\n\t=====================\n");
+		info("\n\t=====================\n\tStarted MBeanServerConnection Search Service\n\t=====================\n");
 	}
 	
 	*//**

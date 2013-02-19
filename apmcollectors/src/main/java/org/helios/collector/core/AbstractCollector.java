@@ -142,7 +142,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	}
 	
 	/** Indicates the current state of the collector. */
-	private CollectorState state;
+	protected CollectorState state;
 	
 	/** Last time a collection was started. */
 	protected long lastTimeCollectionStarted = 0L;
@@ -392,7 +392,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	 */
 	@ManagedAttribute	
 	public String[] getTracingNameSpace() {
-		return tracingNameSpace.clone();
+		return (String[])tracingNameSpace.clone();
 	}
 
 	/**
