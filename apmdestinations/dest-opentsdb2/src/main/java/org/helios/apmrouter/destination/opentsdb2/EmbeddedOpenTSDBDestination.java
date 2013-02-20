@@ -53,18 +53,19 @@ public class EmbeddedOpenTSDBDestination extends BaseAsyncDestination {
 	 */
 	@Override
 	protected void doFlush(Collection<IMetric> flushedItems) {
-		// TODO Auto-generated method stub
+		int cnt = 0;
 		for(IMetric metric: flushedItems) {
 			DataPointSet dps = toDataPointSet(metric);
 			if(dps!=null) {
 				try {
 					datastore.putDataPoints(dps);
+					cnt++;
 				} catch (DatastoreException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
 		}		
+		info("Wrote [", cnt, "] DataPoints");
 	}
 	
 	/**
@@ -85,6 +86,14 @@ public class EmbeddedOpenTSDBDestination extends BaseAsyncDestination {
 	 */
 	public EmbeddedOpenTSDBDestination(String... patterns) {
 		super(patterns);
+	}
+	
+	/**
+	 * Creates a new EmbeddedOpenTSDBDestination
+	 */
+	public EmbeddedOpenTSDBDestination() {
+		super();
+		this.matchPatterns.add("LONG.*|DELTA.*");
 	}
 
 	/**

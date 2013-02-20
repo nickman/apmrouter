@@ -16,15 +16,14 @@
 	<context:annotation-config/>
 	<context:mbean-export registration="replaceExisting" />
 
- 	<bean id="LocalOpenTSDB" class="org.helios.apmrouter.destination.opentsdb.OpenTSDBDestination" init-method="start">
- 		<property name="matchPatterns">
-	 		<util:set>
+ 	<bean id="ProvidedDataSourceH2Datastore" class="net.opentsdb.datastore.h2.ProvidedDataSourceH2Datastore"> 		
+ 		<property name="dataSource" ref="DataSource" />
+	</bean>
+	<bean id="EmbeddedOpenTSDBDestination" class="org.helios.apmrouter.destination.opentsdb2.EmbeddedOpenTSDBDestination">
+		<constructor-arg>
+			<util:set>
 				<value>LONG.*|DELTA.*</value>	 			
 	 		</util:set>
- 		</property>
- 		<property name="openTSDBHost" value="pdk-pt-cupas-01" />
+		</constructor-arg>
 	</bean>
-
-
-
 </beans>	

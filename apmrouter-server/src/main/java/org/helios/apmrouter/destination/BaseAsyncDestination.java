@@ -48,9 +48,9 @@ public abstract class BaseAsyncDestination extends BaseDestination implements Fl
 	/** The queue into which incoming metrics are stored */
 	protected TimeSizeFlushQueue<IMetric> flushQueue = null;
 	/** The queue's size flush trigger */
-	protected int sizeTrigger = -1;
+	protected int sizeTrigger = 75;
 	/** The queue's time flush trigger */
-	protected long timeTrigger = -1;
+	protected long timeTrigger = 5000;
 	
 	/** A sliding window of flush elapsed times */
 	protected final ConcurrentLongSlidingWindow flushElapsedTimes = new ConcurrentLongSlidingWindow(20); 
@@ -62,8 +62,20 @@ public abstract class BaseAsyncDestination extends BaseDestination implements Fl
 	 * @see org.helios.apmrouter.destination.BaseDestination#doStart()
 	 */
 	@Override
-	protected void doStart() throws Exception {
+	protected void doStart() throws Exception {		
 		flushQueue = new TimeSizeFlushQueue<IMetric>(beanName, sizeTrigger, timeTrigger, this);
+		info("Created flush queue for [", beanName, "]\n\tST:", sizeTrigger, "\n\tTT:", timeTrigger);
+		super.doStart();
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.destination.BaseDestination#doStop()
+	 */
+	@Override
+	protected void doStop() {
+		 flushQueue = null;
+		 super.doStop();
 	}
 	
 	/**
@@ -72,10 +84,12 @@ public abstract class BaseAsyncDestination extends BaseDestination implements Fl
 	 */
 	@Override
 	protected void doAcceptRoute(IMetric routable) {
-		if(flushQueue.add(routable)) {
-			incr("QueuedRoutes");
-		} else {
-			incr("DroppedRoutes");
+		if(routable!=null) {
+			if(flushQueue.add(routable)) {
+				incr("QueuedRoutes");
+			} else {
+				incr("DroppedRoutes");
+			}
 		}
 	}
 	
@@ -183,6 +197,7 @@ public abstract class BaseAsyncDestination extends BaseDestination implements Fl
 		flushSize.insert(size);
 		final long start = System.nanoTime();
 		doFlush(flushedItems);
+		flushedItems.clear();
 		final long elapsed = System.nanoTime()-start;
 		flushElapsedTimes.insert(elapsed);
 	}	
