@@ -100,14 +100,19 @@ public class ApplicationContextDeployer {
 					}
 				}
 				// Add any located wars
+				boolean hasWars = false;
 				for(String warFileName: cl.getWars()) {
 					File warFile = new File(warFileName);
 					WARDeployer.deploy(appCtx, warFile);
+					hasWars = true;
 				}
 				ObjectName on = JMXHelper.objectName(ApplicationContextService.HOT_OBJECT_NAME_PREF + ObjectName.quote(f.getAbsolutePath()));
 				ApplicationContextService.register(on, appCtx);			
 				appCtx.refresh();
 				//jimmyTheJettyWebApps(appCtx, cl);
+				if(hasWars) {
+					jiggleTheHandlers(appCtx, cl);
+				}
 				return appCtx;
 			} finally {
 				Thread.currentThread().setContextClassLoader(current);
@@ -116,6 +121,25 @@ public class ApplicationContextDeployer {
 			log.error("Failed to deploy application context [" + fe + "]", ex);
 			throw new RuntimeException("Failed to deploy application context [" + fe + "]", ex);
 		}
+	}
+	
+	/**
+	 * Stops and starts the handler collection. For some reason, the webapps don't start correctly without this.
+	 * @param appCtx The app context the handlers are deployed in
+	 * @param cl The class loader 
+	 */
+	protected void jiggleTheHandlers(GenericXmlApplicationContext appCtx, ClassLoader cl) {
+		try {
+			Class<?> handlerClass = Class.forName("org.eclipse.jetty.server.handler.HandlerCollection", true, cl);
+			Object handler = appCtx.getBean(handlerClass);
+			handlerClass.getMethod("stop").invoke(handler);
+			log.info("Stopped Handler");
+			handlerClass.getMethod("start").invoke(handler);
+			log.info("Started Handler");
+		} catch (Exception ex) {
+			log.error("Failed to jiggle the HandlerCollection", ex);
+		}
+		
 	}
 	
 	protected void jimmyTheJettyWebApps(GenericXmlApplicationContext appCtx, ClassLoader cl) {
