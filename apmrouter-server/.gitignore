@@ -3,3 +3,5 @@
 /hs_err_pid*.log
 /jsp
 /dependency-reduced-pom.xml
+/prodDb.log
+/stacktrace.log
