@@ -94,6 +94,7 @@ public abstract class ServerComponent {
 	public void setLevel(String levelName) {
 		level = APMLogLevel.valueOfName(levelName);
 		log.setLevel(level.getLevel());
+		info("Set Logger to level [", log.getLevel().toString(), "]");
 	}
 	
 	/**
