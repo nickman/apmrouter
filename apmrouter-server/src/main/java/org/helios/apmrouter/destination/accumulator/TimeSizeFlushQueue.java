@@ -183,7 +183,7 @@ public class TimeSizeFlushQueue<T> implements Runnable {
 	 * Creates a new TimeSizeFlushQueue using the default shared scheduler and thread pool.
 	 * @param name The name for this flushQueue
 	 * @param sizeTrigger The flush size trigger
-	 * @param timeTrigger The flush time trigger
+	 * @param timeTrigger The flush time trigger in ms.
 	 * @param receiver The receiver runnable responsible for processing the flush
 	 */
 	public TimeSizeFlushQueue(String name, int sizeTrigger, long timeTrigger, FlushQueueReceiver<T> receiver) {
@@ -474,16 +474,16 @@ public class TimeSizeFlushQueue<T> implements Runnable {
 	}
 
 	/**
-	 * Returns the time trigger threshold
+	 * Returns the time trigger threshold in ms.
 	 * @return the timeTrigger
 	 */
-	@ManagedAttribute(description="The time queue flush trigger")
+	@ManagedAttribute(description="The time queue flush trigger in ms.")
 	public long getTimeTrigger() {
 		return timeTrigger.get();
 	}
 	
 	/**
-	 * Sets the time trigger
+	 * Sets the time trigger in ms.
 	 * @param time the time to set the time triger
 	 */
 	public void setTimeTrigger(long time) {

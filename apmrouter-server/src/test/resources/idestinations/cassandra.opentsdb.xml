@@ -14,19 +14,35 @@
 		<context:annotation-config/>
 	<context:mbean-export registration="replaceExisting" />
 
-
- 	<bean id="ProvidedDataSourceH2Datastore" class="net.opentsdb.datastore.h2.ProvidedDataSourceH2Datastore" init-method="start" destroy-method="close"> 		
- 		<property name="dataSource" ref="OpenTSDBDataSource" />
+	
+	<bean id="opentsdb2" class="net.opentsdb.core.MainBean" init-method="start" destroy-method="stop">		
+		<property name="properties">
+			<value>
+				opentsdb.telnetserver.port=4242
+				opentsdb.telnetserver.commands=put
+				opentsdb.jetty.port=9090
+				opentsdb.jetty.static_web_root=c:/hprojects/opentsdb2/webroot
+				opentsdb.datastore.class=net.opentsdb.datastore.cassandra.CassandraDatastore
+				opentsdb.datastore.cassandra.host_name=localhost
+				opentsdb.datastore.cassandra.port=9160
+				opentsdb.datastore.cassandra.replication_factor=1
+				opentsdb.datastore.cassandra.row_width=7257600000
+				opentsdb.datastore.cassandra.write_delay=1000
+				opentsdb.datastore.cassandra.row_read_size=1024
+			</value>
+		</property>
 	</bean>
+	
+	<bean id="dataStore" class="net.opentsdb.core.datastore.Datastore" factory-bean="opentsdb2" factory-method="getDataStore"/>
+
 	<bean id="EmbeddedOpenTSDBDestination" class="org.helios.apmrouter.destination.opentsdb2.EmbeddedOpenTSDBDestination">
 		<constructor-arg>
 			<util:set>
 				<value>LONG.*|DELTA.*</value>	 			
 	 		</util:set>
 		</constructor-arg>
-		<property name="datastore" ref="ProvidedDataSourceH2Datastore" />
+		<property name="datastore" ref="dataStore" />
 	</bean>
-
 
 	
 	

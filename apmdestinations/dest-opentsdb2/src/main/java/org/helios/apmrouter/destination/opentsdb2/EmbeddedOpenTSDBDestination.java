@@ -30,7 +30,7 @@ import net.opentsdb.core.DataPointSet;
 import net.opentsdb.core.datastore.Datastore;
 import net.opentsdb.core.exception.DatastoreException;
 
-import org.helios.apmrouter.destination.BaseAsyncDestination;
+import org.helios.apmrouter.destination.BaseDestination;
 import org.helios.apmrouter.metric.IMetric;
 
 /**
@@ -41,31 +41,57 @@ import org.helios.apmrouter.metric.IMetric;
  * <p><code>org.helios.apmrouter.destination.opentsdb2.EmbeddedOpenTSDBDestination</code></p>
  */
 
-public class EmbeddedOpenTSDBDestination extends BaseAsyncDestination {
+public class EmbeddedOpenTSDBDestination extends BaseDestination {
 	/** The embedded OpenTSDB's data store */
 	protected Datastore datastore = null;
 	
 
 
+//	/**
+//	 * {@inheritDoc}
+//	 * @see org.helios.apmrouter.destination.BaseAsyncDestination#doFlush(java.util.Collection)
+//	 */
+//	@Override
+//	protected void doFlush(Collection<IMetric> flushedItems) {
+//		int cnt = 0;
+//		for(IMetric metric: flushedItems) {
+//			DataPointSet dps = toDataPointSet(metric);
+//			if(dps!=null) {
+//				try {
+//					datastore.putDataPoints(dps);
+//					cnt++;
+//				} catch (DatastoreException e) {
+//					e.printStackTrace();
+//				}
+//			}
+//		}		
+//		info("Wrote [", cnt, "] DataPoints");
+//	}
+	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.BaseAsyncDestination#doFlush(java.util.Collection)
+	 * @see org.helios.apmrouter.destination.BaseDestination#doAcceptRoute(org.helios.apmrouter.metric.IMetric)
 	 */
 	@Override
-	protected void doFlush(Collection<IMetric> flushedItems) {
-		int cnt = 0;
-		for(IMetric metric: flushedItems) {
-			DataPointSet dps = toDataPointSet(metric);
-			if(dps!=null) {
-				try {
-					datastore.putDataPoints(dps);
-					cnt++;
-				} catch (DatastoreException e) {
-					e.printStackTrace();
-				}
+	protected void doAcceptRoute(IMetric routable) {
+		try {
+			//datastore.putDataPoints(toDataPointSet(routable));
+			if(routable!=null) {
+				datastore.queueDataPoints(toDataPointSet(routable));
 			}
-		}		
-		info("Wrote [", cnt, "] DataPoints");
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+		}
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.destination.BaseDestination#doStart()
+	 */
+	@Override
+	protected void doStart() throws Exception {
+		info("OpenTSDB Datastore [", datastore.getClass().getSimpleName(), "] Started:" + datastore.isStarted());
+		super.doStart();
 	}
 	
 	/**
