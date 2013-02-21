@@ -52,8 +52,6 @@
 			  <artifactId>apmrouter-agent</artifactId>
 			  <version>${project.version}</version>
 			</dependency>
-			    
-			  
 			  
 			<!-- ==========================================================			
 			  Byteman & AOP
@@ -250,7 +248,7 @@
 					<Main-Class>org.helios.apmrouter.APMRouter</Main-Class>
 				    <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
 				    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>	                      					
-					<includePluginDependencies>false</includePluginDependencies>
+					<includePluginDependencies>true</includePluginDependencies>
 						<manifestEntries>
 							<Main-Class>org.helios.apmrouter.APMRouter</Main-Class>
 						</manifestEntries>

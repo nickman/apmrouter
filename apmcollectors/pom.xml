@@ -95,6 +95,42 @@
 		      </dependency>
 		   </dependencies>
 		</plugin>
+
+  <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-shade-plugin</artifactId>
+            <version>1.7.1</version>
+            <executions>
+              <execution>
+                <phase>package</phase>
+                <goals>
+                  <goal>shade</goal>
+                </goals>
+                <configuration>
+                  <artifactSet>
+                    <excludes>
+                      <exclude>org.slf4j:log4j-over-slf4j</exclude>
+                      <exclude>org.helios.apmrouter:apmrouter-server</exclude>
+                      <exclude>org.helios.apmrouter:apmrouter-agent</exclude>
+                      <exclude>ch.qos.logback:*</exclude>
+                    </excludes>
+                  </artifactSet>
+
+                   <filters>
+                       <filter>
+                           <artifact>*:*</artifact>
+                           <excludes>
+                               <exclude>META-INF/*.SF</exclude>
+                               <exclude>META-INF/*.DSA</exclude>
+                               <exclude>META-INF/*.RSA</exclude>
+                           </excludes>
+                       </filter>
+                   </filters>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+
 			
 		       <plugin>
                     <groupId>org.apache.maven.plugins</groupId>

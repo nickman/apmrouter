@@ -537,7 +537,7 @@ public class JMXCollector extends AbstractCollector {
 			}
 			if(trace.getSegment()!=null && trace.getSegment().contains("{TARGET")){
 				trace.setSegment(formatName(trace.getSegment(),on));
-				trace.setResolvedPrefix(StringHelper.append(trace.getSegmentPrefixElements(),false,trace.getSegment()));
+				//-trace.setResolvedPrefix(StringHelper.append(trace.getSegmentPrefixElements(),false,trace.getSegment()));
 			} else {
 				trace.setResolvedPrefix(trace.getSegmentPrefixElements());
 			}
@@ -1266,7 +1266,7 @@ public class JMXCollector extends AbstractCollector {
 	 */
 	@ManagedAttribute
 	public String[] getAvailabilitySegment() {
-		return availabilitySegment.clone();
+		return (String[])availabilitySegment.clone();
 	}
 
 	/**

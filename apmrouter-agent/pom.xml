@@ -152,6 +152,7 @@
                     </execution>
                 </executions>
             </plugin>
+<!--
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
@@ -169,7 +170,7 @@
                     <show>public</show>
                     <nohelp>true</nohelp>
                 </configuration>
-            </plugin>
+            </plugin-->
             		
 			<!-- allows the route to be ran via 'mvn camel:run' -->
 			<plugin>
