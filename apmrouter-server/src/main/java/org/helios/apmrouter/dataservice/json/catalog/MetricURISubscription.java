@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.management.MXBean;
 import javax.sql.DataSource;
 
 import org.helios.apmrouter.catalog.domain.Metric;
@@ -57,8 +58,8 @@ import org.jboss.netty.channel.group.DefaultChannelGroup;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.dataservice.json.catalog.MetricURISubscription</code></p>
  */
-
-public class MetricURISubscription implements ChannelGroupFutureListener {
+@MXBean
+public class MetricURISubscription implements ChannelGroupFutureListener, MetricURISubscriptionMBean {
 	/** The subscribed metricURI */
 	protected final MetricURI metricURI;
 	/** The metric ids that have been determined to match the metric URI */
@@ -77,6 +78,34 @@ public class MetricURISubscription implements ChannelGroupFutureListener {
 	public static MetricURISubscription getMetricURISubscriptionOrNull(MetricURI metricUri) {
 		return subscriptions.get(metricUri);
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionMBean#getMetricURI()
+	 */
+	@Override
+	public MetricURI getMetricURI() {
+		return metricURI;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionMBean#getMetricIdCount()
+	 */
+	@Override
+	public int getMetricIdCount() {
+		return metricIds.size();
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionMBean#getChannelCount()
+	 */
+	@Override
+	public int getChannelCount() {
+		return subscribedChannels.size();
+	}
+	
 	
 	/**
 	 * Returns the MetricURISubscription for the passed MetricURI

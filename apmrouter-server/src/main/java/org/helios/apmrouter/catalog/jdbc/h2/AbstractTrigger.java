@@ -85,6 +85,7 @@ public abstract class AbstractTrigger extends NotificationBroadcasterSupport imp
 		n.setUserData(newRow);
 		try {
 			NewElementTriggers.notificationQueue.put(n);
+			log.info("Added Notification to NewElementTriggers.notificationQueue [" + n + "]");
 		} catch (Exception ex) {
 			throw new SQLException("Failed to enqueue notification for [" + getClass().getSimpleName() + "] with new row " + Arrays.toString(newRow), ex);
 		}

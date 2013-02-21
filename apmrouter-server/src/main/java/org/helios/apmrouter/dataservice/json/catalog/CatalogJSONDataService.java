@@ -254,6 +254,8 @@ public class CatalogJSONDataService extends ServerComponentBean {
 		}
 	}
 	
+	
+	
 	/**
 	 * Unsubscribes the passed channel to the resolved {@link MetricURI}
 	 * @param request The JSON request

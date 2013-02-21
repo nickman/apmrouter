@@ -27,6 +27,8 @@ package org.helios.apmrouter.dataservice.json.catalog;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.lang.management.ManagementFactory;
 import java.lang.reflect.Method;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -59,7 +61,7 @@ import org.springframework.jmx.support.MetricType;
  * <p><code>org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionService</code></p>
  */
 
-public class MetricURISubscriptionService extends ServerComponentBean implements Runnable, UncaughtExceptionHandler, ThreadFactory {
+public class MetricURISubscriptionService extends ServerComponentBean implements Runnable, UncaughtExceptionHandler, ThreadFactory, MetricURISubscriptionServiceMXBean {
 	/** The number of threads to concurrently process the metric event queue  */
 	protected int metricQueueThreadCount = DEFAULT_METRIC_QUEUE_THREAD_COUNT;
 	/** A serial number factory for metric queue processor threads */
@@ -106,6 +108,23 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 		info("Interrupted Metric Event Queue Processing ThreadGroup for stop");
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getSubscriptions()
+	 */
+	@Override
+	public MetricURISubscription[] getSubscriptions() {
+		return MetricURISubscription.subscriptions.values().toArray(new MetricURISubscription[MetricURISubscription.subscriptions.size()]);
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getSubscriptionCount()
+	 */
+	@Override
+	public int getSubscriptionCount() {
+		return MetricURISubscription.subscriptions.size();
+	}
 	
 	/**
 	 * Subscribes the passed {@link Channel} to the specified {@link MetricURI}.
@@ -123,6 +142,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 			if(session!=null) try { session.close(); } catch (Exception ex) {}
 		}
 	}
+	
 	
 	/**
 	 * Unsubscribes the passed {@link Channel} from the subscription to the specified {@link MetricURI}.
@@ -188,9 +208,10 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	}
 	
 	/**
-	 * Returns the number of threads to concurrently process the metric event queue
-	 * @return the number of threads to concurrently process the metric event queue
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getMetricQueueThreadCount()
 	 */
+	@Override
 	@ManagedAttribute(description="The number of threads to concurrently process the metric event queue")
 	public int getMetricQueueThreadCount() {
 		return metricQueueThreadCount;
@@ -224,18 +245,20 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	}
 	
 	/**
-	 * Returns the number of errors processing the metric queued events
-	 * @return the number of errors processing the metric queued events
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getMetricQueueProcessingErrors()
 	 */
+	@Override
 	@ManagedMetric(category="MetricURISubscriptionService", displayName="MetricQueueProcessingErrors", metricType=MetricType.COUNTER, description="The number of errors processing the metric queued events")
 	public long getMetricQueueProcessingErrors() {
 		return getMetricValue("MetricQueueProcessingErrors");
 	}
 	
 	/**
-	 * Returns the number of pending metric events in the queue
-	 * @return the number of pending metric events in the queue
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getMetricQueueDepth()
 	 */
+	@Override
 	@ManagedMetric(category="MetricURISubscriptionService", displayName="MetricQueueDepth", metricType=MetricType.COUNTER, description="The number of pending metric queued events")
 	public long getMetricQueueDepth() {
 		return NewElementTriggers.notificationQueue.size();
@@ -248,12 +271,15 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 */
 	@Override
 	public void run() {
+		info("Started MetricQueueThreadProcessor");
 		while(keepRunning) {
 			try {			
 				Notification notification = NewElementTriggers.notificationQueue.take();
+				System.err.println("NotifQ:" + notification);
 				if(notification.getType().startsWith(MetricTrigger.NEW_METRIC)) {
 					Object[] newRow = (Object[])notification.getUserData();
 					String FQN = notification.getType().replace(MetricTrigger.NEW_METRIC, "");
+					System.err.println("Processing new metric notification [" + FQN + "]");
 					long metricId = (Long)newRow[MetricTrigger.METRIC_COLUMN_ID];
 					MetricURISubscription.onNewMetric(metricId, FQN, newRow, catalogDataSource);
 				}
@@ -264,27 +290,5 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 		}
 	}
 	
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
-	 */
-	@Override
-	public Set<String> getSupportedMetricNames() {
-		Set<String> metrics = new HashSet<String>(super.getSupportedMetricNames());
-		try {
-			for(Method method: this.getClass().getDeclaredMethods()) {
-				ManagedMetric mm = method.getAnnotation(ManagedMetric.class);
-				if(mm!=null) {
-					String name = mm.category();
-					if(name!=null && !name.trim().isEmpty()) {
-						metrics.add(name.trim());
-					}
-				}
-			}
-		} catch (Exception ex) {
-			ex.printStackTrace(System.err);
-		}
-		return metrics;
-	}		
 
 }

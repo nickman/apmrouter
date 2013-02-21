@@ -76,7 +76,14 @@ public enum OpCode {
 	/** Inquiry from server about available MBeanServers */
 	JMX_MBS_INQUIRY,
 	/** Response from agent to inquiry from server about available MBeanServers */
-	JMX_MBS_INQUIRY_RESPONSE;
+	JMX_MBS_INQUIRY_RESPONSE,
+	/** MetricURI subscription request */
+	METRIC_URI_SUBSCRIBE,
+	/** MetricURI subscription cancel */
+	METRIC_URI_UNSUBSCRIBE,
+	/** MetricURI subscription event */
+	ON_METRIC_URI_EVENT;
+	
 	
 	
 	

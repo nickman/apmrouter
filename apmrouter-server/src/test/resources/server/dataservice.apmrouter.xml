@@ -42,6 +42,10 @@
 		<property name="metricQueueThreadCount" value="5" />
 		<property name="catalogDataSource" ref="DataSource" />		
 	</bean>
+	
+	<bean id="agentMetricURISubHandler" class="org.helios.apmrouter.server.net.listener.netty.handlers.MetricURISubscriptionHandler">
+		<property name="subService" ref="MetricURISubscriptionService"/>
+	</bean>
 
 	
 	<bean id="DataServiceWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		

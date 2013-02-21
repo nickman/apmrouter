@@ -50,17 +50,11 @@ import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
-import org.helios.apmrouter.sender.netty.UDPSender;
 import org.helios.apmrouter.sender.netty.codec.IMetricEncoder;
 import org.helios.apmrouter.sender.netty.handler.ChannelStateAware;
 import org.helios.apmrouter.sender.netty.handler.ChannelStateListener;
-import org.helios.apmrouter.sentry.PollingSentryWatched;
-import org.helios.apmrouter.sentry.Sentry;
-import org.helios.apmrouter.sentry.SentryState;
-import org.helios.apmrouter.sentry.SentryStateControl;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.helios.apmrouter.util.TimeoutQueueMap;
-import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
@@ -269,6 +263,42 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 			return false;
 		}		
 	}
+	
+	/** A serial number generator for server request Ids. */
+	protected final AtomicLong ridSerial = new AtomicLong();
+	
+	/**
+	 * Subscribes the agent to a MetricURI
+	 * @param uri the URI to subscribe to 
+	 */
+	public void subscribeMetricURI(CharSequence uri) {
+		if(uri==null || uri.toString().trim().isEmpty()) throw new IllegalArgumentException("The passed URI was null", new Throwable());
+		long rid = ridSerial.incrementAndGet();
+		byte[] bytes = uri.toString().trim().getBytes();
+		ChannelBuffer ping = ChannelBuffers.buffer(1+8+4+bytes.length);
+		
+	}
+	
+	
+	/*
+	{
+		"t":"req",
+		"svc":"sub",
+		"op":"start",
+		"args":{"es":"jmx","esn":"service:jmx:local://DefaultDomain",
+		"f":"org.helios.apmrouter.session:service=SharedChannelGroup"},
+		"rid":0
+	}
+	
+				long rid = buff.readLong();
+			int uriLength = buff.readInt();
+			byte[] uriBytes = new  byte[uriLength];
+			buff.readBytes(uriBytes);
+			String uri = new String(uriBytes);
+
+	
+
+ */
 	
 	/**
 	 * {@inheritDoc}

@@ -36,6 +36,7 @@ import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.cache.CacheStatistics;
+import org.helios.apmrouter.catalog.EntryStatus;
 import org.helios.apmrouter.catalog.domain.Metric;
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.metric.MetricType;
@@ -67,7 +68,7 @@ import com.google.common.cache.LoadingCache;
  * <p><code>org.helios.apmrouter.dataservice.json.catalog.MetricURI</code></p>
  */
 
-public class MetricURI {
+public class MetricURI implements MetricURIMBean {
 	/** The full URI */
 	protected final URI metricUri;
 	/** The metric domain */
@@ -551,17 +552,19 @@ public class MetricURI {
 	}	
 
 	/**
-	 * Returns the underlying URI that represents this MetricURI
-	 * @return the underlying URI that represents this MetricURI
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURIMBean#getMetricUri()
 	 */
-	public URI getMetricUri() {
-		return metricUri;
+	@Override
+	public String getMetricUri() {
+		return metricUri.toString();
 	}
 
 	/**
-	 * Returns the metric domain 
-	 * @return the metric domain
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURIMBean#getDomain()
 	 */
+	@Override
 	public String getDomain() {
 		return domain;
 	}
@@ -575,9 +578,10 @@ public class MetricURI {
 	}
 
 	/**
-	 * Returns the metric agent 
-	 * @return the metric agent
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURIMBean#getAgent()
 	 */
+	@Override
 	public String getAgent() {
 		return agent;
 	}
@@ -592,40 +596,73 @@ public class MetricURI {
 
 
 	/**
-	 * Returns the maximum depth to recurse from the starting point
-	 * @return the maximum depth to recurse 
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURIMBean#getMaxDepth()
 	 */
+	@Override
 	public int getMaxDepth() {
 		return maxDepth;
 	}
 
 	/**
-	 * Returns the metric name specified in the URI
-	 * @return the metric name
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURIMBean#getMetricName()
 	 */
+	@Override
 	public String getMetricName() {
 		return metricName;
 	}
 
 	/**
-	 * Returns an array of the metric type ordinals specified in the URI
-	 * @return an array of the metric type ordinals
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURIMBean#getMetricType()
 	 */
+	@Override
 	public int[] getMetricType() {
 		return metricType;
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURIMBean#getMetricTypeNames()
+	 */
+	@Override
+	public String[] getMetricTypeNames() {
+		String[] arr = new String[metricType.length];
+		for(int i = 0; i < metricType.length; i++) {
+			arr[i] = MetricType.valueOf(metricType[i]).name();
+		}
+		return arr;
+	}
+	
 
 	/**
-	 * Returns an array of the metric status ordinals specified in the URI
-	 * @return an array of the metric status ordinals
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURIMBean#getMetricStatus()
 	 */
+	@Override
 	public int[] getMetricStatus() {
 		return metricStatus;
 	}
+	
 	/**
-	 * Returns the sql to be used to retrieve the metric Ids for this metric URI
-	 * @return the sql to be used to retrieve the metric Ids for this metric URI
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURIMBean#getMetricStatusNames()
 	 */
+	@Override
+	public String[] getMetricStatusNames() {
+		String[] arr = new String[metricStatus.length];
+		for(int i = 0; i < metricStatus.length; i++) {
+			arr[i] = EntryStatus.decode(metricStatus[i]);
+		}
+		return arr;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURIMBean#getMetricIdSql()
+	 */
+	@Override
 	public String getMetricIdSql() {
 		return metricIdSql;
 	}
