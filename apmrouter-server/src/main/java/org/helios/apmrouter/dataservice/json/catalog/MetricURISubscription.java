@@ -36,6 +36,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.management.MXBean;
 import javax.sql.DataSource;
 
+import org.apache.log4j.Logger;
+import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.catalog.domain.Metric;
 import org.helios.apmrouter.collections.ConcurrentLongSortedSet;
 import org.helios.apmrouter.dataservice.json.JsonResponse;
@@ -62,6 +64,7 @@ import org.jboss.netty.channel.group.DefaultChannelGroup;
 public class MetricURISubscription implements ChannelGroupFutureListener, MetricURISubscriptionMBean {
 	/** The subscribed metricURI */
 	protected final MetricURI metricURI;
+	
 	/** The metric ids that have been determined to match the metric URI */
 	protected final ConcurrentLongSortedSet metricIds = new ConcurrentLongSortedSet(128);
 	/** The channels subscribed to this metric URI */
@@ -69,6 +72,9 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	
 	/** A map of {@link MetricURISubscription}s keyed by the subscription's {@link MetricURI} */
 	protected static final Map<MetricURI, MetricURISubscription> subscriptions = new ConcurrentHashMap<MetricURI, MetricURISubscription>(128, 0.75f, 16);
+	
+	/** Static class logger */
+	protected static final Logger LOG = Logger.getLogger(MetricURISubscription.class);
  
 	/**
 	 * Returns the MetricURISubscription for the passed MetricURI or null if one does not already exist
@@ -179,7 +185,17 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	 * @param newRow The new metric attributes
 	 */
 	protected void sendSubscribersNewMetric(Object[] newRow) {
-		subscribedChannels.write(newRow);
+//		GSONJSONMarshaller marshaller = new GSONJSONMarshaller();
+//		for(Channel channel: subscribedChannels) {
+//			LOG.info("Writing new metric event to channel [" + channel + "]");
+//			SharedChannelGroup.getInstance().find(channel.getId());
+//			marshaller.marshallToChannel(newRow, channel, null);
+//			
+//		}
+		for(Channel channel: subscribedChannels) {
+			((ChannelJsonResponsePair)channel).write(newRow, OpCode.ON_METRIC_URI_EVENT);
+		}
+		
 	}
 	
 	
@@ -269,6 +285,7 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 class ChannelJsonResponsePair implements Channel {
 	/** The wrapped channel */
 	private final Channel channel;
+		
 	/** The wrapped channel's jsonResponse */
 	private final JsonResponse response;
 	/** The number of subscriptions this pair is attached to */
@@ -473,6 +490,17 @@ class ChannelJsonResponsePair implements Channel {
 	public ChannelFuture write(Object message) {
 		return channel.write(response.setContent(message));
 	}
+	
+	/**
+	 * Writes a JSON response to a subscribing agent with an op code
+	 * @param message The payload to write
+	 * @param opCode The op code of the response
+	 * @return the channel future of the write
+	 */
+	public ChannelFuture write(Object message, OpCode opCode) {
+		return channel.write(response.clone().setOpCode(opCode).setContent(message), channel.getRemoteAddress());
+	}
+	
 
 	/**
 	 * @param message
@@ -484,6 +512,18 @@ class ChannelJsonResponsePair implements Channel {
 	public ChannelFuture write(Object message, SocketAddress remoteAddress) {
 		return channel.write(response.setContent(message), remoteAddress);
 	}
+	
+	/**
+	 * Writes a JSON response to a subscribing agent with an op code
+	 * @param message The payload to write
+	 * @param remoteAddress The remote address
+	 * @param opCode The op code of the response
+	 * @return the channel future of the write
+	 */
+	public ChannelFuture write(Object message, SocketAddress remoteAddress, OpCode opCode) {
+		return channel.write(response.clone().setOpCode(opCode).setContent(message), remoteAddress);
+	}
+	
 
 	/**
 	 * @param localAddress

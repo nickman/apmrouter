@@ -81,14 +81,15 @@ public class MetricURISubscriptionHandler extends AbstractAgentRequestHandler {
 	 */
 	@Override
 	public void processAgentRequest(OpCode opCode, ChannelBuffer buff, SocketAddress remoteAddress, Channel channel) {
+		buff.skipBytes(1);
 		switch(opCode) {
 		case METRIC_URI_SUBSCRIBE:
 			incr("SubRequests");
-			subscribe(buff, channel, true);
+			subscribe(buff, getChannelForRemote(channel, remoteAddress) , true);
 			break;
 		case METRIC_URI_UNSUBSCRIBE:
 			incr("UnSubRequests");
-			subscribe(buff, channel, false);
+			subscribe(buff, getChannelForRemote(channel, remoteAddress) , false);
 			break;
 		default:
 			break;

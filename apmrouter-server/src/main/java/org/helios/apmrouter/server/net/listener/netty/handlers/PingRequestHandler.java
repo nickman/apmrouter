@@ -174,15 +174,6 @@ public class PingRequestHandler extends AbstractAgentRequestHandler implements T
 	}
 	
 	
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
-	 */
-	@Override
-	public Set<String> getSupportedMetricNames() {
-		HashSet<String> metrics = new HashSet<String>(super.getSupportedMetricNames());
-		metrics.add("TotalPingCount");
-		return metrics;
-	}
+
 
 }

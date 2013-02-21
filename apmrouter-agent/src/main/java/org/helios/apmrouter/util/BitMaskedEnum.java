@@ -98,6 +98,32 @@ public interface BitMaskedEnum {
 		}
 		
 		/**
+		 * Generates a byte mask decode map for the passed enum type based on the ordinal
+		 * @param offset A constant value to add to each enums ordinals for situations 
+		 * where we're tracking a code that is an offset off the ordinal
+		 * @param enums An array of the enum items
+		 * @return a map of the enum items keyed by the bit mask
+		 */ 
+		public static <E extends Enum<E>> Map<Byte, E> generateByteMaskMap(byte offset, E...enums) {
+			if(enums.length>Byte.SIZE) throw new IllegalArgumentException("Invalid number of enums for a byte bitmask [" + enums.length + "]. Max allowble is [" + Byte.SIZE + "]");
+			Map<Byte, E> map = new HashMap<Byte, E>(enums.length);
+			for(E e: enums) {
+				byte mask = Byte.parseByte("1" + BITS.substring(0, e.ordinal()+offset), 2);
+				map.put(mask, e);
+			}
+			return Collections.unmodifiableMap(map);
+		}		
+		
+		/**
+		 * Generates an byte mask decode map for the passed enum type based on the ordinal
+		 * @param enums An array of the enum items
+		 * @return a map of the enum items keyed by the bit mask
+		 */ 
+		public static <E extends Enum<E>> Map<Byte, E> generateByteMaskMap(E...enums) {
+			return generateByteMaskMap((byte)0, enums);
+		}		
+		
+		/**
 		 * Generates asimple ordinal decode map for the passed enum type based on the ordinal
 		 * @param offset A constant value to add to each enums ordinals for situations 
 		 * where we're tracking a code that is an offset off the ordinal
@@ -114,9 +140,37 @@ public interface BitMaskedEnum {
 			return Collections.unmodifiableMap(map);
 		}
 		
-		
 		/**
 		 * Generates asimple ordinal decode map for the passed enum type based on the ordinal
+		 * @param offset A constant value to add to each enums ordinals for situations 
+		 * where we're tracking a code that is an offset off the ordinal
+		 * @param enums An array of the enum items
+		 * @return a map of the enum items keyed by the ordinal
+		 */ 
+		public static <E extends Enum<E>> Map<Byte, E> generateByteOrdinalMap(byte offset, E...enums) {
+			if(enums.length>Byte.SIZE) throw new IllegalArgumentException("Invalid number of enums for an byte bitmask [" + enums.length + "]. Max allowble is [" + Byte.SIZE + "]");
+			Map<Byte, E> map = new HashMap<Byte, E>(enums.length);
+			for(E e: enums) {
+				byte mask = (byte) (((byte)e.ordinal())+offset);
+				map.put(mask, e);
+			}
+			return Collections.unmodifiableMap(map);
+		}
+		
+		/**
+		 * Generates a simple ordinal decode map for the passed enum type based on the ordinal
+		 * @param enums An array of the enum items
+		 * @return a map of the enum items keyed by the ordinal
+		 */ 
+		public static <E extends Enum<E>> Map<Byte, E> generateByteOrdinalMap(E...enums) {
+			return generateByteOrdinalMap((byte)0, enums);
+		}
+				
+		
+		
+		
+		/**
+		 * Generates a simple ordinal decode map for the passed enum type based on the ordinal
 		 * @param enums An array of the enum items
 		 * @return a map of the enum items keyed by the ordinal
 		 */ 
@@ -497,6 +551,113 @@ public interface BitMaskedEnum {
 		}
 	}
 	
+	/**
+	 * <p>Title: ByteBitMaskOperations</p>
+	 * <p>Description: Defines the bit mask operations for an <code>byte</code> based bit masked enum</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.util.BitMaskedEnum.ByteBitMaskOperations</code></p>
+	 * @param <E> The expected type of the enum
+	 */
+	public static interface ByteBitMaskOperations<E extends Enum<E>> {
+		
+		/**
+		 * Returns the enum that has the passed ordinal.
+		 * Throws a runtime exception if the ordinal is invalid
+		 * @param ordinal The ordinal to get the enum for
+		 * @return the matched enum
+		 */
+		public E forOrdinal(byte ordinal);
+		
+		/**
+		 * Returns the enum that has the passed code.
+		 * If the enum does not support a seperate code, this call should
+		 * simply delegate to {@link #forOrdinal(byte)}.
+		 * Throws a runtime exception if the ordinal is invalid
+		 * @param code The code to get the enum for
+		 * @return the matched enum
+		 */
+		public E forCode(Number code);
+		
+		
+		/**
+		 * Determines if the passed mask is enabled for this enum entry
+		 * @param mask the mask to test
+		 * @return true if the passed mask is enabled for this enum state, false otherwise
+		 */
+		public boolean isEnabled(byte mask);		
+		
+		/**
+		 * Returns the mask for this enum entry
+		 * @return the mask for this enum entry
+		 */
+		public byte getMask();
+		
+		/**
+		 * Enables the passed mask for this socket state and returns it
+		 * @param mask The mask to modify
+		 * @return the modified mask
+		 */
+		public byte enable(byte mask);
+		
+		/**
+		 * Disables the passed mask for this socket state and returns it
+		 * @param mask The mask to modify
+		 * @return the modified mask
+		 */
+		public byte disable(byte mask);
+	}
 	
+	/**
+	 * <p>Title: ByteBitMaskSupport</p>
+	 * <p>Description: Bit mask operation implementations for an <code>byte</code> based bit masked enum</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.util.BitMaskedEnum.ByteBitMaskSupport</code></p>
+	 */
+	public static class ByteBitMaskSupport  {
+		
+		/**
+		 * Converts the passed ordinals or codes to their decoded enums and returns an array of unique enums represented therein
+		 * @param eInstance A bit mask operatons instance
+		 * @param ordinals The oridnals or codes to decode
+		 * @return an array of enums
+		 */
+		@SuppressWarnings("unchecked")
+		public static <E extends ByteBitMaskOperations<?>> E[] decode(ByteBitMaskOperations<?> eInstance, byte...ordinals) {
+			Class<?> eType = eInstance.getClass();
+			if(ordinals==null || ordinals.length<1) {
+				return (E[])Array.newInstance(eType, 0);
+			}
+			Set<E> decodes = new HashSet<E>(ordinals.length); 
+			for(byte ordinal: ordinals) {
+				E decode = (E)eInstance.forOrdinal(ordinal);
+				if(decode!=null) {
+					decodes.add(decode);
+				}
+			}
+			return (E[])Array.newInstance(eType, decodes.size());			
+		}
+			
+
+		/**
+		 * Accepts the passed state and enables or disables the passed enums on it
+		 * @param initial The initial state code
+		 * @param enable true to enable, false to disable
+		 * @param enums The enums to enable or disable
+		 * @return the modified state code
+		 */
+		public static <E extends ByteBitMaskOperations<?>> byte mask(byte initial, final boolean enable, E...enums) {
+			byte mask = initial;
+			if(enums!=null) {
+				for(E en: enums) {
+					if(en==null) continue;					
+					mask = enable ? (byte) (en.getMask() | mask) : (byte) (en.getMask() & ~mask); 
+				}
+			}
+			return mask;
+		}
+	}	
+
 	
 }

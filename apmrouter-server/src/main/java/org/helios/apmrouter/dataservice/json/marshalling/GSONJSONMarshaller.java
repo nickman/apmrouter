@@ -25,11 +25,13 @@
 package org.helios.apmrouter.dataservice.json.marshalling;
 
 import java.lang.reflect.Type;
+import java.net.SocketAddress;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
+import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -71,6 +73,14 @@ public class GSONJSONMarshaller extends ServerComponentBean implements JSONMarsh
 	 * @see org.helios.apmrouter.dataservice.json.marshalling.JSONMarshaller#marshallToChannel(java.lang.Object)
 	 */
 	public ChannelBuffer marshallToChannel(Object obj) {
+		return marshallToChannel(null, obj);
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.marshalling.JSONMarshaller#marshallToChannel(org.helios.apmrouter.OpCode, java.lang.Object)
+	 */
+	public ChannelBuffer marshallToChannel(OpCode opCode, Object obj) {
 		if(obj==null) return ChannelBuffers.buffer(0);
 		byte[] bytes = null;
 		if(obj instanceof CharSequence || obj instanceof JSONObject) {
@@ -78,19 +88,48 @@ public class GSONJSONMarshaller extends ServerComponentBean implements JSONMarsh
 		} else {
 			bytes = gson.toJson(obj).getBytes();
 		}				
-		ChannelBuffer cb = ChannelBuffers.directBuffer(bytes.length);
+		ChannelBuffer cb = ChannelBuffers.directBuffer(bytes.length + (opCode==null ? 0 : 5));
+		if(opCode!=null) {
+			cb.writeByte(opCode.op());
+			cb.writeInt(bytes.length);
+		}
 		cb.writeBytes(bytes);
 		bytes = null;
 		return cb;
+		
 	}
 	
 	/**
-	 * Marshalls the passed object into JSON and then writes the JSON to a channel buffer and then writes the channel buffer to the passed channel
-	 * @param obj The object to marshall
-	 * @param channel The channel to write to
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.marshalling.JSONMarshaller#marshallToChannel(org.helios.apmrouter.OpCode, java.lang.Object, org.jboss.netty.channel.Channel)
+	 */
+	public void marshallToChannel(OpCode op, Object obj, Channel channel) {
+		channel.write(marshallToChannel(op, obj));
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.marshalling.JSONMarshaller#marshallToChannel(java.lang.Object, org.jboss.netty.channel.Channel)
 	 */
 	public void marshallToChannel(Object obj, Channel channel) {
-		channel.write(marshallToChannel(obj));
+		channel.write(marshallToChannel(null, obj));
+	}
+	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.marshalling.JSONMarshaller#marshallToChannel(org.helios.apmrouter.OpCode, java.lang.Object, org.jboss.netty.channel.Channel, java.net.SocketAddress)
+	 */
+	public void marshallToChannel(OpCode op, Object obj, Channel channel, SocketAddress sa) {
+		channel.write(marshallToChannel(op, obj), sa==null ? channel.getRemoteAddress() : sa);
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.marshalling.JSONMarshaller#marshallToChannel(java.lang.Object, org.jboss.netty.channel.Channel, java.net.SocketAddress)
+	 */
+	public void marshallToChannel(Object obj, Channel channel, SocketAddress sa) {
+		channel.write(marshallToChannel(null, obj), sa==null ? channel.getRemoteAddress() : sa);
 	}
 	
 	

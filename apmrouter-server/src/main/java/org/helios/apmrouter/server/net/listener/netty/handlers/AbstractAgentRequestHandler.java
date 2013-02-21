@@ -44,6 +44,7 @@ import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLogLevel;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.support.MetricType;
 
@@ -68,6 +69,10 @@ public abstract class AbstractAgentRequestHandler extends ServerComponentBean im
 	
 	/** A timeout map of socket addresses to which OpCodes such as {@link OpCode#WHO} requests have been sent to but for which a response has not been received */
 	private static final TimeoutQueueMap<String, OpCode> pendingOps = new TimeoutQueueMap<String, OpCode>(5000); 
+	
+	/** The downstream handler for marshalling json responses */
+	@Autowired(required=true)
+	protected JsonResponseDownstreamHandler jsonResponseDownstreamHandler = null; 
 	
 	/**
 	 * Removes a pending operation
@@ -136,6 +141,10 @@ public abstract class AbstractAgentRequestHandler extends ServerComponentBean im
 				channel = SharedChannelGroup.getInstance().getByRemote(remoteAddress);
 				if(channel==null) {
 					channel = new VirtualUDPChannel(incoming, remoteAddress);
+					if(channel.getPipeline().get(JsonResponseDownstreamHandler.class)==null) {
+						channel.getPipeline().addFirst("JsonResponseDownstreamHandler", jsonResponseDownstreamHandler);
+						info("Added JsonResponseDownstreamHandler to channel [", channel, "]");
+					}
 					SharedChannelGroup.getInstance().add(channel, ChannelType.UDP_AGENT, "UDPAgent");
 					try {
 					} catch (Exception  e) {

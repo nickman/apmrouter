@@ -29,7 +29,9 @@ import java.net.SocketAddress;
 import java.net.URI;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledFuture;
@@ -53,7 +55,9 @@ import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.sender.netty.codec.IMetricEncoder;
 import org.helios.apmrouter.sender.netty.handler.ChannelStateAware;
 import org.helios.apmrouter.sender.netty.handler.ChannelStateListener;
+import org.helios.apmrouter.subscription.MetricURISubscriptionEventListener;
 import org.helios.apmrouter.trace.DirectMetricCollection;
+import org.helios.apmrouter.util.SimpleLogger;
 import org.helios.apmrouter.util.TimeoutQueueMap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -65,6 +69,7 @@ import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.ChannelState;
 import org.jboss.netty.channel.ChannelStateEvent;
+import org.json.JSONObject;
 
 
 /**
@@ -92,6 +97,8 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	protected final AtomicLong pingTimeOuts = new AtomicLong(0);
 	/** The logical connected state of this sender */
 	protected final AtomicBoolean connected = new AtomicBoolean(false);
+	/** A set of subscribed MetricURISubscriptionEventListeners */
+	protected final Set<MetricURISubscriptionEventListener> subListeners = new CopyOnWriteArraySet<MetricURISubscriptionEventListener>();
 	
 	/** Sliding window of ping times */
 	protected final ILongSlidingWindow pingTimes = new ConcurrentLongSlidingWindow(64); 
@@ -268,17 +275,68 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	protected final AtomicLong ridSerial = new AtomicLong();
 	
 	/**
-	 * Subscribes the agent to a MetricURI
-	 * @param uri the URI to subscribe to 
+	 * Subscribes or Unsubscribes the agent to a MetricURI
+	 * @param uri the URI to subscribe to or unscubscribe from 
+	 * @param sub true to subscribe, false to unsubscribe
+	 * @param listeners An optional array of listeners that will be subscribed if <b>sub</b> is true or unsubscribed if it is false.
+	 * @return the request id of the request
 	 */
-	public void subscribeMetricURI(CharSequence uri) {
+	public long metricURI(CharSequence uri, boolean sub, MetricURISubscriptionEventListener...listeners) {
 		if(uri==null || uri.toString().trim().isEmpty()) throw new IllegalArgumentException("The passed URI was null", new Throwable());
 		long rid = ridSerial.incrementAndGet();
 		byte[] bytes = uri.toString().trim().getBytes();
-		ChannelBuffer ping = ChannelBuffers.buffer(1+8+4+bytes.length);
-		
+		ChannelBuffer cb = ChannelBuffers.buffer(1+8+4+bytes.length);
+		cb.writeByte(sub ? OpCode.METRIC_URI_SUBSCRIBE.op() : OpCode.METRIC_URI_UNSUBSCRIBE.op());
+		cb.writeLong(rid);
+		cb.writeInt(bytes.length);
+		cb.writeBytes(bytes);
+		senderChannel.write(cb, socketAddress);			
+		if(listeners!=null) {
+			for(MetricURISubscriptionEventListener listener: listeners) {				
+				if(sub) {								
+					registerMetricURISubscriptionEventListener(listener);
+				} else {
+					unRegisterMetricURISubscriptionEventListener(listener);
+				}
+			}
+		}
+		return rid;
 	}
 	
+	/**
+	 * Subscribes to the passed MetricURI
+	 * @param uri the URI to subscribe to
+	 * @param listeners An optional array of listeners that will be subscribed 
+	 * @return the request id the subscription was issued with
+	 */
+	public long subscribeMetricURI(CharSequence uri, MetricURISubscriptionEventListener...listeners) {
+		return metricURI(uri, true, listeners);
+	}
+	
+	/**
+	 * Unsubscribes from the passed MetricURI
+	 * @param uri the URI to unsubscribe from
+	 * @param listeners An optional array of listeners that will be unsubscribed 
+	 * @return the request id the unsubscription was issued with
+	 */
+	public long unSubscribeMetricURI(CharSequence uri, MetricURISubscriptionEventListener...listeners) {
+		return metricURI(uri, false, listeners);
+	}
+	
+	public void onMetricURIEvent(ChannelBuffer buff) {
+		try {
+			log("MetricURI Event:" + buff);
+			int byteSize = buff.readInt();
+			byte[] bytes = new byte[byteSize];
+			buff.readBytes(bytes);
+			JSONObject jsonResponse = new JSONObject(new String(bytes));
+			for(MetricURISubscriptionEventListener listener: subListeners) {
+				listener.onNewMetric(jsonResponse);
+			}
+		} catch (Exception ex) {
+			log("Failed to unmarshall metric URI event" + ex);
+		}
+	}
 	
 	/*
 	{
@@ -630,7 +688,26 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 		return 0;
 	}
 
-
+	/**
+	 * Registers a {@link MetricURISubscriptionEventListener}
+	 * @param listener the listener to register
+	 */
+	public void registerMetricURISubscriptionEventListener(MetricURISubscriptionEventListener listener) {
+		if(listener!=null) {
+			subListeners.add(listener);
+		}
+	}
+	
+	/**
+	 * Unregisters a {@link MetricURISubscriptionEventListener}
+	 * @param listener the listener to unregister
+	 */
+	public void unRegisterMetricURISubscriptionEventListener(MetricURISubscriptionEventListener listener) {
+		if(listener!=null) {
+			subListeners.remove(listener);
+		}
+	}
+	
 
 
 	

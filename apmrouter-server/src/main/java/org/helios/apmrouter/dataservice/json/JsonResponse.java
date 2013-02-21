@@ -30,6 +30,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.helios.apmrouter.OpCode;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -55,6 +57,10 @@ public class JsonResponse {
 	/** The content payload */
 	@SerializedName("msg")
 	protected Object content = null;
+	/** The response op code */
+	@SerializedName("op")
+	protected OpCode opCode = null;
+	
 	
 	/** Response flag for an error message */
 	public static final String RESP_TYPE_ERR = "err";
@@ -62,6 +68,15 @@ public class JsonResponse {
 	public static final String RESP_TYPE_RESP = "resp";
 	/** Response flag for a subscription event delivery */
 	public static final String RESP_TYPE_SUB = "sub";
+	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.Object#clone()
+	 */
+	public JsonResponse clone() {
+		return new JsonResponse(reRequestId, type);
+	}
 	
 	/**
 	 * Creates a new JsonResponse
@@ -151,6 +166,24 @@ public class JsonResponse {
 	 */
 	public String getType() {
 		return type;
+	}
+
+	/**
+	 * Returns the response op code
+	 * @return the response op code
+	 */
+	public OpCode getOpCode() {
+		return opCode;
+	}
+
+	/**
+	 * Sets the response op code
+	 * @param opCode the response op code
+	 * @return this response
+	 */
+	public JsonResponse setOpCode(OpCode opCode) {
+		this.opCode = opCode;
+		return this;
 	}
 	
 	
