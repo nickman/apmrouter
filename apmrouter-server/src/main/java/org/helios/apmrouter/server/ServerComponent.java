@@ -27,8 +27,10 @@ package org.helios.apmrouter.server;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -38,6 +40,7 @@ import org.cliffc.high_scale_lib.Counter;
 import org.cliffc.high_scale_lib.NonBlockingHashMap;
 import org.helios.apmrouter.logging.APMLogLevel;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.export.annotation.ManagedOperation;
 import org.springframework.jmx.export.annotation.ManagedResource;
 
@@ -217,7 +220,32 @@ public abstract class ServerComponent {
 	 * @return the metric names implemented by this component
 	 */
 	public Set<String> getSupportedMetricNames() {
-		return Collections.emptySet();
+		Set<String> metrics = new HashSet<String>();
+		try {
+			for(Method method: this.getClass().getMethods()) {
+				ManagedMetric mm = method.getAnnotation(ManagedMetric.class);
+				if(mm!=null) {
+					String name = mm.category();
+					if(name!=null && !name.trim().isEmpty()) {
+						metrics.add(name.trim());
+					}
+				}
+			}
+			
+			for(Method method: this.getClass().getDeclaredMethods()) {
+				ManagedMetric mm = method.getAnnotation(ManagedMetric.class);
+				if(mm!=null) {
+					String name = mm.category();
+					if(name!=null && !name.trim().isEmpty()) {
+						metrics.add(name.trim());
+					}
+				}
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+		}
+		return metrics;
+		
 	}
 	
 
