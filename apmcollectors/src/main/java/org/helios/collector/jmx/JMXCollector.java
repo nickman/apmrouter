@@ -1266,7 +1266,7 @@ public class JMXCollector extends AbstractCollector {
 	 */
 	@ManagedAttribute
 	public String[] getAvailabilitySegment() {
-		return availabilitySegment.clone();
+		return (String[])availabilitySegment.clone();
 	}
 
 	/**

@@ -25,8 +25,8 @@
         </dependencies>
         <configuration>
           <compilerId>eclipse</compilerId>
-          <source>1.7</source>
-          <target>1.7</target>
+          <source>1.6</source>
+          <target>1.6</target>
           <executable>${JAVA_1_7_HOME}/bin/javac</executable>
         </configuration>
       </plugin>
@@ -46,23 +46,6 @@
             </goals>
           </execution>
         </executions>
-      </plugin>
-      <plugin>
-        <artifactId>maven-javadoc-plugin</artifactId>
-        <version>2.9</version>
-        <executions>
-          <execution>
-            <id>attach-javadocs</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>jar</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <show>public</show>
-          <nohelp>true</nohelp>
-        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.camel</groupId>

@@ -15,10 +15,11 @@
 	<modules>
 		<module>dest-core</module>		
 		<module>dest-opentsdb</module>
-		<module>dest-opentsdb2</module>
 		<module>dest-mongodb</module>
 		<module>dest-snmp</module>
 		<module>dest-nash</module>
+		<!--module>dest-opentsdb2</module-->
+
 	</modules>
 	
 	<properties>
