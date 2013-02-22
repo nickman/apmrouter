@@ -1,7 +1,0 @@
-#!/bin/bash
-pushd .
-mvn -DskipTests compile install
-cd ../jagent
-mvn clean install
-popd
-
