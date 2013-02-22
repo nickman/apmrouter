@@ -45,7 +45,7 @@ import org.springframework.context.ApplicationContext;
  * <p><code>org.helios.apmrouter.catalog.jdbc.h2.AsynchAbstractTrigger</code></p>
  */
 
-public abstract class AsynchAbstractTrigger extends AbstractTrigger {
+public abstract class AsynchAbstractTrigger extends AbstractTrigger implements AsynchAbstractTriggerMBean {
 	/** The thread pool used for asynch execution */
 	protected ManagedThreadPool threadPool = null;
 	/** A data source of connections back into the same used by asynch trigger excutions that need to get data from the DB */
@@ -76,12 +76,16 @@ public abstract class AsynchAbstractTrigger extends AbstractTrigger {
 		dataSource = rootAppCtx.getBean("DataSource", DataSource.class);
 		if(dataSource==null) throw new RuntimeException("Datasource was null", new Throwable());
 		ThreadPoolConfig tpc = new ThreadPoolConfig();
-		tpc.setCorePoolSize(CORES);
-		tpc.setMaximumPoolSize(CORES*2);
+		tpc.setCorePoolSize(2);
+		tpc.setMaximumPoolSize(CORES);
 		tpc.setDaemonThreads(true);
 		tpc.setFairQueue(false);
 		tpc.setQueueSize(100);
+		tpc.setCoreThreadsStarted(2);
+		tpc.setKeepAliveTime(60000);
+		
 		threadPool = new ManagedThreadPool(tpc);
+		threadPool.setBeanName(schemaName + "-" + tableName + "-" + triggerName + (before ? "_before" : "_after"));
 		threadPool.setObjectName(
 				JMXHelper.objectName(
 						NewElementTriggers.class.getPackage().getName(), 
@@ -93,6 +97,13 @@ public abstract class AsynchAbstractTrigger extends AbstractTrigger {
 						"order", (before ? "before" : "after"),
 						"type", TriggerOp.getEnabledStatesName(type))
 		);
+		
+		try {
+			threadPool.start();
+		} catch (Exception ex) {			
+			throw new RuntimeException("Failed to start asynch trigger thread pool", ex);
+		}
+		
 //		try {
 //			JMXHelper.getHeliosMBeanServer().registerMBean(threadPool, threadPool.getObjectName());
 //		} catch (Exception ex) {			
@@ -131,6 +142,10 @@ public abstract class AsynchAbstractTrigger extends AbstractTrigger {
 	public int getActiveCount() {
 		return threadPool.getActiveCount();
 	}
+	
+	public int getCorePoolSize() {
+		return threadPool.getCorePoolSize();
+	}	
 
 	/**
 	 * @return
@@ -146,6 +161,14 @@ public abstract class AsynchAbstractTrigger extends AbstractTrigger {
 	 */
 	public int getPoolSize() {
 		return threadPool.getPoolSize();
+	}
+	
+	public int getLargestPoolSize() {
+		return threadPool.getLargestPoolSize();
+	}
+	
+	public int getMaximumPoolSize() {
+		return threadPool.getMaximumPoolSize();
 	}
 
 	/**

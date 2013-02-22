@@ -45,6 +45,7 @@ import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.support.MetricType;
+import org.springframework.util.ReflectionUtils;
 
 /**
  * <p>Title: ServerMonitor</p>
@@ -60,9 +61,9 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 	/** The MBeanServer to retrieve the metric values from */
 	protected final MBeanServer server = JMXHelper.getHeliosMBeanServer();
 	/** A map of maps of GAUGE metric providing operation names for a bean keyed by the JMX ObjectName */
-	protected final Map<ObjectName, Map<String, String>> gaugeMetrics = new HashMap<ObjectName, Map<String, String>>();
+	protected final Map<ObjectName, Map<String[], String>> gaugeMetrics = new HashMap<ObjectName, Map<String[], String>>();
 	/** A map of maps of COUNTER metric providing operation names for a bean keyed by the JMX ObjectName */
-	protected final Map<ObjectName, Map<String, String>> counterMetrics = new HashMap<ObjectName, Map<String, String>>();
+	protected final Map<ObjectName, Map<String[], String>> counterMetrics = new HashMap<ObjectName, Map<String[], String>>();
 	
 	private final boolean ONE_METRIC_ONLY = false;
 	
@@ -78,34 +79,41 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 			new NativeMonitor().startMonitor();
 		}		
 		info("Collecting instances of ServerComponentBean....");
+		Set<String> invalids = new HashSet<String>();
 		Map<String, ServerComponentBean> beans = applicationContext.getBeansOfType(ServerComponentBean.class, false, false);
 		info("Located [", beans.size(), "] instances of ServerComponentBean....");
 		int counterHits = 0;
 		int gaugeHits = 0;
 		for(Map.Entry<String, ServerComponentBean> bean: beans.entrySet()) {
 			ObjectName on = bean.getValue().getComponentObjectName();
-			Set<String> jmxOps = new HashSet<String>();
+			//Set<String> jmxOps = new HashSet<String>();
 			try {
-				for(MBeanOperationInfo info: server.getMBeanInfo(on).getOperations()) {
-					jmxOps.add(info.getName());
-				}
-				Map<String, String> gauges = new HashMap<String, String>();
-				Map<String, String> counters = new HashMap<String, String>();
-				for(Method m: bean.getValue().getClass().getDeclaredMethods()) {
+//				for(MBeanOperationInfo info: server.getMBeanInfo(on).getOperations()) {
+//					jmxOps.add(info.getName());
+//				}
+				Map<String[], String> gauges = new HashMap<String[], String>();
+				Map<String[], String> counters = new HashMap<String[], String>();
+				String beanName = bean.getKey();
+				for(Method m: ReflectionUtils.getAllDeclaredMethods(bean.getValue().getClass())) {
 					ManagedMetric managedMetric = m.getAnnotation(ManagedMetric.class);
 					if(managedMetric!=null) {
 						String category = managedMetric.category();
-						if(category==null) {
-							warn("Method [", m.toGenericString(), "] had no category");
+						String metricName = managedMetric.displayName();
+						if(category==null || category.trim().isEmpty() || metricName==null || metricName.trim().isEmpty()) {
+							invalids.add("Missing category or display name for [" + beanName + "/" + category + "/" + metricName + "]");
 							continue;
 						}
-						String opName = m.getName();
-						if(managedMetric.metricType()==MetricType.COUNTER) {							
-							counters.put(jmxOps.contains(opName) ? opName : opName.substring(3), category);
-							counterHits++;
+						if(!m.getName().substring(3).equals(metricName)) {
+							
+							invalids.add("Mismatch between metricName [" + metricName + "] and method name [" + m.getName() + "].");
+							continue;
+						}
+						
+						
+						if(managedMetric.metricType()==MetricType.COUNTER) {
+							counters.put(new String[]{"platform=APMRouter", "component=" + beanName, "category=" + category}, metricName);
 						} else {
-							gauges.put(jmxOps.contains(opName) ? opName : opName.substring(3), category);
-							gaugeHits++;
+							gauges.put(new String[]{"platform=APMRouter", "component=" + beanName, "category=" + category}, metricName);
 						}
 					}
 				}
@@ -116,6 +124,13 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 			}
 		}
 		info("Created [", gaugeHits, "] GAUGE metrics and [", counterHits, "] COUNTER metrics");
+		if(!invalids.isEmpty()) {
+			StringBuilder b = new StringBuilder("\n\tInvalid Metric Annotations:");
+			for(String s: invalids) {
+				b.append("\n\t").append(s);
+			}
+			info(b);
+		}
 		Thread t = new Thread(this, "ServerMonitorThread");
 		t.setDaemon(true);
 		t.start();
@@ -130,41 +145,30 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 	 * Executes the traces 
 	 */
 	protected void trace() {
-		for(Map.Entry<ObjectName, Map<String, String>> metrics: counterMetrics.entrySet()) {
+		MBeanServer server = JMXHelper.getHeliosMBeanServer();
+		for(Map.Entry<ObjectName, Map<String[], String>> metrics: counterMetrics.entrySet()) {
 			final ObjectName on = metrics.getKey();
-			for(Map.Entry<String, String> ops: metrics.getValue().entrySet()) {
-				String opName = ops.getKey();
-				final String category = ops.getValue();
+			for(Map.Entry<String[], String> ops: metrics.getValue().entrySet()) {
+				String[] namespace = ops.getKey();
+				String metricName = ops.getValue();				
 				try {
-					final long value;
-					if(opName.startsWith("get")) {
-						value = (Long)server.invoke(on, opName, NULL_ARGS, NULL_SIG);
-						opName = opName.substring(3);
-					} else {
-						value = (Long)server.getAttribute(on, opName);
-					}
-					tracer.traceDeltaCounter(value, opName, "platform=APMRouter", "category=" + category);
+					final long value = ((Number)server.getAttribute(on, metricName)).longValue();
+					tracer.traceDeltaCounter(value, metricName, namespace);
 				} catch (Exception ex) {
-					error("Failed to collect localStats for ObjectName [", on, "] on operation [", opName, "]", ex);
+					error("Failed to collect localStats for ObjectName [", on, "] on operation [", metricName, "]", ex);
 				}				
 			}
 		}
-		for(Map.Entry<ObjectName, Map<String, String>> metrics: gaugeMetrics.entrySet()) {
+		for(Map.Entry<ObjectName, Map<String[], String>> metrics: gaugeMetrics.entrySet()) {
 			final ObjectName on = metrics.getKey();
-			for(Map.Entry<String, String> ops: metrics.getValue().entrySet()) {
-				String opName = ops.getKey();
-				final String category = ops.getValue();
+			for(Map.Entry<String[], String> ops: metrics.getValue().entrySet()) {
+				String[] namespace = ops.getKey();
+				String metricName = ops.getValue();				
 				try {
-					final long value;
-					if(opName.startsWith("get")) {
-						value = (Long)server.invoke(on, opName, NULL_ARGS, NULL_SIG);
-						opName = opName.substring(3);
-					} else {
-						value = (Long)server.getAttribute(on, opName);
-					}
-					tracer.traceGauge(value, opName, "platform=APMRouter", "category=" + category);
+					final long value = ((Number)server.getAttribute(on, metricName)).longValue();
+					tracer.traceGauge(value, metricName, namespace);
 				} catch (Exception ex) {
-					error("Failed to collect localStats for ObjectName [", on, "] on operation [", opName, "]", ex);
+					error("Failed to collect localStats for ObjectName [", on, "] on operation [", metricName, "]", ex);
 				}				
 			}
 		}

@@ -217,6 +217,7 @@ public abstract class ServerComponentBean extends ServerComponent implements
 	 * Returns the bean name
 	 * @return the bean name
 	 */
+	@ManagedAttribute(description="The bean name of this component")
 	public String getBeanName() {
 		return beanName;
 	}

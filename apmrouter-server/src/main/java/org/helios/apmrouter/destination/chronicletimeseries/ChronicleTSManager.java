@@ -135,7 +135,7 @@ public class ChronicleTSManager extends ServerComponentBean implements UncaughtE
 	protected final Set<EntryStatusChangeListener> statusListeners = new CopyOnWriteArraySet<EntryStatusChangeListener>();
 	
 	/** Long sliding window of the elapsed times in ns. for status checks */
-	protected final ConcurrentLongSlidingWindow statusCheckElapsedNs = new ConcurrentLongSlidingWindow(100); 
+	protected final ConcurrentLongSlidingWindow statusCheckElapsedNs = new ConcurrentLongSlidingWindow(30); 
 	/** Long sliding window of the number of entries checked in the last status checks */
 	protected final ConcurrentLongSlidingWindow totalEntriesChecked = new ConcurrentLongSlidingWindow(30); 
 	/** Long sliding window of the number of entries set to stale in the last status checks */
@@ -271,8 +271,8 @@ public class ChronicleTSManager extends ServerComponentBean implements UncaughtE
 		t.setDaemon(false);
 		t.setPriority(Thread.MAX_PRIORITY);
 		Runtime.getRuntime().addShutdownHook(t);
-		ChronicleTSAdapter.setCts(this);
-		scheduler.scheduleAtFixedRate(new Runnable(){
+		ChronicleTSAdapter.setCts(this);		
+		scheduler.scheduleWithFixedDelay(new Runnable(){
 			@Override
 			public void run() {
 				if(!statusCheckRunning.compareAndSet(false, true)) {
@@ -303,6 +303,15 @@ public class ChronicleTSManager extends ServerComponentBean implements UncaughtE
 				runStatusCheck();
 			}
 		});
+	}
+	
+	/**
+	 * Returns the live tier period duration in seconds
+	 * @return the live tier period duration in seconds
+	 */
+	@ManagedAttribute(description="The live tier period duration in seconds")
+	public long getLiveTierPeriodDuration() {		
+		return liveTier.getPeriodDuration();
 	}
 	
 	/**
@@ -624,7 +633,7 @@ public class ChronicleTSManager extends ServerComponentBean implements UncaughtE
 	 * Returns the number of status check exceptions in the last status check
 	 * @return the number of status check exceptions in the last status check
 	 */
-	@ManagedMetric(category="ChronicleTimeSeries", displayName="StatusExceptions", metricType=MetricType.GAUGE, description="The the number of statusExceptions in the last status check")
+	@ManagedMetric(category="ChronicleTimeSeries", displayName="LastStatusExceptions", metricType=MetricType.GAUGE, description="The the number of statusExceptions in the last status check")
 	public long getLastStatusExceptions() {
 		return statusExceptions.isEmpty() ? -1L : statusExceptions.get(0);
 	}

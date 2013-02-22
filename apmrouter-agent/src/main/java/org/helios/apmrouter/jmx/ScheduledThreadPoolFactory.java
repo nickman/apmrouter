@@ -410,10 +410,10 @@ public class ScheduledThreadPoolFactory extends ScheduledThreadPoolExecutor impl
 		protected final boolean daemonThreads;
 		
 		
-		/** The default core size which is the number of core available */
-		public static final int DEF_CORE_SIZE = ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors();
+		/** The default core size which is 1 */
+		public static final int DEF_CORE_SIZE = 1;
 		/** The default max size which is the number of core available X 4 */
-		public static final int DEF_MAX_SIZE = DEF_CORE_SIZE * 4;
+		public static final int DEF_MAX_SIZE = DEF_CORE_SIZE;
 		/** The default keep alive time for idles threads which is 60s */
 		public static final long DEF_KEEPALIVE = 60;
 		/** The default daemon status of pool threads which is true */

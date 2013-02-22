@@ -104,5 +104,19 @@ public interface AsynchAbstractTriggerMBean extends AbstractTriggerMBean {
 	 * @see org.helios.apmrouter.server.ServerComponentBean#isStarted()
 	 */
 	public boolean isStarted();
+	
+	/**
+	 * @return
+	 * @see java.util.concurrent.ThreadPoolExecutor#getLargestPoolSize()
+	 */
+	public int getLargestPoolSize();
+	
+	/**
+	 * @return
+	 * @see java.util.concurrent.ThreadPoolExecutor#getMaximumPoolSize()
+	 */
+	public int getMaximumPoolSize();	
+	
+	public int getCorePoolSize();	
 
 }

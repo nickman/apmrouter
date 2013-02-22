@@ -80,7 +80,7 @@ public class EmbeddedOpenTSDBDestination extends BaseDestination {
 				datastore.queueDataPoints(toDataPointSet(routable));
 			}
 		} catch (Exception ex) {
-			ex.printStackTrace(System.err);
+			//ex.printStackTrace(System.err);
 		}
 	}
 	
@@ -101,7 +101,11 @@ public class EmbeddedOpenTSDBDestination extends BaseDestination {
 	 */
 	protected DataPointSet toDataPointSet(IMetric metric) {
 		if(metric.isFlat() || !metric.getType().isLong()) return null;
-		return new DataPointSet(metric.getName(), metric.getNamespaceMap(), metric.getTime(), metric.getLongValue());
+		try {
+			return new DataPointSet(metric.getName(), metric.getNamespaceMap(), metric.getTime(), metric.getLongValue());
+		} catch (Exception ex) {
+			return null;
+		}
 		
 	}
 	

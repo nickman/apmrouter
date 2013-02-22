@@ -168,12 +168,6 @@ ALTER TABLE PUBLIC.INTERVAL_INCREMENTOR ADD CONSTRAINT IF NOT EXISTS PUBLIC.INTE
 
    
 
--- =============================================================================
---    Start up purge
--- =============================================================================
-
-UPDATE HOST SET CONNECTED = NULL, AGENTS = 0;
-UPDATE AGENT SET CONNECTED = NULL, URI = 'RESTART';
 
 
 ----select * from metric order by last_seen desc

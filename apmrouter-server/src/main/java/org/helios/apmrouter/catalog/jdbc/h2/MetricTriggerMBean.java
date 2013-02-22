@@ -24,7 +24,6 @@
  */
 package org.helios.apmrouter.catalog.jdbc.h2;
 
-import java.sql.Connection;
 
 /**
  * <p>Title: MetricTriggerMBean</p>
@@ -34,7 +33,7 @@ import java.sql.Connection;
  * <p><code>org.helios.apmrouter.catalog.jdbc.h2.MetricTriggerMBean</code></p>
  */
 
-public interface MetricTriggerMBean extends AbstractTriggerMBean {
+public interface MetricTriggerMBean extends AsynchAbstractTriggerMBean {
 	/**
 	 * Returns the number of entries in the Agent FQN prefix cache
 	 * @return the number of entries in the Agent FQN prefix cache

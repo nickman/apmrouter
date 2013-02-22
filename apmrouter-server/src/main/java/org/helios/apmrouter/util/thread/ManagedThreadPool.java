@@ -51,6 +51,7 @@ import javax.management.ObjectName;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.export.annotation.ManagedOperation;
 import org.springframework.jmx.export.annotation.ManagedResource;
 import org.springframework.jmx.export.naming.ObjectNamingStrategy;
@@ -227,7 +228,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	 * @return
 	 * @see java.util.concurrent.ThreadPoolExecutor#getActiveCount()
 	 */
-	@ManagedAttribute
+	@ManagedMetric(category="")
 	public int getActiveCount() {
 		return inner.getActiveCount();
 	}

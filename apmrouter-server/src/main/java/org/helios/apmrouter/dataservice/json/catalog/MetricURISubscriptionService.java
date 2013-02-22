@@ -275,7 +275,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 		while(keepRunning) {
 			try {			
 				Notification notification = NewElementTriggers.notificationQueue.take();
-				System.err.println("NotifQ:" + notification);
+				trace("NotifQ:" , notification);
 				if(notification.getType().startsWith(MetricTrigger.NEW_METRIC)) {
 					Object[] newRow = (Object[])notification.getUserData();
 					String FQN = notification.getType().replace(MetricTrigger.NEW_METRIC, "");

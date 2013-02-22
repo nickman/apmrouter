@@ -30,7 +30,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
+import java.sql.Statement;
 import java.sql.Types;
 import java.util.Collection;
 import java.util.HashMap;
@@ -44,8 +44,8 @@ import javax.sql.DataSource;
 import org.helios.apmrouter.catalog.DChannelEvent;
 import org.helios.apmrouter.catalog.DChannelEventType;
 import org.helios.apmrouter.catalog.EntryStatus;
-import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.catalog.EntryStatus.EntryStatusChange;
+import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.collections.ConcurrentLongSortedSet;
 import org.helios.apmrouter.collections.LongSlidingWindow;
@@ -104,6 +104,7 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 		chronicleManager.addStatusListener(this);
 		Connection conn = null;
 		PreparedStatement ps = null;
+		Statement st = null;
 		try {
 			conn = ds.getConnection();
 			//MERGE INTO TEST KEY(ID) VALUES(2, 'World')
@@ -115,10 +116,18 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 			}
 			ps.executeBatch();	
 			ps.close();
-			
+			st = conn.createStatement();
+			st.executeUpdate("UPDATE HOST SET CONNECTED = NULL, AGENTS = 0");
+			st.executeUpdate("UPDATE AGENT SET CONNECTED = NULL, URI = 'RESTART'");
+			st.close();
+			conn.close();
+//			
+//			UPDATE AGENT SET CONNECTED = NULL, URI = 'RESTART';
+
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to add metric types", e);
 		} finally {
+			if(st!=null) try { st.close(); } catch (Exception e) {/* No Op */}
 			if(ps!=null) try { ps.close(); } catch (Exception e) {/* No Op */}
 			if(conn!=null) try { conn.close(); } catch (Exception e) {/* No Op */}
 		}
