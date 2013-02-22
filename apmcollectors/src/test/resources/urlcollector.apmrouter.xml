@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xmlns:jee="http://www.springframework.org/schema/jee"
+   xmlns:p="http://www.springframework.org/schema/p"
+   xmlns:c="http://www.springframework.org/schema/c"
+   xmlns:context="http://www.springframework.org/schema/context"
+   xsi:schemaLocation="http://www.springframework.org/schema/beans
+                          http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+                          http://www.springframework.org/schema/jee
+                       http://www.springframework.org/schema/jee/spring-jee-3.1.xsd
+                       http://www.springframework.org/schema/util
+                       http://www.springframework.org/schema/util/spring-util-3.1.xsd
+                       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <context:annotation-config/>
+
+    <bean id="URL_AUTH_NONE_EXAMPLE" class="org.helios.collector.url.URLCollector"
+        c:_0="http://www.google.com"
+        p:authType="NONE"
+        p:tracingNameSpace="site=Google"
+        p:collectionPeriod="15000"
+        p:logCollectionResult="true"
+        p:logErrors="true" />
+    <!--bean id="URL_AUTH_BASIC_EXAMPLE" class="org.helios.collectors.url.URLCollector" depends-on="TracerFactory"
+        c:_0=" ========== URL ========== "
+        p:authType="BASIC"
+        p:userName=" ========== USER ========== "
+        p:password=" ========== PASSWORD ========== "
+        p:logErrors="true"
+        p:tracingNameSpace="URL,Basic-Example"
+        p:schedule="0/15 * * * * ?"
+        p:tracerFactory-ref="TracerFactory" />
+
+    <bean id="URL_AUTH_CERT_EXAMPLE" class="org.helios.collectors.url.URLCollector" depends-on="TracerFactory"
+        c:_0=" ========== URL ========== "
+        p:authType="CLIENT_CERT"
+        p:keyStoreLocation=" ========== KEYSTORE LOCATION ========== "
+        p:keyStorePassphrase=" ========== KEYSTORE PASSPHRASE ========== "
+        p:logErrors="true"
+        p:tracingNameSpace="URL,Cert-Example"
+        p:frequency="15000"
+        p:tracerFactory-ref="TracerFactory" /-->
+</beans>

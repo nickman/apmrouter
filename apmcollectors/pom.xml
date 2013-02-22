@@ -29,16 +29,8 @@
 			<groupId>org.helios.apmrouter</groupId>
 			<artifactId>apmrouter-server</artifactId>
 			<version>${project.version}</version>
-			
 		</dependency>
-		
-    	<dependency>
-			<groupId>org.helios.apmrouter</groupId>
-			<artifactId>apmrouter-agent</artifactId>
-			
-			<version>${project.version}</version>
-		</dependency>
-		
+
 		<dependency>
 			<groupId>commons-pool</groupId>
 			<artifactId>commons-pool</artifactId>
@@ -54,7 +46,7 @@
 			<groupId>org.apache.commons</groupId>
 			<artifactId>not-yet-commons-ssl</artifactId>
 			<version>0.3.9</version>
-		</dependency>		
+		</dependency>
 
 		<dependency>
 		  <groupId>trove</groupId>
@@ -66,14 +58,14 @@
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
 		</dependency>
-		
+
 
   </dependencies>
 	<build>
 		<defaultGoal>install</defaultGoal>
 		<plugins>
-		
-		<!-- 
+
+		<!--
 			===========================================
 			Eclipse Compiler Plugin
 		 	===========================================
@@ -131,11 +123,11 @@
             </executions>
           </plugin>
 
-			
+
 		       <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-eclipse-plugin</artifactId>
-                </plugin>			
+                </plugin>
 		</plugins>
 	</build>
 </project>
