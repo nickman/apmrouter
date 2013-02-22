@@ -94,5 +94,18 @@ public interface MetricURIMBean {
 	 * @return the sql to be used to retrieve the metric Ids for this metric URI
 	 */
 	public abstract String getMetricIdSql();
+	
+	/**
+	 * Returns the enabled subscription type bit mask 
+	 * @return the enabled subscription type bit mask
+	 */
+	public byte getSubscriptionType();
+	
+	/**
+	 * Returns a pipe delimited string of the enabled subscription type names
+	 * @return a pipe delimited string of the enabled subscription type names
+	 */
+	public String getSubscriptionTypeNames();
+	
 
 }

@@ -91,8 +91,11 @@ public class MetricURI implements MetricURIMBean {
 	protected final int[] metricStatus;
 	/** The hibernate detached criteria */
 	protected final DetachedCriteria detachedCriteria;
+
 	/** The metric Id retrieveal sql */
 	protected final String metricIdSql;
+	/** The bit mask of the metric subscription types requested */
+	protected final byte subscriptionType;
 	
 
 
@@ -115,11 +118,16 @@ public class MetricURI implements MetricURIMBean {
 	public static final String OPT_METRIC_TYPE = "type";
 	/** Option key for the status filter of the query, parse as comma separated ints */
 	public static final String OPT_METRIC_STATUS = "st";
+	/** Option key for the subscription type bit mask */
+	public static final String OPT_SUB_TYPE = "subtype";
 	
 	/** The default max depth */
 	private static final int[] DEFAULT_DEPTH = new int[]{0};
 	/** The default metric types */
 	private static final int[] DEFAULT_TYPES;
+	/** The default metric types */
+	private static final byte[] DEFAULT_SUB_TYPES = {MetricURISubscriptionType.NEW_METRIC.getCode()};
+	
 	/** The default metric statuses */
 	private static final int[] DEFAULT_METRIC_STATUS = new int[]{0,1};
 	
@@ -261,7 +269,36 @@ public class MetricURI implements MetricURIMBean {
 		metricStatus = opt(paramMap, OPT_METRIC_STATUS, DEFAULT_METRIC_STATUS);
 		detachedCriteria = generateCriteria(this);
 		metricIdSql = generateCriteriaSQL(this);
+		subscriptionType = getSubTypeMask(paramMap);
 	}
+	
+	/**
+	 * Returns the enabled subscription type bit mask 
+	 * @return the enabled subscription type bit mask
+	 */
+	@Override
+	public byte getSubscriptionType() {
+		return subscriptionType;
+	}
+	
+	/**
+	 * Returns a pipe delimited string of the enabled subscription type names
+	 * @return a pipe delimited string of the enabled subscription type names
+	 */
+	@Override
+	public String getSubscriptionTypeNames() {
+		return MetricURISubscriptionType.getNamesFor(subscriptionType);
+	}
+	
+	/**
+	 * Determines if this MetricURI is enabled for the passed subscription type 
+	 * @param subType the subscription type to test for
+	 * @return true if this MetricURI is enabled for the passed subscription type , false otherwise
+	 */
+	public boolean isEnabledFor(MetricURISubscriptionType subType) {
+		return subType.isEnabled(subscriptionType);
+	}
+	
 	
 	/**
 	 * {@inheritDoc}
@@ -376,6 +413,35 @@ public class MetricURI implements MetricURIMBean {
 		}
 		return DEFAULT_TYPES;		
 	}
+	
+	/**
+	 * Extracts the subscription type bit mask from the option map
+	 * @param optMap The option map
+	 * @return a a bit mask representation of the enabled {@link MetricURISubscriptionType}s
+	 */
+	public static byte getSubTypeMask(Map<String, String> optMap) {
+		return MetricURISubscriptionType.enable(getSubTypes(optMap));
+	}
+	
+	/**
+	 * Extracts the subscription type specifications from the option map
+	 * @param optMap The option map
+	 * @return an array of {@link MetricURISubscriptionType} ordinals
+	 */
+	public static byte[] getSubTypes(Map<String, String> optMap) {
+		if(optMap.containsKey(OPT_SUB_TYPE)) {
+			String optValue = optMap.get(OPT_SUB_TYPE);
+			if(optValue.trim().isEmpty()) return DEFAULT_SUB_TYPES;
+			String[] values = COM_PARSER.split(optValue);			
+			byte[] byteValues = new byte[values.length];			
+			for(int i = 0; i < values.length; i++) {
+				byteValues[i] = MetricURISubscriptionType.valueOfName(values[i]).getCode();
+			}
+			return byteValues;
+		}
+		return DEFAULT_SUB_TYPES;		
+	}
+	
 	
 	/**
 	 * Generates a hibernate detached criteria for the passed MetricURI

@@ -142,7 +142,7 @@ public class ChronicleTier implements ChronicleTierMXBean, NotificationListener 
 	/** The JMX ObjectName for the live tier */
 	public static final ObjectName LIVE_TIER_OBJECT_NAME = JMXHelper.objectName("org.helios.apmrouter.timeseries:type=chronicle,name=live");
 	/** The JMX notification type for metric status updates */
-	public static final String ENTRY_STATUS_UPDATE_TYPE = "metric.status.update";
+	public static final String ENTRY_STATUS_UPDATE_TYPE = "metric.event.statechange";
 	/** The JMX ObjectName for the MetricTrigger */
 	public static final ObjectName METRIC_TRIGGER_OBJECT_NAME = JMXHelper.objectName(NewElementTriggers.class.getPackage().getName(), "trigger", MetricTrigger.class.getSimpleName(), "type", "*UPDATE*");
 

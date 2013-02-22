@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
+import javax.management.MBeanServerInvocationHandler;
 import javax.management.ObjectName;
 
 import org.apache.log4j.Logger;
@@ -144,6 +145,14 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 			return "#" + serial.incrementAndGet();
 		}
 		return dn;		
+	}
+	
+	/**
+	 * Returns a proxy to the root app context
+	 * @return a proxy to the root app context
+	 */
+	public static ApplicationContext getRootInstance() {
+		return MBeanServerInvocationHandler.newProxyInstance(JMXHelper.getHeliosMBeanServer(), ROOT_APP_CTX_ON, ApplicationContext.class, false);
 	}
 	
 	/**

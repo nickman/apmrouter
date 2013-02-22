@@ -33,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.management.MBeanNotificationInfo;
 import javax.management.Notification;
+import javax.sql.DataSource;
 
 import org.helios.apmrouter.catalog.EntryStatus;
 import org.helios.apmrouter.destination.chronicletimeseries.ChronicleTier;
@@ -47,7 +48,7 @@ import org.helios.apmrouter.util.SystemClock;
  * <p><code>org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger</code></p>
  */
 
-public class MetricTrigger extends AbstractTrigger implements MetricTriggerMBean {
+public class MetricTrigger extends AsynchAbstractTrigger implements MetricTriggerMBean {
 	/** The metric type ordinal for the incrementor metric type  */
 	protected static final int INCR_ID = MetricType.INCREMENTOR.ordinal();
 	/** The metric type ordinal for the interval incrementor metric type  */
@@ -74,7 +75,7 @@ public class MetricTrigger extends AbstractTrigger implements MetricTriggerMBean
 	/** The ID of the column containing the metric last seen timestamp for a metric */
 	public static final int LAST_SEEN_COLUMN_ID = 9;
 	
-	/** The SQL to pre-populate the cahe on trigger init */
+	/** The SQL to pre-populate the cache on trigger init */
 	public static final String PREPOP_SQL = "SELECT A.AGENT_ID, H.DOMAIN || '/' || H.NAME || '/' || A.NAME FROM HOST H, AGENT A WHERE A.HOST_ID = H.HOST_ID";
 	/** The SQL to get the cache entry on a cache miss */
 	public static final String CACHE_MISS_SQL = "SELECT H.DOMAIN || '/' || H.NAME || '/' || A.NAME FROM HOST H, AGENT A WHERE A.HOST_ID = H.HOST_ID AND A.AGENT_ID = ?";
@@ -107,20 +108,24 @@ public class MetricTrigger extends AbstractTrigger implements MetricTriggerMBean
 		}
 	}
 	
+	
 	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.catalog.jdbc.h2.MetricTriggerMBean#getAgentPrefix(int, java.sql.Connection)
+	 * Retrieves the agent prefix for the passed agentId
+	 * @param agentId The agentId
+	 * @param dataSource The datasource in case the cache misses and the prefix needs to bbe looked up
+	 * @return the agent prefix
 	 */
-	@Override
-	public String getAgentPrefix(int agentId, Connection conn) {
+	public String getAgentPrefix(int agentId, DataSource dataSource) {
 		String prefix = metricFqnPrefixCache.get(agentId);
 		if(prefix==null) {
 			synchronized(metricFqnPrefixCache) {
 				prefix = metricFqnPrefixCache.get(agentId);
 				if(prefix==null) {
+					Connection conn = null;
 					PreparedStatement ps = null;
 					ResultSet rset = null;
 					try {
+						conn = dataSource.getConnection();
 						ps = conn.prepareStatement(CACHE_MISS_SQL);
 						ps.setInt(agentId, 1);
 						rset = ps.executeQuery();
@@ -135,6 +140,7 @@ public class MetricTrigger extends AbstractTrigger implements MetricTriggerMBean
 					} finally {
 						if(rset!=null) try { rset.close(); } catch (Exception e) {/* No Op */}
 						if(ps!=null) try { ps.close(); } catch (Exception e) {/* No Op */}			
+						if(conn!=null) try { conn.close(); } catch (Exception e) {/* No Op */}
 					}					
 				}
 			}
@@ -175,16 +181,16 @@ public class MetricTrigger extends AbstractTrigger implements MetricTriggerMBean
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.h2.api.Trigger#fire(java.sql.Connection, java.lang.Object[], java.lang.Object[])
+	 * @see org.helios.apmrouter.catalog.jdbc.h2.AsynchAbstractTrigger#doFire(javax.sql.DataSource, java.lang.Object[], java.lang.Object[])
 	 */
 	@Override
-	public void fire(Connection conn, Object[] oldRow, Object[] newRow) throws SQLException {		
+	protected void doFire(DataSource dataSource, Object[] oldRow, Object[] newRow) {		
 		if(TriggerOp.INSERT.isEnabled(type)) {
 			short typeId = (Short)newRow[2];
 			if(INCR_ID==typeId || INT_INCR_ID==typeId) {
-				addIncr(conn, (Long)newRow[0], typeId);
+				addIncr(dataSource, (Long)newRow[0], typeId);
 			}
-			String newMetricType = new StringBuilder(NEW_METRIC).append(getAgentPrefix((Integer)newRow[AGENT_COLUMN_ID], conn))
+			String newMetricType = new StringBuilder(NEW_METRIC).append(getAgentPrefix((Integer)newRow[AGENT_COLUMN_ID], dataSource))
 				.append(newRow[NAMESPACE_COLUMN_ID]).append(":").append(newRow[NAME_COLUMN_ID]).toString();
 			sendNotification("METRIC", newMetricType, newRow);
 		} else if(TriggerOp.UPDATE.isEnabled(type)) {
@@ -195,27 +201,60 @@ public class MetricTrigger extends AbstractTrigger implements MetricTriggerMBean
 		callCount.incrementAndGet();
 	}
 	
+	// sendNotif:  String elementType, String type, Object[] newRow
+	
+	/*
+	 * TODO:
+	 * Execute trigger asynch
+	 * Standardize State Change and New Metric notifications
+	 * 		Notif Type:  <prefix> + FQN + [state]
+	 * 		Message:  event type, FQN, [state]
+	 * 		UserData:  Object[] newRow
+	 * 
+	 */
+	
+	protected String generateEventType(DataSource dataSource, String eventType, Object[] newRow) {
+		return new StringBuilder(eventType)
+			.append(getAgentPrefix((Integer)newRow[AGENT_COLUMN_ID], dataSource))
+			.append(newRow[NAMESPACE_COLUMN_ID])
+			.append(":")
+			.append(newRow[NAME_COLUMN_ID]).toString();
+	}
+	
 	/**
 	 * Sends a notification indicating a metric Id has changed state
 	 * @param metricId The metric ID
 	 * @param status The new {@link EntryStatus} byte ordinal
 	 */
 	protected void sendStateChangeNotification(long metricId, byte status) {
-		sendNotification(new Notification(ChronicleTier.ENTRY_STATUS_UPDATE_TYPE, ChronicleTier.LIVE_TIER_OBJECT_NAME, NewElementTriggers.serial.incrementAndGet(), SystemClock.time(), String.format(EVENT_STATUS_MESSAGE, metricId, status)));		
+		sendNotification(
+				new Notification(
+						STATE_CHANGE_METRIC_EVENT, 
+						ChronicleTier.LIVE_TIER_OBJECT_NAME, 
+						NewElementTriggers.serial.incrementAndGet(), 
+						SystemClock.time(), 
+						String.format(EVENT_STATUS_MESSAGE, metricId, status)));		
 	}
+	
+	
+	/** The JMX notification type for new metric events */
+	public static final String NEW_METRIC_EVENT = "metric.event.new";
+	/** The JMX notification type for new metric events */
+	public static final String STATE_CHANGE_METRIC_EVENT = "metric.event.statechange";
 	
 	
 	/**
 	 * Adds the incrementor for the passed metric ID
-	 * @param conn The H2 connection
+	 * @param dataSource The conn source for H2 connections
 	 * @param metricId The new metric Id
 	 * @param typeId The {@link MetricType} ordinal
-	 * @throws SQLException thrown on any SQL error
 	 * FIXME: If metric is new, value is 1, otherwise it is +1
 	 */
-	protected void addIncr(Connection conn, long metricId, int typeId) throws SQLException {
+	protected void addIncr(DataSource dataSource, long metricId, int typeId) {
+		Connection conn = null;
 		PreparedStatement ps = null;
 		try {
+			conn = dataSource.getConnection();
 			ps = conn.prepareStatement(typeId==INCR_ID ?
 				"INSERT INTO INCREMENTOR (METRIC_ID, INC_VALUE, LAST_INC) VALUES (?, 1, CURRENT_TIMESTAMP)"
 				:
@@ -223,8 +262,11 @@ public class MetricTrigger extends AbstractTrigger implements MetricTriggerMBean
 			);
 			ps.setLong(1, metricId);
 			ps.executeUpdate();
-		} finally {
+		} catch (SQLException ex) {
+			throw new RuntimeException("Failed to addIncr for metricId [" + metricId + "]", ex);
+		} finally {			
 			if(ps!=null) try { ps.close(); } catch (Exception ex) {/* No Op */}
+			if(conn!=null) try { conn.close(); } catch (Exception ex) {/* No Op */}
 		}
 		
 	}

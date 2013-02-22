@@ -90,6 +90,17 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 		objectName = JMXHelper.objectName(new StringBuilder(getClass().getPackage().getName()).append(":service=ThreadPool,name=").append(beanName));
 		return objectName;
 	}
+	
+	/**
+	 * <p>Overrides the object name if not set already</p>
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#setObjectName(javax.management.ObjectName)
+	 */
+	public void setObjectName(ObjectName objectName) {
+		if(this.objectName!=null && objectName!=null) {
+			this.objectName = objectName;
+		}
+	}
 
 	
 	/**

@@ -52,5 +52,5 @@ public interface MetricTriggerMBean extends AbstractTriggerMBean {
 	 * @param conn The connection that will be used to query the value if there is no cache hit
 	 * @return the agent FQN prefix or null if one was not found.
 	 */
-	public String getAgentPrefix(int agentId, Connection conn);
+	//public String getAgentPrefix(int agentId, Connection conn);
 }

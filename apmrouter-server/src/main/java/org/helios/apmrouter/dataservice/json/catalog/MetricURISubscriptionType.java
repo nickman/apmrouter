@@ -26,10 +26,12 @@ package org.helios.apmrouter.dataservice.json.catalog;
 
 import static org.helios.apmrouter.util.BitMaskedEnum.Support.generateByteMaskMap;
 import static org.helios.apmrouter.util.BitMaskedEnum.Support.generateByteOrdinalMap;
+import static org.helios.apmrouter.util.Methods.nvl;
 
 import java.util.Map;
 
 import org.helios.apmrouter.catalog.jdbc.h2.TriggerOp;
+import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.util.BitMaskedEnum;
 import org.helios.apmrouter.util.BitMaskedEnum.ByteBitMaskOperations;
 
@@ -92,7 +94,7 @@ public enum MetricURISubscriptionType implements BitMaskedEnum, ByteBitMaskOpera
 	 * Returns the code for this trigger op
 	 * @return the code for this trigger op
 	 */
-	public int getCode() {
+	public byte getCode() {
 		return code;
 	}
 	
@@ -174,4 +176,65 @@ public enum MetricURISubscriptionType implements BitMaskedEnum, ByteBitMaskOpera
 		return mask((byte)0, true, enums);
 	}
 	
+	/**
+	 * Returns a mask enabled for the passed MetricURISubscriptionType ordinals
+	 * @param ordinals The MetricURISubscriptionType ordinals to enable
+	 * @return a mask enabled for the passed MetricURISubscriptionType ordinals
+	 */
+	public static byte enable(byte...ordinals) {
+		byte mask = 0;
+		for(byte ordinal: ordinals) {
+			mask = (byte) (mask | MetricURISubscriptionType.valueOf(ordinal).mask);
+		}
+		return mask;
+	}
+	
+	
+	/**
+	 * Decodes the passed ordinal to a MetricURISubscriptionType.
+	 * Throws a runtime exception if the ordinal is invalud
+	 * @param ordinal The ordinal to decode
+	 * @return the decoded MetricURISubscriptionType
+	 */
+	public static MetricURISubscriptionType valueOf(byte ordinal) {
+		MetricURISubscriptionType t = ORD2ENUM.get(ordinal);
+		if(t==null) throw new IllegalArgumentException("The passed ordinal [" + ordinal + "] was invalid for MetricURISubscriptionType", new Throwable());
+		return t;
+	}	
+	
+	/**
+	 * Attempts to decode an arbitrary object into a MetricURISubscriptionTypes
+	 * @param typeCode The arbitrary object to convert
+	 * @return a MetricURISubscriptionTypes if successfully converted.
+	 */
+	public static MetricURISubscriptionType valueOf(Object typeCode) {
+		if(typeCode==null) throw new IllegalArgumentException("The passed typeCode was null", new Throwable());
+		if(typeCode instanceof MetricType) return (MetricURISubscriptionType)typeCode;
+		if(typeCode instanceof Number) return valueOf(((Number)typeCode).byteValue());
+		try { 
+			byte type = Byte.parseByte(typeCode.toString().trim());
+			return valueOf(type);
+		} catch (NumberFormatException nfe) {/* No Op */}
+		return valueOfName(typeCode.toString());
+	}	
+	
+	/**
+	 * Decodes the passed name to a MetricURISubscriptionType.
+	 * Throws a runtime exception if the ordinal is invalid
+	 * @param name The MetricURISubscriptionType name to decode. Trimmed and uppercased.
+	 * @return the decoded MetricURISubscriptionType
+	 */
+	public static MetricURISubscriptionType valueOfName(CharSequence name) {
+		String n = nvl(name, "MetricURISubscriptionType Name").toString().trim().toUpperCase();
+		try {			
+			return MetricURISubscriptionType.valueOf(n);
+		} catch (Exception e) {
+			byte id = -1;
+			try { id = Byte.parseByte(n); } catch (Exception ex) {}
+			if(id!=-1) {
+				return MetricURISubscriptionType.valueOf(id);
+			}
+			throw new IllegalArgumentException("The passed name [" + name + "] is not a valid MetricURISubscriptionType name", new Throwable());
+		}
+	}	
 }
