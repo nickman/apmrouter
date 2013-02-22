@@ -95,13 +95,9 @@ public class CollectionResult {
 	 */
 	public String toString()
 	{
-	    final String TAB = "    ";
-	    String retValue = "";
-	    retValue = "CollectionResult ( "
-	        + super.toString() + TAB
-	        + "resultForLastCollection = " + this.resultForLastCollection + TAB
-	        + "anyException = " + this.anyException + TAB
-	        + " )";
-	    return retValue;
+	    StringBuilder retValue = new StringBuilder("");
+	    retValue.append("CollectionResult ( "+ "resultForLastCollection = " + this.resultForLastCollection + "  ");
+	    retValue.append("anyException = " + this.anyException + " )");
+	    return retValue.toString();
 	}	
 }

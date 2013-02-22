@@ -43,8 +43,6 @@ import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.jmx.ScheduledThreadPoolFactory;
 import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.TracerFactory;
-import org.helios.apmrouter.util.SystemClock;
-import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.helios.collector.BlackoutInfo;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedResource;
@@ -283,14 +281,6 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 		return started;
 	}	
 	
-	/**
-	 * Implemented from Runnable interface to direct collection and 
-	 * tracing of metrics at specified intervals
-	 */
-	public void run() {
-		try { collect(); } catch (Throwable t) {}		
-	}
-
 	public long getCollectionPeriod() {
 		return collectionPeriod;
 	}
@@ -431,7 +421,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 		} catch(Exception ex){
 			setState(CollectorState.INIT_FAILED);
 			if(logErrors)
-				log.error("An error occured while initializing the collector bean: "+this.getBeanName(),ex);
+				error("An error occured while initializing the collector bean: "+this.getBeanName(),ex);
 		}		
 	}
 	
@@ -467,7 +457,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 		try {
 			init();
 			if(getState() != CollectorState.INITIALIZED){
-				log.error("Initialization error for bean: "+this.getBeanName() + ", so no further attempts would be made to start it.");
+				error("Initialization error for bean: "+this.getBeanName() + ", so no further attempts would be made to start it.");
 				//executeExceptionScript();
 				return;
 			}
@@ -484,9 +474,9 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 		}catch (Exception ex){
 			setState(CollectorState.START_FAILED);
 			if(logErrors)
-				log.error("An error occured while starting the collector bean: "+this.getBeanName(),ex);
+				error("An error occured while starting the collector bean: "+this.getBeanName(),ex);
 			else
-				log.error("An error occured while starting the collector bean: "+this.getBeanName());
+				error("An error occured while starting the collector bean: "+this.getBeanName());
 			//scheduleRestart();
 			//executeExceptionScript();
 		}
@@ -531,6 +521,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	 */
 	public final void collect(){
 		//Check whether blackout period is active for this collector
+		info(banner("Collect Called for bean: " + this.getBeanName()));
 		if(blackoutInfo!=null && blackoutInfo.isBlackoutActive()){
 			debug("*** Skipping collection as blackout period is active...");
 			return;
@@ -570,7 +561,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 				resetFlag.getAndSet(false);
 			}catch(Exception ex){
 				if(logErrors)
-					log.error("An exception occured while resetting the collector bean: "+this.getBeanName(),ex);
+					error("An exception occured while resetting the collector bean: "+this.getBeanName(),ex);
 			}
 		}
 		if(getState() == CollectorState.STARTED){
@@ -591,7 +582,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 					fallbackFrequencyActivated=false;
 					consecutiveFailureCount=0;
 					actualSkipped=0;
-					log.info("*** Frequency for collector: " + this.getBeanName() +" is switched back to normal now.");
+					info("*** Frequency for collector: " + this.getBeanName() +" is switched back to normal now.");
 				}
 				info(banner("Completed Collect for", this.getBeanName()));
 			} catch (Exception ex){
@@ -600,12 +591,12 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 				totalFailureCount++;
 				consecutiveFailureCount++;
 				if(consecutiveFailureCount>=failureThreshold && !fallbackFrequencyActivated){
-					log.info("*** Slowing down the collect frequency for bean: " + this.getBeanName() +" as it has exceeded the collectFailureThreshold parameter.");
+					info("*** Slowing down the collect frequency for bean: " + this.getBeanName() +" as it has exceeded the collectFailureThreshold parameter.");
 					fallbackFrequencyActivated=true;
 				}				
 //				this.sendNotification(new Notification("org.helios.collectors.exception.notification",this,notificationSerialNumber.incrementAndGet(),lastTimeCollectionFailed,this.getBeanName()));
 				if(logErrors)
-					log.error("Collection failed for bean collector: "+this.getBeanName(),ex);
+					error("Collection failed for bean collector: "+this.getBeanName(),ex);
 				//executeExceptionScript();
 			}finally {
 				totalCollectionCount++;
@@ -613,16 +604,17 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 				if(!errors){
 					postCollect();
 					lastTimeCollectionCompleted=System.currentTimeMillis();
-					log.debug("Last Collection Elapsed Time: " + (lastTimeCollectionCompleted - lastTimeCollectionStarted)+ " milliseconds");
+					debug("Last Collection Elapsed Time: " + (lastTimeCollectionCompleted - lastTimeCollectionStarted)+ " milliseconds");
 				}
 				if(logCollectionResult) 
 					logCollectionResultDetails(collectionResult);
 				if(collectorLock.isLocked())
 					collectorLock.unlock();
 				numberOfCollectorsRunning.decrementAndGet();
+				tracer.traceGauge(System.currentTimeMillis()-lastTimeCollectionStarted, "Elapsed Time", getTracingNameSpace());
 			}	
 		} else {
-			log.trace("Not executing collect method as the collector state is not STARTED.");
+			trace("Not executing collect method as the collector state is not STARTED.");
 		}
 	}
 
@@ -779,9 +771,9 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	 */
 	public void scheduleCollect() {
 		long collectPeriod = getCollectPeriod();
-		scheduleHandle = scheduler.schedule(new Runnable(){
-			public void run() { collect(); }
-		}, collectPeriod, TimeUnit.MILLISECONDS);
+		scheduleHandle = scheduler.scheduleAtFixedRate(new Runnable(){
+			public void run() { call(); }
+		}, 0,collectPeriod, TimeUnit.MILLISECONDS);
 		info("Started collection schedule with frequency of ["+ collectPeriod + "] ms. for collector [" + this.getBeanName() + "]");
 	}
 	
