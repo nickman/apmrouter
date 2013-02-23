@@ -28,9 +28,10 @@ import static org.helios.apmrouter.util.BitMaskedEnum.Support.generateByteMaskMa
 import static org.helios.apmrouter.util.BitMaskedEnum.Support.generateByteOrdinalMap;
 import static org.helios.apmrouter.util.Methods.nvl;
 
+import java.util.EnumSet;
 import java.util.Map;
+import java.util.Set;
 
-import org.helios.apmrouter.catalog.jdbc.h2.TriggerOp;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.util.BitMaskedEnum;
 import org.helios.apmrouter.util.BitMaskedEnum.ByteBitMaskOperations;
@@ -88,7 +89,24 @@ public enum MetricURISubscriptionType implements BitMaskedEnum, ByteBitMaskOpera
 		if(b.length()<1) b.append("NONE");
 		else b.deleteCharAt(b.length()-1);
 		return b.toString();
+	}
+	
+	/**
+	 * Returns a string containing the pipe delimited names of the MetricURISubscriptionType that are enabled in the passed mask
+	 * @param mask The mask to render
+	 * @return a string containing the pipe delimited names of the MetricURISubscriptionType that are enabled in the passed mask
+	 */
+	public static MetricURISubscriptionType[] getEnabledFor(byte mask) {
+		if(mask<0) throw new IllegalArgumentException("Invalid mask value [" + mask + "]", new Throwable());
+		Set<MetricURISubscriptionType> enabled = EnumSet.noneOf(MetricURISubscriptionType.class);
+		for(MetricURISubscriptionType to: values()) {
+			if(to.isEnabled(mask)) {
+				enabled.add(to);
+			}
+		}
+		return enabled.toArray(new MetricURISubscriptionType[enabled.size()]);
 	}	
+	
 
 	/**
 	 * Returns the code for this trigger op

@@ -47,7 +47,13 @@ public class NewElementTriggers {
 	/** A serial number for notification sequences */
 	protected static final AtomicLong serial = new AtomicLong(0L);
 	/** A queue to write updates into */
-	public static final BlockingQueue<Notification> notificationQueue = new ArrayBlockingQueue<Notification>(10000, true);
+	public static final BlockingQueue<Object[]> notificationQueue = new ArrayBlockingQueue<Object[]>(10000, true);
+
+	/** A queue to write metric state change events into */
+	public static final BlockingQueue<Object[]> metricStateChangeQueue = new ArrayBlockingQueue<Object[]>(10000, true);
+	/** A queue to write new metric events into */
+	public static final BlockingQueue<Object[]> newMetricQueue = new ArrayBlockingQueue<Object[]>(10000, true);
+
 	
 
 }

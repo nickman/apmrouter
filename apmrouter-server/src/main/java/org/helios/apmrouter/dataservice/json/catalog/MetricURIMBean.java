@@ -87,7 +87,7 @@ public interface MetricURIMBean {
 	 * Returns an array of the metric status ordinals specified in the URI
 	 * @return an array of the metric status ordinals
 	 */
-	public abstract int[] getMetricStatus();
+	public abstract  byte[] getMetricStatus();
 
 	/**
 	 * Returns the sql to be used to retrieve the metric Ids for this metric URI

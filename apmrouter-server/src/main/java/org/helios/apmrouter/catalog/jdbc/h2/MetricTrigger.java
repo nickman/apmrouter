@@ -84,6 +84,14 @@ public class MetricTrigger extends AsynchAbstractTrigger implements MetricTrigge
 	/** A cache of <b><code>Domain/Host/Agent<code></b> prefixes for each agent Id */
 	protected static final Map<Integer, String> metricFqnPrefixCache = new ConcurrentHashMap<Integer, String>(128, 0.75f, 16);
 	
+	/** Thread local string builder for fast string concat. (This is a very performance sensitive class) */
+	protected static ThreadLocal<StringBuilder> stringBuilder = new ThreadLocal<StringBuilder>() {
+		@Override
+		protected StringBuilder initialValue() {
+			return new StringBuilder();
+		}
+	};
+	
 	
 	/**
 	 * <p>Overriden to populate the {@link #metricFqnPrefixCache} cache</p>
@@ -179,68 +187,38 @@ public class MetricTrigger extends AsynchAbstractTrigger implements MetricTrigge
 		super(new MBeanNotificationInfo(new String[]{NEW_METRIC}, Notification.class.getName(), "A new metric registration event"));
 	}
 	
+	/** The JMX notification type for new metric events */
+	public static final String NEW_METRIC_EVENT = "metric.event.new";
+	/** The JMX notification type for new metric events */
+	public static final String STATE_CHANGE_METRIC_EVENT = "metric.event.statechange";
+
+	
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.catalog.jdbc.h2.AsynchAbstractTrigger#doFire(javax.sql.DataSource, java.lang.Object[], java.lang.Object[])
 	 */
 	@Override
-	protected void doFire(DataSource dataSource, Object[] oldRow, Object[] newRow) {		
+	protected void doFire(DataSource dataSource, Object[] oldRow, Object[] newRow) {
+		if(newRow==null) return;
 		if(TriggerOp.INSERT.isEnabled(type)) {
 			short typeId = (Short)newRow[2];
 			if(INCR_ID==typeId || INT_INCR_ID==typeId) {
 				addIncr(dataSource, (Long)newRow[0], typeId);
-			}
-			String newMetricType = new StringBuilder(NEW_METRIC).append(getAgentPrefix((Integer)newRow[AGENT_COLUMN_ID], dataSource))
-				.append(newRow[NAMESPACE_COLUMN_ID]).append(":").append(newRow[NAME_COLUMN_ID]).toString();
-			sendNotification("METRIC", newMetricType, newRow);
+			}			
+			NewElementTriggers.newMetricQueue.offer(newRow);
 		} else if(TriggerOp.UPDATE.isEnabled(type)) {
-			if(newRow!=null && oldRow!=null && newRow[STATE_COLUMN_ID] != oldRow[STATE_COLUMN_ID]) {
-				sendStateChangeNotification((Long)newRow[METRIC_COLUMN_ID], (byte)newRow[STATE_COLUMN_ID]);				
+			if(oldRow!=null && newRow[STATE_COLUMN_ID] != oldRow[STATE_COLUMN_ID]) {
+				NewElementTriggers.metricStateChangeQueue.offer(newRow);
 			}
 		}
 		callCount.incrementAndGet();
 	}
 	
-	// sendNotif:  String elementType, String type, Object[] newRow
-	
-	/*
-	 * TODO:
-	 * Execute trigger asynch
-	 * Standardize State Change and New Metric notifications
-	 * 		Notif Type:  <prefix> + FQN + [state]
-	 * 		Message:  event type, FQN, [state]
-	 * 		UserData:  Object[] newRow
-	 * 
-	 */
-	
-	protected String generateEventType(DataSource dataSource, String eventType, Object[] newRow) {
-		return new StringBuilder(eventType)
-			.append(getAgentPrefix((Integer)newRow[AGENT_COLUMN_ID], dataSource))
-			.append(newRow[NAMESPACE_COLUMN_ID])
-			.append(":")
-			.append(newRow[NAME_COLUMN_ID]).toString();
-	}
-	
-	/**
-	 * Sends a notification indicating a metric Id has changed state
-	 * @param metricId The metric ID
-	 * @param status The new {@link EntryStatus} byte ordinal
-	 */
-	protected void sendStateChangeNotification(long metricId, byte status) {
-		sendNotification(
-				new Notification(
-						STATE_CHANGE_METRIC_EVENT, 
-						ChronicleTier.LIVE_TIER_OBJECT_NAME, 
-						NewElementTriggers.serial.incrementAndGet(), 
-						SystemClock.time(), 
-						String.format(EVENT_STATUS_MESSAGE, metricId, status)));		
-	}
 	
 	
-	/** The JMX notification type for new metric events */
-	public static final String NEW_METRIC_EVENT = "metric.event.new";
-	/** The JMX notification type for new metric events */
-	public static final String STATE_CHANGE_METRIC_EVENT = "metric.event.statechange";
+	// STATE_CHANGE_METRIC_EVENT, newRow[METRIC_COLUMN_ID], newRow[STATE_COLUMN_ID]
+	// NEW_METRIC_EVENT, newRow[METRIC_COLUMN_ID]	
+	// org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger
 	
 	
 	/**

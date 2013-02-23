@@ -41,14 +41,20 @@ import org.helios.apmrouter.util.BitMaskedEnum;
 
 public enum EntryStatus {
 	/** The entry is active and has had recent inserts */
-	ACTIVE,
+	ACTIVE((byte)1),
 	/** The entry is stale and has not seen inserts within the stale window */
-	STALE,
+	STALE((byte)2),
 	/** The entry is offline and has not seen inserts within one time series tier */
-	OFFLINE;
+	OFFLINE((byte)4);
 	
 	/** A decode map for ByteMask -> EntryStatus */
 	public static final Map<Byte, EntryStatus> MASK2ENUM = BitMaskedEnum.Support.generateByteMap(EntryStatus.values());
+	
+	private EntryStatus(byte mask) {
+		this.mask = mask;
+	}
+	
+	private final byte mask;
 	
 	/**
 	 * Returns the byte ordinal for this EntryStatus
@@ -63,6 +69,20 @@ public enum EntryStatus {
 			System.out.println(e.name() + ":" + e.byteOrdinal());
 		}
 	}
+	
+	/**
+	 * Returns the bit mask representing each of the entry state ordinals passed
+	 * @param ordinals the oridnals to mask
+	 * @return the mask
+	 */
+	public static byte getMaskFor(byte[] ordinals) {
+		if(ordinals==null || ordinals.length==0) return 0;
+		byte m = 0;
+		for(byte o: ordinals) {
+			m = (byte) (m | EntryStatus.forByte(o).mask);
+		}
+		return m;
+	}	
 	
 	
 	/**

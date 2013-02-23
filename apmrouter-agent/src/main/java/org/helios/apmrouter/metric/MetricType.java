@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.zip.GZIPOutputStream;
 
+import org.helios.apmrouter.util.BitMaskedEnum;
+import org.helios.apmrouter.util.BitMaskedEnum.IntBitMaskOperations;
 import org.helios.apmrouter.util.IO;
 import org.snmp4j.PDU;
 
@@ -31,7 +33,7 @@ import org.snmp4j.PDU;
  */
 
 @SuppressWarnings("rawtypes")
-public enum MetricType  implements IMetricDataAccessor {
+public enum MetricType  implements IMetricDataAccessor, BitMaskedEnum, IntBitMaskOperations<MetricType> {
 	/** Standard numeric metricId type, conflation is additive */
 	LONG_COUNTER(new LongMDA()),
 	/** Standard numeric metricId type, conflation is averaging */
@@ -59,12 +61,28 @@ public enum MetricType  implements IMetricDataAccessor {
 	public static final Map<Integer, MetricType> ORD2ENUM;
 	
 	static {
+		int m = 1;
 		Map<Integer, MetricType> tmp = new HashMap<Integer, MetricType>(MetricType.values().length);
-		for(MetricType mt: MetricType.values()) {
+		for(MetricType mt: MetricType.values()) {			
 			tmp.put(mt.ordinal(), mt);
+			mt.mask = m;
+			m = m*2;
 		}
 		ORD2ENUM = Collections.unmodifiableMap(tmp);
 	}
+	
+	public static void main(String[] args) {
+		log("MetricType");
+		for(MetricType mt: MetricType.values()) {
+			log(mt.name() + ":" + mt.mask);
+		}
+	}
+	
+	public static void log(Object msg) {
+		System.out.println(msg);
+	}
+	
+	
 	
 	private MetricType(IMetricDataAccessor mda) {
 		this.mda = mda;
@@ -72,6 +90,7 @@ public enum MetricType  implements IMetricDataAccessor {
 	
 	/** The MDA for this metric type */
 	private final IMetricDataAccessor mda;
+	private int mask;
 	
 	/**
 	 * Returns this type's metric data accessor
@@ -610,6 +629,79 @@ public enum MetricType  implements IMetricDataAccessor {
 			return ((LongMDA)mda).read(metricValue)[0];
 		}
 		return mda.read(metricValue);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.BitMaskedEnum.IntBitMaskOperations#forOrdinal(int)
+	 */
+	@Override
+	public MetricType forOrdinal(int ordinal) {
+		MetricType t = ORD2ENUM.get(ordinal);
+		if(t==null) throw new IllegalArgumentException("Invalid MetricType ordinal [" + ordinal + "]", new Throwable());
+		return t;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.BitMaskedEnum.IntBitMaskOperations#forCode(java.lang.Number)
+	 */
+	@Override
+	public MetricType forCode(Number code) {
+		return forOrdinal(code.intValue());
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.BitMaskedEnum.IntBitMaskOperations#isEnabled(int)
+	 */
+	@Override
+	public boolean isEnabled(int mask) {
+		return mask == (this.mask | mask);
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.BitMaskedEnum.IntBitMaskOperations#getMask()
+	 */
+	@Override
+	public int getMask() {
+		return mask;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.BitMaskedEnum.IntBitMaskOperations#enable(int)
+	 */
+	@Override
+	public int enable(int mask) {
+		return (mask | this.mask);
+	}
+
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.util.BitMaskedEnum.IntBitMaskOperations#disable(int)
+	 */
+	@Override
+	public int disable(int mask) {
+		return (mask & ~this.mask);
+	}
+	
+	/**
+	 * Returns the bit mask representing each of the metric type ordinals passed
+	 * @param ordinals the oridnals to mask
+	 * @return the mask
+	 */
+	public static int getMaskFor(int[] ordinals) {
+		if(ordinals==null || ordinals.length==0) return 0;
+		int m = 0;
+		for(int o: ordinals) {
+			m = (m | ORD2ENUM.get(o).mask);
+		}
+		return m;
 	}
 
 	

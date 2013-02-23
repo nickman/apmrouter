@@ -24,18 +24,16 @@
  */
 package org.helios.apmrouter.dataservice.json.catalog;
 
+import static org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger.NEW_METRIC_EVENT;
+import static org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger.STATE_CHANGE_METRIC_EVENT;
+
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.lang.management.ManagementFactory;
-import java.lang.reflect.Method;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.management.Notification;
 import javax.sql.DataSource;
 
 import org.helios.apmrouter.catalog.domain.Metric;
@@ -264,7 +262,31 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 		return NewElementTriggers.notificationQueue.size();
 	}
 	
+	// STATE_CHANGE_METRIC_EVENT, newRow[METRIC_COLUMN_ID], newRow[STATE_COLUMN_ID]
+	// NEW_METRIC_EVENT, newRow[METRIC_COLUMN_ID]	
+	// org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger
 	
+	
+	protected class NewMetricEventProcessor implements Runnable {
+		public void run() {
+			while(keepRunning) {
+				try {	
+					Object[] newMetricEvent = NewElementTriggers.notificationQueue.take();
+					long metricId = (Long)newMetricEvent[MetricTrigger.METRIC_COLUMN_ID];
+					long mask = MetricURI.mask((int)newMetricEvent[MetricTrigger.TYPE_COLUMN_ID], (byte)newMetricEvent[MetricTrigger.STATE_COLUMN_ID], MetricURISubscriptionType.NEW_METRIC.getCode());
+					Iterator<MetricURISubscription> subIter = MetricURISubscription.getSubscriptionsForSubType(mask);
+					if(subIter==null) continue;
+					while(subIter.hasNext()) {
+						MetricURISubscription sub = subIter.next();
+						
+					}
+				} catch (Exception ex) {
+					if(Thread.interrupted()) Thread.interrupted();
+				}
+			}
+		}
+	}
+
 	/**
 	 * {@inheritDoc}
 	 * @see java.lang.Runnable#run()
@@ -274,15 +296,20 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 		info("Started MetricQueueThreadProcessor");
 		while(keepRunning) {
 			try {			
-				Notification notification = NewElementTriggers.notificationQueue.take();
-				trace("NotifQ:" , notification);
-				if(notification.getType().startsWith(MetricTrigger.NEW_METRIC)) {
-					Object[] newRow = (Object[])notification.getUserData();
-					String FQN = notification.getType().replace(MetricTrigger.NEW_METRIC, "");
-					System.err.println("Processing new metric notification [" + FQN + "]");
-					long metricId = (Long)newRow[MetricTrigger.METRIC_COLUMN_ID];
-					MetricURISubscription.onNewMetric(metricId, FQN, newRow, catalogDataSource);
+				Object[] newMetricEvent = NewElementTriggers.notificationQueue.take();
+				long metricId = (Long)newMetricEvent[MetricTrigger.METRIC_COLUMN_ID];
+				if(STATE_CHANGE_METRIC_EVENT.equals(newMetricEvent[0])) {
+					byte newState = (Byte)newMetricEvent[2];
+				} else if(NEW_METRIC_EVENT.equals(newMetricEvent[0])) {
+					
 				}
+//				if(notification.getType().startsWith(MetricTrigger.NEW_METRIC)) {
+//					Object[] newRow = (Object[])notification.getUserData();
+//					String FQN = notification.getType().replace(MetricTrigger.NEW_METRIC, "");
+//					System.err.println("Processing new metric notification [" + FQN + "]");
+//					long metricId = (Long)newRow[MetricTrigger.METRIC_COLUMN_ID];
+//					MetricURISubscription.onNewMetric(metricId, FQN, newRow, catalogDataSource);
+//				}
 				// process
 			} catch (Exception ex) {
 				if(Thread.interrupted()) Thread.interrupted();

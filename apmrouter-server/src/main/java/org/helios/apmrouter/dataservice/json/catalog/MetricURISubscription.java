@@ -29,8 +29,15 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.MXBean;
@@ -38,9 +45,11 @@ import javax.sql.DataSource;
 
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.OpCode;
+import org.helios.apmrouter.catalog.EntryStatus;
 import org.helios.apmrouter.catalog.domain.Metric;
 import org.helios.apmrouter.collections.ConcurrentLongSortedSet;
 import org.helios.apmrouter.dataservice.json.JsonResponse;
+import org.helios.apmrouter.metric.MetricType;
 import org.hibernate.Session;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelConfig;
@@ -73,8 +82,27 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	/** A map of {@link MetricURISubscription}s keyed by the subscription's {@link MetricURI} */
 	protected static final Map<MetricURI, MetricURISubscription> subscriptions = new ConcurrentHashMap<MetricURI, MetricURISubscription>(128, 0.75f, 16);
 	
+	/** A map of sets of subscriptions keyed by the metric type/status/subType mask of the metric URI */
+	protected static final Map<Long, Set<MetricURISubscription>> subscriptionsByMask = new ConcurrentHashMap<Long, Set<MetricURISubscription>>(128, 0.75f, 16);
+	
+
+	
 	/** Static class logger */
 	protected static final Logger LOG = Logger.getLogger(MetricURISubscription.class);
+	
+	
+	
+	/**
+	 * Returns an iterator over the subscriptions keyed for the passed type/status/subType mask, or null if there are none.
+	 * @param mask The type/status/subType mask to get subscriptions for
+	 * @return a subscription iterator or null
+	 */
+	public static Iterator<MetricURISubscription> getSubscriptionsForSubType(long mask) {
+		Set<MetricURISubscription> set = subscriptionsByMask.get(mask);
+		if(set==null||set.isEmpty()) return null;
+		return set.iterator();
+	}
+	
  
 	/**
 	 * Returns the MetricURISubscription for the passed MetricURI or null if one does not already exist
@@ -83,6 +111,24 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	 */
 	public static MetricURISubscription getMetricURISubscriptionOrNull(MetricURI metricUri) {
 		return subscriptions.get(metricUri);
+	}
+	
+	/**
+	 * Called by the {@link MetricURISubscriptionService} when it is processing and incoming metric state change event.
+	 * The intent of this call is to try and eliminate the event as applicable to this subscription as early as possible.
+	 * If the event can be excluded, returns <b>false</b>. If it cannot be excluded, returns true
+	 * and the {@link MetricURISubscriptionService} will record this instance for a second pass.
+	 * The candidacy is broken out into 2 phases to avoid fetching the actual metric instance for transmission to subscribers
+	 * until it is verified that it is needed.
+	 * @param metricId The id of the metric that changed state.
+	 * @param newState The byte code of the new state.
+	 * @return false if the event is positively filtered <i>out</i> of this subscription, true otherwise.
+	 */
+	public boolean stateChangeCandidacy(long metricId, byte newState) {
+		if(MetricURISubscriptionType.STATE_CHANGE.isEnabled(metricURI.getSubscriptionType())) return false;
+		//if(metricIds.contains(metricId) && )
+		
+		return false;
 	}
 	
 	/**
@@ -145,6 +191,15 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 		for(MetricURISubscription sub: subscriptions.values()) {
 			sub.handleNewMetric(metricId, fQN, newRow, ds);
 		}
+	}
+	
+	public static Set<MetricURISubscription> stateChangeCandidates(long metricId, byte newState) {
+		if(subscriptions.isEmpty()) return Collections.emptySet();
+		Set<MetricURISubscription> candidates = new HashSet<MetricURISubscription>();
+		for(MetricURISubscription sub: subscriptions.values()) {
+			
+		}
+		return candidates;
 	}
 	
 	/**

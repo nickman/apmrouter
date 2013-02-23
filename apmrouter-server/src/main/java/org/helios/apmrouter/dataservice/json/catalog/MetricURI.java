@@ -25,6 +25,7 @@
 package org.helios.apmrouter.dataservice.json.catalog;
 
 import java.net.URI;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -87,8 +88,17 @@ public class MetricURI implements MetricURIMBean {
 	protected final String metricName;
 	/** The metric data types */
 	protected final int[] metricType;
+	/** The metric data type mask */
+	protected final int metricTypeMask;	
 	/** The metric statuses */
-	protected final int[] metricStatus;
+	protected final byte[] metricStatus;
+	/** The metric status mask */
+	protected final byte metricStatusMask;
+
+	/** A mask representing the metric type, status and subscription type  (mask of int/byte/byte) */ 
+	protected final long metricTypeStatusSubTypeMask;
+	
+	
 	/** The hibernate detached criteria */
 	protected final DetachedCriteria detachedCriteria;
 
@@ -129,7 +139,7 @@ public class MetricURI implements MetricURIMBean {
 	private static final byte[] DEFAULT_SUB_TYPES = {MetricURISubscriptionType.NEW_METRIC.getCode()};
 	
 	/** The default metric statuses */
-	private static final int[] DEFAULT_METRIC_STATUS = new int[]{0,1};
+	private static final byte[] DEFAULT_METRIC_STATUS = new byte[]{0,1};
 	
 	/** The escaped single character wild card */
 	public static final String ONE_CHAR_WILDCARD = "\\_";
@@ -211,6 +221,20 @@ public class MetricURI implements MetricURIMBean {
 	}
 	
 	/**
+	 * Computes the mask of all the passed ints
+	 * @param ints the ints to compute the masks for
+	 * @return the mask
+	 */
+	protected int mask(int[] ints) {
+		if(ints==null || ints.length==0) return 0;
+		int start = 0;
+		for(int entry: ints) {
+			start = (start | entry);
+		}
+		return start;
+	}
+	
+	/**
 	 * Creates a new MetricURI
 	 * @param uri The URI to build this MetricURI with
 	 */
@@ -266,10 +290,48 @@ public class MetricURI implements MetricURIMBean {
 		recursive = opt(paramMap, OPT_RECURSIVE, false);
 		maxDepth = opt(paramMap, OPT_MAX_DEPTH, DEFAULT_DEPTH)[0];		 
 		metricType = getTypes(paramMap);
+		metricTypeMask = MetricType.getMaskFor(metricType);
 		metricStatus = opt(paramMap, OPT_METRIC_STATUS, DEFAULT_METRIC_STATUS);
+		metricStatusMask = EntryStatus.getMaskFor(metricStatus); 
 		detachedCriteria = generateCriteria(this);
 		metricIdSql = generateCriteriaSQL(this);
 		subscriptionType = getSubTypeMask(paramMap);
+		metricTypeStatusSubTypeMask = mask(metricTypeMask, metricStatusMask, subscriptionType);
+	}
+	
+	private static final byte ZERO_BYTE = 0;
+	
+	/**
+	 * Computes a long mask that represents the enabled metric types, metric statuses and subscription types.
+	 * @param metricTypeMask The enabled metric type mask
+	 * @param metricStatusMask The enabled metric status mask
+	 * @param subTypeMask The enabled subscription type mask
+	 * @return a mask that represents the enabled metric types, metric statuses and subscription types.
+	 */
+	public static long mask(int metricTypeMask, byte metricStatusMask, byte subTypeMask) {
+		ByteBuffer buff = ByteBuffer.allocate(8).put(ZERO_BYTE).put(ZERO_BYTE).putInt(metricStatusMask).put(metricStatusMask).put(subTypeMask);
+		buff.flip();
+		return buff.getLong();
+	}
+	
+	/**
+	 * Detemines if this MetricURI is a match for the passed mask representing enabled metric types, metric statuses and subscription types
+	 * @param metricTypeStatusSubTypeMask a long mask representing enabled metric types, metric statuses and subscription types
+	 * @return true for a match, false otherwise
+	 */
+	public boolean isEnabledFor(long metricTypeStatusSubTypeMask) {
+		return metricTypeStatusSubTypeMask==(this.metricTypeStatusSubTypeMask | metricTypeStatusSubTypeMask);
+	}
+	
+	/**
+	 * Detemines if this MetricURI is a match for the passed metric type, metric status and subscription type
+	 * @param metricType The metric type ordinal
+	 * @param metricStatus The metric status ordinal
+	 * @param subscriptionType The subscription type ordinal
+	 * @return true for a match, false otherwise
+	 */
+	public boolean isEnabledFor(int metricType, byte metricStatus, byte subscriptionType) {
+		return metricTypeStatusSubTypeMask==(this.metricTypeStatusSubTypeMask | mask(metricType, metricStatus, subscriptionType));
 	}
 	
 	/**
@@ -361,6 +423,7 @@ public class MetricURI implements MetricURIMBean {
 	
 	
 	
+	
 	/**
 	 * Extracts a boolean argument from the parameter map
 	 * @param optMap The parameter map
@@ -393,6 +456,26 @@ public class MetricURI implements MetricURIMBean {
 		}
 		return defaultValue;
 	}
+	
+	/**
+	 * Extracts a byte array argument from the parameter map
+	 * @param optMap The parameter map
+	 * @param key The parameter key
+	 * @param defaultValue The default value
+	 * @return the extracted value or default
+	 */
+	public static byte[] opt(Map<String, String> optMap, String key, byte[] defaultValue) {
+		if(optMap.containsKey(key)) {
+			String[] values = COM_PARSER.split(optMap.get(key));
+			byte[] byteValues = new byte[values.length];
+			for(int i = 0; i < values.length; i++) {
+				byteValues[i] = Byte.parseByte(values[i]);
+			}
+			return byteValues;
+		}
+		return defaultValue;
+	}
+		
 	
 	/**
 	 * Extracts the type specifications from the option map
@@ -707,7 +790,7 @@ public class MetricURI implements MetricURIMBean {
 	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURIMBean#getMetricStatus()
 	 */
 	@Override
-	public int[] getMetricStatus() {
+	public byte[] getMetricStatus() {
 		return metricStatus;
 	}
 	
@@ -731,6 +814,22 @@ public class MetricURI implements MetricURIMBean {
 	@Override
 	public String getMetricIdSql() {
 		return metricIdSql;
+	}
+
+	/**
+	 * Returns the mask of the enabled metric types 
+	 * @return the metricTypeMask
+	 */
+	public int getMetricTypeMask() {
+		return metricTypeMask;
+	}
+
+	/**
+	 * Returns the mask of the enabled metric statuses
+	 * @return the metricStatusMask
+	 */
+	public int getMetricStatusMask() {
+		return metricStatusMask;
 	}
 	
 
