@@ -271,7 +271,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 		public void run() {
 			while(keepRunning) {
 				try {	
-					Object[] newMetricEvent = NewElementTriggers.notificationQueue.take();
+					Object[] newMetricEvent = NewElementTriggers.newMetricQueue.take();
 					long metricId = (Long)newMetricEvent[MetricTrigger.METRIC_COLUMN_ID];
 					long mask = MetricURI.mask((int)newMetricEvent[MetricTrigger.TYPE_COLUMN_ID], (byte)newMetricEvent[MetricTrigger.STATE_COLUMN_ID], MetricURISubscriptionType.NEW_METRIC.getCode());
 					Iterator<MetricURISubscription> subIter = MetricURISubscription.getSubscriptionsForSubType(mask);
@@ -296,7 +296,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 		info("Started MetricQueueThreadProcessor");
 		while(keepRunning) {
 			try {			
-				Object[] newMetricEvent = NewElementTriggers.notificationQueue.take();
+				Object[] newMetricEvent = NewElementTriggers.metricStateChangeQueue.take();
 				long metricId = (Long)newMetricEvent[MetricTrigger.METRIC_COLUMN_ID];
 				if(STATE_CHANGE_METRIC_EVENT.equals(newMetricEvent[0])) {
 					byte newState = (Byte)newMetricEvent[2];
