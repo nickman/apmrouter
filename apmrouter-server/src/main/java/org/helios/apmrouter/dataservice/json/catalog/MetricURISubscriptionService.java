@@ -29,8 +29,10 @@ import static org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger.STATE_CHANGE_ME
 
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.lang.management.ManagementFactory;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -41,6 +43,9 @@ import org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger;
 import org.helios.apmrouter.catalog.jdbc.h2.NewElementTriggers;
 import org.helios.apmrouter.dataservice.json.JsonResponse;
 import org.helios.apmrouter.dataservice.json.marshalling.JSONMarshaller;
+import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
+import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.util.SystemClock;
 import org.hibernate.Session;
@@ -73,6 +78,10 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	/** The catalog data source */
 	protected DataSource catalogDataSource = null;
 	
+	/** The metric catalog */
+	protected final IMetricCatalog metricCatalog = ICEMetricCatalog.getInstance();
+	
+	
 
 	/** The Json marshaller */
 	protected JSONMarshaller marshaller = null;
@@ -89,8 +98,9 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	@Override
 	protected void doStart() throws Exception {		
 		keepRunning = true;
+		Runnable newEventProcessor = new NewMetricEventProcessor();
 		for(int i = 0; i < metricQueueThreadCount; i++) {
-			newThread(this).start();
+			newThread(newEventProcessor).start();
 		}
 		info("Started [", metricQueueThreadCount, "] Metric Event Queue Processing Threads");
 	}
@@ -267,18 +277,55 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	// org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger
 	
 	
+	/**
+	 * <p>Title: NewMetricEventProcessor</p>
+	 * <p>Description: Queue processor for new metric events</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionService.NewMetricEventProcessor</code></p>
+	 */
 	protected class NewMetricEventProcessor implements Runnable {
+		/** The hibernate session factory */
+		final SessionFactory _sessionFactory = sessionFactory;
+		/** The catalog data source */
+		final DataSource _catalogDataSource = catalogDataSource;
+		
+		/**
+		 * {@inheritDoc}
+		 * @see java.lang.Runnable#run()
+		 */
+		@Override
 		public void run() {
 			while(keepRunning) {
 				try {	
 					Object[] newMetricEvent = NewElementTriggers.newMetricQueue.take();
 					long metricId = (Long)newMetricEvent[MetricTrigger.METRIC_COLUMN_ID];
-					long mask = MetricURI.mask((int)newMetricEvent[MetricTrigger.TYPE_COLUMN_ID], (byte)newMetricEvent[MetricTrigger.STATE_COLUMN_ID], MetricURISubscriptionType.NEW_METRIC.getCode());
+					int metricType = ((Number)newMetricEvent[MetricTrigger.TYPE_COLUMN_ID]).intValue();
+					long mask = MetricURI.mask(metricType, (byte)newMetricEvent[MetricTrigger.STATE_COLUMN_ID], MetricURISubscriptionType.NEW_METRIC.getCode());
 					Iterator<MetricURISubscription> subIter = MetricURISubscription.getSubscriptionsForSubType(mask);
 					if(subIter==null) continue;
+					Set<MetricURISubscription> candidates = new HashSet<MetricURISubscription>();
 					while(subIter.hasNext()) {
 						MetricURISubscription sub = subIter.next();
-						
+						if(sub.newMetricCandidacy(metricId, _catalogDataSource)) {
+							candidates.add(sub);
+						}						
+					}
+					if(candidates.isEmpty()) continue;
+					Session session = null;
+					Metric metric = null;
+					try {
+						session = _sessionFactory.openSession();
+						metric = (Metric)session.get(Metric.class, metricId);
+					} catch (Exception ex) {
+						error("Failed to resolve metricId to Metric through hibernate", ex);
+						continue;
+					} finally {
+						if(session!=null) try { session.close(); } catch (Exception x) {/* No Op*/}
+					}
+					if(metric==null) continue;
+					for(MetricURISubscription sub: candidates) {
+						sub.sendSubscribersNewMetric(metric);
 					}
 				} catch (Exception ex) {
 					if(Thread.interrupted()) Thread.interrupted();

@@ -194,7 +194,9 @@ public class H2TimeSeriesDestination extends BaseDestination implements FlushQue
 			    	IMetric im = metricMap.get(metricId);
 			    	if(im==null) continue;
 			    	long[] rolledPeriod = hts.addValue(im.getTime(), im.getLongValue());
-			    	if(rolledPeriod!=null && subCache.containsKey(metricId)) sendIntervalRollEvent(rolledPeriod, im);
+			    	if(rolledPeriod!=null && subCache.containsKey(metricId)) {
+			    		sendIntervalRollEvent(rolledPeriod, im);
+			    	}
 			    	updatePs.setLong(1, metricId);
 			    	updatePs.setObject(2, hts);
 			    	updatePs.addBatch();

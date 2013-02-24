@@ -26,12 +26,11 @@ package org.helios.apmrouter.dataservice.json.catalog;
 
 import java.net.SocketAddress;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -45,11 +44,11 @@ import javax.sql.DataSource;
 
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.OpCode;
-import org.helios.apmrouter.catalog.EntryStatus;
 import org.helios.apmrouter.catalog.domain.Metric;
 import org.helios.apmrouter.collections.ConcurrentLongSortedSet;
 import org.helios.apmrouter.dataservice.json.JsonResponse;
-import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
+import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.hibernate.Session;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelConfig;
@@ -79,11 +78,14 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	/** The channels subscribed to this metric URI */
 	protected final ChannelGroup subscribedChannels = new DefaultChannelGroup(getClass().getSimpleName());
 	
+	/** The metric catalog */
+	protected static final IMetricCatalog metricCatalog = ICEMetricCatalog.getInstance();
+	
 	/** A map of {@link MetricURISubscription}s keyed by the subscription's {@link MetricURI} */
-	protected static final Map<MetricURI, MetricURISubscription> subscriptions = new ConcurrentHashMap<MetricURI, MetricURISubscription>(128, 0.75f, 16);
+	protected static final ConcurrentHashMap<MetricURI, MetricURISubscription> subscriptions = new ConcurrentHashMap<MetricURI, MetricURISubscription>(128, 0.75f, 16);
 	
 	/** A map of sets of subscriptions keyed by the metric type/status/subType mask of the metric URI */
-	protected static final Map<Long, Set<MetricURISubscription>> subscriptionsByMask = new ConcurrentHashMap<Long, Set<MetricURISubscription>>(128, 0.75f, 16);
+	protected static final ConcurrentHashMap<Long, Set<MetricURISubscription>> subscriptionsByMask = new ConcurrentHashMap<Long, Set<MetricURISubscription>>(128, 0.75f, 16);
 	
 
 	
@@ -132,6 +134,32 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	}
 	
 	/**
+	 * Determines if the passed metric id needs to be added to this subscription
+	 * @param metricId the metric ID to test for
+	 * @param catalogDataSource the catalog datasource
+	 * @return true if the passed metric id needs to be added to this subscription, false otherwise
+	 */
+	public boolean newMetricCandidacy(long metricId, DataSource catalogDataSource ) {
+		if(metricIds.contains(metricId)) return false;
+		Connection conn = null;
+		PreparedStatement ps = null;
+		ResultSet rset = null;
+		try {
+			conn = catalogDataSource.getConnection();
+			ps = conn.prepareStatement(this.metricURI.metricIdSql + " AND METRIC_ID = ?");
+			ps.setLong(1, metricId);
+			rset = ps.executeQuery();
+			return rset.next();
+		} catch (Exception ex) {
+			LOG.error("Failed to verify candidacy for new metric", ex);
+			return false;
+		} finally {
+			if(rset!=null) try { rset.close(); } catch (Exception x) {/* No Op */}
+			if(ps!=null) try { ps.close(); } catch (Exception x) {/* No Op */}
+			if(conn!=null) try { conn.close(); } catch (Exception x) {/* No Op */}
+		}
+	}
+	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionMBean#getMetricURI()
 	 */
@@ -174,6 +202,17 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 				if(metricUriSub==null) {
 					metricUriSub = new MetricURISubscription(session, metricUri);
 					subscriptions.put(metricUri, metricUriSub);
+					Set<MetricURISubscription> subs = subscriptionsByMask.get(metricUri.metricTypeStatusSubTypeMask);
+					if(subs==null) {
+						synchronized(subscriptionsByMask) {
+							subs = subscriptionsByMask.get(metricUri.metricTypeStatusSubTypeMask);
+							if(subs==null) {
+								subs = new CopyOnWriteArraySet<MetricURISubscription>();
+								subscriptionsByMask.put(metricUri.metricTypeStatusSubTypeMask, subs);
+							}
+						}
+					}
+					subs.add(metricUriSub);
 				}
 			}
 		}
@@ -189,7 +228,7 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	 */
 	public static void onNewMetric(long metricId, String fQN, Object[] newRow, DataSource ds) {
 		for(MetricURISubscription sub: subscriptions.values()) {
-			sub.handleNewMetric(metricId, fQN, newRow, ds);
+			//sub.handleNewMetric(metricId, fQN, newRow, ds);
 		}
 	}
 	
@@ -202,44 +241,44 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 		return candidates;
 	}
 	
-	/**
-	 * Called when the MetricURISubscriptionService is notified of a new metric.
-	 * @param metricId The id of the metric
-	 * @param fQN The fully qualified metric name of the new metric
-	 * @param newRow The attributes of the new metric 
-	 * @param ds The catalog data source in case we need to query the catalog
-	 */
-	protected void handleNewMetric(long metricId, String fQN, Object[] newRow, DataSource ds) {
-		if(!metricIds.contains(metricId)) {
-			Connection conn  = null;
-			Statement st = null;
-			ResultSet rset = null;
-			boolean process = false;
-			try {
-				conn = ds.getConnection();
-				st = conn.createStatement();
-				rset = st.executeQuery(metricURI.metricIdSql + " AND M.METRIC_ID = " + metricId);
-				process = rset.next();
-				rset.close(); rset = null; st.close(); st = null; conn.close(); conn = null;
-				if(process) {
-					sendSubscribersNewMetric(newRow);
-				}
-			} catch (Exception ex) {
-				
-			} finally {
-				if(rset != null) try { rset.close(); } catch (Exception x) {/* No Op */};
-				if(st!= null) try { st.close(); } catch (Exception x) {/* No Op */};
-				if(conn != null) try { conn.close(); } catch (Exception x) {/* No Op */};
-			}
-			
-		}
-	}
+//	/**
+//	 * Called when the MetricURISubscriptionService is notified of a new metric.
+//	 * @param metricId The id of the metric
+//	 * @param fQN The fully qualified metric name of the new metric
+//	 * @param newRow The attributes of the new metric 
+//	 * @param ds The catalog data source in case we need to query the catalog
+//	 */
+//	protected void handleNewMetric(long metricId, String fQN, Object[] newRow, DataSource ds) {
+//		if(!metricIds.contains(metricId)) {
+//			Connection conn  = null;
+//			Statement st = null;
+//			ResultSet rset = null;
+//			boolean process = false;
+//			try {
+//				conn = ds.getConnection();
+//				st = conn.createStatement();
+//				rset = st.executeQuery(metricURI.metricIdSql + " AND M.METRIC_ID = " + metricId);
+//				process = rset.next();
+//				rset.close(); rset = null; st.close(); st = null; conn.close(); conn = null;
+//				if(process) {
+//					sendSubscribersNewMetric(newRow);
+//				}
+//			} catch (Exception ex) {
+//				
+//			} finally {
+//				if(rset != null) try { rset.close(); } catch (Exception x) {/* No Op */};
+//				if(st!= null) try { st.close(); } catch (Exception x) {/* No Op */};
+//				if(conn != null) try { conn.close(); } catch (Exception x) {/* No Op */};
+//			}
+//			
+//		}
+//	}
 	
 	/**
 	 * Called when a new metric comes in the door and is determined to be a member of this metric uri, but not in the set already.
-	 * @param newRow The new metric attributes
+	 * @param metric The new metric 
 	 */
-	protected void sendSubscribersNewMetric(Object[] newRow) {
+	protected void sendSubscribersNewMetric(Metric metric) {
 //		GSONJSONMarshaller marshaller = new GSONJSONMarshaller();
 //		for(Channel channel: subscribedChannels) {
 //			LOG.info("Writing new metric event to channel [" + channel + "]");
@@ -248,7 +287,7 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 //			
 //		}
 		for(Channel channel: subscribedChannels) {
-			((ChannelJsonResponsePair)channel).write(newRow, OpCode.ON_METRIC_URI_EVENT);
+			((ChannelJsonResponsePair)channel).write(metric, OpCode.ON_METRIC_URI_EVENT);
 		}
 		
 	}

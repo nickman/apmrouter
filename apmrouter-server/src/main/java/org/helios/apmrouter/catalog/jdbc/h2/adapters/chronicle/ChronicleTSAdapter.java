@@ -29,6 +29,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 
 import org.h2.tools.SimpleResultSet;
@@ -52,6 +53,7 @@ public class ChronicleTSAdapter {
 	
 	
 	public static ResultSet getValues(Connection conn, long oldestPeriod, Long...ids) throws SQLException {
+		System.err.println("OLDEST PERIOD:" + oldestPeriod + "   [" + new Date(oldestPeriod) + "]");
 	    String url = conn.getMetaData().getURL();
 	    if (url.equals("jdbc:columnlist:connection")) {
 	        return COL_DESCRIPTOR;
@@ -64,21 +66,22 @@ public class ChronicleTSAdapter {
 	    	long tierSize = tier.getSize();
 	    	for(long id = 0; id < tierSize; id++) {
 	    		try {
-	    			processId(tier, rs, id);
+	    			processId(tier, rs, id, oldestPeriod);
 	    		} catch (Exception ex) {}
 	    	}
 	    } else {
 		    for(long id: ids) {
-		    	processId(tier, rs, id);
+		    	processId(tier, rs, id, oldestPeriod);
 		    }
 	    }
 	    return rs;
 	}
 	
-	protected static void processId(ChronicleTier tier, SimpleResultSet rs, long metricId) {		
+	protected static void processId(ChronicleTier tier, SimpleResultSet rs, long metricId, long oldestPeriod) {		
     	List<long[]> valueArrays = tier.getValues(metricId);
     	String status = tier.getEntryStatusName(metricId);
     	for(long[] row: valueArrays) {
+    		if(row[PERIOD]<oldestPeriod) continue;
 	    	rs.addRow( 
 	    			metricId,
 	    			status,
