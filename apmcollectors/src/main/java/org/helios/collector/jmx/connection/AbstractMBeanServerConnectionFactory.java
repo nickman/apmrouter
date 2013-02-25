@@ -81,7 +81,7 @@ import org.springframework.jmx.export.annotation.ManagedResource;
 //                @JMXNotificationType(type="org.helios.remote.mbean.domain.notification")
 //        })
 //})
-public abstract class AbstractMBeanServerConnectionFactory implements IMBeanServerConnectionFactory, ApplicationContextAware, MBeanServerConnection {
+public abstract class AbstractMBeanServerConnectionFactory implements IMBeanServerConnectionFactory, ApplicationContextAware, AbstractMBeanServerConnectionFactoryMXBean, MBeanServerConnection {
 	/**  */
 	private static final long serialVersionUID = 2931250432886706976L;
 	/** A serial number factory for designating IDs for unidentifiable VMs */

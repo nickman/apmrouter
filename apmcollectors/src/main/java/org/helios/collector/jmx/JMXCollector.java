@@ -347,7 +347,7 @@ public class JMXCollector extends AbstractCollector {
 //			}
 //		}
 		//tracer.traceSticky(System.currentTimeMillis() - st, "Elapsed Time", availabilitySegment);
-		tracer.traceGauge(System.currentTimeMillis() - st, "Elapsed Time", availabilitySegment);
+		//tracer.traceGauge(System.currentTimeMillis() - st, "Elapsed Time", availabilitySegment);
 		return determineStatus(anySuccess, anyFailure, collectionResult);
 	}
 
@@ -537,7 +537,7 @@ public class JMXCollector extends AbstractCollector {
 			}
 			if(trace.getSegment()!=null && trace.getSegment().contains("{TARGET")){
 				trace.setSegment(formatName(trace.getSegment(),on));
-				//-trace.setResolvedPrefix(StringHelper.append(trace.getSegmentPrefixElements(),false,trace.getSegment()));
+				trace.setResolvedPrefix(StringHelper.append(trace.getSegmentPrefixElements(),false,trace.getSegment()));
 			} else {
 				trace.setResolvedPrefix(trace.getSegmentPrefixElements());
 			}
