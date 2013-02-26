@@ -52,6 +52,7 @@ public class JsonResponse {
 	/** The client provided request ID that this response is being sent for */
 	@SerializedName("rerid")
 	protected final long reRequestId;
+	/**  */
 	@SerializedName("t")
 	protected final String type;
 	/** The content payload */
@@ -74,7 +75,17 @@ public class JsonResponse {
 	 * {@inheritDoc}
 	 * @see java.lang.Object#clone()
 	 */
+	@Override
 	public JsonResponse clone() {
+		return new JsonResponse(reRequestId, type);
+	}
+	
+	/**
+	 * Clones this json response with a new type
+	 * @param type the new type
+	 * @return an updated type clone of this response
+	 */
+	public JsonResponse clone(String type) {
 		return new JsonResponse(reRequestId, type);
 	}
 	
@@ -105,6 +116,7 @@ public class JsonResponse {
 	}
 	
 	private static class MapSerializer implements JsonSerializer<Map<?,?>> {
+		@Override
 		public JsonElement serialize(Map<?,?> src, Type typeOfSrc, JsonSerializationContext context) {
 			if(!src.isEmpty()) {
 				Map.Entry<?, ?> entry = src.entrySet().iterator().next();
@@ -185,6 +197,7 @@ public class JsonResponse {
 		this.opCode = opCode;
 		return this;
 	}
+	
 	
 	
 }

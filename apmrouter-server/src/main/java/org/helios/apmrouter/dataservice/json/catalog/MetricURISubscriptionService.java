@@ -24,26 +24,22 @@
  */
 package org.helios.apmrouter.dataservice.json.catalog;
 
-import static org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger.NEW_METRIC_EVENT;
-import static org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger.STATE_CHANGE_METRIC_EVENT;
-
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.lang.management.ManagementFactory;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.sql.DataSource;
 
+import org.helios.apmrouter.catalog.EntryStatus;
 import org.helios.apmrouter.catalog.domain.Metric;
 import org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger;
 import org.helios.apmrouter.catalog.jdbc.h2.NewElementTriggers;
+import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.dataservice.json.JsonResponse;
 import org.helios.apmrouter.dataservice.json.marshalling.JSONMarshaller;
-import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.server.ServerComponentBean;
@@ -64,19 +60,34 @@ import org.springframework.jmx.support.MetricType;
  * <p><code>org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionService</code></p>
  */
 
-public class MetricURISubscriptionService extends ServerComponentBean implements Runnable, UncaughtExceptionHandler, ThreadFactory, MetricURISubscriptionServiceMXBean {
-	/** The number of threads to concurrently process the metric event queue  */
-	protected int metricQueueThreadCount = DEFAULT_METRIC_QUEUE_THREAD_COUNT;
-	/** A serial number factory for metric queue processor threads */
-	protected final AtomicInteger serial = new AtomicInteger();
-	/** A thread group for metric queue processor threads */
-	protected final ThreadGroup metricQueueThreadGroup = new ThreadGroup("MetricQueueProcessorThreads");
+public class MetricURISubscriptionService extends ServerComponentBean implements UncaughtExceptionHandler, MetricURISubscriptionServiceMXBean {
 	/** Flag to indicate if the worker threads should keep running */
 	protected boolean keepRunning = false;
 	/** The hibernate session factory */
 	protected SessionFactory sessionFactory = null;
 	/** The catalog data source */
 	protected DataSource catalogDataSource = null;
+	
+	/** The number of new metric event processing threads */
+	protected int newMetricEventThreads = 1;
+	/** The number of metric state change event processing threads */
+	protected int metricStateChangeEventThreads = 1;
+	/** A serial number factory for new metric queue processor threads */
+	protected final AtomicInteger newMetricSerial = new AtomicInteger();
+	/** A serial number factory for metric state change event queue processor threads */
+	protected final AtomicInteger metricStateChangeSerial = new AtomicInteger();
+	
+	/** The new metric event processing thread group */
+	protected final ThreadGroup newMetricEventThreadGroup = new ThreadGroup("NewMetricEventThreadGroup");
+	/** The metric state change event processing thread group */
+	protected final ThreadGroup metricStateChangeEventThreadGroup = new ThreadGroup("MetricStateChangeEventThreadGroup");
+	
+	/** A sliding window of the last 50 elapsed times for new metric event processing in ns. */
+	protected final ConcurrentLongSlidingWindow newMetricEventProcessingTime = new ConcurrentLongSlidingWindow(50); 
+	/** A sliding window of the last 50 elapsed times for metric state change event processing in ns. */
+	protected final ConcurrentLongSlidingWindow metricStateChangeEventProcessingTime = new ConcurrentLongSlidingWindow(50);
+	
+	
 	
 	/** The metric catalog */
 	protected final IMetricCatalog metricCatalog = ICEMetricCatalog.getInstance();
@@ -98,12 +109,36 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	@Override
 	protected void doStart() throws Exception {		
 		keepRunning = true;
-		Runnable newEventProcessor = new NewMetricEventProcessor();
-		for(int i = 0; i < metricQueueThreadCount; i++) {
-			newThread(newEventProcessor).start();
-		}
-		info("Started [", metricQueueThreadCount, "] Metric Event Queue Processing Threads");
+		startNewMetricEventProcessor();
+		startMetricStateChangeEventProcessor();		
 	}
+	
+	/**
+	 * Starts the new metric event queue processor threads
+	 */
+	protected void startNewMetricEventProcessor() {
+		for(int i = 0; i < newMetricEventThreads; i++) {
+			Thread t = new Thread(newMetricEventThreadGroup, new NewMetricEventProcessor(), "NewMetricEventProcessorThread#" + newMetricSerial.incrementAndGet());
+			t.setDaemon(true);
+			t.setUncaughtExceptionHandler(this);
+			t.start();
+		}
+		info("Started [", newMetricEventThreads, "] New Metric Event Queue Processing Threads");
+	}
+	
+	/**
+	 * Starts the metric state change event queue processor threads
+	 */
+	protected void startMetricStateChangeEventProcessor() {
+		for(int i = 0; i < metricStateChangeEventThreads; i++) {
+			Thread t = new Thread(metricStateChangeEventThreadGroup, new MetricStateChangeEventProcessor(), "MetricStateChangeEventProcessorThread#" + metricStateChangeSerial.incrementAndGet());
+			t.setDaemon(true);
+			t.setUncaughtExceptionHandler(this);
+			t.start();
+		}		
+		info("Started [", metricStateChangeEventThreads, "] Metric State Change Event Queue Processing Threads");
+	}
+	
 	
 	/**
 	 * {@inheritDoc}
@@ -112,8 +147,9 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	@Override
 	protected void doStop() {
 		keepRunning = false;
-		metricQueueThreadGroup.interrupt();
-		info("Interrupted Metric Event Queue Processing ThreadGroup for stop");
+		metricStateChangeEventThreadGroup.interrupt();
+		newMetricEventThreadGroup.interrupt();
+		info("Interrupted Metric Event Queue Processor ThreadGroups for stop");
 	}
 	
 	/**
@@ -215,66 +251,81 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 		this.catalogDataSource = catalogDataSource;
 	}
 	
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getMetricQueueThreadCount()
-	 */
-	@Override
-	@ManagedAttribute(description="The number of threads to concurrently process the metric event queue")
-	public int getMetricQueueThreadCount() {
-		return metricQueueThreadCount;
-	}
-	/**
-	 * Sets the number of threads to concurrently process the metric event queue
-	 * @param metricQueueThreadCount the number of threads to concurrently process the metric event queue
-	 */
-	public void setMetricQueueThreadCount(int metricQueueThreadCount) {
-		this.metricQueueThreadCount = metricQueueThreadCount;
-	}
-	/**
-	 * {@inheritDoc}
-	 * @see java.util.concurrent.ThreadFactory#newThread(java.lang.Runnable)
-	 */
-	@Override
-	public Thread newThread(Runnable r) {
-		Thread t = new Thread(metricQueueThreadGroup, r, "MetricQueueProcessorThread#" + serial.incrementAndGet());
-		t.setDaemon(true);
-		t.setUncaughtExceptionHandler(this);
-		return t;
-	}
+
 	/**
 	 * {@inheritDoc}
 	 * @see java.lang.Thread.UncaughtExceptionHandler#uncaughtException(java.lang.Thread, java.lang.Throwable)
 	 */
 	@Override
 	public void uncaughtException(Thread t, Throwable e) {
-		error("Failed to process metric queue entry on thread [", t, "]", e);
-		incr("MetricQueueProcessingErrors");
+		error("Failed to process metric queue entry on thread [", t, "]", e);		
+	}
+	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getNewMetricQueueProcessingErrors()
+	 */
+	@Override
+	@ManagedMetric(category="MetricURISubscriptionService", displayName="NewMetricQueueProcessingErrors", metricType=MetricType.COUNTER, description="The number of errors processing the new metric queued events")
+	public long getNewMetricQueueProcessingErrors() {
+		return getMetricValue("NewMetricQueueProcessingErrors");
 	}
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getMetricQueueProcessingErrors()
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getMetricStateChangeQueueProcessingErrors()
 	 */
 	@Override
-	@ManagedMetric(category="MetricURISubscriptionService", displayName="MetricQueueProcessingErrors", metricType=MetricType.COUNTER, description="The number of errors processing the metric queued events")
-	public long getMetricQueueProcessingErrors() {
-		return getMetricValue("MetricQueueProcessingErrors");
+	@ManagedMetric(category="MetricURISubscriptionService", displayName="MetricStateChangeQueueProcessingErrors", metricType=MetricType.COUNTER, description="The number of errors processing the metric state change queued events")
+	public long getMetricStateChangeQueueProcessingErrors() {
+		return getMetricValue("MetricStateChangeQueueProcessingErrors");
+	}
+	
+	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getNewMetricEventQueueDepth()
+	 */
+	@Override
+	@ManagedMetric(category="MetricURISubscriptionService", displayName="NewMetricEventQueueDepth", metricType=MetricType.GAUGE, description="The number of pending new metric queued events")
+	public long getNewMetricEventQueueDepth() {
+		return NewElementTriggers.newMetricQueue.size();
 	}
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getMetricQueueDepth()
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getMetricStateChangeEventQueueDepth()
 	 */
 	@Override
-	@ManagedMetric(category="MetricURISubscriptionService", displayName="MetricQueueDepth", metricType=MetricType.COUNTER, description="The number of pending metric queued events")
-	public long getMetricQueueDepth() {
-		return NewElementTriggers.notificationQueue.size();
+	@ManagedMetric(category="MetricURISubscriptionService", displayName="MetricStateChangeEventQueueDepth", metricType=MetricType.GAUGE, description="The number of pending metric state change queued events")
+	public long getMetricStateChangeEventQueueDepth() {
+		return NewElementTriggers.metricStateChangeQueue.size();
 	}
 	
-	// STATE_CHANGE_METRIC_EVENT, newRow[METRIC_COLUMN_ID], newRow[STATE_COLUMN_ID]
-	// NEW_METRIC_EVENT, newRow[METRIC_COLUMN_ID]	
-	// org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getMetricStateChangeBroadcasts()
+	 */
+	@Override
+	@ManagedMetric(category="MetricURISubscriptionService", displayName="MetricStateChangeBroadcasts", metricType=MetricType.GAUGE, description="The number of broadcast metric state change events")
+	public long getMetricStateChangeBroadcasts() {
+		return getMetricValue("MetricStateChangeBroadcasts");
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getNewMetricBroadcasts()
+	 */
+	@Override
+	@ManagedMetric(category="MetricURISubscriptionService", displayName="NewMetricBroadcasts", metricType=MetricType.GAUGE, description="The number of broadcast new metric events")
+	public long getNewMetricBroadcasts() {
+		return getMetricValue("NewMetricBroadcasts");
+	}
+	
+	
+	
 	
 	
 	/**
@@ -291,6 +342,18 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 		final DataSource _catalogDataSource = catalogDataSource;
 		
 		/**
+		 * Consumes events from the new metric queue and processes them as follows to find interested subscribers for the consumed new metric event:<ol>
+		 * <li>Executes a 2 phase lookup to find interested subscribers:<ol>
+		 * 		<li>Builds a {@link MetricType}/{@link EntryStatus}/{@link MetricURISubscriptionType} representing the consumed event.</li>
+		 * 		<li>Acquires an iterator of {@link MetricURISubscription} instances that match the created mask. If none, drop event.</li> 		
+		 * 		<li>For each {@link MetricURISubscription} in the returned iterator:<ol>
+		 * 			<li>If the metric ID is already in the subscription's metric id set (unlikely), then drops the event.</li>
+		 * 			<li>If the metric ID is <b>not</b> in the subscription's metric id set, the subscription's criteria query is executed to see if the new metric id is a member of the subscription.</li>
+		 * 			<li>Once it has been determined that there is at least one interested subscriber, the event is resolved into the actual {@link Metric} instance.</li>
+		 * 			<li>If the metric ID <b>is</b> a member of the subscription's criteria, it is added to the subscription's metric id set and the {@link Metric} instance is published to the subscriber.</li>
+		 * 		</ol></li>
+		 * </ol></li>		
+		 * </ol>
 		 * {@inheritDoc}
 		 * @see java.lang.Runnable#run()
 		 */
@@ -301,68 +364,272 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 					Object[] newMetricEvent = NewElementTriggers.newMetricQueue.take();
 					long metricId = (Long)newMetricEvent[MetricTrigger.METRIC_COLUMN_ID];
 					int metricType = ((Number)newMetricEvent[MetricTrigger.TYPE_COLUMN_ID]).intValue();
-					long mask = MetricURI.mask(metricType, (byte)newMetricEvent[MetricTrigger.STATE_COLUMN_ID], MetricURISubscriptionType.NEW_METRIC.getCode());
-					Iterator<MetricURISubscription> subIter = MetricURISubscription.getSubscriptionsForSubType(mask);
+					Iterator<MetricURISubscription> subIter = MetricURISubscription.getMatchingSubscriptions(
+							org.helios.apmrouter.metric.MetricType.valueOf(metricType).getMask(),
+							EntryStatus.ALL_STATUS_MASK,  // new metrics are always active, but we want the search to be neutral for status, so we turn all the bits on
+							MetricURISubscriptionType.NEW_METRIC.getMask()							
+					);
 					if(subIter==null) continue;
-					Set<MetricURISubscription> candidates = new HashSet<MetricURISubscription>();
+					Metric lazyMetric = null;
 					while(subIter.hasNext()) {
-						MetricURISubscription sub = subIter.next();
-						if(sub.newMetricCandidacy(metricId, _catalogDataSource)) {
-							candidates.add(sub);
-						}						
-					}
-					if(candidates.isEmpty()) continue;
-					Session session = null;
-					Metric metric = null;
-					try {
-						session = _sessionFactory.openSession();
-						metric = (Metric)session.get(Metric.class, metricId);
-					} catch (Exception ex) {
-						error("Failed to resolve metricId to Metric through hibernate", ex);
-						continue;
-					} finally {
-						if(session!=null) try { session.close(); } catch (Exception x) {/* No Op*/}
-					}
-					if(metric==null) continue;
-					for(MetricURISubscription sub: candidates) {
-						sub.sendSubscribersNewMetric(metric);
+						MetricURISubscription subscription = subIter.next();
+						if(subscription.hasMetricId(metricId)) {
+							continue;
+						}
+						if(!subscription.metricCandidacy(metricId, _catalogDataSource)) {
+							continue;
+						}
+						subscription.addMetricId(metricId);
+						if(lazyMetric==null) {
+							lazyMetric = getMetric(metricId, _sessionFactory);
+							if(lazyMetric==null) {
+								incr("NewMetricQueueProcessingErrors");
+								break;  //  we don't want to handle this error here.
+							}
+						}
+						subscription.sendSubscribersNewMetric(lazyMetric);
+						incr("NewMetricBroadcasts");
 					}
 				} catch (Exception ex) {
 					if(Thread.interrupted()) Thread.interrupted();
+					if(keepRunning) {
+						incr("NewMetricQueueProcessingErrors");
+					}
 				}
 			}
 		}
 	}
-
+	
 	/**
-	 * {@inheritDoc}
-	 * @see java.lang.Runnable#run()
+	 * <p>Title: MetricStateChangeEventProcessor</p>
+	 * <p>Description: Queue processor for metric state change events</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionService.MetricStateChangeEventProcessor</code></p>
 	 */
-	@Override
-	public void run() {
-		info("Started MetricQueueThreadProcessor");
-		while(keepRunning) {
-			try {			
-				Object[] newMetricEvent = NewElementTriggers.metricStateChangeQueue.take();
-				long metricId = (Long)newMetricEvent[MetricTrigger.METRIC_COLUMN_ID];
-				if(STATE_CHANGE_METRIC_EVENT.equals(newMetricEvent[0])) {
-					byte newState = (Byte)newMetricEvent[2];
-				} else if(NEW_METRIC_EVENT.equals(newMetricEvent[0])) {
-					
+	protected class MetricStateChangeEventProcessor implements Runnable {
+		/** The hibernate session factory */
+		final SessionFactory _sessionFactory = sessionFactory;
+		/** The catalog data source */
+		final DataSource _catalogDataSource = catalogDataSource;
+		
+		/**
+		 * Consumes events from the metric state change event queue and processes them as follows to find interested subscribers for the consumed metric state change event:<ol>
+		 * <li>Executes a 2 phase lookup to find interested subscribers:<ol>
+		 * 		<li>Builds a {@link MetricType}/{@link EntryStatus}/{@link MetricURISubscriptionType} representing the consumed event.</li>
+		 * 		<li>Acquires an iterator of {@link MetricURISubscription} instances that match the created mask. If none, drop event.</li> 		
+		 * 		<li>For each {@link MetricURISubscription} in the returned iterator:<ol>
+		 * 			<li>If the metric ID is <b>not</b> in the subscription's metric id set, the subscription's criteria query is executed to see if the new metric id is a member of the subscription.</li>
+		 * 			<li>Once it has been determined that there is at least one interested subscriber, the event is resolved into the actual {@link Metric} instance.</li>
+		 * 			<li>If the metric ID <b>is</b> a member of the subscription's criteria, it is added to the subscription's metric id set and the {@link Metric} instance is published to the subscriber.</li>
+		 * 		</ol></li>
+		 * </ol></li>		
+		 * </ol>
+		 * {@inheritDoc}
+		 * @see java.lang.Runnable#run()
+		 */
+		@Override
+		public void run() {
+			while(keepRunning) {
+				try {	
+					Object[] metricStateChangeEvent = NewElementTriggers.metricStateChangeQueue.take();
+					long metricId = (Long)metricStateChangeEvent[MetricTrigger.METRIC_COLUMN_ID];
+					int metricType = ((Number)metricStateChangeEvent[MetricTrigger.TYPE_COLUMN_ID]).intValue();
+					byte newState = ((Number)metricStateChangeEvent[MetricTrigger.STATE_COLUMN_ID]).byteValue();
+					EntryStatus newStatus = EntryStatus.forByte(newState);
+					Iterator<MetricURISubscription> subIter = MetricURISubscription.getMatchingSubscriptions(
+							org.helios.apmrouter.metric.MetricType.valueOf(metricType).getMask(),
+							newStatus.getMask(),
+							MetricURISubscriptionType.STATE_CHANGE.getMask()							
+					);
+					if(subIter==null) continue;
+					Metric lazyMetric = null;
+					while(subIter.hasNext()) {
+						MetricURISubscription subscription = subIter.next();
+						if(subscription.hasMetricId(metricId)) {
+							continue;
+						}
+						if(!subscription.metricCandidacy(metricId, _catalogDataSource)) {
+							continue;
+						}
+						subscription.addMetricId(metricId);
+						if(lazyMetric==null) {
+							lazyMetric = getMetric(metricId, _sessionFactory);
+							if(lazyMetric==null) {
+								incr("MetricStateChangeQueueProcessingErrors");
+								break;  //  we don't want to handle this error here.
+							}
+						}
+						subscription.sendSubscribersMetricStateChange(newStatus.name(), lazyMetric);
+						incr("MetricStateChangeBroadcasts");
+					}
+				} catch (Exception ex) {
+					if(Thread.interrupted()) Thread.interrupted();
+					if(keepRunning) {
+						incr("MetricStateChangeQueueProcessingErrors");
+					}
 				}
-//				if(notification.getType().startsWith(MetricTrigger.NEW_METRIC)) {
-//					Object[] newRow = (Object[])notification.getUserData();
-//					String FQN = notification.getType().replace(MetricTrigger.NEW_METRIC, "");
-//					System.err.println("Processing new metric notification [" + FQN + "]");
-//					long metricId = (Long)newRow[MetricTrigger.METRIC_COLUMN_ID];
-//					MetricURISubscription.onNewMetric(metricId, FQN, newRow, catalogDataSource);
-//				}
-				// process
-			} catch (Exception ex) {
-				if(Thread.interrupted()) Thread.interrupted();
-			}			
+			}
 		}
 	}
 	
+	
+	/**
+	 * Looks up the {@link Metric} for the passed metric ID
+	 * @param metricId The metric ID to look up
+	 * @param sf The factory to provide the lookup session
+	 * @return the located metric or null
+	 */
+	public Metric getMetric(long metricId, SessionFactory sf) {
+		Session session = null;
+		try {
+			session = sf.openSession();
+			return (Metric)session.get(Metric.class, metricId);
+		} catch (Exception ex) {
+			error("Failed to resolve metricId to Metric through hibernate", ex);
+			return null;
+		} finally {
+			if(session!=null) try { session.close(); } catch (Exception x) {/* No Op*/}
+		}		
+	}
+
+	/**
+	 * Returns the number of new metric event queue processing threads
+	 * @return the number of new metric event queue processing threads
+	 */
+	@ManagedAttribute(description="The number of threads to concurrently process the new metric event queue")
+	public int getNewMetricEventThreads() {
+		return newMetricEventThreads;
+	}
+
+	/**
+	 * Sets the number of new metric event queue processing threads 
+	 * @param newMetricEventThreads the number of new metric event queue processing threads
+	 */
+	@ManagedAttribute(description="The number of threads to concurrently process the new metric event queue")
+	public void setNewMetricEventThreads(int newMetricEventThreads) {
+		this.newMetricEventThreads = newMetricEventThreads;
+	}
+
+	/**
+	 * Returns the number of metric state change event queue processing threads
+	 * @return the number of metric state change event queue processing threads
+	 */
+	@ManagedAttribute(description="The number of threads to concurrently process the metric state change event queue")
+	public int getMetricStateChangeEventThreads() {
+		return metricStateChangeEventThreads;
+	}
+
+	/**
+	 * Sets the number of metric state change event queue processing threads
+	 * @param metricStateChangeEventThreads the number of metric state change event queue processing threads
+	 */
+	@ManagedAttribute(description="The number of threads to concurrently process the metric state change event queue")
+	public void setMetricStateChangeEventThreads(int metricStateChangeEventThreads) {
+		this.metricStateChangeEventThreads = metricStateChangeEventThreads;
+	}
+
+//	/**
+//	 * {@inheritDoc}
+//	 * @see java.lang.Runnable#run()
+//	 */
+//	@Override
+//	public void run() {
+//		info("Started MetricQueueThreadProcessor");
+//		while(keepRunning) {
+//			try {			
+//				Object[] newMetricEvent = NewElementTriggers.metricStateChangeQueue.take();
+//				long metricId = (Long)newMetricEvent[MetricTrigger.METRIC_COLUMN_ID];
+//				if(STATE_CHANGE_METRIC_EVENT.equals(newMetricEvent[0])) {
+//					byte newState = (Byte)newMetricEvent[2];
+//				} else if(NEW_METRIC_EVENT.equals(newMetricEvent[0])) {
+//					
+//				}
+////				if(notification.getType().startsWith(MetricTrigger.NEW_METRIC)) {
+////					Object[] newRow = (Object[])notification.getUserData();
+////					String FQN = notification.getType().replace(MetricTrigger.NEW_METRIC, "");
+////					System.err.println("Processing new metric notification [" + FQN + "]");
+////					long metricId = (Long)newRow[MetricTrigger.METRIC_COLUMN_ID];
+////					MetricURISubscription.onNewMetric(metricId, FQN, newRow, catalogDataSource);
+////				}
+//				// process
+//			} catch (Exception ex) {
+//				if(Thread.interrupted()) Thread.interrupted();
+//			}			
+//		}
+//	}
+
+	/**
+	 * Returns the rolling average of the last 50 new metric event processing elapsed times in ns.
+	 * @return the rolling average of the last 50 new metric event processing elapsed times in ns.
+	 */
+	@ManagedMetric(category="MetricURISubscriptionService", displayName="AverageNewMetricProcessingTimeNs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 new metric event processing elapsed times in ns.")
+	public long getAverageNewMetricProcessingTimeNs() {
+		return newMetricEventProcessingTime.avg();
+	}
+	
+	/**
+	 * Returns the rolling average of the last 50 new metric event processing elapsed times in ms.
+	 * @return the rolling average of the last 50 new metric event processing elapsed times in ms.
+	 */
+	@ManagedMetric(category="MetricURISubscriptionService", displayName="AverageNewMetricProcessingTimeMs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 new metric event processing elapsed times in ms.")
+	public long getAverageNewMetricProcessingTimeMs() {
+		return TimeUnit.MILLISECONDS.convert(newMetricEventProcessingTime.avg(), TimeUnit.NANOSECONDS);
+	}
+	
+	/**
+	 * Returns the last metric event processing elapsed time in ns.
+	 * @return the last metric event processing elapsed time in ns.
+	 */
+	@ManagedMetric(category="MetricURISubscriptionService", displayName="LastNewMetricProcessingTimeNs", metricType=MetricType.GAUGE, description="The last metric event processing elapsed time in ns.")
+	public long getLastNewMetricProcessingTimeNs() {
+		return newMetricEventProcessingTime.size()==0 ? -1L : newMetricEventProcessingTime.get(0); 
+	}
+	
+	/**
+	 * Returns the last metric event processing elapsed time in ms.
+	 * @return the last metric event processing elapsed time in ms.
+	 */
+	@ManagedMetric(category="MetricURISubscriptionService", displayName="LastNewMetricProcessingTimeMs", metricType=MetricType.GAUGE, description="The last metric event processing elapsed time in ms.")
+	public long getLastNewMetricProcessingTimeMs() {
+		return TimeUnit.MILLISECONDS.convert(getLastNewMetricProcessingTimeNs(), TimeUnit.NANOSECONDS); 
+	}
+
+	/**
+	 * Returns the rolling average of the last 50 new metric event processing elapsed times in ns.
+	 * @return the rolling average of the last 50 new metric event processing elapsed times in ns.
+	 */
+	@ManagedMetric(category="MetricURISubscriptionService", displayName="AverageNewMetricProcessingTimeNs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 new metric event processing elapsed times in ns.")
+	public long getAverageMetricStateChangeProcessingTimeNs() {
+		return newMetricEventProcessingTime.avg();
+	}
+	
+	/**
+	 * Returns the rolling average of the last 50 new metric event processing elapsed times in ms.
+	 * @return the rolling average of the last 50 new metric event processing elapsed times in ms.
+	 */
+	@ManagedMetric(category="MetricURISubscriptionService", displayName="AverageNewMetricProcessingTimeMs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 new metric event processing elapsed times in ms.")
+	public long getAverageMetricStateChangeProcessingTimeMs() {
+		return TimeUnit.MILLISECONDS.convert(newMetricEventProcessingTime.avg(), TimeUnit.NANOSECONDS);
+	}
+	
+	/**
+	 * Returns the last metric event processing elapsed time in ns.
+	 * @return the last metric event processing elapsed time in ns.
+	 */
+	@ManagedMetric(category="MetricURISubscriptionService", displayName="LastNewMetricProcessingTimeNs", metricType=MetricType.GAUGE, description="The last metric event processing elapsed time in ns.")
+	public long getLastMetricStateChangeProcessingTimeNs() {
+		return newMetricEventProcessingTime.size()==0 ? -1L : newMetricEventProcessingTime.get(0); 
+	}
+	
+	/**
+	 * Returns the last metric event processing elapsed time in ms.
+	 * @return the last metric event processing elapsed time in ms.
+	 */
+	@ManagedMetric(category="MetricURISubscriptionService", displayName="LastNewMetricProcessingTimeMs", metricType=MetricType.GAUGE, description="The last metric event processing elapsed time in ms.")
+	public long getLastMetricStateChangeProcessingTimeMs() {
+		return TimeUnit.MILLISECONDS.convert(getLastNewMetricProcessingTimeNs(), TimeUnit.NANOSECONDS); 
+	}
+
 
 }

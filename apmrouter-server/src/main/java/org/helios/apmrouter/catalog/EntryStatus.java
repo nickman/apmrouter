@@ -56,6 +56,17 @@ public enum EntryStatus {
 	
 	private final byte mask;
 	
+	/** A bit mask of all statuses turned on */
+	public static final byte ALL_STATUS_MASK;
+	
+	static {
+		byte stat = 0;
+		for(EntryStatus es: EntryStatus.values()) {
+			stat = (byte)(stat | es.mask);
+		}
+		ALL_STATUS_MASK = stat;
+	}
+	
 	/**
 	 * Returns the byte ordinal for this EntryStatus
 	 * @return the byte ordinal
@@ -243,6 +254,15 @@ public enum EntryStatus {
 		}
 		
 		
+	}
+
+
+	/**
+	 * Returns the mask for this status
+	 * @return the mask for this status
+	 */
+	public byte getMask() {
+		return mask;
 	}
 }
 

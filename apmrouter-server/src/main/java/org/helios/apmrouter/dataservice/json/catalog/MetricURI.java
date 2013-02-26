@@ -32,7 +32,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
@@ -132,7 +131,7 @@ public class MetricURI implements MetricURIMBean {
 	public static final String OPT_SUB_TYPE = "subtype";
 	
 	/** The default max depth */
-	private static final int[] DEFAULT_DEPTH = new int[]{0};
+	private static final int[] DEFAULT_DEPTH = new int[]{-1};
 	/** The default metric types */
 	private static final int[] DEFAULT_TYPES;
 	/** The default metric types */
@@ -309,7 +308,10 @@ public class MetricURI implements MetricURIMBean {
 	 * @return a mask that represents the enabled metric types, metric statuses and subscription types.
 	 */
 	public static long mask(int metricTypeMask, byte metricStatusMask, byte subTypeMask) {
-		ByteBuffer buff = ByteBuffer.allocate(8).put(ZERO_BYTE).put(ZERO_BYTE).putInt(metricStatusMask).put(metricStatusMask).put(subTypeMask);
+		ByteBuffer buff = ByteBuffer.allocate(8).put(ZERO_BYTE).put(ZERO_BYTE)
+				.putInt(metricTypeMask)
+				.put(metricStatusMask)
+				.put(subTypeMask);
 		buff.flip();
 		return buff.getLong();
 	}
@@ -322,6 +324,8 @@ public class MetricURI implements MetricURIMBean {
 	public boolean isEnabledFor(long metricTypeStatusSubTypeMask) {
 		return metricTypeStatusSubTypeMask==(this.metricTypeStatusSubTypeMask | metricTypeStatusSubTypeMask);
 	}
+	
+	
 	
 	/**
 	 * Detemines if this MetricURI is a match for the passed metric type, metric status and subscription type
@@ -599,6 +603,7 @@ public class MetricURI implements MetricURIMBean {
 	 * Generates a SQL statement for retrieving the metric Ids that are in the result set for the passed MetricURI
 	 * @param metricUri The MetricURI 
 	 * @return the SQL statement
+	 * FIXME: Replace literals with bind variables
 	 */
 	protected static String generateCriteriaSQL(MetricURI metricUri) {
 		StringBuilder sql = new StringBuilder("SELECT METRIC_ID FROM METRIC M, AGENT A, HOST H WHERE M.AGENT_ID = A.AGENT_ID AND A.HOST_ID = H.HOST_ID ");
@@ -830,6 +835,14 @@ public class MetricURI implements MetricURIMBean {
 	 */
 	public int getMetricStatusMask() {
 		return metricStatusMask;
+	}
+
+	/**
+	 * Returns the combined bit mask of the bit masks for metric type, metric status and subscription type.
+	 * @return the combined bit mask of the bit masks for metric type, metric status and subscription type.
+	 */
+	public long getMetricTypeStatusSubTypeMask() {
+		return metricTypeStatusSubTypeMask;
 	}
 	
 

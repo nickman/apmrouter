@@ -28,14 +28,15 @@ import java.net.SocketAddress;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.Statement;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -44,9 +45,12 @@ import javax.sql.DataSource;
 
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.OpCode;
+import org.helios.apmrouter.catalog.EntryStatus;
 import org.helios.apmrouter.catalog.domain.Metric;
+import org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger;
 import org.helios.apmrouter.collections.ConcurrentLongSortedSet;
 import org.helios.apmrouter.dataservice.json.JsonResponse;
+import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.hibernate.Session;
@@ -84,8 +88,8 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	/** A map of {@link MetricURISubscription}s keyed by the subscription's {@link MetricURI} */
 	protected static final ConcurrentHashMap<MetricURI, MetricURISubscription> subscriptions = new ConcurrentHashMap<MetricURI, MetricURISubscription>(128, 0.75f, 16);
 	
-	/** A map of sets of subscriptions keyed by the metric type/status/subType mask of the metric URI */
-	protected static final ConcurrentHashMap<Long, Set<MetricURISubscription>> subscriptionsByMask = new ConcurrentHashMap<Long, Set<MetricURISubscription>>(128, 0.75f, 16);
+	/** A list of MetricURIBitMaskContainers */
+	protected static final List<MetricURIBitMaskContainer> subscriptionsByBitMask = new CopyOnWriteArrayList<MetricURIBitMaskContainer>();
 	
 
 	
@@ -100,11 +104,24 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	 * @return a subscription iterator or null
 	 */
 	public static Iterator<MetricURISubscription> getSubscriptionsForSubType(long mask) {
-		Set<MetricURISubscription> set = subscriptionsByMask.get(mask);
-		if(set==null||set.isEmpty()) return null;
-		return set.iterator();
+		int index = subscriptionsByBitMask.indexOf(mask);
+		if(index==-1) return null;
+		MetricURIBitMaskContainer container = subscriptionsByBitMask.get(index);
+		return Collections.unmodifiableSet(container.getValue()).iterator();
 	}
 	
+	/**
+	 * Returns an iterator over the subscriptions with a matching type/status/subType mask, or null if there are none.
+	 * @param mask The type/status/subType mask to get subscriptions that have a bit mask matching type/status/subType mask
+	 * @return a subscription iterator or null
+	 */
+	public static Iterator<MetricURISubscription> getMatchingSubscriptions(long mask) {
+		MetricURIBitMaskContainer key = MetricURIBitMaskContainer.Key(mask);
+		int index = subscriptionsByBitMask.indexOf(key);
+		if(index==-1) return null;
+		MetricURIBitMaskContainer container = subscriptionsByBitMask.get(index);
+		return Collections.unmodifiableSet(container.getValue()).iterator();		
+	}
  
 	/**
 	 * Returns the MetricURISubscription for the passed MetricURI or null if one does not already exist
@@ -134,12 +151,47 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	}
 	
 	/**
+	 * Returns an iterator of {@link MetricURISubscription}s that have bit mask matches
+	 * @param metricTypeMask The mask of the {@link MetricType} id to match
+	 * @param stateChangeTypeMask The mask of the {@link EntryStatus} id to match
+	 * @param subscriptionEventTypeMask The mask of the {@link MetricURISubscriptionType} id to match
+	 * @return an iterator of matching {@link MetricURISubscription}s or null if there are no matches
+	 */
+	public static Iterator<MetricURISubscription> getMatchingSubscriptions(int metricTypeMask, byte stateChangeTypeMask, byte subscriptionEventTypeMask) {
+		return getMatchingSubscriptions(MetricURI.mask(metricTypeMask, stateChangeTypeMask, subscriptionEventTypeMask));
+	}
+	
+	/*
+	 * MetricType Mask
+	 * State Change Event
+	 * Subscription Type
+	 * 
+	 */
+	
+	/**
+	 * Determines if the passed metricId is already in this subscription's set
+	 * @param metricId the metric id to test for 
+	 * @return true if the passed metricId is already in this subscription's set, false otherwise
+	 */
+	public boolean hasMetricId(long metricId) {
+		return metricIds.contains(metricId);
+	}
+	
+	/**
+	 * Adds the passed metric Id to this subscription's metric ID set
+	 * @param metricId the metric id to add
+	 */
+	public void addMetricId(long metricId) {
+		metricIds.add(metricId);
+	}
+	
+	/**
 	 * Determines if the passed metric id needs to be added to this subscription
 	 * @param metricId the metric ID to test for
 	 * @param catalogDataSource the catalog datasource
 	 * @return true if the passed metric id needs to be added to this subscription, false otherwise
 	 */
-	public boolean newMetricCandidacy(long metricId, DataSource catalogDataSource ) {
+	public boolean metricCandidacy(long metricId, DataSource catalogDataSource ) {
 		if(metricIds.contains(metricId)) return false;
 		Connection conn = null;
 		PreparedStatement ps = null;
@@ -202,17 +254,15 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 				if(metricUriSub==null) {
 					metricUriSub = new MetricURISubscription(session, metricUri);
 					subscriptions.put(metricUri, metricUriSub);
-					Set<MetricURISubscription> subs = subscriptionsByMask.get(metricUri.metricTypeStatusSubTypeMask);
-					if(subs==null) {
-						synchronized(subscriptionsByMask) {
-							subs = subscriptionsByMask.get(metricUri.metricTypeStatusSubTypeMask);
-							if(subs==null) {
-								subs = new CopyOnWriteArraySet<MetricURISubscription>();
-								subscriptionsByMask.put(metricUri.metricTypeStatusSubTypeMask, subs);
-							}
-						}
+					int index = subscriptionsByBitMask.indexOf(metricUri.getMetricTypeStatusSubTypeMask());
+					MetricURIBitMaskContainer subsContainer = null;
+					if(index==-1) {
+						subsContainer = new MetricURIBitMaskContainer(metricUri.getMetricTypeStatusSubTypeMask());						
+						subscriptionsByBitMask.add(subsContainer);
+					} else {
+						subsContainer = subscriptionsByBitMask.get(index);
 					}
-					subs.add(metricUriSub);
+					subsContainer.getValue().add(metricUriSub);
 				}
 			}
 		}
@@ -279,18 +329,22 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	 * @param metric The new metric 
 	 */
 	protected void sendSubscribersNewMetric(Metric metric) {
-//		GSONJSONMarshaller marshaller = new GSONJSONMarshaller();
-//		for(Channel channel: subscribedChannels) {
-//			LOG.info("Writing new metric event to channel [" + channel + "]");
-//			SharedChannelGroup.getInstance().find(channel.getId());
-//			marshaller.marshallToChannel(newRow, channel, null);
-//			
-//		}
 		for(Channel channel: subscribedChannels) {
-			((ChannelJsonResponsePair)channel).write(metric, OpCode.ON_METRIC_URI_EVENT);
+			((ChannelJsonResponsePair)channel).write(metric, MetricTrigger.NEW_METRIC_EVENT, OpCode.ON_METRIC_URI_EVENT);
 		}
-		
 	}
+	
+	/**
+	 * Called when metric changes state and is determined to be a member of this metric uri
+	 * @param newStateName The name of the metric's new state
+	 * @param metric the metric in its new state
+	 */
+	protected void sendSubscribersMetricStateChange(String newStateName, Metric metric) {
+		String type = MetricTrigger.STATE_CHANGE_METRIC_EVENT + "." + newStateName;
+		for(Channel channel: subscribedChannels) {
+			((ChannelJsonResponsePair)channel).write(metric, type, OpCode.ON_METRIC_URI_EVENT);
+		}		
+	}	
 	
 	
 	/**
@@ -588,10 +642,11 @@ class ChannelJsonResponsePair implements Channel {
 	/**
 	 * Writes a JSON response to a subscribing agent with an op code
 	 * @param message The payload to write
+	 * @param type the type of the new json response
 	 * @param opCode The op code of the response
 	 * @return the channel future of the write
 	 */
-	public ChannelFuture write(Object message, OpCode opCode) {
+	public ChannelFuture write(Object message, String type, OpCode opCode) {
 		return channel.write(response.clone().setOpCode(opCode).setContent(message), channel.getRemoteAddress());
 	}
 	

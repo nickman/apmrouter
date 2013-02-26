@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.zip.GZIPOutputStream;
 
 import org.helios.apmrouter.util.BitMaskedEnum;
@@ -76,6 +77,17 @@ public enum MetricType  implements IMetricDataAccessor, BitMaskedEnum, IntBitMas
 		for(MetricType mt: MetricType.values()) {
 			log(mt.name() + ":" + mt.mask);
 		}
+		log("========================");
+		Set<Integer> longMasks = new TreeSet<Integer>();
+		for(MetricType mt: MetricType.values()) {
+			longMasks.add(mt.mask);
+		}
+		log("All:" + longMasks);
+		longMasks.clear();
+		for(MetricType mt: MetricType.getLongMetricTypes()) {
+			longMasks.add(mt.mask);
+		}
+		log("Longs:" + longMasks);		
 	}
 	
 	public static void log(Object msg) {

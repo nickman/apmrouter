@@ -24,15 +24,13 @@
  */
 package org.helios.apmrouter.dataservice.json.catalog;
 
-import java.util.Collection;
-
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.support.MetricType;
 
 /**
  * <p>Title: MetricURISubscriptionServiceMXBean</p>
- * <p>Description: </p> 
+ * <p>Description: MXBean interface for {@link MetricURISubscriptionService}</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean</code></p>
@@ -52,25 +50,68 @@ public interface MetricURISubscriptionServiceMXBean {
 	 */
 	public int getSubscriptionCount();
 
-	/**
-	 * Returns the number of threads to concurrently process the metric event queue
-	 * @return the number of threads to concurrently process the metric event queue
-	 */
-	@ManagedAttribute(description = "The number of threads to concurrently process the metric event queue")
-	public int getMetricQueueThreadCount();
 
 	/**
-	 * Returns the number of errors processing the metric queued events
-	 * @return the number of errors processing the metric queued events
+	 * Returns the number of errors processing the new metric queued events
+	 * @return the number of errors processing the new metric queued events
+	 */	
+	public long getNewMetricQueueProcessingErrors();
+	
+	/**
+	 * Returns the number of errors processing the metric state change queued events
+	 * @return the number of errors processing the metric state change queued events
 	 */
-	@ManagedMetric(category = "MetricURISubscriptionService", displayName = "MetricQueueProcessingErrors", metricType = MetricType.COUNTER, description = "The number of errors processing the metric queued events")
-	public long getMetricQueueProcessingErrors();
+	public long getMetricStateChangeQueueProcessingErrors();
 
 	/**
-	 * Returns the number of pending metric events in the queue
-	 * @return the number of pending metric events in the queue
+	 * Returns the number of pending new metric events in the queue
+	 * @return the number of pending new metric events in the queue
 	 */
-	@ManagedMetric(category = "MetricURISubscriptionService", displayName = "MetricQueueDepth", metricType = MetricType.COUNTER, description = "The number of pending metric queued events")
-	public long getMetricQueueDepth();
+	public long getNewMetricEventQueueDepth();
+	
+	/**
+	 * Returns the number of metric state change events in the queue
+	 * @return the number of metric state change events in the queue
+	 */
+	public long getMetricStateChangeEventQueueDepth();
+	
+	
+	/**
+	 * Returns the number of new metric event queue processing threads
+	 * @return the number of new metric event queue processing threads
+	 */	
+	public int getNewMetricEventThreads();
+
+	/**
+	 * Sets the number of new metric event queue processing threads 
+	 * @param newMetricEventThreads the number of new metric event queue processing threads
+	 */	
+	public void setNewMetricEventThreads(int newMetricEventThreads);
+
+	/**
+	 * Returns the number of metric state change event queue processing threads
+	 * @return the number of metric state change event queue processing threads
+	 */
+	public int getMetricStateChangeEventThreads();
+
+	/**
+	 * Sets the number of metric state change event queue processing threads
+	 * @param metricStateChangeEventThreads the number of metric state change event queue processing threads
+	 */
+	public void setMetricStateChangeEventThreads(int metricStateChangeEventThreads);
+	
+	/**
+	 * Returns the number of broadcast metric state change events
+	 * @return the number of broadcast metric state change events
+	 */
+	public long getMetricStateChangeBroadcasts();
+	
+	/**
+	 * Returns the number of broadcast new metric events"
+	 * @return the number of broadcast new metric events"
+	 */
+	public long getNewMetricBroadcasts();
+
+
 
 }
