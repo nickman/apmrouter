@@ -306,6 +306,53 @@ public class ConcurrentLongSlidingWindow extends LongSlidingWindow implements IL
 	}
 	
 	/**
+	 * Returns the most recent value in the array or -1L if the size is 0.
+	 * @return the most recent in the array or -1L if the size is 0.
+	 */
+	public long getNewest() {
+		return getFirst();
+	}
+	
+	/**
+	 * Returns the oldest value in the array or -1L if the size is 0.
+	 * @return the oldest in the array or -1L if the size is 0.
+	 */
+	public long getOldest() {
+		return getLast();
+	}
+	
+
+	
+	/**
+	 * Returns the first (chronologically the most recent) value in the array or -1L if the size is 0.
+	 * @return the first value in the array or -1L if the size is 0.
+	 */
+	public long getFirst() {
+		readLock.lock();
+		try {
+			if(size()<1) return -1L;
+			return array.get(0);
+		} finally {
+			readLock.unlock();
+		}
+	}
+	
+	/**
+	 * Returns the last value (chronologically the oldest) in the array or -1L if the size is 0.
+	 * @return the last value in the array or -1L if the size is 0.
+	 */
+	public long getLast() {
+		readLock.lock();
+		try {
+			if(size()<1) return -1L;
+			return array.get(size()-1);
+		} finally {
+			readLock.unlock();
+		}
+	}
+	
+	
+	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.collections.ILongSlidingWindow#get(int)
 	 */

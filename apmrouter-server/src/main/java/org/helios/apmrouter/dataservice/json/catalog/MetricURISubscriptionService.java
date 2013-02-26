@@ -183,7 +183,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 			MetricURISubscription sub = MetricURISubscription.getMetricURISubscription(session, metricUri);
 			sub.subscribeChannel(channel, response);
 		} finally {
-			if(session!=null) try { session.close(); } catch (Exception ex) {}
+			if(session!=null) try { session.close(); } catch (Exception ex) {/* No Op */}
 		}
 	}
 	
@@ -362,6 +362,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 			while(keepRunning) {
 				try {	
 					Object[] newMetricEvent = NewElementTriggers.newMetricQueue.take();
+					final long startTime = SystemClock.time();
 					long metricId = (Long)newMetricEvent[MetricTrigger.METRIC_COLUMN_ID];
 					int metricType = ((Number)newMetricEvent[MetricTrigger.TYPE_COLUMN_ID]).intValue();
 					Iterator<MetricURISubscription> subIter = MetricURISubscription.getMatchingSubscriptions(
@@ -390,6 +391,8 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 						subscription.sendSubscribersNewMetric(lazyMetric);
 						incr("NewMetricBroadcasts");
 					}
+					final long elapsed = SystemClock.time() - startTime;
+					newMetricEventProcessingTime.insert(elapsed);
 				} catch (Exception ex) {
 					if(Thread.interrupted()) Thread.interrupted();
 					if(keepRunning) {
@@ -433,6 +436,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 			while(keepRunning) {
 				try {	
 					Object[] metricStateChangeEvent = NewElementTriggers.metricStateChangeQueue.take();
+					final long startTime = SystemClock.time();
 					long metricId = (Long)metricStateChangeEvent[MetricTrigger.METRIC_COLUMN_ID];
 					int metricType = ((Number)metricStateChangeEvent[MetricTrigger.TYPE_COLUMN_ID]).intValue();
 					byte newState = ((Number)metricStateChangeEvent[MetricTrigger.STATE_COLUMN_ID]).byteValue();
@@ -463,6 +467,9 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 						subscription.sendSubscribersMetricStateChange(newStatus.name(), lazyMetric);
 						incr("MetricStateChangeBroadcasts");
 					}
+					final long elapsed = SystemClock.time() - startTime;
+					newMetricEventProcessingTime.insert(elapsed);
+
 				} catch (Exception ex) {
 					if(Thread.interrupted()) Thread.interrupted();
 					if(keepRunning) {
@@ -563,7 +570,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * Returns the rolling average of the last 50 new metric event processing elapsed times in ns.
 	 * @return the rolling average of the last 50 new metric event processing elapsed times in ns.
 	 */
-	@ManagedMetric(category="MetricURISubscriptionService", displayName="AverageNewMetricProcessingTimeNs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 new metric event processing elapsed times in ns.")
+	@ManagedMetric(category="MetricURISubscriptionNewMetrics", displayName="AverageNewMetricProcessingTimeNs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 new metric event processing elapsed times in ns.")
 	public long getAverageNewMetricProcessingTimeNs() {
 		return newMetricEventProcessingTime.avg();
 	}
@@ -572,7 +579,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * Returns the rolling average of the last 50 new metric event processing elapsed times in ms.
 	 * @return the rolling average of the last 50 new metric event processing elapsed times in ms.
 	 */
-	@ManagedMetric(category="MetricURISubscriptionService", displayName="AverageNewMetricProcessingTimeMs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 new metric event processing elapsed times in ms.")
+	@ManagedMetric(category="MetricURISubscriptionNewMetrics", displayName="AverageNewMetricProcessingTimeMs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 new metric event processing elapsed times in ms.")
 	public long getAverageNewMetricProcessingTimeMs() {
 		return TimeUnit.MILLISECONDS.convert(newMetricEventProcessingTime.avg(), TimeUnit.NANOSECONDS);
 	}
@@ -581,54 +588,56 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * Returns the last metric event processing elapsed time in ns.
 	 * @return the last metric event processing elapsed time in ns.
 	 */
-	@ManagedMetric(category="MetricURISubscriptionService", displayName="LastNewMetricProcessingTimeNs", metricType=MetricType.GAUGE, description="The last metric event processing elapsed time in ns.")
+	@ManagedMetric(category="MetricURISubscriptionNewMetrics", displayName="LastNewMetricProcessingTimeNs", metricType=MetricType.GAUGE, description="The last new metric event processing elapsed time in ns.")
 	public long getLastNewMetricProcessingTimeNs() {
-		return newMetricEventProcessingTime.size()==0 ? -1L : newMetricEventProcessingTime.get(0); 
+		return newMetricEventProcessingTime.getNewest(); 
 	}
 	
 	/**
 	 * Returns the last metric event processing elapsed time in ms.
 	 * @return the last metric event processing elapsed time in ms.
 	 */
-	@ManagedMetric(category="MetricURISubscriptionService", displayName="LastNewMetricProcessingTimeMs", metricType=MetricType.GAUGE, description="The last metric event processing elapsed time in ms.")
+	@ManagedMetric(category="MetricURISubscriptionNewMetrics", displayName="LastNewMetricProcessingTimeMs", metricType=MetricType.GAUGE, description="The last new metric event processing elapsed time in ms.")
 	public long getLastNewMetricProcessingTimeMs() {
 		return TimeUnit.MILLISECONDS.convert(getLastNewMetricProcessingTimeNs(), TimeUnit.NANOSECONDS); 
 	}
+	
+	//===============================================================
 
 	/**
-	 * Returns the rolling average of the last 50 new metric event processing elapsed times in ns.
-	 * @return the rolling average of the last 50 new metric event processing elapsed times in ns.
+	 * Returns the rolling average of the last 50 metric state change processing elapsed times in ns.
+	 * @return the rolling average of the last 50 metric state change processing elapsed times in ns.
 	 */
-	@ManagedMetric(category="MetricURISubscriptionService", displayName="AverageNewMetricProcessingTimeNs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 new metric event processing elapsed times in ns.")
+	@ManagedMetric(category="MetricURISubscriptionStatChanges", displayName="AverageMetricStateChangeProcessingTimeNs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 metric state change processing elapsed times in ns.")
 	public long getAverageMetricStateChangeProcessingTimeNs() {
-		return newMetricEventProcessingTime.avg();
+		return metricStateChangeEventProcessingTime.avg();
 	}
 	
 	/**
-	 * Returns the rolling average of the last 50 new metric event processing elapsed times in ms.
-	 * @return the rolling average of the last 50 new metric event processing elapsed times in ms.
+	 * Returns the rolling average of the last 50 metric state change processing elapsed times in ms.
+	 * @return the rolling average of the last 50 metric state change processing elapsed times in ms.
 	 */
-	@ManagedMetric(category="MetricURISubscriptionService", displayName="AverageNewMetricProcessingTimeMs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 new metric event processing elapsed times in ms.")
+	@ManagedMetric(category="MetricURISubscriptionStatChanges", displayName="AverageMetricStateChangeProcessingTimeMs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 metric state change processing elapsed times in ms.")
 	public long getAverageMetricStateChangeProcessingTimeMs() {
-		return TimeUnit.MILLISECONDS.convert(newMetricEventProcessingTime.avg(), TimeUnit.NANOSECONDS);
+		return TimeUnit.MILLISECONDS.convert(metricStateChangeEventProcessingTime.avg(), TimeUnit.NANOSECONDS);
 	}
 	
 	/**
 	 * Returns the last metric event processing elapsed time in ns.
 	 * @return the last metric event processing elapsed time in ns.
 	 */
-	@ManagedMetric(category="MetricURISubscriptionService", displayName="LastNewMetricProcessingTimeNs", metricType=MetricType.GAUGE, description="The last metric event processing elapsed time in ns.")
+	@ManagedMetric(category="MetricURISubscriptionStatChanges", displayName="LastMetricStateChangeProcessingTimeNs", metricType=MetricType.GAUGE, description="The last metric state change processing elapsed time in ns.")
 	public long getLastMetricStateChangeProcessingTimeNs() {
-		return newMetricEventProcessingTime.size()==0 ? -1L : newMetricEventProcessingTime.get(0); 
+		return metricStateChangeEventProcessingTime.getNewest(); 
 	}
 	
 	/**
 	 * Returns the last metric event processing elapsed time in ms.
 	 * @return the last metric event processing elapsed time in ms.
 	 */
-	@ManagedMetric(category="MetricURISubscriptionService", displayName="LastNewMetricProcessingTimeMs", metricType=MetricType.GAUGE, description="The last metric event processing elapsed time in ms.")
+	@ManagedMetric(category="MetricURISubscriptionStatChanges", displayName="LastMetricStateChangeProcessingTimeMs", metricType=MetricType.GAUGE, description="The last metric state change processing elapsed time in ms.")
 	public long getLastMetricStateChangeProcessingTimeMs() {
-		return TimeUnit.MILLISECONDS.convert(getLastNewMetricProcessingTimeNs(), TimeUnit.NANOSECONDS); 
+		return TimeUnit.MILLISECONDS.convert(getLastMetricStateChangeProcessingTimeNs(), TimeUnit.NANOSECONDS); 
 	}
 
 

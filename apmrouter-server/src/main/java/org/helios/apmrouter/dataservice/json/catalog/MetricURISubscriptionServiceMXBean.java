@@ -24,9 +24,7 @@
  */
 package org.helios.apmrouter.dataservice.json.catalog;
 
-import org.springframework.jmx.export.annotation.ManagedAttribute;
-import org.springframework.jmx.export.annotation.ManagedMetric;
-import org.springframework.jmx.support.MetricType;
+
 
 /**
  * <p>Title: MetricURISubscriptionServiceMXBean</p>
@@ -112,6 +110,55 @@ public interface MetricURISubscriptionServiceMXBean {
 	 */
 	public long getNewMetricBroadcasts();
 
+	/**
+	 * Returns the rolling average of the last 50 new metric event processing elapsed times in ns.
+	 * @return the rolling average of the last 50 new metric event processing elapsed times in ns.
+	 */
+	public long getAverageNewMetricProcessingTimeNs();
+	
+	/**
+	 * Returns the rolling average of the last 50 new metric event processing elapsed times in ms.
+	 * @return the rolling average of the last 50 new metric event processing elapsed times in ms.
+	 */
+	public long getAverageNewMetricProcessingTimeMs();
+	
+	/**
+	 * Returns the last metric event processing elapsed time in ns.
+	 * @return the last metric event processing elapsed time in ns.
+	 */
+	public long getLastNewMetricProcessingTimeNs();
+	
+	/**
+	 * Returns the last metric event processing elapsed time in ms.
+	 * @return the last metric event processing elapsed time in ms.
+	 */
+	public long getLastNewMetricProcessingTimeMs();
+	
+	//===============================================================
+
+	/**
+	 * Returns the rolling average of the last 50 metric state change processing elapsed times in ns.
+	 * @return the rolling average of the last 50 metric state change processing elapsed times in ns.
+	 */
+	public long getAverageMetricStateChangeProcessingTimeNs();
+	
+	/**
+	 * Returns the rolling average of the last 50 metric state change processing elapsed times in ms.
+	 * @return the rolling average of the last 50 metric state change processing elapsed times in ms.
+	 */
+	public long getAverageMetricStateChangeProcessingTimeMs();
+	
+	/**
+	 * Returns the last metric event processing elapsed time in ns.
+	 * @return the last metric event processing elapsed time in ns.
+	 */
+	public long getLastMetricStateChangeProcessingTimeNs();
+	
+	/**
+	 * Returns the last metric event processing elapsed time in ms.
+	 * @return the last metric event processing elapsed time in ms.
+	 */
+	public long getLastMetricStateChangeProcessingTimeMs();
 
 
 }
