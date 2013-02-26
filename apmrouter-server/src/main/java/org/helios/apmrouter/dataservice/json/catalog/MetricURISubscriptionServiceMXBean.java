@@ -24,6 +24,9 @@
  */
 package org.helios.apmrouter.dataservice.json.catalog;
 
+import org.springframework.jmx.export.annotation.ManagedMetric;
+import org.springframework.jmx.support.MetricType;
+
 
 
 /**
@@ -161,4 +164,20 @@ public interface MetricURISubscriptionServiceMXBean {
 	public long getLastMetricStateChangeProcessingTimeMs();
 
 
+	/**
+	 * Returns the total number of new metric events received
+	 * @return the total number of new metric events received
+	 */
+	public long getNewMetricEvents();
+	
+	/**
+	 * Returns the total number of metric state change events received
+	 * @return the total number of metric state change events received
+	 */
+	public long getMetricStateChangeEvents();	
+	
+	/**
+	 * Resets the service mterics.
+	 */
+	public void resetMetrics();
 }

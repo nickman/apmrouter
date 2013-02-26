@@ -161,6 +161,9 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 		return getMatchingSubscriptions(MetricURI.mask(metricTypeMask, stateChangeTypeMask, subscriptionEventTypeMask));
 	}
 	
+	
+	
+	
 	/*
 	 * MetricType Mask
 	 * State Change Event
@@ -647,7 +650,7 @@ class ChannelJsonResponsePair implements Channel {
 	 * @return the channel future of the write
 	 */
 	public ChannelFuture write(Object message, String type, OpCode opCode) {
-		return channel.write(response.clone().setOpCode(opCode).setContent(message), channel.getRemoteAddress());
+		return channel.write(response.clone(type).setOpCode(opCode).setContent(message), channel.getRemoteAddress());
 	}
 	
 

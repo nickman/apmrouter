@@ -160,7 +160,6 @@ public class UDPSender extends AbstractSender  {
 							processedTokens.incrementAndGet();
 							break;
 						case ON_METRIC_URI_EVENT:
-							log("Received ON_METRIC_URI_EVENT [" + buff + "]");
 							onMetricURIEvent(buff);
 						default:
 							break;

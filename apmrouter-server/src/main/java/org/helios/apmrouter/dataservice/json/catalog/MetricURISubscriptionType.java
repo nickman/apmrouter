@@ -32,6 +32,7 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.helios.apmrouter.catalog.EntryStatus;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.util.BitMaskedEnum;
 import org.helios.apmrouter.util.BitMaskedEnum.ByteBitMaskOperations;
@@ -56,6 +57,56 @@ public enum MetricURISubscriptionType implements BitMaskedEnum, ByteBitMaskOpera
 	public static final Map<Byte, MetricURISubscriptionType> ORD2ENUM = generateByteOrdinalMap(MetricURISubscriptionType.values());
 	/** A decoding map to decode the mask to matching TriggerOps */
 	public static final Map<Byte, MetricURISubscriptionType> MASK2ENUM = generateByteMaskMap(MetricURISubscriptionType.values());
+	
+	/** A bit mask of all statuses turned on */
+	public static final byte ALL_SUB_TYPES_MASK;
+	
+	/** An array of all bit masks */
+	private static final byte[] ALL_SUB_TYPE_MASKS;
+	/** An array of all type ordinals */
+	private static final byte[] ALL_SUB_TYPE_ORDS;
+	
+	
+	static {
+		MetricURISubscriptionType[] values = MetricURISubscriptionType.values();
+		byte stat = 0;
+		byte[] allStats = new byte[values.length];
+		byte[] allOrds = new byte[values.length];
+		for(int i = 0; i < values.length; i++) {
+			allStats[i] = values[i].mask;
+			allOrds[i] = values[i].code;
+			stat = (byte)(stat | values[i].mask);
+		}
+		ALL_SUB_TYPES_MASK = stat;
+		ALL_SUB_TYPE_MASKS = allStats;
+		ALL_SUB_TYPE_ORDS = allOrds;
+	}
+
+	/**
+	 * Returns an array of all status mask bytes
+	 * @return an array of all status mask bytes
+	 */
+	public static byte[] getAllSubTypeMask() {
+		return ALL_SUB_TYPE_MASKS.clone();
+	}
+	
+	/**
+	 * Returns an array of all status ordinals
+	 * @return an array of all status ordinals
+	 */
+	public static byte[] getAllSubTypeOrdinals() {
+		return ALL_SUB_TYPE_ORDS.clone();
+	}
+	
+	
+	/**
+	 * Returns an array of all status mask bytes
+	 * @return an array of all status mask bytes
+	 */
+	public static byte[] getAllSubTypeMasks() {
+		return ALL_SUB_TYPE_MASKS.clone();
+	}
+	
 	
 	private MetricURISubscriptionType(int mask) {
 		this.mask = (byte)mask;

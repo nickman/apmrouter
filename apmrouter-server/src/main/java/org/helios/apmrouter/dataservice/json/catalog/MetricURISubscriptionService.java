@@ -109,6 +109,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	@Override
 	protected void doStart() throws Exception {		
 		keepRunning = true;
+		resetMetrics();
 		startNewMetricEventProcessor();
 		startMetricStateChangeEventProcessor();		
 	}
@@ -362,7 +363,8 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 			while(keepRunning) {
 				try {	
 					Object[] newMetricEvent = NewElementTriggers.newMetricQueue.take();
-					final long startTime = SystemClock.time();
+					incr("NewMetricEvents");
+					final long startTime = System.nanoTime();
 					long metricId = (Long)newMetricEvent[MetricTrigger.METRIC_COLUMN_ID];
 					int metricType = ((Number)newMetricEvent[MetricTrigger.TYPE_COLUMN_ID]).intValue();
 					Iterator<MetricURISubscription> subIter = MetricURISubscription.getMatchingSubscriptions(
@@ -391,7 +393,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 						subscription.sendSubscribersNewMetric(lazyMetric);
 						incr("NewMetricBroadcasts");
 					}
-					final long elapsed = SystemClock.time() - startTime;
+					final long elapsed = System.nanoTime() - startTime;
 					newMetricEventProcessingTime.insert(elapsed);
 				} catch (Exception ex) {
 					if(Thread.interrupted()) Thread.interrupted();
@@ -436,7 +438,8 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 			while(keepRunning) {
 				try {	
 					Object[] metricStateChangeEvent = NewElementTriggers.metricStateChangeQueue.take();
-					final long startTime = SystemClock.time();
+					incr("MetricStateChangeEvents");
+					final long startTime = System.nanoTime();
 					long metricId = (Long)metricStateChangeEvent[MetricTrigger.METRIC_COLUMN_ID];
 					int metricType = ((Number)metricStateChangeEvent[MetricTrigger.TYPE_COLUMN_ID]).intValue();
 					byte newState = ((Number)metricStateChangeEvent[MetricTrigger.STATE_COLUMN_ID]).byteValue();
@@ -467,8 +470,8 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 						subscription.sendSubscribersMetricStateChange(newStatus.name(), lazyMetric);
 						incr("MetricStateChangeBroadcasts");
 					}
-					final long elapsed = SystemClock.time() - startTime;
-					newMetricEventProcessingTime.insert(elapsed);
+					final long elapsed = System.nanoTime() - startTime;
+					metricStateChangeEventProcessingTime.insert(elapsed);
 
 				} catch (Exception ex) {
 					if(Thread.interrupted()) Thread.interrupted();
@@ -491,7 +494,8 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 		Session session = null;
 		try {
 			session = sf.openSession();
-			return (Metric)session.get(Metric.class, metricId);
+			//return (Metric)session.get(Metric.class, metricId);
+			return (Metric)session.get("metric", metricId);
 		} catch (Exception ex) {
 			error("Failed to resolve metricId to Metric through hibernate", ex);
 			return null;
@@ -639,6 +643,27 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	public long getLastMetricStateChangeProcessingTimeMs() {
 		return TimeUnit.MILLISECONDS.convert(getLastMetricStateChangeProcessingTimeNs(), TimeUnit.NANOSECONDS); 
 	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getNewMetricEvents()
+	 */
+	@Override
+	@ManagedMetric(category="MetricURISubscriptionNewMetrics", displayName="NewMetricEvents", metricType=MetricType.COUNTER, description="The total number of new metric events received")
+	public long getNewMetricEvents() {
+		return getMetricValue("NewMetricEvents");
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getMetricStateChangeEvents()
+	 */
+	@Override
+	@ManagedMetric(category="MetricURISubscriptionStatChanges", displayName="MetricStateChangeEvents", metricType=MetricType.COUNTER, description="The total number of metric state change events received")
+	public long getMetricStateChangeEvents() {
+		return getMetricValue("MetricStateChangeEvents");
+	}
+	
 
 
 }

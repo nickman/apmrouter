@@ -57,7 +57,6 @@ import org.helios.apmrouter.sender.netty.handler.ChannelStateAware;
 import org.helios.apmrouter.sender.netty.handler.ChannelStateListener;
 import org.helios.apmrouter.subscription.MetricURISubscriptionEventListener;
 import org.helios.apmrouter.trace.DirectMetricCollection;
-import org.helios.apmrouter.util.SimpleLogger;
 import org.helios.apmrouter.util.TimeoutQueueMap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -323,9 +322,13 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 		return metricURI(uri, false, listeners);
 	}
 	
+	/**
+	 * Callback from agent listener when a MetricURI event is received.
+	 * @param buff the channel buffer containing the MetricURI event
+	 */
 	public void onMetricURIEvent(ChannelBuffer buff) {
 		try {
-			log("MetricURI Event:" + buff);
+			
 			int byteSize = buff.readInt();
 			byte[] bytes = new byte[byteSize];
 			buff.readBytes(bytes);

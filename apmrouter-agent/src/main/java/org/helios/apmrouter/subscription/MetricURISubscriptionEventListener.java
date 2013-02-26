@@ -38,4 +38,10 @@ public interface MetricURISubscriptionEventListener {
 	 * @param newMetric The new metric event
 	 */
 	public void onNewMetric(Object newMetric);
+	
+	/**
+	 * Callback when the agent is notified of a state change in a subscribed metric
+	 * @param metric The metric that changed state
+	 */
+	public void onMetricStateChange(Object metric);
 }

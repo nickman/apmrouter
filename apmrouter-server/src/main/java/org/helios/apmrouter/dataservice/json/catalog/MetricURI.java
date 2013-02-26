@@ -135,7 +135,7 @@ public class MetricURI implements MetricURIMBean {
 	/** The default metric types */
 	private static final int[] DEFAULT_TYPES;
 	/** The default metric types */
-	private static final byte[] DEFAULT_SUB_TYPES = {MetricURISubscriptionType.NEW_METRIC.getCode()};
+	private static final byte[] DEFAULT_SUB_TYPES = MetricURISubscriptionType.getAllSubTypeOrdinals();
 	
 	/** The default metric statuses */
 	private static final byte[] DEFAULT_METRIC_STATUS = new byte[]{0,1};
