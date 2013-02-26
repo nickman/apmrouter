@@ -5,3 +5,5 @@
 /dependency-reduced-pom.xml
 /prodDb.log
 /stacktrace.log
+/prodDb.properties
+/prodDb.script

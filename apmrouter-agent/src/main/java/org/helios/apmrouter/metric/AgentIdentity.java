@@ -11,6 +11,7 @@ import java.net.NetworkInterface;
 import java.util.Enumeration;
 
 import org.helios.apmrouter.jmx.ConfigurationHelper;
+import org.helios.apmrouter.jmx.StringHelper;
 
 /**
  * <p>Title: AgentIdentity</p>
@@ -36,6 +37,23 @@ public enum AgentIdentity {
 	}
 	
 	/**
+	 * Generates a formated string displaying the agent identity
+	 * @return the agent identity
+	 */
+	public static String print() {
+		return new StringBuilder("Agent Identity [")
+		.append("\n\tAgent Name: [").append(ID.agentName).append("]")
+		.append("\n\tDomain Name: [").append(ID.domain).append("]")
+		.append("\n\tNQ Host Name: [").append(ID.host).append("]")
+		.append("\n\tQ Host Name: [").append(ID.hostName).append("]")
+		.append("\n]").toString();
+	}
+	
+	public static void main(String[] args) {
+		System.out.println(print());
+	}
+	
+	/**
 	 * Returns this JVM's determined agent name
 	 * @return this JVM's determined agent name
 	 */
@@ -43,10 +61,14 @@ public enum AgentIdentity {
 		return agentName;
 	}
 	
-	/** This agent's default host name */
+	/** This agent's default fully qualified host name */
 	private String hostName = null;
 	/** This agent's default agent name */
 	private String agentName = null;
+	/** This agent's default non-qualified host name */
+	private String host = null;
+	/** This agent's default domain name */
+	private String domain = null;
 	
 	/**
 	 * Creates a new AgentIdentity by divining the host name and agent name
@@ -62,7 +84,7 @@ public enum AgentIdentity {
 	private void setHost() {
 		try {
 			hostName = InetAddress.getLocalHost().getCanonicalHostName();
-		} catch (IOException iex) {}
+		} catch (IOException iex) {/* No Op */}
 		if(hostName==null) {
 			try {
 				for(Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces(); enumer.hasMoreElements();) {
@@ -76,7 +98,7 @@ public enum AgentIdentity {
 					}
 					if(hostName!=null) break;
 				}
-			} catch (Exception e) {}
+			} catch (Exception e) {/* No Op */}
 		}
 		if(hostName==null) {
 			boolean isWindows = System.getProperty("os.name", "no").toLowerCase().contains("windows");
@@ -89,22 +111,52 @@ public enum AgentIdentity {
 		if(hostName==null) {
 			hostName = "UNKNOWN";
 		}
-		hostName = cleanHostName(hostName).toLowerCase();
+		String[] names = buildNames(hostName);
+		hostName = names[2].toLowerCase();
+		host = names[1].toLowerCase();
+		domain = names[0].toLowerCase();
 	}
 	
 	
-	protected String cleanHostName(String hostName) {
+	/**
+	 * Extracts the non-qualified host name and domain from the passed name
+	 * @param name The discovered host name
+	 * @return and array with [0] = domain (reversed for hierarchy), [1] = the non-qualified host name, [2] = the full qualified host name (reversed for hierarchy)
+	 */
+	protected String[] buildNames(String name) {
+		hostName = name.trim();
+		String[] ret = new String[3];
 		if(hostName.contains(".")) {
-			String[] frags = hostName.split("\\.");
-			StringBuilder b = new StringBuilder();
-			for(int i = 0; i < frags.length; i++) {
-				b.insert(0, (frags[i] + "."));				
+			String[] frags = hostName.replace(" ", "").split("\\.");
+			ret[1] = frags[0];
+			
+			frags = reverseArr(frags);
+			ret[2] = StringHelper.fastConcatAndDelim(".", frags);
+			if(frags.length>1) {
+				String[] domain = new String[frags.length-1];
+				System.arraycopy(frags, 0, domain, 0, frags.length-1);
+				ret[0] = StringHelper.fastConcatAndDelim(".", domain);
+			} else {
+				ret[0] = "";
 			}
-			b.deleteCharAt(b.length()-1);
-			return b.toString();
+			return ret;
 		}
 		
-		return hostName;
+		return new String[]{"", hostName, hostName};
+	}
+	
+	/**
+	 * Reverses the order of the passed array
+	 * @param arr The array to reverse
+	 * @return The reversed order array
+	 */
+	protected String[] reverseArr(String[] arr) {
+		String[] ret = new String[arr.length];
+		
+		for(int ri = arr.length-1, i = 0; i < arr.length; i++, ri--) {
+			ret[ri] = arr[i];
+		}
+		return ret;
 	}
 	
 	/**
@@ -130,6 +182,22 @@ public enum AgentIdentity {
 			// Ok, we'll use the PID until we implement agent naming plugins
 			agentName = ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
 		}
+	}
+
+	/**
+	 * Returns the non-qualified host name
+	 * @return  the non-qualified host name
+	 */
+	public String getHost() {
+		return host;
+	}
+
+	/**
+	 * Returns the domain name which may be blank if one could not determined
+	 * @return the domain name 
+	 */
+	public String getDomain() {
+		return domain;
 	}
 	
 }
