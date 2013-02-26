@@ -39,8 +39,11 @@
 </bean>
 
 	<bean id="MetricURISubscriptionService" class="org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionService">
-		<property name="metricQueueThreadCount" value="5" />
+	
+		<property name="metricStateChangeEventThreads" value="1" />
+		<property name="newMetricEventThreads" value="1" />
 		<property name="catalogDataSource" ref="DataSource" />		
+		<property name="sessionFactory" ref="sessionFactory" />
 	</bean>
 	
 	<bean id="agentMetricURISubHandler" class="org.helios.apmrouter.server.net.listener.netty.handlers.MetricURISubscriptionHandler">
