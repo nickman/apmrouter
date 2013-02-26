@@ -611,7 +611,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 				if(collectorLock.isLocked())
 					collectorLock.unlock();
 				numberOfCollectorsRunning.decrementAndGet();
-				tracer.traceGauge(System.currentTimeMillis()-lastTimeCollectionStarted, "Elapsed Time", getTracingNameSpace());
+				tracer.traceGauge(System.currentTimeMillis()-lastTimeCollectionStarted, "ElapsedTime", getTracingNameSpace());
 			}	
 		} else {
 			trace("Not executing collect method as the collector state is not STARTED.");
