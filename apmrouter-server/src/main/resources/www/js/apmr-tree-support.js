@@ -249,7 +249,7 @@
 				$.apmr.allDomains(function(data) {
 					var pushedDomains = [];
 					$.each(data.msg, function(index, domain) {
-						var uid = "domain-" + domain.replace('.', '_');
+						var uid = "domain-" + domain.replace(/\./g, '_');
 						if($('#' + uid).length==0 && !rootContainsDomain(uid)) {
 							nodeArray.push({
 								attr: {id: uid, rel: "domain", 'domain' : domain},  
