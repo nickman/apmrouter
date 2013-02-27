@@ -508,6 +508,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * Returns the number of new metric event queue processing threads
 	 * @return the number of new metric event queue processing threads
 	 */
+	@Override
 	@ManagedAttribute(description="The number of threads to concurrently process the new metric event queue")
 	public int getNewMetricEventThreads() {
 		return newMetricEventThreads;
@@ -517,6 +518,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * Sets the number of new metric event queue processing threads 
 	 * @param newMetricEventThreads the number of new metric event queue processing threads
 	 */
+	@Override
 	@ManagedAttribute(description="The number of threads to concurrently process the new metric event queue")
 	public void setNewMetricEventThreads(int newMetricEventThreads) {
 		this.newMetricEventThreads = newMetricEventThreads;
@@ -526,6 +528,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * Returns the number of metric state change event queue processing threads
 	 * @return the number of metric state change event queue processing threads
 	 */
+	@Override
 	@ManagedAttribute(description="The number of threads to concurrently process the metric state change event queue")
 	public int getMetricStateChangeEventThreads() {
 		return metricStateChangeEventThreads;
@@ -535,6 +538,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * Sets the number of metric state change event queue processing threads
 	 * @param metricStateChangeEventThreads the number of metric state change event queue processing threads
 	 */
+	@Override
 	@ManagedAttribute(description="The number of threads to concurrently process the metric state change event queue")
 	public void setMetricStateChangeEventThreads(int metricStateChangeEventThreads) {
 		this.metricStateChangeEventThreads = metricStateChangeEventThreads;
@@ -574,6 +578,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * Returns the rolling average of the last 50 new metric event processing elapsed times in ns.
 	 * @return the rolling average of the last 50 new metric event processing elapsed times in ns.
 	 */
+	@Override
 	@ManagedMetric(category="MetricURISubscriptionNewMetrics", displayName="AverageNewMetricProcessingTimeNs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 new metric event processing elapsed times in ns.")
 	public long getAverageNewMetricProcessingTimeNs() {
 		return newMetricEventProcessingTime.avg();
@@ -583,6 +588,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * Returns the rolling average of the last 50 new metric event processing elapsed times in ms.
 	 * @return the rolling average of the last 50 new metric event processing elapsed times in ms.
 	 */
+	@Override
 	@ManagedMetric(category="MetricURISubscriptionNewMetrics", displayName="AverageNewMetricProcessingTimeMs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 new metric event processing elapsed times in ms.")
 	public long getAverageNewMetricProcessingTimeMs() {
 		return TimeUnit.MILLISECONDS.convert(newMetricEventProcessingTime.avg(), TimeUnit.NANOSECONDS);
@@ -592,6 +598,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * Returns the last metric event processing elapsed time in ns.
 	 * @return the last metric event processing elapsed time in ns.
 	 */
+	@Override
 	@ManagedMetric(category="MetricURISubscriptionNewMetrics", displayName="LastNewMetricProcessingTimeNs", metricType=MetricType.GAUGE, description="The last new metric event processing elapsed time in ns.")
 	public long getLastNewMetricProcessingTimeNs() {
 		return newMetricEventProcessingTime.getNewest(); 
@@ -601,6 +608,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * Returns the last metric event processing elapsed time in ms.
 	 * @return the last metric event processing elapsed time in ms.
 	 */
+	@Override
 	@ManagedMetric(category="MetricURISubscriptionNewMetrics", displayName="LastNewMetricProcessingTimeMs", metricType=MetricType.GAUGE, description="The last new metric event processing elapsed time in ms.")
 	public long getLastNewMetricProcessingTimeMs() {
 		return TimeUnit.MILLISECONDS.convert(getLastNewMetricProcessingTimeNs(), TimeUnit.NANOSECONDS); 
@@ -612,6 +620,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * Returns the rolling average of the last 50 metric state change processing elapsed times in ns.
 	 * @return the rolling average of the last 50 metric state change processing elapsed times in ns.
 	 */
+	@Override
 	@ManagedMetric(category="MetricURISubscriptionStatChanges", displayName="AverageMetricStateChangeProcessingTimeNs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 metric state change processing elapsed times in ns.")
 	public long getAverageMetricStateChangeProcessingTimeNs() {
 		return metricStateChangeEventProcessingTime.avg();
@@ -621,6 +630,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * Returns the rolling average of the last 50 metric state change processing elapsed times in ms.
 	 * @return the rolling average of the last 50 metric state change processing elapsed times in ms.
 	 */
+	@Override
 	@ManagedMetric(category="MetricURISubscriptionStatChanges", displayName="AverageMetricStateChangeProcessingTimeMs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 metric state change processing elapsed times in ms.")
 	public long getAverageMetricStateChangeProcessingTimeMs() {
 		return TimeUnit.MILLISECONDS.convert(metricStateChangeEventProcessingTime.avg(), TimeUnit.NANOSECONDS);
@@ -630,6 +640,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * Returns the last metric event processing elapsed time in ns.
 	 * @return the last metric event processing elapsed time in ns.
 	 */
+	@Override
 	@ManagedMetric(category="MetricURISubscriptionStatChanges", displayName="LastMetricStateChangeProcessingTimeNs", metricType=MetricType.GAUGE, description="The last metric state change processing elapsed time in ns.")
 	public long getLastMetricStateChangeProcessingTimeNs() {
 		return metricStateChangeEventProcessingTime.getNewest(); 
@@ -639,6 +650,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * Returns the last metric event processing elapsed time in ms.
 	 * @return the last metric event processing elapsed time in ms.
 	 */
+	@Override
 	@ManagedMetric(category="MetricURISubscriptionStatChanges", displayName="LastMetricStateChangeProcessingTimeMs", metricType=MetricType.GAUGE, description="The last metric state change processing elapsed time in ms.")
 	public long getLastMetricStateChangeProcessingTimeMs() {
 		return TimeUnit.MILLISECONDS.convert(getLastMetricStateChangeProcessingTimeNs(), TimeUnit.NANOSECONDS); 

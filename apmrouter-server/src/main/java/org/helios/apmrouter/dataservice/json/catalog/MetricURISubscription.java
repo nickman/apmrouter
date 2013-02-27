@@ -37,7 +37,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.MXBean;
@@ -50,6 +49,7 @@ import org.helios.apmrouter.catalog.domain.Metric;
 import org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger;
 import org.helios.apmrouter.collections.ConcurrentLongSortedSet;
 import org.helios.apmrouter.dataservice.json.JsonResponse;
+import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
@@ -159,6 +159,80 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	 */
 	public static Iterator<MetricURISubscription> getMatchingSubscriptions(int metricTypeMask, byte stateChangeTypeMask, byte subscriptionEventTypeMask) {
 		return getMatchingSubscriptions(MetricURI.mask(metricTypeMask, stateChangeTypeMask, subscriptionEventTypeMask));
+	}
+	
+	
+	/**
+	 * <p>Handles metric state changes against current and candidate (potential) subscriptions.
+	 * In essence, we want <b>NEW METRIC</b> and <b>METRIC STATE CHANGE</b> events, which are relatively infrequent,
+	 * should keep {@link MetricURISubscription} instances up to date with respect to their {@link #metricIds} metric set
+	 * so that the much more frequent <b>METRIC DATA</b> events can be rapidly processed by simply determining if:<ol>
+	 * 	<li>the subscription's subscription type includes data updates (a one byte bit mask)</li>
+	 *  <li>the subscription's {@link #metricIds} set contains the ID of the incoming data event (a lookup of a long in a {@link ConcurrentLongSortedSet}.</li>
+	 * </ol>. Both operations should evaluate quickly enough, so the remaining challenge of this hotspot is keeping the subscription's membership correctly up to date.</p>
+	 * <p>To recap the dimensions of an update triggered by a metric state change event:<ul>
+	 * 	<li><b>metricId</b>: The <code>long</code> id of the metric that changed state (and the implied {@link IMetric#getFQN()} portions of the metric)</li>
+	 * 	<li><b>metricType</b>: The {@link MetricType} of the incoming metric</li>
+	 * 	<li><b>metricStatus</b>: A <code>byte</code> representing the new state ({@link EntryStatus}) of the metric.</li>
+	 * </ul> The dimensions of the state change event need to be bounced up against the dimensions of each subscription:<ul>
+	 * 	<li><b>metricIds</b>: The subscription's {@link #metricIds} set which contains the metric ids of the current membership, that is,
+	 *    metric ids for metrics that have been determined to be members based on the subscription's criteria.</li>
+	 * 	<li><b>subscriptionType</b>: A <code>byte</code> mask representing the subscription's interest types ({@link MetricURISubscriptionType}), which can be:<ul>
+	 * 		<li>New Metric Events</li>
+	 * 		<li>Metric State Change Events</li>
+	 * 		<li>Metric Live Data Events</li>
+	 * 	</ul> The metric membership (the metric id set) is initially populated when the subscription is initiated, and then updated as applicable <b>NEW METRIC</b> and <b>METRIC STATE CHANGE</b> events are applied.</li>
+	 * 	<li><b>metricType</b>: An <code>int</code> mask representing the types of metrics ({@link MetricType}s) the subscription is interested in.</li>
+	 * 	<li><b>stateChangeType</b>: A <code>byte</code> mask representing the subscription's interest in metric state change types ({@link EntryStatus})</li>
+	 * 	<li><b>metricName</b>: The subscription's [possibly wildcarded] expression defining the domain, host, agent, metric namespace and metric name.</li>
+	 * </ul> Of the subscription dimensions, we want to use all the dimensions before <b><code>metricName</code></b> to determine if the incoming metric is applicable to the subscriptions, since they
+	 * 	allow fast filtering (inclusion/exclusion) without querying the database to determine membership. Ultimately, however, if [non-]membership cannot be confirmed (and the metric is not already a member),
+	 * 	a database call must be made to determine this. This is referred to as <i>membershipResolution</i>.</p>
+	 * <p>The actionable implications of a <b>subscriptionType</b> should not be perceived as in oposition to a seemingly contrary <b>stateChangeType</b> subscription interest.
+	 * A subscription's <b>subscriptionType</b> <i>might not</i> register interest in <b>Metric State Change Events</b>, while at the same time specifying one or more
+	 *   metric <b>stateChangeType</b>s that it <i>is</i> interested in. The absence of a state-change-event interest in a subscription does not exempt it from processing metric state changes.
+	 *   The <b>stateChangeType</b> interest defines the states of metrics that the subscription is interested in, and when a member metric changes state, the subscription membership
+	 *   may be changed by a previously excluded metric entering, or a currently included metric becoming inelligible and exiting the membership set. In other words, all events need to be considered
+	 *   if they [might] affect a subscription's membership by triggering a member entry or exit. The distinguishing aspect of a <b>subscriptionType</b> that includes state change events is that it indicates
+	 *   that the subscriber wishes to be informed of metric state change events in its membership even if the event did not trigger an entry or an exit (a change in memership). A typical scenario for this type
+	 *   of subscription is a UI, like the console metric tree, that updates the visual attributes of a visualized metric when it changes state, even though the tree's membership has not changed.
+	 * </p>
+	 * This is a complicated update since there are multi-dimensional considerations.</p>
+	 * <table border='1'>
+	 * <tr colspan='3'><th>&nbsp;</th><th>Has Metric ID</th><th>No Metric ID</th></tr>
+	 * <tr colspan='3'><th>State Change On Sub</th><td>
+	 * 		<table border='1'>
+	 *		<tr colspan='3'><th>HAS MET/HAS SUB</th><th>Metric Not Member</th><th>Metric is Member</th></tr>
+	 * 		<tr colspan='3'><th>State Interest</th><td>Already in metric set. Send id/state.</td><td>Send id/state</td></tr>
+	 *	  	<tr colspan='3'><th>No State Interest</th><td>Null. No state interest. Not in set.</td><td>No state interest. Remove from group. Send exit.</td></tr>
+	 *	 	</table>
+	 * </td><td>
+	 * 		<table border='1'>
+	 * 		<tr colspan='3'><th>NO MET/HAS SUB</th><th>Metric Not Member</th><th>Metric is Member</th></tr>
+	 * 		<tr colspan='3'><th>State Interest</th><td>Test for membership</td><td>Send Full/Entry</td></tr>
+	 * 		<tr colspan='3'><th>No State Interest</th><td>Null. No state interest. Not in set.</td><td>Null. No state interest. Not in set.</td></tr>
+	 * 		</table>
+	 * </td></tr>
+	 * <tr colspan='3'><th>No State Change Sub</th><td>
+	 * <!-- HAS MET/NO SUB -->
+	 * 		<table border='1'>
+	 * 		<tr colspan='3'><th>HAS MET/NO SUB</th><th>Metric Not Member</th><th>Metric is Member</th></tr>
+	 * 		<tr colspan='3'><th>State Interest</th><td>Already in set. No subs. No action.</td><td>Already in set. Still interested, but no subs. Nothing.</td></tr>
+	 * 		<tr colspan='3'><th>No State Interest</th><td>Already in set, but lost interest. Remove from set.</td><td>Already in set, lost interest, but no subs. Remove from set.</td></tr>
+	 * 		</table> 
+	 * </td><td>
+	 * <!-- NO MET/NO SUB -->
+	 * 		<table border='1'>
+	 * 		<tr colspan='3'><th>NO MET/NO SUB</th><th>Metric Not Member</th><th>Metric is Member</th></tr>
+	 * 		<tr colspan='3'><th>State Interest</th><td>Not in set. No subs. No action.</td><td>Test for membership. Send Full/Entry</td></tr>
+	 * 		<tr colspan='3'><th>No State Interest</th><td>Not in set, no interest in state. Nothing</td><td>Not in set, no interest Nothing.</td></tr>
+	 * 		</table>
+	 * </td></tr>
+	 * </table>
+	 * @return the number of broadcasts as a result of this state change
+	 */
+	public static int processMetricStateChange() {
+		return -1;
 	}
 	
 	
