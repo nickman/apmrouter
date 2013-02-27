@@ -64,7 +64,7 @@ public interface Collector {
 	
 	//public boolean isRunning();
 	//public String getState();
-	public long getCollectPeriod();
+	//public long getCollectPeriod();
 	//public void setCollectPeriod(long period);
 	//public void startCollector(long seconds);
 }

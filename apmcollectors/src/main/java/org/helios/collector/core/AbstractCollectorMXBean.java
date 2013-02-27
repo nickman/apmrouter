@@ -31,13 +31,33 @@ package org.helios.collector.core;
  * @author Sandeep Malhotra (smalhotra@heliosdev.org)
  */
 public interface AbstractCollectorMXBean {
-	//public abstract void start()  throws Exception;
-	public abstract void collect();
-	//public abstract void stop()  throws Exception;
+	public void start() throws Exception;
+	public void stop() throws Exception;
+	//public abstract void collect();
 	public abstract void reset();
-	//public abstract void destroy() throws Exception;
-
-	public abstract long getCollectPeriod();
-	public abstract void setCollectPeriod(long period);
-
+	public boolean isStarted();	
+	
+	public abstract long getCollectionPeriod();
+	//public abstract void setCollectionPeriod(long period);
+	public boolean isLogErrors();
+	public boolean isLogCollectionResult();
+	public String getBlackoutStart();
+	public void setBlackoutStart(String blackoutStart);
+	public String getBlackoutEnd();
+	public void setBlackoutEnd(String blackoutEnd);
+	public String getLastTimeCollectionStarted();
+	public String getLastTimeCollectionCompleted();
+	public String getLastTimeCollectionSucceeded();
+	public String getLastTimeCollectionFailed();
+	public long getLastCollectionElapsedTime();
+	public int getTotalCollectionCount();
+	public int getTotalSuccessCount();
+	public int getTotalFailureCount();
+	public int getConsecutiveFailureCount();
+	public boolean isFallbackFrequencyActivated();
+	public int getMaxRestartAttempts();
+	public String[] getTracingNameSpace();
+	public int getNumberOfActiveCollectors();
+	public String currentState();
+	
 }
