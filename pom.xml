@@ -11,8 +11,9 @@
 		<module>apmrouter-server</module>		
 		<module>jagent</module>
 		<module>apmdestinations</module>		
-		<!--module>codahale</module>
-		<module>apmrouter-web</module>
+		
+		<!-- module>apmrouter-web</module>
+		<module>codahale</module>
 		<module>apmrouter-cl</module-->
 		<module>apmcollectors</module>
   </modules>

@@ -23,7 +23,7 @@ function initMain() {
     			}	        			
     		}
     	); 
-    	addTreeTooltipListener();
+    	//addTreeTooltipListener();
     	$('#top-toolbar').children().css('vertical-align', 'middle');
     	$('#maintabs').tabs({
     		show: function() {

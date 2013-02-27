@@ -31,25 +31,18 @@
 		<serviceurl>service:jmx:jmxmp://0.0.0.0:8007</serviceurl>		
 	</jmx-connector>
 	<javaagents>
-		<!-- <javaagent jar="c:/hprojects/byteman/agent/target/byteman-2.1.1-SNAPSHOT.jar"> -->
-		<javaagent jar="/home/nwhitehead/hprojects/byteman/agent/target/byteman-2.1.1-SNAPSHOT.jar">		
-			<!-- script:/home/nwhitehead/hprojects/byteman/sample/scripts/SocketMonitor.btm -->
-			<!-- script:c:/hprojects/byteman/sample/scripts/SocketMonitor.btm -->
-			<args>				
-			</args>
-			<!-- <jar name="c:/users/nwhitehe/.m2/repository/org/jboss/byteman/byteman-sample/2.1.1-SNAPSHOT/byteman-sample-2.1.1-SNAPSHOT.jar"/> -->
-			<!-- <jar name="/home/nwhitehead/.m2/repository/org/jboss/byteman/byteman-sample/2.1.1-SNAPSHOT/byteman-sample-2.1.1-SNAPSHOT.jar"/>  -->
-		</javaagent>
 	</javaagents>
-	<!-- 
+
 	<aop>
+		<!-- 
 		<trace-annotated>
 			<packages>org.helios.test,org.helios.test2,org.helios.apmrouter.jagent</packages>
 		</trace-annotated>
+		-->
 		
-		<codahale  jar="file:/home/nwhitehead/hprojects/apmrouter/codahale/target/codahale-1.0-SNAPSHOT.jar">
+		<codahale  jar="file:c:/hprojects/apmrouter/codahale/target/codahale-1.0-SNAPSHOT.jar">
 			<annotations/>
-			<packages>com.theice.agent,codahale</packages>
+			<packages>test.org.helios.apmrouter.codahale</packages>
 		</codahale>		
 	</aop>
 	-->

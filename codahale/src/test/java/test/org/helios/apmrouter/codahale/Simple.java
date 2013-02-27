@@ -37,7 +37,7 @@ import com.yammer.metrics.annotation.Timed;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>test.org.helios.apmrouter.codahale.Simple</code></p>
  */
-
+@SuppressWarnings("javadoc")
 public class Simple {
 	protected static final Random R = new Random(System.currentTimeMillis());
 	
@@ -63,7 +63,7 @@ public class Simple {
 		int loopCount = 10000;
 		for(int i = 0; i < loopCount; i++) {
 			s.instrumentMe();
-			try { Thread.sleep(300); } catch (Exception e) {}
+			try { Thread.sleep(300); } catch (Exception e) {/*NoOp*/}
 		}
 		log("Done");
 
@@ -74,8 +74,10 @@ public class Simple {
 		sleepRandom(3000);
 	}
 	
+	
+	
 	protected void sleepRandom(int max) {
-		try { Thread.sleep(posInt(max)); } catch (Exception ex) {}
+		try { Thread.sleep(posInt(max)); } catch (Exception ex) {/*NoOp*/}
 	}
 	
 	
