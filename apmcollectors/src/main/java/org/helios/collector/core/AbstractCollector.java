@@ -47,7 +47,8 @@ import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.TracerFactory;
 import org.helios.collector.BlackoutInfo;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
-import org.springframework.jmx.export.annotation.ManagedMetric;
+import org.springframework.jmx.export.annotation.ManagedNotification;
+import org.springframework.jmx.export.annotation.ManagedNotifications;
 import org.springframework.jmx.export.annotation.ManagedOperation;
 import org.springframework.jmx.export.annotation.ManagedOperationParameter;
 import org.springframework.jmx.export.annotation.ManagedOperationParameters;
@@ -60,14 +61,17 @@ import org.springframework.jmx.export.annotation.ManagedResource;
  * @author Sandeep Malhotra (smalhotra@heliosdev.org)
  * 
  */
+@ManagedNotifications({
+	@ManagedNotification(notificationTypes={"org.helios.collector.exception.notification"}, name="javax.management.Notification", description="Notification indicating exception during collect callback for any collector"),
+	@ManagedNotification(notificationTypes={"org.helios.collectors.AbstractCollector.CollectorState"}, name="javax.management.Notification", description="Notification indicating change in CollectorState")
+})
 @ManagedResource
 public abstract class AbstractCollector extends ServerComponentBean implements 
 					  Callable<CollectionResult>, 
-					  Collector,
-					  AbstractCollectorMXBean{
+					  Collector{
 	//TODO: 
-	// Emit notification
-	// Expose methods and attributes to JMX
+	// Emit notification - done
+	// Expose methods and attributes to JMX - done
 	// streamline lifecycle
 	// Replace JMX's dependency from Apache Commons pool to BoneCP
 	
@@ -79,38 +83,13 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	protected ScheduledFuture<?> scheduleHandle = null;
 	/** The collection period in ms. */
 	protected long collectionPeriod = -1L;
-
-	/**
-	 *======= Following attributes exist in ServerComponentBean/ServerComponent ======
-	 */	
-/*	
-	protected GenericApplicationContext applicationContext = null;
-	protected String beanName = null;
-	protected SimpleApplicationEventMulticaster eventMulticaster = null;
-	protected Executor eventExecutor = null;
-	protected int priority = Ordered.LOWEST_PRECEDENCE;
-	protected ObjectName objectName = null;
-	protected final AtomicBoolean started = new AtomicBoolean(false);
-	protected final Set<Class<? extends ApplicationEvent>> supportedEventTypes = new HashSet<Class<? extends ApplicationEvent>>();
-	protected final Set<Class<?>> supportedEventSourceTypes = new HashSet<Class<?>>();
-	protected NotificationPublisher notificationPublisher = null;
-	
-*/	
-	
-	/**
-	 *======= Following attributes are ported from original AbstractCollector ======
-	 */
-	
 	/** Indicates if details of a collector failures should be logged. */
 	protected boolean logErrors=false;
-	
 	/** 
 	 * Indicates if the base class should trace the status and summary 
 	 * results after each collection.  Helpful for dubugging purposes
 	 */	
 	protected boolean logCollectionResult=false;
-	
-	
 	/**  
 	 * An enum that defines the state of the collector. Lifecycle operations 
 	 * should automatically set this state in each case.
@@ -142,41 +121,29 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 		public boolean isRunning() {
 			return running;
 		}
-		
 	}
-	
+
 	/** Indicates the current state of the collector. */
 	protected CollectorState state;
-	
 	/** Last time a collection was started. */
 	protected long lastTimeCollectionStarted = 0L;
-	
 	/** Last time a collection finished. */
 	protected long lastTimeCollectionCompleted = 0L;
-	
 	/** Last time a collection successfully completed. */
 	protected long lastTimeCollectionSucceeded = 0L;
-	
 	/** Last time a collection failed. */
 	protected long lastTimeCollectionFailed = 0L;
-	
 	/** Last collection elapsed time. */
 	protected long lastCollectionElapsedTime = 0L;	
-	
 	/** Total number of times a collection is done. */
 	protected int totalCollectionCount=0;
-	
 	/** Number of time a collector succeed. */
 	protected int totalSuccessCount=0;
-	
 	/** Number of time the collector failed. */
 	protected int totalFailureCount=0;		
-	
 	/** Total number of active collectors in this JVM. */
 	protected static AtomicInteger numberOfActiveCollectors = new AtomicInteger();	
-	
 	private static AtomicLong notificationSerialNumber = new AtomicLong(0);	
-	
 	/** A label to be displayed on Helios dashboard for Availability of this collector */
 	protected String defaultAvailabilityLabel="Availability";
 	/** Number of failures during collect before Helios switches to a alternate (slower) frequency for this collector */
@@ -195,7 +162,6 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	 * 
 	 */
 	protected int iterationsToSkip = 5;
-	
 	/** Number of attempts made so far to restart this collector after the initial start failed. */
 	protected int restartAttempts = 0;
 	/** 
@@ -204,12 +170,8 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	 * this parameter to -1.
 	 */
 	protected int maxRestartAttempts = 3;
-	
 	/** Delay before another attempt is made to restart a collector.  Default is 2 minutes. */
 	protected long restartAttemptDelayFrequency = 1200000L;
-	
-//	/** Handle to a scheduled cron task */
-//	protected ScheduledTaskHandle<AbstractCollector> restartTaskHandle = null;	
 	
 	/** Start of blackout period - expressed in HH:MM format.  HH is in the 24 hour format **/
 	protected String blackoutStart = null;
@@ -222,28 +184,19 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	protected static final String COLLECTORS_DOMAIN_PROPERTY="helios.collector.jmx.domain";
 	/** Default JMX domain name for all collectors in case COLLECTORS_DOMAIN_PROPERTY is not specified*/
 	protected static final String COLLECTORS_DOMAIN_DEFAULT="org.helios.collector";	
-	
 	/** Used during collect process  */
 	protected final ReentrantLock collectorLock = new ReentrantLock();
-	
 	/**
 	 * Scheduled collect call should wait for this period if the current  
 	 * CollectorState is RESETTING
 	 */
 	protected long waitPeriodIfAlreadyCollecting = 0L;
-	
 	/** Flag to indicate whether reset is called on this collector */
 	protected AtomicBoolean resetFlag = new AtomicBoolean(false);
-	
 	/** Indicates that the collector should be reset every resetCount collections. */
 	protected int resetCount;	
-	
-//	/** Total number of collectors running at this time time in this JVM. */
-//	protected static AtomicInteger numberOfCollectorsRunning = new AtomicInteger();	
-	
 	/** Reference of a POJO that stores information about the last collection result  */
 	protected CollectionResult collectionResult;
-	
 	protected static final Pattern namePattern = Pattern.compile("\\{(\\d++)\\}");
 	protected static final Pattern thisPattern = Pattern.compile("\\{THIS-PROPERTY:([a-zA-Z\\(\\)\\s-]+)}");
 	protected static final Pattern thisDomainPattern = Pattern.compile("\\{THIS-DOMAIN:([\\d+])}");	
@@ -252,6 +205,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	protected static final Pattern targetPattern = Pattern.compile("\\{TARGET-PROPERTY:([a-zA-Z\\(\\)\\s-]+)}");
 	/** The root tracing namespace where all collected metrics will be traced to */
 	protected String[] tracingNameSpace;
+
 	
 	static {
 		Runtime.getRuntime().addShutdownHook(new Thread(){
@@ -262,11 +216,10 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 		});
 	}
 
-
 	/**
 	 * Returns collection period for this collector
 	 */
-	@ManagedMetric (description = "Frequency (ms) at which the collect will happen")
+	@ManagedAttribute (description = "Frequency (ms) at which the collect will happen")
 	public long getCollectionPeriod() {
 		if(collectionPeriod==-1L) {
 			collectionPeriod = ConfigurationHelper.getLongSystemThenEnvProperty("org.helios.collector." + getClass().getSimpleName().toLowerCase() + ".period", 15000L);
@@ -284,7 +237,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	/**
 	 * Indicates whether this collector is started
 	 */
-	@ManagedMetric (description = "Whether this collector is currently active")
+	@ManagedAttribute (description = "Whether this collector is currently active")
 	public AtomicBoolean getStarted() {
 		return started;
 	}	
@@ -296,7 +249,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	public void setLogErrors(boolean logErrors) {
 		this.logErrors = logErrors;
 	}
-	@ManagedMetric (description = "Should collection result be printed out after each collect call")
+	@ManagedAttribute (description = "Should collection result be printed out after each collect call")
 	public boolean isLogCollectionResult() {
 		return logCollectionResult;
 	}
@@ -333,56 +286,56 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	private void setState(CollectorState state) {
 		this.state = state;
 	}	
-	@ManagedMetric (description = "Last time collect started")
+	@ManagedAttribute (description = "Last time collect started")
 	public String getLastTimeCollectionStarted() {
 		return new Date(lastTimeCollectionStarted).toString();
 	}
-	@ManagedMetric (description = "Last time collect completed")
+	@ManagedAttribute (description = "Last time collect completed")
 	public String getLastTimeCollectionCompleted() {
 		return new Date(lastTimeCollectionCompleted).toString();
 	}
-	@ManagedMetric (description = "Last time collect completed successfully")
+	@ManagedAttribute (description = "Last time collect completed successfully")
 	public String getLastTimeCollectionSucceeded() {
 		return new Date(lastTimeCollectionSucceeded).toString();
 	}
-	@ManagedMetric (description = "Last time collect failed")
+	@ManagedAttribute (description = "Last time collect failed")
 	public String getLastTimeCollectionFailed() {
 		return new Date(lastTimeCollectionFailed).toString();
 	}
-	@ManagedMetric (description = "Elapsed time (in ms) for the last collect call")
+	@ManagedAttribute (description = "Elapsed time (in ms) for the last collect call")
 	public long getLastCollectionElapsedTime() {
 		return lastCollectionElapsedTime;
 	}
-	@ManagedMetric (description = "Total number of collect so far")
+	@ManagedAttribute (description = "Total number of collect so far")
 	public int getTotalCollectionCount() {
 		return totalCollectionCount;
 	}
-	@ManagedMetric (description = "Total successful collects so far")
+	@ManagedAttribute (description = "Total successful collects so far")
 	public int getTotalSuccessCount() {
 		return totalSuccessCount;
 	}
-	@ManagedMetric (description = "Total failed collect so far")
+	@ManagedAttribute (description = "Total failed collect so far")
 	public int getTotalFailureCount() {
 		return totalFailureCount;
 	}
-	@ManagedMetric (description = "Total number of colectors active currently in this JVM")
+	@ManagedAttribute (description = "Total number of colectors active currently in this JVM")
 	public int getNumberOfActiveCollectors() {
 		return numberOfActiveCollectors.get();
 	}
-	@ManagedMetric (description = "Number of consecutive errors produced by this collector so far")
+	@ManagedAttribute (description = "Number of consecutive errors produced by this collector so far")
 	public int getConsecutiveFailureCount() {
 		return consecutiveFailureCount;
 	}
-	@ManagedMetric (description = "Flag that indicates whether the alternate frequency is in effect due to recent error while collection")
+	@ManagedAttribute (description = "Flag that indicates whether the alternate frequency is in effect due to recent error while collection")
 	public boolean isFallbackFrequencyActivated() {
 		return fallbackFrequencyActivated;
 	}
-	@ManagedMetric (description = "Maximum number of attempts that will be made to restart a collector whose initial start has failed")
+	@ManagedAttribute (description = "Maximum number of attempts that will be made to restart a collector whose initial start has failed")
 	public int getMaxRestartAttempts() {
 		return maxRestartAttempts;
 	}	
 
-	@ManagedMetric (description = "The root tracing namespace where all collected metrics will be traced to")
+	@ManagedAttribute (description = "The root tracing namespace where all collected metrics will be traced to")
 	public String[] getTracingNameSpace() {
 		return (String[])tracingNameSpace.clone();
 	}
@@ -475,7 +428,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 			setState(CollectorState.STARTED);
 			numberOfActiveCollectors.incrementAndGet();
 			if(notificationPublisher!=null)
-				notificationPublisher.sendNotification(new Notification("org.helios.collector.started",this,notificationSerialNumber.incrementAndGet(),System.currentTimeMillis(),this.getBeanName()));
+				notificationPublisher.sendNotification(new Notification("org.helios.collector.state",this,notificationSerialNumber.incrementAndGet(),System.currentTimeMillis(),this.getBeanName() +" - " +getState().toString()));
 			info(banner("Collector ", this.getBeanName(), " Started"));
 		}catch (Exception ex){
 			setState(CollectorState.START_FAILED);
@@ -673,15 +626,13 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 		setState(CollectorState.STOPPING);
 		try {
 			preStop();
-//			unregisterFromMBeanServer();
 			unscheduleCollect();
-//			unScheduleReset();			
 			stopCollector();
 			postStop();
 			setState(CollectorState.STOPPED);
 			numberOfActiveCollectors.decrementAndGet();
 			if(notificationPublisher!=null)
-				notificationPublisher.sendNotification(new Notification("org.helios.collector.stopped",this,notificationSerialNumber.incrementAndGet(),System.currentTimeMillis(),this.getBeanName()));
+				notificationPublisher.sendNotification(new Notification("org.helios.collector.state",this,notificationSerialNumber.incrementAndGet(),System.currentTimeMillis(),this.getBeanName() +" - " +getState().toString()));
 			info(banner("Collector", this.getBeanName()+" Stopped"));
 		} catch (Exception ex){
 			debug("An error occured while stopping collector bean: " + this.getBeanName(),ex); 
@@ -773,7 +724,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	/**
 	 * @return the current state of this collector
 	 */
-	@ManagedMetric
+	@ManagedAttribute
 	public String currentState() {
 		if(getState()==CollectorState.STARTED) return "Started";
         else if(getState()==CollectorState.COLLECTING) return "Collecting";
@@ -875,5 +826,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 		}
 		return text;
 	}
+
+//	public void handleNotification(Notification notification, Object handback) {}
 	
 }

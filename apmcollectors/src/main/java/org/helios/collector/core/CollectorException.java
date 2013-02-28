@@ -34,6 +34,8 @@ package org.helios.collector.core;
 
 public class CollectorException extends RuntimeException {
 
+	private static final long serialVersionUID = 1467561804651420156L;
+
 	/**
 	 * Creates a new CollectorException
 	 */

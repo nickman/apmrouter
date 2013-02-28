@@ -1,42 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-  <modelVersion>4.0.0</modelVersion>
-  <parent>
-    <groupId>org.helios.apmrouter</groupId>
-    <artifactId>apmrouter</artifactId>
-    <version>1.0-SNAPSHOT</version>
-  </parent>
-  <groupId>org.helios.apmrouter</groupId>
-  <artifactId>apmcollectors</artifactId>
-  <packaging>jar</packaging>
-  <version>1.0-SNAPSHOT</version>
-  <name>apmcollectors</name>
-  <url>http://maven.apache.org</url>
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-  </properties>
-
-
-  <dependencies>
-    <!--   TEST   -->
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-    </dependency>
-
-    	<dependency>
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.helios.apmrouter</groupId>
+		<artifactId>apmrouter</artifactId>
+		<version>1.0-SNAPSHOT</version>
+	</parent>
+	<groupId>org.helios.apmrouter</groupId>
+	<artifactId>apmcollectors</artifactId>
+	<packaging>jar</packaging>
+	<version>1.0-SNAPSHOT</version>
+	<name>apmcollectors</name>
+	<url>http://maven.apache.org</url>
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+	</properties>
+	<dependencies>
+		<!--   TEST   -->
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.helios.apmrouter</groupId>
 			<artifactId>apmrouter-server</artifactId>
 			<version>${project.version}</version>
 		</dependency>
-
 		<dependency>
 			<groupId>commons-pool</groupId>
 			<artifactId>commons-pool</artifactId>
 			<version>1.5.4</version>
 		</dependency>
-
 		<dependency>
 			<groupId>commons-httpclient</groupId>
 			<artifactId>commons-httpclient</artifactId>
@@ -47,87 +42,92 @@
 			<artifactId>not-yet-commons-ssl</artifactId>
 			<version>0.3.9</version>
 		</dependency>
-
 		<dependency>
-		  <groupId>trove</groupId>
-		  <artifactId>trove</artifactId>
-		  <version>3.0.0</version>
+			<groupId>trove</groupId>
+			<artifactId>trove</artifactId>
+			<version>3.0.0</version>
 		</dependency>
-
-    		<dependency>
+		<dependency>
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
 		</dependency>
-
-
-  </dependencies>
+	</dependencies>
 	<build>
 		<defaultGoal>install</defaultGoal>
 		<plugins>
-
-		<!--
+			<!--
 			===========================================
 			Eclipse Compiler Plugin
 		 	===========================================
 		 -->
-		<plugin>
-		   <groupId>org.apache.maven.plugins</groupId>
-		   <artifactId>maven-compiler-plugin</artifactId>
-		   <version>2.3.2</version>
-		   <configuration>
-		      <compilerId>eclipse</compilerId>
-		      <source>1.6</source>
-		      <target>1.6</target>
-		   </configuration>
-		   <dependencies>
-		      <dependency>
-		         <groupId>org.codehaus.plexus</groupId>
-		         <artifactId>plexus-compiler-eclipse</artifactId>
-		         <version>1.8.2</version>
-		      </dependency>
-		   </dependencies>
-		</plugin>
-
-  <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-shade-plugin</artifactId>
-            <version>1.7.1</version>
-            <executions>
-              <execution>
-                <phase>package</phase>
-                <goals>
-                  <goal>shade</goal>
-                </goals>
-                <configuration>
-                  <artifactSet>
-                    <excludes>
-                      <exclude>org.slf4j:log4j-over-slf4j</exclude>
-                      <exclude>org.helios.apmrouter:apmrouter-server</exclude>
-                      <exclude>org.helios.apmrouter:apmrouter-agent</exclude>
-                      <exclude>ch.qos.logback:*</exclude>
-                    </excludes>
-                  </artifactSet>
-
-                   <filters>
-                       <filter>
-                           <artifact>*:*</artifact>
-                           <excludes>
-                               <exclude>META-INF/*.SF</exclude>
-                               <exclude>META-INF/*.DSA</exclude>
-                               <exclude>META-INF/*.RSA</exclude>
-                           </excludes>
-                       </filter>
-                   </filters>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-
-
-		       <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-eclipse-plugin</artifactId>
-                </plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>2.3.2</version>
+				<configuration>
+					<compilerId>eclipse</compilerId>
+					<source>1.6</source>
+					<target>1.6</target>
+				</configuration>
+				<dependencies>
+					<dependency>
+						<groupId>org.codehaus.plexus</groupId>
+						<artifactId>plexus-compiler-eclipse</artifactId>
+						<version>1.8.2</version>
+					</dependency>
+				</dependencies>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>1.7.1</version>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+						<configuration>
+							<artifactSet>
+								<excludes>
+									<exclude>org.slf4j:log4j-over-slf4j</exclude>
+									<exclude>org.helios.apmrouter:apmrouter-server</exclude>
+									<exclude>org.helios.apmrouter:apmrouter-agent</exclude>
+									<exclude>ch.qos.logback:*</exclude>
+								</excludes>
+							</artifactSet>
+							<filters>
+								<filter>
+									<artifact>*:*</artifact>
+									<excludes>
+										<exclude>META-INF/*.SF</exclude>
+										<exclude>META-INF/*.DSA</exclude>
+										<exclude>META-INF/*.RSA</exclude>
+									</excludes>
+								</filter>
+							</filters>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+				<version>2.2</version>
+				<executions>
+					<execution>
+						<id>attach-sources</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-eclipse-plugin</artifactId>
+			</plugin>
 		</plugins>
 	</build>
 </project>
