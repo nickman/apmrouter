@@ -31,6 +31,7 @@
 		<serviceurl>service:jmx:jmxmp://0.0.0.0:8007</serviceurl>		
 	</jmx-connector>
 	<javaagents>
+		<javaagent jar="c:/hprojects/helios-byteman/agent/target/byteman-2.1.1-SNAPSHOT.jar"/>
 	</javaagents>
 
 	<aop>

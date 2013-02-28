@@ -147,7 +147,7 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 			}
 			warn(b);
 		}
-		info("Created [", gaugeHits, "] GAUGE metrics and [", counterHits, "] COUNTER metrics");
+		info("Created [", gaugeMetrics.size(), "] GAUGE metrics and [", counterMetrics.size(), "] COUNTER metrics");
 		Thread t = new Thread(this, "ServerMonitorThread");
 		t.setDaemon(true);
 		t.start();
