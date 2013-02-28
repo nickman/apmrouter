@@ -25,6 +25,7 @@
 package org.helios.apmrouter.server.monitor;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -79,7 +80,6 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 			new NativeMonitor().startMonitor();
 		}		
 		info("Collecting instances of ServerComponentBean....");
-		Set<String> invalids = new HashSet<String>();
 		Map<String, ServerComponentBean> beans = applicationContext.getBeansOfType(ServerComponentBean.class, false, false);
 		info("Located [", beans.size(), "] instances of ServerComponentBean....");
 		int counterHits = 0;
@@ -97,23 +97,23 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 				for(Method m: ReflectionUtils.getAllDeclaredMethods(bean.getValue().getClass())) {
 					ManagedMetric managedMetric = m.getAnnotation(ManagedMetric.class);
 					if(managedMetric!=null) {
-						String category = managedMetric.category();
-						String metricName = managedMetric.displayName();
-						if(category==null || category.trim().isEmpty() || metricName==null || metricName.trim().isEmpty()) {
-							invalids.add("Missing category or display name for [" + beanName + "/" + category + "/" + metricName + "]");
-							continue;
-						}
-						if(!m.getName().substring(3).equals(metricName)) {
-							
-							invalids.add("Mismatch between metricName [" + metricName + "] and method name [" + m.getName() + "].");
-							continue;
-						}
+						String category = managedMetric.category();						
+						String attributeName = attributizeMethodName(m);
+						String displayName = managedMetric.displayName();
+						String metricName = displayName==null ? attributeName : displayName;
+						if(metricName==null || metricName.trim().isEmpty()) continue;
 						
+						String[] namespace = new String[category==null ? 2 : 3];
+						namespace[0] = "platform=APMRouter";
+						namespace[1] = "component=" + beanName;
+						if(category!=null) {
+							namespace[2] =  "category=" + category;
+						}
 						
 						if(managedMetric.metricType()==MetricType.COUNTER) {
-							counters.put(new String[]{"platform=APMRouter", "component=" + beanName, "category=" + category}, metricName);
+							counters.put(namespace, metricName);
 						} else {
-							gauges.put(new String[]{"platform=APMRouter", "component=" + beanName, "category=" + category}, metricName);
+							gauges.put(namespace, metricName);
 						}
 					}
 				}
@@ -124,16 +124,25 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 			}
 		}
 		info("Created [", gaugeHits, "] GAUGE metrics and [", counterHits, "] COUNTER metrics");
-		if(!invalids.isEmpty()) {
-			StringBuilder b = new StringBuilder("\n\tInvalid Metric Annotations:");
-			for(String s: invalids) {
-				b.append("\n\t").append(s);
-			}
-			info(b);
-		}
 		Thread t = new Thread(this, "ServerMonitorThread");
 		t.setDaemon(true);
 		t.start();
+	}
+	
+	/**
+	 * Returns the attribute name for the passed method if it is a traditional getter.
+	 * i.e. it is in the form <b><code>getXXX</code></b> with no parameters. 
+	 * Otherwise, returns null.
+	 * @param method The method to convert
+	 * @return the attribute name or null
+	 */
+	protected String attributizeMethodName(Method method) {
+		if(method==null) return null;
+		String name = method.getName();
+		if(name.startsWith("get") && method.getParameterTypes().length==0) {
+			return name.substring(3);
+		}
+		return null;
 	}
 	
 	/** Null argument const */
@@ -155,7 +164,7 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 					final long value = ((Number)server.getAttribute(on, metricName)).longValue();
 					tracer.traceDeltaCounter(value, metricName, namespace);
 				} catch (Exception ex) {
-					error("Failed to collect localStats for ObjectName [", on, "] on operation [", metricName, "]", ex);
+					error("Failed to collect counter localStats for ObjectName [", on, "] on namespace: ", Arrays.toString(namespace) , " metricName:[", metricName, "]", ex);
 				}				
 			}
 		}
@@ -168,7 +177,7 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 					final long value = ((Number)server.getAttribute(on, metricName)).longValue();
 					tracer.traceGauge(value, metricName, namespace);
 				} catch (Exception ex) {
-					error("Failed to collect localStats for ObjectName [", on, "] on operation [", metricName, "]", ex);
+					error("Failed to collect gauge localStats for ObjectName [", on, "] on namespace: ", Arrays.toString(namespace) , " metricName:[", metricName, "]", ex);
 				}				
 			}
 		}

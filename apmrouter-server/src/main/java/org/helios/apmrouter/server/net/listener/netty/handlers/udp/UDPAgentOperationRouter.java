@@ -175,8 +175,8 @@ public class UDPAgentOperationRouter extends AbstractAgentRequestHandler impleme
 	}
 	
 	/**
-	 * Returns the total number of timed out {@link OpCode#Who} requests
-	 * @return the total number of timed out {@link OpCode#Who} requests
+	 * Returns the total number of timed out {@link OpCode#WHO} requests
+	 * @return the total number of timed out {@link OpCode#WHO} requests
 	 */
 	@ManagedMetric(category="UDPOpRequests", metricType=MetricType.COUNTER, description="total number of timed out WHO requests")
 	public long getTimedOutWhos() {

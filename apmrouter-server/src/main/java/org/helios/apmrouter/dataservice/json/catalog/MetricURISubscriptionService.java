@@ -641,7 +641,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * @return the last metric event processing elapsed time in ns.
 	 */
 	@Override
-	@ManagedMetric(category="MetricURISubscriptionStatChanges", displayName="LastMetricStateChangeProcessingTimeNs", metricType=MetricType.GAUGE, description="The last metric state change processing elapsed time in ns.")
+	@ManagedMetric(category="MetricURISubscriptionStateChanges", displayName="LastMetricStateChangeProcessingTimeNs", metricType=MetricType.GAUGE, description="The last metric state change processing elapsed time in ns.")
 	public long getLastMetricStateChangeProcessingTimeNs() {
 		return metricStateChangeEventProcessingTime.getNewest(); 
 	}
@@ -651,7 +651,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * @return the last metric event processing elapsed time in ms.
 	 */
 	@Override
-	@ManagedMetric(category="MetricURISubscriptionStatChanges", displayName="LastMetricStateChangeProcessingTimeMs", metricType=MetricType.GAUGE, description="The last metric state change processing elapsed time in ms.")
+	@ManagedMetric(category="MetricURISubscriptionStateChanges", displayName="LastMetricStateChangeProcessingTimeMs", metricType=MetricType.GAUGE, description="The last metric state change processing elapsed time in ms.")
 	public long getLastMetricStateChangeProcessingTimeMs() {
 		return TimeUnit.MILLISECONDS.convert(getLastMetricStateChangeProcessingTimeNs(), TimeUnit.NANOSECONDS); 
 	}
