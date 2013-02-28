@@ -56,7 +56,6 @@ import org.helios.apmrouter.jmx.JMXHelper;
  */
 @ManagedResource
 public class JDBCCollector extends AbstractCollector implements ApplicationContextAware {
-	/**  */
 	private static final long serialVersionUID = -2720226379379045990L;
 	protected IJDBCConnectionFactory connectionFactory = null;
 	protected long connectionTimeout = 5000;

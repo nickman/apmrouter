@@ -19,26 +19,23 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this software; if not, write to the Free
  * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
+ * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  *
  */
 package org.helios.collector.core;
 
 /**
  * <p>Title: AbstractCollectorMXBean</p>
- * <p>Description: MXBean Interface for all collectors</p> 
+ * <p>Description: MXBean Interface for all collectors</p>
  * <p>Company: Helios Development Group</p>
  * @author Sandeep Malhotra (smalhotra@heliosdev.org)
  */
 public interface AbstractCollectorMXBean {
 	public void start() throws Exception;
 	public void stop() throws Exception;
-	//public abstract void collect();
 	public abstract void reset();
-	public boolean isStarted();	
-	
+	public boolean isStarted();
 	public abstract long getCollectionPeriod();
-	//public abstract void setCollectionPeriod(long period);
 	public boolean isLogErrors();
 	public boolean isLogCollectionResult();
 	public String getBlackoutStart();
@@ -59,5 +56,7 @@ public interface AbstractCollectorMXBean {
 	public String[] getTracingNameSpace();
 	public int getNumberOfActiveCollectors();
 	public String currentState();
-	
+	public String getBeanName();
+	public String getLevel();
+	public void setLevel(String levelName);
 }

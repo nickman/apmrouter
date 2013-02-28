@@ -31,7 +31,6 @@ import java.util.Map.Entry;
 
 import org.helios.collector.url.URLCollector;
 import org.helios.collector.core.CollectionResult;
-import org.helios.apmrouter.util.StringHelper;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedResource;
 
