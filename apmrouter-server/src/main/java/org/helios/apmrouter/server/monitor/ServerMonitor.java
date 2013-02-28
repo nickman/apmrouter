@@ -26,12 +26,14 @@ package org.helios.apmrouter.server.monitor;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import javax.management.MBeanOperationInfo;
+import javax.management.MBeanAttributeInfo;
+import javax.management.MBeanInfo;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
@@ -62,9 +64,9 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 	/** The MBeanServer to retrieve the metric values from */
 	protected final MBeanServer server = JMXHelper.getHeliosMBeanServer();
 	/** A map of maps of GAUGE metric providing operation names for a bean keyed by the JMX ObjectName */
-	protected final Map<ObjectName, Map<String[], String>> gaugeMetrics = new HashMap<ObjectName, Map<String[], String>>();
+	protected final Map<ObjectName, Map<String[], String[]>> gaugeMetrics = new HashMap<ObjectName, Map<String[], String[]>>();
 	/** A map of maps of COUNTER metric providing operation names for a bean keyed by the JMX ObjectName */
-	protected final Map<ObjectName, Map<String[], String>> counterMetrics = new HashMap<ObjectName, Map<String[], String>>();
+	protected final Map<ObjectName, Map<String[], String[]>> counterMetrics = new HashMap<ObjectName, Map<String[], String[]>>();
 	
 	private final boolean ONE_METRIC_ONLY = false;
 	
@@ -80,19 +82,21 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 			new NativeMonitor().startMonitor();
 		}		
 		info("Collecting instances of ServerComponentBean....");
-		Map<String, ServerComponentBean> beans = applicationContext.getBeansOfType(ServerComponentBean.class, false, false);
+		final Set<String> invalids = new HashSet<String>();
+		Map<String, ServerComponentBean> beans = event.getApplicationContext().getBeansOfType(ServerComponentBean.class, false, false);
 		info("Located [", beans.size(), "] instances of ServerComponentBean....");
 		int counterHits = 0;
 		int gaugeHits = 0;
 		for(Map.Entry<String, ServerComponentBean> bean: beans.entrySet()) {
 			ObjectName on = bean.getValue().getComponentObjectName();
+			final Set<String> attrNames = getMBeanAttributeNames(on);
 			//Set<String> jmxOps = new HashSet<String>();
 			try {
 //				for(MBeanOperationInfo info: server.getMBeanInfo(on).getOperations()) {
 //					jmxOps.add(info.getName());
 //				}
-				Map<String[], String> gauges = new HashMap<String[], String>();
-				Map<String[], String> counters = new HashMap<String[], String>();
+				Map<String[], String[]> gauges = new HashMap<String[], String[]>();
+				Map<String[], String[]> counters = new HashMap<String[], String[]>();
 				String beanName = bean.getKey();
 				for(Method m: ReflectionUtils.getAllDeclaredMethods(bean.getValue().getClass())) {
 					ManagedMetric managedMetric = m.getAnnotation(ManagedMetric.class);
@@ -100,10 +104,23 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 						String category = managedMetric.category();						
 						String attributeName = attributizeMethodName(m);
 						String displayName = managedMetric.displayName();
-						String metricName = displayName==null ? attributeName : displayName;
-						if(metricName==null || metricName.trim().isEmpty()) continue;
+						
+						if(category!=null && category.trim().isEmpty()) category=null;
+						if(displayName!=null && displayName.trim().isEmpty()) displayName=null;
+						
+						String metricName = (displayName==null) ? attributeName : displayName;
+						if(metricName==null || metricName.trim().isEmpty()) {
+							invalids.add(on + "-" + m.getName() + " evaluated null metricName");
+							continue;
+						}
+						metricName = metricName.trim();
+						if(!attrNames.contains(attributeName)) {
+							invalids.add("No attribute match for " + on + "-" + m.getName() + " evaluated null metricName");
+							continue;							
+						}
 						
 						String[] namespace = new String[category==null ? 2 : 3];
+						String[] names = new String[]{metricName, attributeName};
 						namespace[0] = "platform=APMRouter";
 						namespace[1] = "component=" + beanName;
 						if(category!=null) {
@@ -111,9 +128,9 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 						}
 						
 						if(managedMetric.metricType()==MetricType.COUNTER) {
-							counters.put(namespace, metricName);
+							counters.put(namespace, names);
 						} else {
-							gauges.put(namespace, metricName);
+							gauges.put(namespace, names);
 						}
 					}
 				}
@@ -123,10 +140,36 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 				warn("Failed to collect meta-data for ObjectName [", on, "]", ex);
 			}
 		}
+		if(!invalids.isEmpty()) {
+			StringBuilder b = new StringBuilder("\n\tInvalid ManagedMetrics for Server Monitor");
+			for(String s: invalids) {
+				b.append("\n\t").append(s);
+			}
+			warn(b);
+		}
 		info("Created [", gaugeHits, "] GAUGE metrics and [", counterHits, "] COUNTER metrics");
 		Thread t = new Thread(this, "ServerMonitorThread");
 		t.setDaemon(true);
 		t.start();
+	}
+	
+	/**
+	 * Returns a set of attribute names for the passed object name
+	 * @param on the target object name
+	 * @return a set of attribute names
+	 */
+	protected Set<String> getMBeanAttributeNames(ObjectName on) {
+		try {
+			MBeanInfo info = JMXHelper.getHeliosMBeanServer().getMBeanInfo(on);
+			MBeanAttributeInfo[] attrInfos = info.getAttributes();
+			Set<String> attributeNames = new HashSet<String>(attrInfos.length);
+			for(MBeanAttributeInfo attrInfo: attrInfos) {
+				attributeNames.add(attrInfo.getName());
+			}
+			return Collections.unmodifiableSet(attributeNames);
+		} catch (Exception ex) {
+			return Collections.emptySet();
+		}
 	}
 	
 	/**
@@ -155,26 +198,28 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 	 */
 	protected void trace() {
 		MBeanServer server = JMXHelper.getHeliosMBeanServer();
-		for(Map.Entry<ObjectName, Map<String[], String>> metrics: counterMetrics.entrySet()) {
+		for(Map.Entry<ObjectName, Map<String[], String[]>> metrics: counterMetrics.entrySet()) {
 			final ObjectName on = metrics.getKey();
-			for(Map.Entry<String[], String> ops: metrics.getValue().entrySet()) {
+			for(Map.Entry<String[], String[]> ops: metrics.getValue().entrySet()) {
 				String[] namespace = ops.getKey();
-				String metricName = ops.getValue();				
+				String metricName = ops.getValue()[0];				
+				String attributeName = ops.getValue()[1];
 				try {
-					final long value = ((Number)server.getAttribute(on, metricName)).longValue();
+					final long value = ((Number)server.getAttribute(on, attributeName)).longValue();
 					tracer.traceDeltaCounter(value, metricName, namespace);
 				} catch (Exception ex) {
 					error("Failed to collect counter localStats for ObjectName [", on, "] on namespace: ", Arrays.toString(namespace) , " metricName:[", metricName, "]", ex);
 				}				
 			}
 		}
-		for(Map.Entry<ObjectName, Map<String[], String>> metrics: gaugeMetrics.entrySet()) {
+		for(Map.Entry<ObjectName, Map<String[], String[]>> metrics: gaugeMetrics.entrySet()) {
 			final ObjectName on = metrics.getKey();
-			for(Map.Entry<String[], String> ops: metrics.getValue().entrySet()) {
+			for(Map.Entry<String[], String[]> ops: metrics.getValue().entrySet()) {
 				String[] namespace = ops.getKey();
-				String metricName = ops.getValue();				
+				String metricName = ops.getValue()[0];				
+				String attributeName = ops.getValue()[1];		
 				try {
-					final long value = ((Number)server.getAttribute(on, metricName)).longValue();
+					final long value = ((Number)server.getAttribute(on, attributeName)).longValue();
 					tracer.traceGauge(value, metricName, namespace);
 				} catch (Exception ex) {
 					error("Failed to collect gauge localStats for ObjectName [", on, "] on namespace: ", Arrays.toString(namespace) , " metricName:[", metricName, "]", ex);

@@ -66,7 +66,6 @@ public class Simple {
 			try { Thread.sleep(300); } catch (Exception e) {/*NoOp*/}
 		}
 		log("Done");
-
 	}
 	
 	@Timed(name="Instr", scope="t")
