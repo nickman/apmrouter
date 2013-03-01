@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.helios.apmrouter.util.SimpleLogger;
 import org.hyperic.sigar.Cpu;
 import org.hyperic.sigar.CpuInfo;
 import org.hyperic.sigar.CpuPerc;
@@ -119,13 +120,28 @@ public class APMSigar implements SigarProxy {
 	 * The private ctor for the singleton
 	 */
 	private APMSigar() {
+		Sigar tmpSigar = null;
 		try {
-			NativeLibLoader.loadLib();
-			sigar = new Sigar();
+			tmpSigar = new Sigar();
+		} catch (Throwable t) {
+			/* No Op */
+		}
+		Throwable t = null;
+		if(tmpSigar==null) {
+			try {
+				NativeLibLoader.loadLib();
+				tmpSigar = new Sigar();						
+			} catch (Throwable e) {
+				t = e;
+			}
+		}
+		if(tmpSigar!=null) {
+			sigar = tmpSigar;
 			pid = sigar.getPid();
 			sigarVersion = Sigar.VERSION_STRING;
-		} catch (Exception e) {
-			throw new RuntimeException("Failed to load native agent library", e);
+			SimpleLogger.info("\n\t=========================\n\tLoaded Sigar Native Library\n\tVersion:" , sigarVersion , "\n\tNative Library: ", sigar.getNativeLibrary(), "\n\t=========================\n");
+		} else {
+			throw new RuntimeException("Failed to load native agent library", t);
 		}
 	}
 	
