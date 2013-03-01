@@ -158,6 +158,7 @@ public class AgentBoot {
 				return;
 			}			
 			loadProps(XMLHelper.getChildNodeByName(configNode, "props", false));
+			loadInternalByteMan();
 			publify(XMLHelper.getChildNodeByName(configNode, "publify", false));
 			loadJavaAgents(XMLHelper.getChildNodeByName(configNode, "javaagents", false));
 			SenderFactory.getInstance();
@@ -234,7 +235,20 @@ public class AgentBoot {
 	/** The method signature when not providing instrumentation */
 	protected static final Class<?>[] NO_INSTR_SIG = new Class[]{String.class};
 	
-	 
+	/**
+	 * Loads the internal helios byteman agent.
+	 * Should be done after props are loaded.
+	 */
+	private static void loadInternalByteMan() {
+		try {
+			Class<?> byteManClazz = Class.forName("org.jboss.byteman.agent.Main");
+			byteManClazz.getDeclaredMethod("premain", String.class, Instrumentation.class)
+				.invoke(null,  (String)null, instrumentation);
+			SimpleLogger.info("Loaded internal helios byteman agent");
+		} catch (Exception ex) {
+			SimpleLogger.error("Failed to load internal helios byteman agent", ex);
+		}		
+	}
 	
 	/**
 	 * Attempts to initialize the java-agent in the passed agent jar file

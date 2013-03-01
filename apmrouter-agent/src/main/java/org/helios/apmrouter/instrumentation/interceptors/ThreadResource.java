@@ -26,11 +26,8 @@ package org.helios.apmrouter.instrumentation.interceptors;
 
 import java.util.Map;
 
-
-
 import org.helios.apmrouter.util.BitMaskedEnum;
 import org.helios.apmrouter.util.BitMaskedEnum.ShortBitMaskOperations;
-import static org.helios.apmrouter.util.BitMaskedEnum.ShortBitMaskSupport.*;
 
 /**
  * <p>Title: ThreadResource</p>
@@ -62,7 +59,11 @@ public enum ThreadResource implements BitMaskedEnum, ShortBitMaskOperations<Thre
 	/** The reentrancy for the current thread */
 	REENTRANCY,
 	/** The thread concurrency at execution point */
-	CONCURRENCY;
+	CONCURRENCY,
+	/** The number of times the thread enters a monitor */
+	MONITOR,
+	/** Indicates if the instrumented block execution time has exceeded a specified time */
+	SLOW;
 	
 	/** A decoding map to decode the ThreadResource code to a ThreadResource */
 	public static final Map<Short, ThreadResource> CODE2ENUM = BitMaskedEnum.Support.generateShortOrdinalMap(ThreadResource.values());

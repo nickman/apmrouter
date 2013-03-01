@@ -26,8 +26,10 @@ package org.helios.collector.core;
 
 import java.util.Date;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -39,10 +41,9 @@ import java.util.regex.Pattern;
 import javax.management.Notification;
 import javax.management.ObjectName;
 
-import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.jmx.JMXHelper;
-import org.helios.apmrouter.jmx.ScheduledThreadPoolFactory;
+import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.TracerFactory;
 import org.helios.collector.BlackoutInfo;
@@ -76,7 +77,22 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	// Replace JMX's dependency from Apache Commons pool to BoneCP
 	
 	/** The scheduler shared amongst all collector instances */
-	protected static final ScheduledThreadPoolExecutor scheduler = ScheduledThreadPoolFactory.newScheduler("Collector");
+	protected static final ScheduledThreadPoolExecutor scheduler = (ScheduledThreadPoolExecutor)Executors.newScheduledThreadPool(10, new ThreadFactory(){
+		final AtomicInteger serial = new AtomicInteger();
+		final ThreadGroup threadGroup = new ThreadGroup("CollectorsThreadGroup");
+		final ClassLoader context = AbstractCollector.class.getClassLoader();
+		@Override
+		public Thread newThread(Runnable r) {
+			Thread t = new Thread(threadGroup, r, "CollectorsThread#" + serial.incrementAndGet());
+			t.setDaemon(true);
+			t.setContextClassLoader(context);
+			return t;
+		}
+	});
+	/*
+			WAS: //ScheduledThreadPoolFactory.newScheduler("Collector");		 
+	*/ 
+		
 	/** The tracer instance */
 	protected final ITracer tracer = TracerFactory.getTracer();
 	/** The scheduler handle for this collector */

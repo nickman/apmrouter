@@ -40,7 +40,7 @@ import javassist.LoaderClassPath;
 
 /**
  * <p>Title: NativeFactory</p>
- * <p>Description: </p> 
+ * <p>Description: The rhino class locations in Java bounce around so this class locates where they are and spins up a runtime compiled proxy to wrap the functions we need.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.monitor.script.rhino.NativeFactory</code></p>

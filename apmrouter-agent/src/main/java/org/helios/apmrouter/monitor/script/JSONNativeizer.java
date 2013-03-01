@@ -123,7 +123,7 @@ public class JSONNativeizer {
 	
 	/**
 	 * Converts the passed ScriptableObject to a {@link JMXScriptRequest} array
-	 * @param no The rhino native object 
+	 * @param o The rhino native object 
 	 * @return an array of {@link JMXScriptRequest}s
 	 */
 	public static JMXScriptRequest[] fromNative(Object o) {
@@ -212,7 +212,7 @@ public class JSONNativeizer {
 			INativeArray narr = NativeFactory.newNativeArray(groupObject);
 			group = extractStringArray(narr);
 		} else {
-			throw new RuntimeException("Type of group not recognized [" + group.getClass().getName() + "]", new Throwable());
+			throw new RuntimeException("Type of group not recognized", new Throwable());
 		}
 		
 		String functionName = no.getProperty(JMXCalculator.KEY_FUNCTION).toString();
