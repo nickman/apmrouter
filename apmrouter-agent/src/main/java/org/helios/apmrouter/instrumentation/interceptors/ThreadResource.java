@@ -29,7 +29,8 @@ import java.util.Map;
 
 
 import org.helios.apmrouter.util.BitMaskedEnum;
-import static org.helios.apmrouter.util.BitMaskedEnum.Support.*;
+import org.helios.apmrouter.util.BitMaskedEnum.ShortBitMaskOperations;
+import static org.helios.apmrouter.util.BitMaskedEnum.ShortBitMaskSupport.*;
 
 /**
  * <p>Title: ThreadResource</p>
@@ -39,7 +40,7 @@ import static org.helios.apmrouter.util.BitMaskedEnum.Support.*;
  * <p><code>org.helios.apmrouter.instrumentation.interceptors.ThreadResource</code></p>
  */
 
-public enum ThreadResource implements BitMaskedEnum, BitMaskedEnum.ShortBitMaskOperations<ThreadResource> {
+public enum ThreadResource implements BitMaskedEnum, ShortBitMaskOperations<ThreadResource> {
 	/** The elapsed time in ms. */
 	TIME_MS,
 	/** The elapsed time in ns. */
@@ -57,10 +58,16 @@ public enum ThreadResource implements BitMaskedEnum, BitMaskedEnum.ShortBitMaskO
 	/** The number of times the thread was blocked */
 	WAIT_COUNT,	
 	/** The total time the thread waited in ms. */
-	WAIT_TIME;
+	WAIT_TIME,
+	/** The reentrancy for the current thread */
+	REENTRANCY,
+	/** The thread concurrency at execution point */
+	CONCURRENCY;
 	
-	/** A decoding map to decode the NetFlag code to a TCPSocketState */
-	public static final Map<Integer, ThreadResource> CODE2ENUM = generateIntMaskMap(ThreadResource.values());
+	/** A decoding map to decode the ThreadResource code to a ThreadResource */
+	public static final Map<Short, ThreadResource> CODE2ENUM = BitMaskedEnum.Support.generateShortOrdinalMap(ThreadResource.values());
+	/** A decoding map to decode the ThreadResource mask to a ThreadResource */
+	public static final Map<Short, ThreadResource> MASK2ENUM = BitMaskedEnum.Support.generateShortMaskMap(ThreadResource.values());
 	
 	
 	
@@ -93,7 +100,7 @@ public enum ThreadResource implements BitMaskedEnum, BitMaskedEnum.ShortBitMaskO
 	}
 	
 	private ThreadResource() {
-		mask = getShortBitMask(this);
+		mask = BitMaskedEnum.Support.getBitMask((short)0, this);
 	}
 	
 	/** The binary mask for this ThreadResource */

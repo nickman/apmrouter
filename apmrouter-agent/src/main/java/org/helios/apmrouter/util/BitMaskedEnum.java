@@ -190,13 +190,13 @@ public interface BitMaskedEnum {
 		
 		
 		/**
-		 * Generates a short decode map for the passed enum type based on the ordinal
+		 * Generates a short bitmask decode map for the passed enum type based on the ordinal
 		 * @param offset A constant value to add to each enums ordinals for situations 
 		 * where we're tracking a code that is an offset off the ordinal
 		 * @param enums An array of the enum items
 		 * @return a map of the enum items keyed by the bit mask
 		 */
-		public static <E extends Enum<E>> Map<Short, E> generateShortMap(short offset, E...enums) {
+		public static <E extends Enum<E>> Map<Short, E> generateShortMaskMap(short offset, E...enums) {
 			if(enums.length>Short.SIZE) throw new IllegalArgumentException("Invalid number of enums for a short bitmask [" + enums.length + "]. Max allowble is [" + Short.SIZE + "]");
 			Map<Short, E> map = new HashMap<Short, E>(enums.length);
 			for(E e: enums) {
@@ -211,9 +211,34 @@ public interface BitMaskedEnum {
 		 * @param enums An array of the enum items
 		 * @return a map of the enum items keyed by the bit mask
 		 */
-		public static <E extends Enum<E>> Map<Short, E> generateShortMap(E...enums) {
-			return generateShortMap((short)0, enums);
+		public static <E extends Enum<E>> Map<Short, E> generateShortMaskMap(E...enums) {
+			return generateShortMaskMap((short)0, enums);
 		}
+		
+		/**
+		 * Generates a simple ordinal decode map for the passed enum type based on the ordinal
+		 * @param offset A constant value to add to each enums ordinals for situations 
+		 * where we're tracking a code that is an offset off the ordinal
+		 * @param enums An array of the enum items
+		 * @return a map of the enum items keyed by the ordinal
+		 */ 
+		public static <E extends Enum<E>> Map<Short, E> generateShortOrdinalMap(short offset, E...enums) {
+			if(enums.length>Short.SIZE) throw new IllegalArgumentException("Invalid number of enums for a short bitmask [" + enums.length + "]. Max allowble is [" + Short.SIZE + "]");
+			Map<Short, E> map = new HashMap<Short, E>(enums.length);
+			for(E e: enums) {
+				map.put((short)(e.ordinal()+offset), e);
+			}
+			return Collections.unmodifiableMap(map);
+		}		
+		
+		/**
+		 * Generates a simple ordinal decode map for the passed enum type based on the ordinal
+		 * @param enums An array of the enum items
+		 * @return a map of the enum items keyed by the ordinal
+		 */ 
+		public static <E extends Enum<E>> Map<Short, E> generateShortOrdinalMap(E...enums) {
+			return generateShortOrdinalMap((short)0, enums);
+		}				
 		
 		/**
 		 * Generates a byte decode map for the passed enum type based on the ordinal

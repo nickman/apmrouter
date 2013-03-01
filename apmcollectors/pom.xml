@@ -94,6 +94,8 @@
 									<exclude>org.helios.apmrouter:apmrouter-server</exclude>
 									<exclude>org.helios.apmrouter:apmrouter-agent</exclude>
 									<exclude>ch.qos.logback:*</exclude>
+									<exclude>log4j:*</exclude>
+									<exclude>commons-logging:*</exclude>
 								</excludes>
 							</artifactSet>
 							<filters>
