@@ -69,12 +69,12 @@ public class NativeLibLoader {
 	/**
 	 * Loads the native library for the current environment
 	 */
-	public static void loadLib() {
+	public static String loadLib() {
 		String libName = getLibNameQuietly();
 		// === Try lib path ===
 		try {
 			Sigar.load();
-			return;
+			return new Sigar().getNativeLibrary().getAbsolutePath();
 		} catch (Throwable e) {			
 		}
 		
@@ -85,7 +85,7 @@ public class NativeLibLoader {
 			if(libFile.exists()) {
 				try {
 					System.load(libFile.getAbsolutePath());
-					return;
+					return libFile.getAbsolutePath();
 				} catch (Throwable e) {}
 			}
 		}
@@ -93,14 +93,13 @@ public class NativeLibLoader {
 		File devFile = new File(NO_JAR_NATIVE_DIR + libName);
 		try {
 			System.load(devFile.getAbsolutePath());
-			return;
+			return devFile.getAbsolutePath();
 		} catch (Throwable e) {			
 		}
 		//  ===  Extract and write tmp===
 		String libFileName = extractNativeLib(libName);
 		System.load(libFileName);
-		
-		
+		return libFileName;
 	}
 	
 	/**

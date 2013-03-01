@@ -97,6 +97,8 @@ public class APMSigar implements SigarProxy {
 	public final boolean multiCpu =  ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors() > 1;
 	/** The native agent instance */
 	private final Sigar sigar;
+	/** The native agent's native library file */
+	private final String nativeLibraryFile;
 	
 	/** The JVM PID */
 	public final long pid;
@@ -121,17 +123,22 @@ public class APMSigar implements SigarProxy {
 	 */
 	private APMSigar() {
 		Sigar tmpSigar = null;
+		String nativeLibName = null;
 		try {
 			tmpSigar = new Sigar();
+			tmpSigar.getPid();
+			nativeLibName = tmpSigar.getNativeLibrary().getAbsolutePath();
 		} catch (Throwable t) {
-			/* No Op */
+			tmpSigar = null;
 		}
 		Throwable t = null;
 		if(tmpSigar==null) {
 			try {
-				NativeLibLoader.loadLib();
-				tmpSigar = new Sigar();						
+				nativeLibName = NativeLibLoader.loadLib();
+				tmpSigar = new Sigar();
+				tmpSigar.getPid();
 			} catch (Throwable e) {
+				tmpSigar = null;
 				t = e;
 			}
 		}
@@ -139,7 +146,8 @@ public class APMSigar implements SigarProxy {
 			sigar = tmpSigar;
 			pid = sigar.getPid();
 			sigarVersion = Sigar.VERSION_STRING;
-			SimpleLogger.info("\n\t=========================\n\tLoaded Sigar Native Library\n\tVersion:" , sigarVersion , "\n\tNative Library: ", sigar.getNativeLibrary(), "\n\t=========================\n");
+			nativeLibraryFile = nativeLibName;
+			SimpleLogger.info("\n\t=========================\n\tLoaded Sigar Native Library\n\tVersion:" , sigarVersion , "\n\tNative Library: ", nativeLibName, "\n\t=========================\n");
 		} else {
 			throw new RuntimeException("Failed to load native agent library", t);
 		}
@@ -520,7 +528,7 @@ public class APMSigar implements SigarProxy {
 	 * @see org.hyperic.sigar.Sigar#getNativeLibrary()
 	 */
 	public File getNativeLibrary() {
-		return sigar.getNativeLibrary();
+		return new File(nativeLibraryFile);
 	}
 
 	/**
@@ -1241,6 +1249,14 @@ public class APMSigar implements SigarProxy {
 	 */
 	public boolean isMultiCpu() {
 		return multiCpu;
+	}
+
+	/**
+	 * Returns the actual native library file name because {@link Sigar#getNativeLibrary()} returns null if we had to use the tmp deploy.
+	 * @return the actual native library name
+	 */
+	public String getNativeLibraryFile() {
+		return nativeLibraryFile;
 	}
 
 }
