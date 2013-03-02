@@ -20,14 +20,14 @@ enhance the flexibility of the server as much as possible. Collectd and Thrift a
 
 * Destinations are server resident adapters you can configure to forward all, or filtered selections of incoming metrics, to external services that we've intergated into APMRouter. Current supported 
 destinations include:
-  * OpenTSDB
-  * Embedded OpenTSDB ( a fork of OpenTSDB that you can run inside the APMRouter )
-  * Graphite
-  * Wily Introscope
-  * Cube (http://square.github.com/cube/)
-  * Seriesly ( A Go based, document oriented time-series database)  (https://github.com/dustin/seriesly)
+  * [OpenTSDB][1]
+  * [Embedded OpenTSDB][2] ( a fork of OpenTSDB that you can run inside the APMRouter )
+  * [Graphite][3]
+  * [Wily Introscope][4]
+  * [Cube][5] 
+  * [Seriesly][6] (A Go based, document oriented time-series database)
   * SNMP Gateway (forwards received SNMP PDUs to configured SNMP Managers
-  * Additional destinations are on the roadmap, including Complex Event Processors and an Apache Camel Destination which will significantly simplify the creation of customized metric data handling.
+  * Additional destinations are on the roadmap, including Complex Event Processors and an [Apache Camel][7] Destination which will significantly simplify the creation of customized metric data handling.
   * The Destination API makes destinations easy to implement, so perhaps your Destination is out there too.
 
 * The server's internal default destinations are:
@@ -45,11 +45,17 @@ destinations include:
 For example, when hosts or agents come up or down, the console reflects their state, adding new ones into the display if not already present. The console is in very early days, but is getting a lot of attention.
 Here's a screen shot:
 
-![APMRouter Web Console][1]
+![APMRouter Web Console][8]
 
 * JMXUYY is the view of what's going on in the server. It stands for "JMX Up the Ying Yang", which is to say, there's a lot of internal details exposed about the internals of the APMRouter Server. You may 
   need or be interested in this, but that's how we make sure everything is running smoothly (or how we figure out what isn't running so smoothly, ahem.) .
   
   
-  
-[1]: https://github.com/nickman/apmrouter/blob/master/wiki/images/cons.png?raw=true "APMRouter"
+[1]: http://opentsdb.net/  
+[2]: https://github.com/nickman/embedded-opentsdb
+[3]: http://graphite.wikidot.com/
+[4]: http://www.ca.com/us/application-management.aspx
+[5]: https://github.com/square/cube
+[6]: https://github.com/dustin/seriesly
+[7]: http://apache.camel.com
+[8]: https://github.com/nickman/apmrouter/blob/master/wiki/images/cons.png?raw=true "APMRouter"
