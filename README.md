@@ -40,6 +40,16 @@ destinations include:
     data query API which will be implemented for most of the supported destinations, so if you want to visualize historical data in the APMRouter Console, you will be able to pick the destination[s] you
     want to see data for and go to town. We're hoping to have the first few of these available in about 4 weeks. What day is it today ? According to my watch, it's February 29, 2013, but I happen to know
     that it is actually March 1.
+    
+* The APMRouter Web Console. This is the main point for viewing and remotely controlling what goes on in your environment. It is a live view, and it is constantly updated as events occur in the server and agents.
+For example, when hosts or agents come up or down, the console reflects their state, adding new ones into the display if not already present. The console is in very early days, but is getting a lot of attention.
+Here's a screen shot:
+
+![APMRouter Web Console][1]
 
 * JMXUYY is the view of what's going on in the server. It stands for "JMX Up the Ying Yang", which is to say, there's a lot of internal details exposed about the internals of the APMRouter Server. You may 
   need or be interested in this, but that's how we make sure everything is running smoothly (or how we figure out what isn't running so smoothly, ahem.) .
+  
+  
+  
+[1]: https://github.com/nickman/apmrouter/blob/master/wiki/images/cons.png?raw=true "APMRouter"
