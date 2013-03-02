@@ -108,9 +108,9 @@ public class JMXAttributeTrace {
 	 * @return the metricName
 	 */
 	public String getMetricName() {
-		if(metricName==null) 
+/*		if(metricName==null) 
 			return targetAttributeName;
-		else 
+		else */
 			return metricName;
 	}
 	/**
