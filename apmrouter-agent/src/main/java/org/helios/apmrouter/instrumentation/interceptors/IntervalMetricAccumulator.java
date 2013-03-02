@@ -26,10 +26,10 @@ package org.helios.apmrouter.instrumentation.interceptors;
 
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 
-import io.netty.buffer.CompositeByteBuf;
+/*import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.DefaultCompositeByteBuf;
 import io.netty.buffer.UnpooledByteBufAllocator;
-
+*/
 /**
  * <p>Title: IntervalMetricAccumulator</p>
  * <p>Description: An off heap metric accumulator for accumulating metrics during an interval</p> 
@@ -39,11 +39,11 @@ import io.netty.buffer.UnpooledByteBufAllocator;
  */
 
 public class IntervalMetricAccumulator {
-	/** The unpooled bytebuff allocator */
+/*	*//** The unpooled bytebuff allocator *//*
 	protected static final UnpooledByteBufAllocator BUFF_ALLOCATOR = UnpooledByteBufAllocator.DIRECT_BY_DEFAULT;
-	/** The master container for individual metric sub-buffers */
+	*//** The master container for individual metric sub-buffers *//*
 	protected final CompositeByteBuf metricBuffer = new DefaultCompositeByteBuf(BUFF_ALLOCATOR, true, MAX_METRIC_BUFFERS);
-	
+*/	
 	/** The maximum number of metric sub-buffers */
 	public static final int MAX_METRIC_BUFFERS = 1024;
 	/**
