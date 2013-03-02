@@ -63,7 +63,9 @@ public enum ThreadResource implements BitMaskedEnum, ShortBitMaskOperations<Thre
 	/** The number of times the thread enters a monitor */
 	MONITOR,
 	/** Indicates if the instrumented block execution time has exceeded a specified time */
-	SLOW;
+	SLOW,
+	/** An interval count of invocations */
+	COUNT;
 	
 	/** A decoding map to decode the ThreadResource code to a ThreadResource */
 	public static final Map<Short, ThreadResource> CODE2ENUM = BitMaskedEnum.Support.generateShortOrdinalMap(ThreadResource.values());

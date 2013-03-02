@@ -42,7 +42,13 @@
 		</dependency>
 
  -->
+		<!-- Netty 4 Buff Impl -->
 
+		<dependency>
+			<groupId>io.netty</groupId>
+			<artifactId>netty-buffer</artifactId>
+			<version>4.0.0.Beta3-SNAPSHOT</version>
+		</dependency>
 
 		<dependency>
 			<groupId>org.javassist</groupId>

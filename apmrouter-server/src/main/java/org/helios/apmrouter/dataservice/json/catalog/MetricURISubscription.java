@@ -97,7 +97,7 @@ import org.jboss.netty.channel.group.DefaultChannelGroup;
  * </ul> Of the subscription dimensions, we want to use all the dimensions before <b><code>metricName</code></b> to determine if the incoming metric is applicable to the subscriptions, since they
  * 	allow fast filtering (inclusion/exclusion) without querying the database to determine membership. Ultimately, however, if [non-]membership cannot be confirmed (and the metric is not already a member),
  * 	a database call must be made to determine this. This is referred to as <i>membershipResolution</i>.</p>
- * <p>The actionable implications of a <b>subscriptionType</b> should not be perceived as in oposition to a seemingly contrary <b>stateChangeType</b> subscription interest.
+ * <p>The implications of a given <b>subscriptionType</b> that is different from a subscription's  <b>stateChangeType</b> subscription interest, does not exclude an event from updating the membership.
  * A subscription's <b>subscriptionType</b> <i>might not</i> register interest in <b>Metric State Change Events</b>, while at the same time specifying one or more
  *   metric <b>stateChangeType</b>s that it <i>is</i> interested in. The absence of a state-change-event interest in a subscription does not exempt it from processing metric state changes.
  *   The <b>stateChangeType</b> interest defines the states of metrics that the subscription is interested in, and when a member metric changes state, the subscription membership
@@ -107,13 +107,21 @@ import org.jboss.netty.channel.group.DefaultChannelGroup;
  *   of subscription is a UI, like the console metric tree, that updates the visual attributes of a visualized metric when it changes state, even though the tree's membership has not changed.
  * </p>
  * This is a complicated update since there are multi-dimensional considerations.</p>
+ * <p>Possible actions are a combination of:<ul>
+ * 	<li>membershipResolution</li>
+ * 	<li>removeMetricId</li>
+ * 	<li>addMetricId</li>
+ * 	<li>sendEntry</li>
+ * 	<li>sendExit</li>
+ * 	<li>sendStateChange</li>
+ * </ul></p>
  * <table border='1'>
  * <tr colspan='3'><th>&nbsp;</th><th>Has Metric ID</th><th>No Metric ID</th></tr>
  * <tr colspan='3'><th>State Change On Sub</th><td>
  * 		<table border='1'>
  *		<tr colspan='3'><th>HAS MET/HAS SUB</th><th>Metric Not Member</th><th>Metric is Member</th></tr>
- * 		<tr colspan='3'><th>State Interest</th><td>Already in metric set. Send id/state.</td><td>Send id/state</td></tr>
- *	  	<tr colspan='3'><th>No State Interest</th><td>Null. No state interest. Not in set.</td><td>No state interest. Remove from group. Send exit.</td></tr>
+ * 		<tr colspan='3'><th>State Interest</th><td>N/A. Has metricId</td><td>Send state change.</td></tr>
+ *	  	<tr colspan='3'><th>No State Interest</th><td>N/A. Has metricId</td><td>No state interest. Remove from group. Send exit.</td></tr>
  *	 	</table>
  * </td><td>
  * 		<table border='1'>
