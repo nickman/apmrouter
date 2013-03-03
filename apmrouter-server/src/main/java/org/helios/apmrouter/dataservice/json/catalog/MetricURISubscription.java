@@ -65,6 +65,8 @@ import org.jboss.netty.channel.group.ChannelGroupFuture;
 import org.jboss.netty.channel.group.ChannelGroupFutureListener;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
 
+import com.google.gson.JsonObject;
+
 /**
  * <p>Title: MetricURISubscription</p>
  * <p>Description: Represents a subscription to events emanating from a MetricURI (new metrics, metric state changes)</p> 
@@ -119,30 +121,28 @@ import org.jboss.netty.channel.group.DefaultChannelGroup;
  * <tr colspan='3'><th>&nbsp;</th><th>Has Metric ID</th><th>No Metric ID</th></tr>
  * <tr colspan='3'><th>State Change On Sub</th><td>
  * 		<table border='1'>
- *		<tr colspan='3'><th>HAS MET/HAS SUB</th><th>Metric Not Member</th><th>Metric is Member</th></tr>
+ *		<tr colspan='3'><th>HAS MET/HAS SUB: No membershipResolution needed.</th><th>Metric Not Member</th><th>Metric is Member</th></tr>
  * 		<tr colspan='3'><th>State Interest</th><td>N/A. Has metricId</td><td>Send state change.</td></tr>
  *	  	<tr colspan='3'><th>No State Interest</th><td>N/A. Has metricId</td><td>No state interest. Remove from group. Send exit.</td></tr>
  *	 	</table>
  * </td><td>
  * 		<table border='1'>
- * 		<tr colspan='3'><th>NO MET/HAS SUB</th><th>Metric Not Member</th><th>Metric is Member</th></tr>
- * 		<tr colspan='3'><th>State Interest</th><td>Test for membership</td><td>Send Full/Entry</td></tr>
- * 		<tr colspan='3'><th>No State Interest</th><td>Null. No state interest. Not in set.</td><td>Null. No state interest. Not in set.</td></tr>
+ * 		<tr colspan='3'><th>NO MET/HAS SUB: Run membershipResolution</th><th>Metric Not Member</th><th>Metric is Member</th></tr>
+ * 		<tr colspan='3'><th>State Interest</th><td>Not a member. Nothing.</td><td>Add to group. Send enty.</td></tr>
+ * 		<tr colspan='3'><th>No State Interest</th><td>Not a member. Nothing.</td><td>Not interested in this state. Nothing.</td></tr>
  * 		</table>
  * </td></tr>
  * <tr colspan='3'><th>No State Change Sub</th><td>
- * <!-- HAS MET/NO SUB -->
  * 		<table border='1'>
- * 		<tr colspan='3'><th>HAS MET/NO SUB</th><th>Metric Not Member</th><th>Metric is Member</th></tr>
- * 		<tr colspan='3'><th>State Interest</th><td>Already in set. No subs. No action.</td><td>Already in set. Still interested, but no subs. Nothing.</td></tr>
- * 		<tr colspan='3'><th>No State Interest</th><td>Already in set, but lost interest. Remove from set.</td><td>Already in set, lost interest, but no subs. Remove from set.</td></tr>
+ *		<tr colspan='3'><th>HAS MET/NO SUB: No membershipResolution needed.</th><th>Metric Not Member</th><th>Metric is Member</th></tr>
+ * 		<tr colspan='3'><th>State Interest</th><td>N/A. Has metricId</td><td>Not interested in state changes. Nothing.</td></tr>
+ *	  	<tr colspan='3'><th>No State Interest</th><td>N/A. Has metricId</td><td>No state interest. Remove from group. Send exit.</td></tr>
  * 		</table> 
  * </td><td>
- * <!-- NO MET/NO SUB -->
  * 		<table border='1'>
- * 		<tr colspan='3'><th>NO MET/NO SUB</th><th>Metric Not Member</th><th>Metric is Member</th></tr>
- * 		<tr colspan='3'><th>State Interest</th><td>Not in set. No subs. No action.</td><td>Test for membership. Send Full/Entry</td></tr>
- * 		<tr colspan='3'><th>No State Interest</th><td>Not in set, no interest in state. Nothing</td><td>Not in set, no interest Nothing.</td></tr>
+ * 		<tr colspan='3'><th>NO MET/NO SUB: Run membershipResolution</th><th>Metric Not Member</th><th>Metric is Member</th></tr>
+ * 		<tr colspan='3'><th>State Interest</th><td>Not a member. Nothing.</td><td>Add to group. Send enty.</td></tr>
+ * 		<tr colspan='3'><th>No State Interest</th><td>Not a member. Nothing.</td><td>Not interested in this state. Nothing.</td></tr>
  * 		</table>
  * </td></tr>
  * </table>
@@ -277,7 +277,7 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	 * @param catalogDataSource the catalog datasource
 	 * @return true if the passed metric id needs to be added to this subscription, false otherwise
 	 */
-	public boolean metricCandidacy(long metricId, DataSource catalogDataSource ) {
+	public boolean resolveMembership(long metricId, DataSource catalogDataSource ) {
 		if(metricIds.contains(metricId)) return false;
 		Connection conn = null;
 		PreparedStatement ps = null;
@@ -354,6 +354,8 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 		}
 		return metricUriSub;
 	}
+	
+	
 	
 	/**
 	 * Called when the MetricURISubscriptionService is notified of a new metric.
@@ -456,6 +458,37 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 			metricIds.add(metric.getMetricId());
 		}
 	}
+	
+	/**
+	 * Determines if this subscription would still be interested in a metric when it transitions to the passed state
+	 * @param entryState The state to test interest for
+	 * @return true if interested, false if not 
+	 */
+	public boolean isInterestedInState(byte entryState) {
+		return (metricURI.metricStatusMask | entryState)==metricURI.metricStatusMask; 
+	}
+	
+	/**
+	 * Determines if this subscription wants to be notified of non-membership change status transitions
+	 * @return true if it is, false otherwise
+	 */
+	public boolean isInterestedInStateChanges() {
+		return MetricURISubscriptionType.STATE_CHANGE.isEnabled(metricURI.subscriptionType);
+	}
+	
+	/**
+	 * Sends a state change event to subscribers that have a metric that transitioned to a non-terminal state in their membership
+	 * @param metricId The id of the metric
+	 * @param status the new status of the metric
+	 */
+	public void sendStateChangeEvent(long metricId, EntryStatus status) {
+		String message = new StringBuilder().append(metricId).append(":").append(status.name()).toString(); 
+		for(Channel channel: subscribedChannels) {
+			((ChannelJsonResponsePair)channel).write(message , MetricTrigger.STATE_CHANGE_METRIC_EVENT, OpCode.ON_METRIC_URI_EVENT);
+		}
+	}
+	
+	
 
 	
 	/**

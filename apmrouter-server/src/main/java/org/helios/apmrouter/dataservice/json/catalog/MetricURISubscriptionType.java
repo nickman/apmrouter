@@ -90,6 +90,8 @@ public enum MetricURISubscriptionType implements BitMaskedEnum, ByteBitMaskOpera
 		return ALL_SUB_TYPE_MASKS.clone();
 	}
 	
+	
+	
 	/**
 	 * Returns an array of all status ordinals
 	 * @return an array of all status ordinals

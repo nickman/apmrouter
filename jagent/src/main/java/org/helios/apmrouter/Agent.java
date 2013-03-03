@@ -104,8 +104,9 @@ public class Agent {
 			URL jarUrl = Agent.class.getProtectionDomain().getCodeSource().getLocation();
 			File agentFile = new File(jarUrl.getFile());
 			JarFile jarFile = new JarFile(agentFile);
-			Agent.instrumentation.appendToBootstrapClassLoaderSearch(jarFile);
 			log("Agent Code Source: [" + jarUrl + "]   File: [" + agentFile + "]");
+			Agent.instrumentation.appendToBootstrapClassLoaderSearch(jarFile);
+			
 		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
 		}

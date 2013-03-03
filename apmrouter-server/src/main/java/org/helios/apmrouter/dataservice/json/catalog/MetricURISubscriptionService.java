@@ -52,6 +52,8 @@ import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.support.MetricType;
 
+import com.google.gson.JsonObject;
+
 /**
  * <p>Title: MetricURISubscriptionService</p>
  * <p>Description: Service to manage subscriptions to metric events in the form of {@link MetricURI}s.</p> 
@@ -379,7 +381,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 						if(subscription.hasMetricId(metricId)) {
 							continue;
 						}
-						if(!subscription.metricCandidacy(metricId, _catalogDataSource)) {
+						if(!subscription.resolveMembership(metricId, _catalogDataSource)) {
 							continue;
 						}
 						subscription.addMetricId(metricId);
@@ -444,20 +446,33 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 					int metricType = ((Number)metricStateChangeEvent[MetricTrigger.TYPE_COLUMN_ID]).intValue();
 					byte newState = ((Number)metricStateChangeEvent[MetricTrigger.STATE_COLUMN_ID]).byteValue();
 					EntryStatus newStatus = EntryStatus.forByte(newState);
+					// We're getting ALL, only filtering by metric type
 					Iterator<MetricURISubscription> subIter = MetricURISubscription.getMatchingSubscriptions(
 							org.helios.apmrouter.metric.MetricType.valueOf(metricType).getMask(),
-							newStatus.getMask(),
-							MetricURISubscriptionType.STATE_CHANGE.getMask()							
+							EntryStatus.ALL_STATUS_MASK,
+							MetricURISubscriptionType.ALL_SUB_TYPES_MASK							
 					);
 					if(subIter==null) continue;
 					Metric lazyMetric = null;
 					while(subIter.hasNext()) {
 						MetricURISubscription subscription = subIter.next();
 						if(subscription.hasMetricId(metricId)) {
+							if(subscription.isInterestedInState(newState)) {
+								// the subscription is still interested in the metric, so no membership change
+								if(subscription.isInterestedInStateChanges()) {
+									// there's no membership change, but the subscriber wants to know about 
+									// state changes of metrics in its existing membership
+									subscription.sendStateChangeEvent(metricId, EntryStatus.forByte(newState)); 
+								}
+							}
 							continue;
 						}
-						if(!subscription.metricCandidacy(metricId, _catalogDataSource)) {
+						if(!subscription.resolveMembership(metricId, _catalogDataSource)) {
+							// subscription did not have this metric, but resolveMembership determined it was not elligible
 							continue;
+						} else {
+							// subscription did not have this metric, and resolveMembership determined it is elligible
+							
 						}
 						subscription.addMetricId(metricId);
 						if(lazyMetric==null) {
@@ -482,6 +497,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 			}
 		}
 	}
+	
 	
 	
 	/**
