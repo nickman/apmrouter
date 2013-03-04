@@ -78,6 +78,11 @@ public interface ISender extends MetricSubmitter {
 	 */
 	public void send(IMetric metric, long timeout) throws TimeoutException;
 	
+	/**
+	 * Sends a HELLO op to the server
+	 */
+	public void sendHello();	
+	
 
 	
 	/**

@@ -71,11 +71,19 @@ public class NativeLibLoader {
 	 */
 	public static String loadLib() {
 		String libName = getLibNameQuietly();
+		final PrintStream out = System.out;
+		final PrintStream err = System.err;
 		// === Try lib path ===
 		try {
+			System.setErr(IO.NULL_PRINTSTREAM);
+			System.setOut(IO.NULL_PRINTSTREAM);
 			Sigar.load();
 			return new Sigar().getNativeLibrary().getAbsolutePath();
-		} catch (Throwable e) {			
+		} catch (Throwable e) {
+			/* No Op */
+		} finally {
+			System.setErr(err);
+			System.setOut(out);			
 		}
 		
 		//  ===  Look in jZab home ===

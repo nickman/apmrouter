@@ -74,12 +74,13 @@
                   <exclude>ch.qos.logback:*</exclude>
                 </excludes>
               </artifactSet>
-              <mainClass>org.helios.apmrouter.Agent</mainClass>
+              <mainClass>org.helios.apmrouter.satellite.Satellite</mainClass>
               <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
               <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
               <includePluginDependencies>false</includePluginDependencies>
               <manifestEntries>
                 <Premain-Class>org.helios.apmrouter.Agent</Premain-Class>
+                <Main-Class>org.helios.apmrouter.satellite.Satellite</Main-Class>
                 <Agent-Class>org.helios.apmrouter.Agent</Agent-Class>
                 <Can-Redefine-Classes>true</Can-Redefine-Classes>
                 <Can-Retransform-Classes>true</Can-Retransform-Classes>
@@ -87,7 +88,9 @@
               </manifestEntries>
               <transformers>
                 <transformer>
+                  <mainClass>org.helios.apmrouter.satellite.Satellite</mainClass>
                   <manifestEntries>
+                    <Main-Class>org.helios.apmrouter.satellite.Satellite</Main-Class>
                     <Premain-Class>org.helios.apmrouter.Agent</Premain-Class>
                     <Agent-Class>org.helios.apmrouter.Agent</Agent-Class>
                     <Can-Redefine-Classes>true</Can-Redefine-Classes>
@@ -103,11 +106,12 @@
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
         <configuration>
-          <mainClass>org.helios.apmrouter.Agent</mainClass>
+          <mainClass>org.helios.apmrouter.satellite.Satellite</mainClass>
           <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
           <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
           <includePluginDependencies>false</includePluginDependencies>
           <manifestEntries>
+            <Main-Class>org.helios.apmrouter.satellite.Satellite</Main-Class>
             <Premain-Class>org.helios.apmrouter.Agent</Premain-Class>
             <Agent-Class>org.helios.apmrouter.Agent</Agent-Class>
             <Can-Redefine-Classes>true</Can-Redefine-Classes>

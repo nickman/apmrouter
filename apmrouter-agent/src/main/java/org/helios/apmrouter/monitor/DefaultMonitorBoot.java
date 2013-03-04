@@ -25,6 +25,7 @@
 package org.helios.apmrouter.monitor;
 
 import org.helios.apmrouter.monitor.jvm.JVMMonitor;
+import org.helios.apmrouter.monitor.nativex.NativeMonitor;
 
 /**
  * <p>Title: DefaultMonitorBoot</p>
@@ -40,6 +41,14 @@ public class DefaultMonitorBoot {
 	 */
 	public static void boot() {
 		new JVMMonitor().startMonitor();
+	}
+	
+	/**
+	 * Starts the satellite monitors
+	 */
+	public static void satellite() {
+		boot();
+		new NativeMonitor().startMonitor();
 	}
 
 }

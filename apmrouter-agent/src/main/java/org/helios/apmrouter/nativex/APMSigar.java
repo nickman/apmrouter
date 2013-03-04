@@ -25,6 +25,7 @@
 package org.helios.apmrouter.nativex;
 
 import java.io.File;
+import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -32,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.helios.apmrouter.util.IO;
 import org.helios.apmrouter.util.SimpleLogger;
 import org.hyperic.sigar.Cpu;
 import org.hyperic.sigar.CpuInfo;
@@ -124,12 +126,21 @@ public class APMSigar implements SigarProxy {
 	private APMSigar() {
 		Sigar tmpSigar = null;
 		String nativeLibName = null;
+		final PrintStream out = System.out;
+		final PrintStream err = System.err;
+		//this.enableLogging(false);
 		try {
+			System.setErr(IO.NULL_PRINTSTREAM);
+			System.setOut(IO.NULL_PRINTSTREAM);			
 			tmpSigar = new Sigar();
 			tmpSigar.getPid();
 			nativeLibName = tmpSigar.getNativeLibrary().getAbsolutePath();
 		} catch (Throwable t) {
 			tmpSigar = null;
+		} finally {
+			//this.enableLogging(true);
+			System.setErr(err);
+			System.setOut(out);						
 		}
 		Throwable t = null;
 		if(tmpSigar==null) {
