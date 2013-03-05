@@ -55,14 +55,14 @@ APMRouter Collectors
 ====================
 
 Here is the list of built in performance and availability collectors:
-* JDBC Collector: Collects data from JDBC Data Sources.
-* JMX Collector: Collects data from JMX Agents.
-* Web Service and URL Collector: Validates status, response time and content from Web Services and HTTP(S) End Points.
-* Ping Collector: Collects data from ping operations against networked hosts.
-* Linux Collector: Collects performance, status and availability metrics from Linux and Unix hosts using SIGAR API.
-* Windows Collector: Collects performance, status and availability metrics from Windows hosts using SIGAR API.
-* Apache Web Server Collector: Collects performance, status and availability metrics from Apache web servers.
-* SNMP Collector: Collects performance, status and availability metrics from SNMP agents.
+* **JDBC Collector**: Collects data from JDBC Data Sources.
+* **JMX Collector**: Collects data from JMX Agents.
+* **Web Service and URL Collector**: Validates status, response time and content from Web Services and HTTP(S) End Points.
+* **Ping Collector**: Collects data from ping operations against networked hosts.
+* **Linux Collector**: Collects performance, status and availability metrics from Linux and Unix hosts using SIGAR API.
+* **Windows Collector**: Collects performance, status and availability metrics from Windows hosts using SIGAR API.
+* **Apache Web Server Collector**: Collects performance, status and availability metrics from Apache web servers.
+* **SNMP Collector**: Collects performance, status and availability metrics from SNMP agents.
   
   
 [1]: http://opentsdb.net/  
