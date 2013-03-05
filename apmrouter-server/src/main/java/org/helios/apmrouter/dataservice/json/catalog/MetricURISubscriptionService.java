@@ -470,10 +470,8 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 						if(!subscription.resolveMembership(metricId, _catalogDataSource)) {
 							// subscription did not have this metric, but resolveMembership determined it was not elligible
 							continue;
-						} else {
-							// subscription did not have this metric, and resolveMembership determined it is elligible
-							
 						}
+						// subscription did not have this metric, and resolveMembership determined it is elligible						
 						subscription.addMetricId(metricId);
 						if(lazyMetric==null) {
 							lazyMetric = getMetric(metricId, _sessionFactory);
@@ -482,12 +480,12 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 								break;  //  we don't want to handle this error here.
 							}
 						}
-						subscription.sendSubscribersMetricStateChange(newStatus.name(), lazyMetric);
+						subscription.sendSubscribersNewMetric(lazyMetric);
+//						subscription.sendSubscribersMetricStateChange(newStatus.name(), lazyMetric);
 						incr("MetricStateChangeBroadcasts");
 					}
 					final long elapsed = System.nanoTime() - startTime;
 					metricStateChangeEventProcessingTime.insert(elapsed);
-
 				} catch (Exception ex) {
 					if(Thread.interrupted()) Thread.interrupted();
 					if(keepRunning) {

@@ -8,6 +8,9 @@ class MListener implements MetricURISubscriptionEventListener {
     public void onNewMetric(Object newMetric) {
         println "NEW METRIC:${newMetric.dump()}";
     }
+    public void onMetricStateChange(Object metric) {
+        println "METRIC STATE CHANGE:${metric.dump()}";
+    }
 }
 listener = new MListener();
 println Class.forName("org.jboss.netty.buffer.ChannelBuffer").getProtectionDomain().getCodeSource().getLocation();

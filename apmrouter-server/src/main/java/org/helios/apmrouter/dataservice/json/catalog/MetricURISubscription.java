@@ -65,8 +65,6 @@ import org.jboss.netty.channel.group.ChannelGroupFuture;
 import org.jboss.netty.channel.group.ChannelGroupFutureListener;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
 
-import com.google.gson.JsonObject;
-
 /**
  * <p>Title: MetricURISubscription</p>
  * <p>Description: Represents a subscription to events emanating from a MetricURI (new metrics, metric state changes)</p> 
@@ -422,17 +420,28 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 		}
 	}
 	
+//	/**
+//	 * Called when metric changes state and is determined to be a member of this metric uri
+//	 * @param newStateName The name of the metric's new state
+//	 * @param metric the metric in its new state
+//	 */
+//	protected void sendSubscribersMetricStateChange(String newStateName, Metric metric) {
+//		String type = MetricTrigger.STATE_CHANGE_METRIC_EVENT + "." + newStateName;
+//		for(Channel channel: subscribedChannels) {
+//			((ChannelJsonResponsePair)channel).write(metric, type, OpCode.ON_METRIC_URI_EVENT);
+//		}		
+//	}
+	
 	/**
-	 * Called when metric changes state and is determined to be a member of this metric uri
-	 * @param newStateName The name of the metric's new state
-	 * @param metric the metric in its new state
+	 * Sends subscribers a notification that a metric changed state and entered this subscription
+	 * @param metric The metric that entered the subscription due to a state change
 	 */
-	protected void sendSubscribersMetricStateChange(String newStateName, Metric metric) {
-		String type = MetricTrigger.STATE_CHANGE_METRIC_EVENT + "." + newStateName;
+	protected void sendSubscribersEntryMetric(Metric metric) {
 		for(Channel channel: subscribedChannels) {
-			((ChannelJsonResponsePair)channel).write(metric, type, OpCode.ON_METRIC_URI_EVENT);
-		}		
-	}	
+			((ChannelJsonResponsePair)channel).write(metric, MetricTrigger.STATE_CHANGE_METRIC_EVENT, OpCode.ON_METRIC_URI_EVENT);
+		}
+	}
+	
 	
 	
 	/**

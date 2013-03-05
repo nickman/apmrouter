@@ -191,6 +191,8 @@ public class MetricTrigger extends AsynchAbstractTrigger implements MetricTrigge
 	public static final String NEW_METRIC_EVENT = "metric.event.new";
 	/** The JMX notification type for new metric events */
 	public static final String STATE_CHANGE_METRIC_EVENT = "metric.event.statechange";
+	/** The JMX notification type for new metric events */
+	public static final String DATA_METRIC_EVENT = "metric.event.data";
 
 	
 	/**

@@ -55,6 +55,7 @@ import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.sender.netty.codec.IMetricEncoder;
 import org.helios.apmrouter.sender.netty.handler.ChannelStateAware;
 import org.helios.apmrouter.sender.netty.handler.ChannelStateListener;
+import org.helios.apmrouter.subscription.MetricURIEvent;
 import org.helios.apmrouter.subscription.MetricURISubscriptionEventListener;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.helios.apmrouter.util.TimeoutQueueMap;
@@ -322,6 +323,14 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 		return metricURI(uri, false, listeners);
 	}
 	
+	/** The JMX notification type for new metric events */
+	public static final String NEW_METRIC_EVENT = "metric.event.new";
+	/** The JMX notification type for new metric events */
+	public static final String STATE_CHANGE_METRIC_EVENT = "metric.event.statechange";
+	/** The JMX notification type for new metric events */
+	public static final String DATA_METRIC_EVENT = "metric.event.data";
+
+	
 	/**
 	 * Callback from agent listener when a MetricURI event is received.
 	 * @param buff the channel buffer containing the MetricURI event
@@ -333,9 +342,25 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 			byte[] bytes = new byte[byteSize];
 			buff.readBytes(bytes);
 			JSONObject jsonResponse = new JSONObject(new String(bytes));
-			for(MetricURISubscriptionEventListener listener: subListeners) {
-				listener.onNewMetric(jsonResponse);
+			MetricURIEvent event = MetricURIEvent.forEvent(jsonResponse.getString("t"));
+			switch(event) {
+			case DATA:
+				break;
+			case NEW_METRIC:
+				for(MetricURISubscriptionEventListener listener: subListeners) {
+					listener.onNewMetric(jsonResponse);
+				}				
+				break;
+			case STATE_CHANGE:
+				for(MetricURISubscriptionEventListener listener: subListeners) {
+					listener.onMetricStateChange(jsonResponse);
+				}				
+				break;
+			default:
+				break;
+				
 			}
+			
 		} catch (Exception ex) {
 			log("Failed to unmarshall metric URI event" + ex);
 		}
