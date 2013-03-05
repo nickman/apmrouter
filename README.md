@@ -50,6 +50,19 @@ Here's a screen shot:
 
 * JMXUYY is the view of what's going on in the server. It stands for "JMX Up the Ying Yang", which is to say, there's a lot of internal details exposed about the internals of the APMRouter Server. You may 
   need or be interested in this, but that's how we make sure everything is running smoothly (or how we figure out what isn't running so smoothly, ahem.) .
+
+APMRouter Collectors
+====================
+
+Here is the list of built in performance and availability collectors:
+* **JDBC Collector**: Collects data from JDBC Data Sources.
+* **JMX Collector**: Collects data from JMX Agents.
+* **Web Service and URL Collector**: Validates status, response time and content from Web Services and HTTP(S) End Points.
+* **Ping Collector**: Collects data from ping operations against networked hosts.
+* **Linux Collector**: Collects performance, status and availability metrics from Linux and Unix hosts using SIGAR API.
+* **Windows Collector**: Collects performance, status and availability metrics from Windows hosts using SIGAR API.
+* **Apache Web Server Collector**: Collects performance, status and availability metrics from Apache web servers.
+* **SNMP Collector**: Collects performance, status and availability metrics from SNMP agents.
   
   
 [1]: http://opentsdb.net/  
