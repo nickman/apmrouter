@@ -40,8 +40,28 @@ public interface MetricURISubscriptionEventListener {
 	public void onNewMetric(Object newMetric);
 	
 	/**
-	 * Callback when the agent is notified of a state change in a subscribed metric
-	 * @param metric The metric that changed state
+	 * Callback when the agent is notified of a metric state change that triggered an addition to this subscriber's subscription 
+	 * @param metric The metric that entered the subscription
+	 */
+	public void onMetricStateChangeEntry(Object metric);
+	
+	/**
+	 * Callback when the agent is notified of a metric state change on a metric already in this subscriber's subscription 
+	 * @param metric The metric changed state in the subscription
 	 */
 	public void onMetricStateChange(Object metric);
+	
+	
+	/**
+	 * Callback when the agent is notified of a metric state change that triggered a removal from this subscriber's subscription 
+	 * @param metric The metric that exited the subscription
+	 */
+	public void onMetricStateChangeExit(Object metric);
+	
+	/**
+	 * A published metric data event for a metric this subscription is subscribed to
+	 * @param metricData The incoming metric data
+	 */
+	public void onMetricData(Object metricData);
+	
 }

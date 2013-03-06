@@ -345,17 +345,30 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 			MetricURIEvent event = MetricURIEvent.forEvent(jsonResponse.getString("t"));
 			switch(event) {
 			case DATA:
+				for(MetricURISubscriptionEventListener listener: subListeners) {
+					listener.onMetricData(jsonResponse);
+				}								
 				break;
 			case NEW_METRIC:
 				for(MetricURISubscriptionEventListener listener: subListeners) {
 					listener.onNewMetric(jsonResponse);
 				}				
 				break;
+			case STATE_CHANGE_ENTRY:
+				for(MetricURISubscriptionEventListener listener: subListeners) {
+					listener.onMetricStateChangeEntry(jsonResponse);
+				}				
+				break;
+			case STATE_CHANGE_EXIT:
+				for(MetricURISubscriptionEventListener listener: subListeners) {
+					listener.onMetricStateChangeExit(jsonResponse);
+				}				
+				break;
 			case STATE_CHANGE:
 				for(MetricURISubscriptionEventListener listener: subListeners) {
 					listener.onMetricStateChange(jsonResponse);
 				}				
-				break;
+				break;				
 			default:
 				break;
 				

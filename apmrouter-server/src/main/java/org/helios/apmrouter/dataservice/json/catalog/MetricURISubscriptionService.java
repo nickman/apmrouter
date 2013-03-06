@@ -464,6 +464,10 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 									// state changes of metrics in its existing membership
 									subscription.sendStateChangeEvent(metricId, EntryStatus.forByte(newState)); 
 								}
+							} else {
+								// the subscription is no longer interested in the metric after the state change
+								// send exit
+								subscription.removeMetricId(metricId);
 							}
 							continue;
 						}

@@ -53,6 +53,7 @@ import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
+import org.helios.apmrouter.subscription.MetricURIEvent;
 import org.hibernate.Session;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelConfig;
@@ -270,6 +271,14 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	}
 	
 	/**
+	 * Removes the passed metric Id from the subscription's metric ID set
+	 * @param metricId the metric id to remove
+	 */
+	public void removeMetricId(long metricId) {
+		metricIds.remove(metricId);
+	}
+	
+	/**
 	 * Determines if the passed metric id needs to be added to this subscription
 	 * @param metricId the metric ID to test for
 	 * @param catalogDataSource the catalog datasource
@@ -416,7 +425,7 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	 */
 	protected void sendSubscribersNewMetric(Metric metric) {
 		for(Channel channel: subscribedChannels) {
-			((ChannelJsonResponsePair)channel).write(metric, MetricTrigger.NEW_METRIC_EVENT, OpCode.ON_METRIC_URI_EVENT);
+			((ChannelJsonResponsePair)channel).write(metric, MetricURIEvent.NEW_METRIC.getEventName(), OpCode.ON_METRIC_URI_EVENT);
 		}
 	}
 	
@@ -438,10 +447,19 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	 */
 	protected void sendSubscribersEntryMetric(Metric metric) {
 		for(Channel channel: subscribedChannels) {
-			((ChannelJsonResponsePair)channel).write(metric, MetricTrigger.STATE_CHANGE_METRIC_EVENT, OpCode.ON_METRIC_URI_EVENT);
+			((ChannelJsonResponsePair)channel).write(metric, MetricURIEvent.STATE_CHANGE_ENTRY.getEventName(), OpCode.ON_METRIC_URI_EVENT);
 		}
 	}
 	
+	/**
+	 * Sends the subscriber a metric exit when a state change causes a metric to be removed from the metric id set
+	 * @param metricId The metric id to remove
+	 */
+	protected void sendSubscribersExitMetric(long metricId) {
+		for(Channel channel: subscribedChannels) {
+			((ChannelJsonResponsePair)channel).write(metricId, MetricURIEvent.STATE_CHANGE_EXIT.getEventName(), OpCode.ON_METRIC_URI_EVENT);
+		}
+	}
 	
 	
 	/**
@@ -493,7 +511,7 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	public void sendStateChangeEvent(long metricId, EntryStatus status) {
 		String message = new StringBuilder().append(metricId).append(":").append(status.name()).toString(); 
 		for(Channel channel: subscribedChannels) {
-			((ChannelJsonResponsePair)channel).write(message , MetricTrigger.STATE_CHANGE_METRIC_EVENT, OpCode.ON_METRIC_URI_EVENT);
+			((ChannelJsonResponsePair)channel).write(message , MetricURIEvent.STATE_CHANGE.getEventName(), OpCode.ON_METRIC_URI_EVENT);
 		}
 	}
 	
