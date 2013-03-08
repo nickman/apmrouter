@@ -59,7 +59,7 @@ import org.jboss.netty.util.CharsetUtil;
  * <p>Description: Static file HTTP server</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.server.services.handlergroups.fileserver.HttpStaticFileServerHandler</code></p>
+ * <p><code>org.helios.apmrouter.server.unification.pipeline.http.HttpStaticFileServerHandler</code></p>
  * Modified for Netty Ajax Server example project
  * to read content from a specified directory.
  * 

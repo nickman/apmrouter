@@ -74,53 +74,7 @@
 		<property name="server" ref="MBeanServer" />
 	</bean>	
 
-	
-<!--
-
-	 <bean id="DataSource"
-	      class="org.apache.commons.dbcp.BasicDataSource"
-	      destroy-method="close"
-	      p:url="jdbc:h2:file:~/.apmrouter/h2/db;JMX=TRUE;MULTI_THREADED=TRUE;DB_CLOSE_DELAY=-1"
-	      p:driverClassName="org.h2.Driver"
-	      p:username="sa"	      
-	      p:password=""	      
-	      p:initial-size="2"
-	      p:logAbandoned="true"
-	      p:max-active="5"  
-	      p:pool-prepared-statements="true"
-	      p:validation-query="SELECT SYSTIME"
-	      p:test-on-borrow="true"
-	      p:test-while-idle="false"/>
-
-
-	 <bean id="DataSource"
-	      class="org.apache.commons.dbcp.BasicDataSource"
-	      destroy-method="close"
-	      p:url="jdbc:h2:file:~/.apmrouter/h2/db;JMX=TRUE;MULTI_THREADED=TRUE;DB_CLOSE_DELAY=-1"
-	      p:driverClassName="org.h2.Driver"
-	      p:username="sa"	      
-	      p:password=""	      
-	      p:initial-size="2"
-	      p:max-active="5"  
-	      p:pool-prepared-statements="true"
-	      p:validation-query="SELECT SYSTIME"
-	      p:test-on-borrow="true"
-	      p:test-while-idle="false"/>
-	       
-	 <bean id="DataSource"
-	      class="org.apache.commons.dbcp.BasicDataSource"
-	      destroy-method="close"
-	      p:url="jdbc:h2:mem:helios;JMX=TRUE;DB_CLOSE_DELAY=-1"
-	      p:driverClassName="org.h2.Driver"
-	      p:username="sa"	      
-	      p:password=""	      
-	      p:initial-size="2"
-	      p:max-active="5"  
-	      p:pool-prepared-statements="true"
-	      p:validation-query="SELECT SYSTIME"
-	      p:test-on-borrow="true"
-	      p:test-while-idle="false"/>
- -->	    
+	    
 	    <bean id="H2WebServer" class="org.h2.tools.Server"
 	        factory-method="createWebServer" init-method="start">
 	        <constructor-arg value="-web,-webAllowOthers,-webPort,3082" />

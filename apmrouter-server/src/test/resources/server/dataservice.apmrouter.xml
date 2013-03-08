@@ -105,6 +105,16 @@
  	<bean id="fs" class="org.helios.apmrouter.server.unification.pipeline.http.HttpStaticFileServerHandler" >
  		<constructor-arg value="./src/main/resources/www" />
  	</bean>
+ 	
+ 	<bean id="snoop" class="org.helios.apmrouter.server.unification.pipeline.http.HttpSnoopServerHandler">
+ 		<property name="uriPatterns">
+ 			<set>
+ 				<value>/snoop</value>
+ 				<value>/snoop/</value>
+ 			</set>
+ 		</property>
+ 	</bean>
+ 	
  	 
  	 <bean id="ws" class="org.helios.apmrouter.server.unification.pipeline.http.WebSocketServiceHandler" />
  	
