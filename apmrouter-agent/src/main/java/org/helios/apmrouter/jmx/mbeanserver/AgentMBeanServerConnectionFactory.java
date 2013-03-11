@@ -59,7 +59,7 @@ import javax.management.remote.JMXConnector;
 
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.jmx.JMXHelper;
-import org.helios.apmrouter.jmx.connector.mxl.MXLocalJMXConnector;
+import org.helios.apmrouter.jmx.connector.protocol.mxl.MXLocalJMXConnector;
 import org.helios.apmrouter.jmx.mbeanserver.proxy.MBeanServerConnectionProxy;
 import org.helios.apmrouter.util.SimpleLogger;
 import org.helios.apmrouter.util.TimeoutListener;

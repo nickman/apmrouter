@@ -22,7 +22,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.jmx.connector.mxr;
+package org.helios.apmrouter.jmx.connector.protocol.mxrp;
 
 import java.io.IOException;
 import java.util.Map;
@@ -34,7 +34,8 @@ import javax.management.remote.JMXServiceURL;
 
 /**
  * <p>Title: ClientProvider</p>
- * <p>Description: JMX remoting client provider for acquiring {@link MBeanServerConnection}s to agents from external JVMs.</p> 
+ * <p>Description: JMX remoting client provider for acquiring {@link MBeanServerConnection}s to agents from external JVMs proxying through the APMRouter server.</p>
+ * <p>E.g.  <code>service:jmx:mxrp://localhost:8002/service:jmx:udp://com.cpex.ne-wk-nwhi-01/marginservice</code></p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.jmx.connector.mxl.ClientProvider</code></p>

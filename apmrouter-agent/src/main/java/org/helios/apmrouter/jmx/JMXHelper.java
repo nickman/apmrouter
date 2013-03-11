@@ -296,6 +296,7 @@ public class JMXHelper {
 			}
 			return connector;
 		} catch (Exception e) {
+			e.printStackTrace(System.err);
 			throw new RuntimeException("Failed to acquire JMXConnection to [" + jmxUrl + "]", e);
 		}
 	}

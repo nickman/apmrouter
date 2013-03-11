@@ -2,7 +2,7 @@
  * Helios, OpenSource Monitoring
  * Brought to you by the Helios Development Group
  *
- * Copyright 2012, Helios Development Group and individual contributors
+ * Copyright 2007, Helios Development Group and individual contributors
  * as indicated by the @author tags. See the copyright.txt file in the
  * distribution for a full listing of individual contributors.
  *
@@ -22,22 +22,22 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.jmx.connector.local;
+package org.helios.apmrouter.jmx.connector.protocol.mxr;
 
 import java.io.IOException;
 import java.util.Map;
 
+import javax.management.MBeanServerConnection;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorProvider;
 import javax.management.remote.JMXServiceURL;
 
 /**
  * <p>Title: ClientProvider</p>
- * <p>Description: A {@link JMXConnectorProvider} for local in VM connections.</p>
- * <p>Sample {@link JMXServiceURL}: <b><code>service:jmx:local://DefaultDomain</code></b></p> 
+ * <p>Description: JMX remoting client provider for acquiring {@link MBeanServerConnection}s to agents from external JVMs.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.jmx.connector.local.ClientProvider</code></p>
+ * <p><code>org.helios.apmrouter.jmx.connector.mxl.ClientProvider</code></p>
  */
 
 public class ClientProvider implements JMXConnectorProvider {
@@ -47,11 +47,10 @@ public class ClientProvider implements JMXConnectorProvider {
 	 * @see javax.management.remote.JMXConnectorProvider#newJMXConnector(javax.management.remote.JMXServiceURL, java.util.Map)
 	 */
 	@Override
-	public JMXConnector newJMXConnector(JMXServiceURL serviceURL, Map<String, ?> environment) throws IOException {
-		if(serviceURL==null) throw new IllegalArgumentException("The passed JMXServiceURL was null", new Throwable());
-		LocalJMXConnector connector = new LocalJMXConnector();
-		connector.localURL = serviceURL;
-		return connector;
+	public JMXConnector newJMXConnector(JMXServiceURL serviceURL,
+			Map<String, ?> environment) throws IOException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }
