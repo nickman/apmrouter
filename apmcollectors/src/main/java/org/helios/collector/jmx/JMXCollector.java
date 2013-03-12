@@ -368,7 +368,7 @@ public class JMXCollector extends AbstractCollector {
 						JMXAttributeTrace cachedTrace = cachedObject.getResolvedAttributes().get(b);
 						if(cachedTrace!=null && cachedTrace.getDefaultValue()!=null){
 							//- tracer.smartTrace(cachedTrace.getTraceType(),cachedTrace.getDefaultValue(),cachedTrace.getMetricName(), StringHelper.append(tracingNameSpace,true,cachedTrace.getResolvedPrefix()), "");
-							tracer.trace(cachedTrace.getDefaultValue(), cachedTrace.getMetricName(), MetricType.LONG_GAUGE, StringHelper.append(tracingNameSpace,true,cachedTrace.getResolvedPrefix()));
+							tracer.trace(cachedTrace.getDefaultValue(), cachedTrace.getMetricName(), cachedTrace.getTraceMetricType(), StringHelper.append(tracingNameSpace,false,cachedTrace.getResolvedPrefix()));
 						}
 					}
 				}
@@ -501,13 +501,13 @@ public class JMXCollector extends AbstractCollector {
 			Object attrValue = explodedResults.get(trace.getTargetAttributeName());
 			if(attrValue!=null) {
 				//- tracer.smartTrace(trace.getTraceType(),attrValue.toString(),trace.getMetricName(), StringHelper.append(tracingNameSpace,true,trace.getResolvedPrefix()), "");
-				tracer.trace(attrValue.toString(), trace.getMetricName(), MetricType.LONG_GAUGE, StringHelper.append(tracingNameSpace,true,trace.getResolvedPrefix()));
+				tracer.trace(attrValue.toString(), trace.getMetricName(),  trace.getTraceMetricType(), StringHelper.append(tracingNameSpace,false,trace.getResolvedPrefix()));
 			}
 		}
 		
 		for(IObjectFormatter oFormatter: trace.getObjectFormatters()){
 				//- tracer.smartTrace(trace.getTraceType(),oFormatter.format(explodedResults.get(trace.getTargetAttributeName())),oFormatter.getMetricName().equals("")?trace.getMetricName():oFormatter.getMetricName(), StringHelper.append(tracingNameSpace,true,trace.getResolvedPrefix()), "");
-				tracer.trace(oFormatter.format(explodedResults.get(trace.getTargetAttributeName())), oFormatter.getMetricName().equals("")?trace.getMetricName():oFormatter.getMetricName(), MetricType.LONG_GAUGE, StringHelper.append(tracingNameSpace,true,trace.getResolvedPrefix()));
+				tracer.trace(oFormatter.format(explodedResults.get(trace.getTargetAttributeName())), oFormatter.getMetricName().equals("")?trace.getMetricName():oFormatter.getMetricName(), trace.getTraceMetricType(), StringHelper.append(tracingNameSpace,false,trace.getResolvedPrefix()));
 		}
 		
 		for(IObjectTracer oTracer: trace.getObjectTracers()){
@@ -533,9 +533,9 @@ public class JMXCollector extends AbstractCollector {
 			// Metric name is optional so set it to AttributeName if it's not provided in config file
 			if(trace.getMetricName() == null){
 				trace.setMetricName(trace.getTargetAttributeName());
-			}/* else if(trace.getMetricName().contains("{TARGET")) {
+			} else if(trace.getMetricName().contains("{TARGET")) {
 				trace.setMetricName(formatName(trace.getMetricName(), on));
-			}*/
+			}
 			if(trace.getSegment()!=null && trace.getSegment().contains("{TARGET")){
 				trace.setSegment(formatName(trace.getSegment(),on));
 				trace.setResolvedPrefix(StringHelper.append(trace.getSegmentPrefixElements(),trace.getSegment()));
