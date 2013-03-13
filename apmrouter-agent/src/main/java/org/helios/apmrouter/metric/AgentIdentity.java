@@ -28,10 +28,21 @@ import org.helios.apmrouter.jmx.StringHelper;
 
 public enum AgentIdentity {
 	/** The AgentIdentity singleton */
-	ID;
+	ID("localhost", "127.0.0.1");
 	
+	/** We don't really want these host names except as a last resort */
+	public final Set<String> UNDEZ_HOST_NAMES; 
 	
-
+	/**
+	 * Creates a new AgentIdentity by divining the host name and agent name
+	 */
+	private AgentIdentity(String...undHostNames) {
+		UNDEZ_HOST_NAMES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(undHostNames)));
+		setHost();
+		setAgent();
+		
+	}
+	
 	/**
 	 * Returns this JVM's determined host name
 	 * @return this JVM's determined host name
@@ -74,18 +85,7 @@ public enum AgentIdentity {
 	/** This agent's default domain name */
 	private String domain = null;
 	
-	/**
-	 * Creates a new AgentIdentity by divining the host name and agent name
-	 */
-	private AgentIdentity() {
-		setHost();
-		setAgent();
-	}
 	
-	/** We don't really want these host names except as a last resort */
-	public static final Set<String> UNDEZ_HOST_NAMES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
-			"localhost", "127.0.0.1"
-	)));
 	
 	/**
 	 * Tries a couple of ways of getting the fully qualified host name
