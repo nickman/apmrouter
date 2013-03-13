@@ -102,7 +102,11 @@ public enum AgentIdentity {
 					if(!nic.isLoopback()) {
 						for(InterfaceAddress ia: nic.getInterfaceAddresses()) {
 							if(UNDEZ_HOST_NAMES.contains(ia.getAddress().getHostAddress().trim().toLowerCase())) continue;
-							hostName = ia.getAddress().getCanonicalHostName();
+							hostName = ia.getAddress().getCanonicalHostName().trim().toLowerCase();
+							if(UNDEZ_HOST_NAMES.contains(hostName)) {
+								hostName = null;
+								continue;
+							}
 							break;
 						}
 					}
