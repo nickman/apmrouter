@@ -38,6 +38,8 @@
 	<property name="dataSource" ref="DataSource"></property>
 </bean>
 
+	<bean id="SubDestinationService" class="org.helios.apmrouter.destination.subdestination.SubDestinationService"/>
+
 	<bean id="MetricURISubscriptionService" class="org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionService">
 	
 		<property name="metricStateChangeEventThreads" value="1" />

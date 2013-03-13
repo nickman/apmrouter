@@ -82,8 +82,18 @@ public enum OpCode {
 	/** MetricURI subscription cancel */
 	METRIC_URI_UNSUBSCRIBE,
 	/** MetricURI subscription event */
-	ON_METRIC_URI_EVENT;
+	ON_METRIC_URI_EVENT,
+	/** Starts a SubDestination subscription */
+	START_SUB_DEST,
+	/** Stops a SubDestination subscription */
+	STOP_SUB_DEST;
 	
+	
+	public static void main(String[] args) {
+		for(OpCode op: OpCode.values()) {
+			System.out.println("[" + op.name() + "]:" + op.op());
+		}
+	}
 	
 	
 	

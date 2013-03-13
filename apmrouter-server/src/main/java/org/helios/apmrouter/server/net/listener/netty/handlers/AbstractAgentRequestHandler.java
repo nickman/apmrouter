@@ -146,10 +146,10 @@ public abstract class AbstractAgentRequestHandler extends ServerComponentBean im
 						info("Added JsonResponseDownstreamHandler to channel [", channel, "]");
 					}
 					SharedChannelGroup.getInstance().add(channel, ChannelType.UDP_AGENT, "UDPAgent");
-					try {
-					} catch (Exception  e) {
-						throw new RuntimeException("Failed to acquire remote connection to [" + remoteAddress + "]", e);
-					}
+//					try {
+//					} catch (Exception  e) {
+//						throw new RuntimeException("Failed to acquire remote connection to [" + remoteAddress + "]", e);
+//					}
 				}
 			}
 		}
