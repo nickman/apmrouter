@@ -24,13 +24,15 @@
  */
 package org.helios.collector.jmx.tracers;
 
+import org.helios.apmrouter.metric.MetricType;
+
 import java.util.ArrayList;
 import java.util.List;
 
 
 /**
  * <p>Title: JMXAttributeTrace </p>
- * <p>Description: Simple POJO for containing a JMX Attribute Trace</p> 
+ * <p>Description: Simple POJO for containing a JMX Attribute Trace</p>
  * <p>Company: Helios Development Group</p>
  * @author Sandeep Malhotra (smalhotra@heliosdev.org)
  */
@@ -39,17 +41,13 @@ public class JMXAttributeTrace {
 	protected String[] segmentPrefixElements = null;
 	protected String segment = null;
 	protected String metricName = null;
-	protected String traceType = "STICKY_INT_AVG";
-	
-	protected String[] resolvedPrefix = null;
-	
-	//protected String simpleObjectTracerClass = null;
+	protected String traceType = "LONG_GAUGE";
+	private MetricType resolvedTraceMetricType = MetricType.LONG_GAUGE;
+    protected String[] resolvedPrefix = null;
 	protected List<IObjectFormatter> objectFormatters = new ArrayList<IObjectFormatter>();
 	protected List<IObjectTracer> objectTracers = new ArrayList<IObjectTracer>();
-	
 	protected boolean mandatory = false;
 	protected String defaultValue = "0";
-	//protected boolean groovyTracers = false;
 
 
 	/**
@@ -69,7 +67,7 @@ public class JMXAttributeTrace {
 	    this.objectTracers = jMXAttributeTrace.objectTracers;
 	    this.mandatory = jMXAttributeTrace.mandatory;
 	    this.defaultValue = jMXAttributeTrace.defaultValue;
-	    //this.groovyTracers = jMXAttributeTrace.groovyTracers;
+        //this.groovyTracers = jMXAttributeTrace.groovyTracers;
 	}
 	/**
 	 * @return the attributeName
@@ -91,19 +89,30 @@ public class JMXAttributeTrace {
 	public JMXAttributeTrace(){
 		
 	}
-	
+
 	/**
 	 * @return the tracerType
 	 */
 	public String getTraceType() {
 		return traceType;
 	}
+
+    public MetricType getTraceMetricType(){
+        return resolvedTraceMetricType;
+    }
 	/**
-	 * @param tracerType the tracerType to set
+	 * @param traceType the tracerType to set
 	 */
-	public void setTraceType(String tracerType) {
-		this.traceType = tracerType;
-	}
+	public void setTraceType(String traceType) {
+         this.traceType = traceType;
+         try{
+            resolvedTraceMetricType = MetricType.valueOfName(traceType);
+         } catch (IllegalArgumentException iex){
+            /*Ignore exception as default Metric Type
+              of LONG_GAUGE will be assigned to this tracer */
+         }
+    }
+
 	/**
 	 * @return the metricName
 	 */
@@ -160,7 +169,10 @@ public class JMXAttributeTrace {
 	 * @return the segmentPrefixElements
 	 */
 	public String[] getSegmentPrefixElements() {
-		return (String[])segmentPrefixElements.clone();
+        if(segmentPrefixElements!=null)
+		    return (String[])segmentPrefixElements.clone();
+        else
+            return new String[]{};
 	}
 	
 	/**
