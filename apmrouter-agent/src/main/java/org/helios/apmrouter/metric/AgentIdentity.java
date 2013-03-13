@@ -8,7 +8,11 @@ import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.jmx.StringHelper;
@@ -78,6 +82,11 @@ public enum AgentIdentity {
 		setAgent();
 	}
 	
+	/** We don't really want these host names except as a last resort */
+	public static final Set<String> UNDEZ_HOST_NAMES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
+			"localhost", "127.0.0.1"
+	)));
+	
 	/**
 	 * Tries a couple of ways of getting the fully qualified host name
 	 */
@@ -85,13 +94,14 @@ public enum AgentIdentity {
 		try {
 			hostName = InetAddress.getLocalHost().getCanonicalHostName();
 		} catch (IOException iex) {/* No Op */}
-		if(hostName==null) {
+		if(hostName==null || UNDEZ_HOST_NAMES.contains(hostName.trim().toLowerCase())) {
+			hostName = null;
 			try {
 				for(Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces(); enumer.hasMoreElements();) {
 					NetworkInterface nic = enumer.nextElement();
 					if(!nic.isLoopback()) {
 						for(InterfaceAddress ia: nic.getInterfaceAddresses()) {
-							if("127.0.0.1".equals(ia.getAddress().getHostAddress())) continue;
+							if(UNDEZ_HOST_NAMES.contains(ia.getAddress().getHostAddress().trim().toLowerCase())) continue;
 							hostName = ia.getAddress().getCanonicalHostName();
 							break;
 						}
