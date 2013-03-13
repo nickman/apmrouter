@@ -94,7 +94,7 @@ public enum AgentIdentity {
 		try {
 			hostName = InetAddress.getLocalHost().getCanonicalHostName();
 		} catch (IOException iex) {/* No Op */}
-		if(hostName==null || UNDEZ_HOST_NAMES.contains(hostName.trim().toLowerCase())) {
+		if(hostName==null || UNDEZ_HOST_NAMES.contains(hostName.trim().toLowerCase()) || hostName.contains(":") || hostName.contains("%")) { 
 			hostName = null;
 			try {
 				for(Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces(); enumer.hasMoreElements();) {
@@ -102,7 +102,7 @@ public enum AgentIdentity {
 					if(!nic.isLoopback()) {
 						for(InterfaceAddress ia: nic.getInterfaceAddresses()) {
 							hostName = ia.getAddress().getCanonicalHostName().trim().toLowerCase();
-							if(UNDEZ_HOST_NAMES.contains(hostName)) {
+							if(UNDEZ_HOST_NAMES.contains(hostName) || hostName.contains(":") || hostName.contains("%")) {
 								hostName = null;
 								continue;
 							}
