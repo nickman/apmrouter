@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xmlns:jee="http://www.springframework.org/schema/jee"
+   xmlns:p="http://www.springframework.org/schema/p"
+   xmlns:c="http://www.springframework.org/schema/c"
+   xmlns:context="http://www.springframework.org/schema/context"
+   xsi:schemaLocation="http://www.springframework.org/schema/beans
+                          http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+                          http://www.springframework.org/schema/jee
+                       http://www.springframework.org/schema/jee/spring-jee-3.1.xsd
+                       http://www.springframework.org/schema/util
+                       http://www.springframework.org/schema/util/spring-util-3.1.xsd
+                       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <context:annotation-config/>
+    <context:mbean-export registration="ignoreExisting" />
+
+    <bean id="JMXServiceURLConnector" class="org.helios.collector.jmx.connection.JMXServiceURLConnectionFactory"
+    c:jmxServiceURL="service:jmx:rmi://192.168.1.7:3000/jndi/rmi://192.168.1.7:9000/server"/>
+
+
+    <bean id="Coherence_Collector" class="org.helios.collector.jmx.JMXCollector"
+        c:_0-ref="JMXServiceURLConnector"
+        p:tracingNameSpace="Coherence"
+        p:logErrors="true"
+        p:logCollectionResult="true" >
+        <property name="jmxObjects">
+            <list>
+                <ref bean="ClusterInformation" />
+                <ref bean="NodeInformation" />
+            </list>
+        </property>
+    </bean>
+
+    <bean name="ClusterInformation" class="org.helios.collector.jmx.tracers.JMXObject">
+        <property name="targetObjectName" value="Coherence:type=Cluster"/>
+        <property name="targetAttributeTraces">
+            <list>
+                <bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="ClusterSize" />
+            </list>
+        </property>
+    </bean>
+
+    <bean name="NodeInformation" class="org.helios.collector.jmx.tracers.JMXObject">
+        <property name="targetObjectName" value="Coherence:type=Node,*"/>
+        <property name="targetAttributeTraces">
+            <list>
+                <bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="PacketsReceived" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="PacketsSent" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="PacketsResent" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="PacketsRepeaded" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="PacketsResentEarly" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="PacketsResentExcess" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="PacketsBundled" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="PublisherSuccessRate" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="ReceiverSuccessRate" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="ResendDelay" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="SendAckDelay" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="SendQueueSize" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="TrafficJamCount" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="TrafficJamDelay" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="WeakestChannel" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="SendQueueSize" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="CpuCount" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="MemoryAvailableMB" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="MemoryMaxMB" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="MachineId" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+
+            </list>
+        </property>
+    </bean>
+
+</beans>
