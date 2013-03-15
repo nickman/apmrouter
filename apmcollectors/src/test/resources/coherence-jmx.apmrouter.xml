@@ -16,8 +16,19 @@
     <context:annotation-config/>
     <context:mbean-export registration="ignoreExisting" />
 
+	<bean
+	    class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+	    <description>Property to be used as class identifier for org.helios.collector.jmx.tracers.JMXAttributeTrace</description>
+	    <property name="properties">
+		<props>
+		    <prop key="class_Trace">org.helios.collector.jmx.tracers.JMXAttributeTrace</prop>
+		</props>
+	    </property>
+	</bean>
+
+
     <bean id="JMXServiceURLConnector" class="org.helios.collector.jmx.connection.JMXServiceURLConnectionFactory"
-    c:jmxServiceURL="service:jmx:rmi://192.168.1.7:3000/jndi/rmi://192.168.1.7:9000/server"/>
+    c:jmxServiceURL="service:jmx:rmi://192.168.1.8:3000/jndi/rmi://192.168.1.8:9000/server"/>
 
 
     <bean id="Coherence_Collector" class="org.helios.collector.jmx.JMXCollector"
@@ -29,6 +40,8 @@
             <list>
                 <ref bean="ClusterInformation" />
                 <ref bean="NodeInformation" />
+		<ref bean="CacheInformation" />
+		<ref bean="ServiceInformation" />
             </list>
         </property>
     </bean>
@@ -37,7 +50,7 @@
         <property name="targetObjectName" value="Coherence:type=Cluster"/>
         <property name="targetAttributeTraces">
             <list>
-                <bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="ClusterSize" />
+                <bean class="${class_Trace}" p:targetAttributeName="ClusterSize" />
             </list>
         </property>
     </bean>
@@ -46,30 +59,91 @@
         <property name="targetObjectName" value="Coherence:type=Node,*"/>
         <property name="targetAttributeTraces">
             <list>
-                <bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="PacketsReceived" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="PacketsSent" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="PacketsResent" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="PacketsRepeaded" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="PacketsResentEarly" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="PacketsResentExcess" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="PacketsBundled" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="PublisherSuccessRate" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="ReceiverSuccessRate" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="ResendDelay" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="SendAckDelay" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="SendQueueSize" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
+                <bean class="${class_Trace}" p:targetAttributeName="PacketsReceived" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="PacketsSent" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="PacketsResent" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="PacketsRepeaded" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="PacketsResentEarly" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="PacketsResentExcess" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="PacketsBundled" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="PublisherSuccessRate" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="ReceiverSuccessRate" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="ResendDelay" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="SendAckDelay" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="SendQueueSize" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
 
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="TrafficJamCount" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="TrafficJamDelay" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="WeakestChannel" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="SendQueueSize" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="CpuCount" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="MemoryAvailableMB" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="MemoryMaxMB" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-		<bean class="org.helios.collector.jmx.tracers.JMXAttributeTrace" p:targetAttributeName="MachineId" p:segment="Node-{TARGET-PROPERTY:nodeId}"/>
-
+		<bean class="${class_Trace}" p:targetAttributeName="TrafficJamCount" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="TrafficJamDelay" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="WeakestChannel" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="SendQueueSize" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="CpuCount" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="MemoryAvailableMB" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="MemoryMaxMB" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="MachineId" p:segmentPrefixElements="Node" p:segment="{TARGET-PROPERTY:nodeId}"/>
             </list>
         </property>
     </bean>
+
+
+	<bean name="CacheInformation" class="org.helios.collector.jmx.tracers.JMXObject">
+	<property name="targetObjectName" value="Coherence:type=Cache,service=DistributedCache,*"/>
+	<property name="targetAttributeTraces">
+	    <list>
+		<bean class="${class_Trace}" p:targetAttributeName="StoreAverageReadMillis" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="CachePrunesMillis" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="HitProbability" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="StoreAverageWriteMillis" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="StoreFailures" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="CacheMissesMillis" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="TotalGetsMillis" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="QueueSize" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="Units" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="AverageGetMillis" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="CachePrunes" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="AverageHitMillis" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="Size" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="CacheHitsMillis" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="TotalPutsMillis" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="TotalPuts" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="TotalGets" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="AverageMissMillis" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="AveragePutMillis" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="CacheHits" p:segmentPrefixElements="{TARGET-PROPERTY:name}" p:segment="{TARGET-PROPERTY:nodeId}"/>
+	    </list>
+	</property>
+	</bean>
+
+
+
+
+	<bean name="ServiceInformation" class="org.helios.collector.jmx.tracers.JMXObject">
+	<property name="targetObjectName" value="Coherence:type=Service,name=DistributedCache,*"/>
+	<property name="targetAttributeTraces">
+	    <list>
+		<bean class="${class_Trace}" p:targetAttributeName="ThreadAbandonedCount" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="TaskTimeoutCount" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="PartitionsVulnerable" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="TaskBacklog" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="BackupCount" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="PartitionsUnbalanced" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="RequestPendingCount" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="TaskHungDuration" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="ThreadAverageActiveCount" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="TaskCount" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="ThreadIdleCount" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="OwnedPartitionsPrimary" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="OwnedPartitionsBackup" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="RequestPendingDuration" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="PartitionsEndangered" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="RequestAverageDuration" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="RequestTimeoutCount" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="TaskHungCount" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="TaskMaxBacklog" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="Statistics" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="RequestTotalCount" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="TaskAverageDuration" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+	    </list>
+	</property>
+	</bean>
 
 </beans>
