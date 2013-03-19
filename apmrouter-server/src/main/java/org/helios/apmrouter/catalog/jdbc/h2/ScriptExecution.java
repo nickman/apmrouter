@@ -24,12 +24,16 @@
  */
 package org.helios.apmrouter.catalog.jdbc.h2;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.net.URL;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 
 import javax.sql.DataSource;
 
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.util.URLHelper;
 
 /**
  * <p>Title: ScriptExecution</p>
@@ -43,10 +47,12 @@ public class ScriptExecution {
 	/** The datasource to get the connection from  */
 	protected final DataSource dataSource;
 	/** The script source to run */
-	protected final String scriptSource;
-	/** Indicates if 
+	protected String scriptSource;
 	/** Instance logger */
 	protected Logger log = Logger.getLogger(getClass());
+	
+	/** The runscript template */
+	public static final String URL_SCRIPT_TEMPLATE = "RUNSCRIPT FROM '%s'";
 	
 	/**
 	 * Creates a new ScriptExecution
@@ -54,9 +60,81 @@ public class ScriptExecution {
 	 * @param scriptSource The script source to run
 	 */
 	public ScriptExecution(DataSource dataSource, String scriptSource) {
-		super();
 		this.dataSource = dataSource;
 		this.scriptSource = scriptSource;
+	}
+	
+	/**
+	 * Creates a new ScriptExecution
+	 * @param dataSource The datasource to get the connection from 
+	 * @param scriptSource The script source to run
+	 */
+	public ScriptExecution(DataSource dataSource, URL scriptSource) {
+		this.dataSource = dataSource;
+		File scriptFile = extractTempFile(scriptSource);
+		this.scriptSource = scriptFile.getAbsolutePath();
+	}	
+	
+	/**
+	 * Runs a script in the passed URL
+	 * @param dataSource the data source to acquire the connection from
+	 * @param urlSource The URL path of the script
+	 */
+	public static void runScript(DataSource dataSource, String urlSource) {
+		final File tmpFile = extractTempFile(urlSource);
+		try {
+			new ScriptExecution(dataSource, String.format(URL_SCRIPT_TEMPLATE, tmpFile.getAbsolutePath())).start();
+		} finally {
+			tmpFile.delete();
+		}
+	}
+	
+	/**
+	 * Extracts the content from the passed URL and writes it to a temp file
+	 * @param urlResource The URL to read the content from
+	 * @return the temp file
+	 */
+	protected static File extractTempFile(String urlResource) {
+		return extractTempFile(URLHelper.toURL(urlResource));
+	}
+	
+	/**
+	 * Extracts the content from the passed URL and writes it to a temp file
+	 * @param url The URL to read the content from
+	 * @return the temp file
+	 */
+	protected static File extractTempFile(URL url) {
+		FileOutputStream fos = null;
+		try {
+			byte[] content = URLHelper.getBytesFromURL(url);
+			String[] frags = url.toString().split("/");
+			String fileName = frags[frags.length-1].split("\\.")[0];
+			File tmpFile = File.createTempFile("apmrouter-ddl-" + fileName, ".sql");
+			tmpFile.deleteOnExit();
+			fos = new FileOutputStream(tmpFile);
+			fos.write(content);
+			fos.flush();
+			fos.close();
+			return tmpFile;
+		} catch (Exception ex) {
+			throw new RuntimeException("Failed to load DDL from URL [" + url + "]", ex);
+		} finally {
+			if(fos!=null) try { fos.close(); } catch (Exception ex) {}
+		}
+	}	
+	
+	public void startUrl() {
+		File f = null;
+		try {
+			URL url = ClassLoader.getSystemResource(scriptSource);
+			f = extractTempFile(url);
+			scriptSource = String.format(URL_SCRIPT_TEMPLATE, f.getAbsolutePath());
+			start();
+		} catch (Exception ex) {
+			throw new RuntimeException(ex);
+		} finally {
+			if(f!=null) f.delete();
+		}
 	}
 	
 	/**

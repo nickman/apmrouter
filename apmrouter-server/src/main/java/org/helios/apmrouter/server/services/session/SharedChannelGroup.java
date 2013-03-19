@@ -43,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import javax.annotation.Resource;
 import javax.management.ListenerNotFoundException;
 import javax.management.MBeanNotificationInfo;
 import javax.management.MBeanServerConnection;
@@ -904,7 +905,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 	 * Sets the metric catalog service
 	 * @param metricCatalogService the metricCatalogService to set
 	 */
-	@Autowired(required=true)
+	@Autowired(required=true)	
 	public void setMetricCatalogService(MetricCatalogService metricCatalogService) {
 		this.mcs = metricCatalogService;
 	}

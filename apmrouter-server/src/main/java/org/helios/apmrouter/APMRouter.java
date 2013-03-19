@@ -36,9 +36,10 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.xml.DOMConfigurator;
 import org.helios.apmrouter.spring.ctx.ApplicationContextService;
 import org.helios.apmrouter.spring.ctx.NamedGenericXmlApplicationContext;
+import org.helios.apmrouter.util.URLHelper;
 import org.helios.apmrouter.util.io.ConfigurableFileExtensionFilter;
 import org.helios.apmrouter.util.io.RecursiveDirectorySearch;
-import org.springframework.context.support.GenericXmlApplicationContext;
+import org.springframework.core.io.UrlResource;
 
 /**
  * <p>Title: APMRouter</p>
@@ -62,78 +63,24 @@ public class APMRouter {
 	/** The main thread, when interrupted shuts down the server */
 	private static Thread MAIN_THREAD = null;
 	
+	/** The URL root path for the default configuration */
+	public static final String DEFAULT_CONFIG_ROOT = "default-config/";
+	/** The URL root path for the default configuration spring config */
+	public static final String DEFAULT_SPRING_CONFIG = DEFAULT_CONFIG_ROOT + "main.apmrouter.xml";
+	
 	/**
-	 * Boots the APMRouter server
-	 * @param args The spring xml configuration file directories, space separated
+	 * Loads the default configuration from the classpath.
 	 */
-	public static void main(String[] args) {
-		LOG.info("\n\t\t*************************\n\t\tAPMRouter v. " + APMRouter.class.getPackage().getImplementationVersion() + "\n\t\t*************************\n");
+	protected static void loadDefaultConfiguration() {
+		System.out.println("Loading default configuration");
 		try {
-			URL log4jUrl = APMRouter.class.getClassLoader().getResource("log4j.xml");
-			if(log4jUrl!=null) {
-				System.out.println("Loading log4j config from [" + log4jUrl + "]");
-				DOMConfigurator.configureAndWatch(log4jUrl.getFile(), 5000);
-			} else {
-				File log4jFile = new File("./log4j.xml");
-				if(log4jFile.canRead()) {
-					log4jUrl = log4jFile.toURI().toURL(); 
-					System.out.println("Loading log4j config from [" + log4jFile.getAbsolutePath() + "]");					
-				} else {
-					System.out.println("Log4j Config Not Found. Yer on yer own");
-				}
-			}
-			String confDir = null;
-			Set<String> confDirs = new HashSet<String>();
-			if(args.length<1) {
-				confDir = "./src/test/resources/server";
-				File dir = new File(confDir);
-				if(!dir.exists() || !dir.isDirectory()) {
-					LOG.error("No conf directory specified and DEV mode directory [" + confDir + "] does not exist. Exiting...");
-					return;
-				}
-			} else {				
-				Set<String> badDirs = new HashSet<String>();
-				for(String d: args) {
-					File dir = new File(d);
-					if(!dir.exists() || !dir.isDirectory()) {
-						badDirs.add(d);
-					} else {
-						confDirs.add(d);
-					}
-				}
-				if(!badDirs.isEmpty()) {
-					LOG.warn("These directories were not found " + badDirs);
-				}
-				if(confDirs.isEmpty()) {
-					LOG.error("No conf directories found. Exiting..." + badDirs);
-					return;
-				}
-						
-			}
-			String[] configFiles = findConfig(confDirs.toArray(new String[confDirs.size()]));
-			if(configFiles==null || configFiles.length<1) {
-				configFiles = findConfig(args);
-			}
-			if(configFiles==null || configFiles.length<1) {
-				LOG.warn("Found no files matching [" + APM_FILE_FILTER + "]. Cannot start APMRouter. Bye.");
-				return;
-			}
-			LOG.info("Located [" + configFiles.length + "] Configuration Files");
-			if(LOG.isDebugEnabled()) {
-				StringBuilder b = new StringBuilder();
-				for(String s: configFiles) {
-					b.append("\n\t").append(s);
-				}
-				LOG.debug("Config Files:" + b.toString());
-			}
-			LOG.info("Starting...");
-			if(log4jUrl!=null) {
-				System.out.println("Loading log4j config from [" + log4jUrl + "]");
-			}
+			initLogging();
 			appContext = new NamedGenericXmlApplicationContext();
 			appContext.setDisplayName(ROOT_DISPLAY_NAME);
 			appContext.setApplicationName("APMRouterServer");
-			appContext.load(configFiles);
+			URL defaultConfigUrl = ClassLoader.getSystemResource(DEFAULT_SPRING_CONFIG);
+			String content = new String(URLHelper.getBytesFromURL(defaultConfigUrl));
+			appContext.load(new UrlResource(defaultConfigUrl));
 			ApplicationContextService.register(appContext);
 			appContext.refresh();			
 			LOG.info("Started");
@@ -144,32 +91,132 @@ public class APMRouter {
 					MAIN_THREAD.interrupt();
 				}
 			});
+			
+		} catch (Exception ex) {
+			System.err.println("Failed to load default configuration. Stack trace follows:");
+			ex.printStackTrace(System.err);
+		}
+	}
+	
+	/**
+	 * Initializes the logging container
+	 * @throws Exception thrown on any error
+	 */
+	protected static void initLogging() throws Exception {
+		URL log4jUrl = APMRouter.class.getClassLoader().getResource("log4j.xml");
+		if(log4jUrl!=null) {
+			System.out.println("Loading log4j config from [" + log4jUrl + "]");
+			DOMConfigurator.configureAndWatch(log4jUrl.getFile(), 5000);
+		} else {
+			File log4jFile = new File("./log4j.xml");
+			if(log4jFile.canRead()) {
+				log4jUrl = log4jFile.toURI().toURL(); 
+				System.out.println("Loading log4j config from [" + log4jFile.getAbsolutePath() + "]");					
+			} else {
+				System.out.println("Log4j Config Not Found. Yer on yer own");
+			}
+		}		
+	}
+	
+	/**
+	 * <p>Boots the APMRouter server. Load options are:<ul>
+	 * 	<li>Passing zero arguments will load the default configuration.</li>
+	 *  <li>Otherwise, the accepted arguments are the names of the directories to be recursively scanned for <b><code>*.apmrouter.xml</code></b> files as the configuration override.</li>
+	 * </ul></p>
+	 * @param args The spring xml configuration file directories, space separated
+	 */
+	public static void main(String[] args) {
+		LOG.info("\n\t\t*************************\n\t\tAPMRouter v. " + APMRouter.class.getPackage().getImplementationVersion() + "\n\t\t*************************\n");
+		if(args.length==0) {
+			loadDefaultConfiguration();
+		} else {
 			try {
-				//Thread.currentThread().join();
-				BufferedReader d = new BufferedReader(new InputStreamReader(System.in));
-				while(true) {
-					String line = d.readLine();
-					if(line!=null) {
-						if("exit".equals(line.trim().toLowerCase())) {
-							break;
+				initLogging();
+				String confDir = null;
+				Set<String> confDirs = new HashSet<String>();
+				if(args.length<1) {
+					confDir = "./src/test/resources/server";
+					File dir = new File(confDir);
+					if(!dir.exists() || !dir.isDirectory()) {
+						LOG.error("No conf directory specified and DEV mode directory [" + confDir + "] does not exist. Exiting...");
+						return;
+					}
+				} else {				
+					Set<String> badDirs = new HashSet<String>();
+					for(String d: args) {
+						File dir = new File(d);
+						if(!dir.exists() || !dir.isDirectory()) {
+							badDirs.add(d);
+						} else {
+							confDirs.add(d);
 						}
 					}
+					if(!badDirs.isEmpty()) {
+						LOG.warn("These directories were not found " + badDirs);
+					}
+					if(confDirs.isEmpty()) {
+						LOG.error("No conf directories found. Exiting..." + badDirs);
+						return;
+					}
+							
 				}
-				LOG.info("Stopping...");
-				appContext.stop();
-				LOG.info("APMRouter Stopped. Bye.");
-				System.exit(-1);				
+				String[] configFiles = findConfig(confDirs.toArray(new String[confDirs.size()]));
+				if(configFiles==null || configFiles.length<1) {
+					configFiles = findConfig(args);
+				}
+				if(configFiles==null || configFiles.length<1) {
+					LOG.warn("Found no files matching [" + APM_FILE_FILTER + "]. Cannot start APMRouter. Bye.");
+					return;
+				}
+				LOG.info("Located [" + configFiles.length + "] Configuration Files");
+				if(LOG.isDebugEnabled()) {
+					StringBuilder b = new StringBuilder();
+					for(String s: configFiles) {
+						b.append("\n\t").append(s);
+					}
+					LOG.debug("Config Files:" + b.toString());
+				}
+				LOG.info("Starting...");
+				appContext = new NamedGenericXmlApplicationContext();
+				appContext.setDisplayName(ROOT_DISPLAY_NAME);
+				appContext.setApplicationName("APMRouterServer");
+				appContext.load(configFiles);
+				ApplicationContextService.register(appContext);
+				appContext.refresh();			
+				LOG.info("Started");
+				MAIN_THREAD = Thread.currentThread();
+				
+				Runtime.getRuntime().addShutdownHook(new Thread(){
+					public void run() {
+						MAIN_THREAD.interrupt();
+					}
+				});
+				try {
+					//Thread.currentThread().join();
+					BufferedReader d = new BufferedReader(new InputStreamReader(System.in));
+					while(true) {
+						String line = d.readLine();
+						if(line!=null) {
+							if("exit".equals(line.trim().toLowerCase())) {
+								break;
+							}
+						}
+					}
+					LOG.info("Stopping...");
+					appContext.stop();
+					LOG.info("APMRouter Stopped. Bye.");
+					System.exit(-1);				
+				} catch (Exception e) {
+					LOG.info("Stopping...");
+					appContext.stop();
+					LOG.info("APMRouter Stopped. Bye.");
+					System.exit(-1);
+				}
 			} catch (Exception e) {
-				LOG.info("Stopping...");
-				appContext.stop();
-				LOG.info("APMRouter Stopped. Bye.");
+				LOG.error("Sorry, APMRouter could not be started", e);
 				System.exit(-1);
 			}
-		} catch (Exception e) {
-			LOG.error("Sorry, APMRouter could not be started", e);
-			System.exit(-1);
 		}
-
 	}
 	
 	/**

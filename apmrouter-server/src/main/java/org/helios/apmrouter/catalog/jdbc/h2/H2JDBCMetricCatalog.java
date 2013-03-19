@@ -77,6 +77,7 @@ import org.springframework.jmx.export.annotation.ManagedMetric;
  */
 
 public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCatalogService {
+
 	/** The h2 datasource */
 	protected DataSource ds = null;
 	/** The Chronicle time-series manager */
@@ -89,7 +90,13 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	
 	/** Sliding windows of catalog call elapsed times in ns. */
 	protected final LongSlidingWindow elapsedTimesNs = new ConcurrentLongSlidingWindow(50);
-	
+
+	/**
+	 * Creates a new H2JDBCMetricCatalog
+	 */
+	public H2JDBCMetricCatalog() {
+		super();
+	}
 	
 	/**
 	 * {@inheritDoc}
