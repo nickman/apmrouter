@@ -1,2 +1,4 @@
 org.helios.apmrouter.jmx.connector.protocol.local.ClientProvider
 org.helios.apmrouter.jmx.connector.protocol.mxl.ClientProvider
+com.sun.jmx.remote.protocol.jmxmp.ClientProvider
+com.sun.jmx.remote.protocol.iiop.ClientProvider

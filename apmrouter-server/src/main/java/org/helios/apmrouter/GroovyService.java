@@ -117,7 +117,7 @@ public class GroovyService extends ServerComponentBean {
 	 */
 	@Override
 	public void onApplicationContextStart(ContextStartedEvent event) {
-		
+		/* Build bindings */
 	}
 
 	/**
