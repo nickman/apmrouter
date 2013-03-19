@@ -25,12 +25,19 @@
 package org.helios.apmrouter;
 
 import groovy.lang.Binding;
+import groovy.lang.GroovySystem;
+import groovy.lang.Script;
 
+import java.io.File;
 import java.lang.reflect.Constructor;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
+import org.codehaus.groovy.control.CompilerConfiguration;
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.springframework.context.event.ContextStartedEvent;
+import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedOperation;
 
 /**
@@ -42,7 +49,45 @@ import org.springframework.jmx.export.annotation.ManagedOperation;
  */
 
 public class GroovyService extends ServerComponentBean {
-
+	/** A map of compiled scripts keyed by an arbitrary reference name */
+	protected final Map<String, Script> compiledScripts = new ConcurrentHashMap<String, Script>();
+	
+	/** The compiler configuration for script compilations */
+	protected final CompilerConfiguration compilerConfiguration = new CompilerConfiguration();
+	
+	/*
+	 * compile(String name, String source)
+	 * compile(String name, URL source) // needs check for source update
+	 * compile(String name, File source) // needs check for source update
+	 * 
+	 * invoke(String name, OutputStream os, Object...args)  // run, with args in bindings
+	 * invoke(String name, Object...args)  // run, with args in bindings, ditch output
+	 * invokeMethod(String name, String methodName, Object...args)
+	 * invokeMethod(String name, OutputStream os, String methodName, Object...args)
+	 * 
+	 * flushCache
+	 * Groovy Version
+	 * 
+	 */
+	
+	/**
+	 * Returns the groovy version
+	 * @return the groovy version
+	 */
+	@ManagedAttribute(description="The groovy version")
+	public String getGroovyVersion() {
+		return GroovySystem.getVersion();
+	}
+	
+	/**
+	 * Indicates if groovy is using reflection
+	 * @return true if groovy is using reflection, false if using .... ?
+	 */
+	@ManagedAttribute(description="Indicates if groovy is using reflection")
+	public boolean isUseReflection() {
+		return GroovySystem.isUseReflection();
+	}
+	
 	/**
 	 * Launches the groovy console 
 	 */
@@ -62,7 +107,217 @@ public class GroovyService extends ServerComponentBean {
 		} catch (Exception e) {
 			error("Failed to launch console", e);
 			throw new RuntimeException("Failed to launch console", e);
-		}
+		}		
+	}
+	
+	/**
+	 * <p>Fired when the app context starts. Triggers the creation of default bindings provided to all script invocations.</p>
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#onApplicationContextStart(org.springframework.context.event.ContextStartedEvent)
+	 */
+	@Override
+	public void onApplicationContextStart(ContextStartedEvent event) {
 		
+	}
+
+	/**
+	 * Returns the compiler warning level
+	 * @return the compiler warning level
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#getWarningLevel()
+	 */
+	@ManagedAttribute(description="The compiler warning level. Recognized values are: NONE:0, LIKELY_ERRORS:1, POSSIBLE_ERRORS:2, PARANOIA:3")
+	public int getWarningLevel() {
+		return compilerConfiguration.getWarningLevel();
+	}
+
+	/**
+	 * Sets the compiler warning level
+	 * @param level the compler warning level
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#setWarningLevel(int)
+	 */
+	@ManagedAttribute(description="The compiler warning level. Recognized values are: NONE:0, LIKELY_ERRORS:1, POSSIBLE_ERRORS:2, PARANOIA:3")
+	public void setWarningLevel(int level) {
+		compilerConfiguration.setWarningLevel(level);
+	}
+
+	/**
+	 * Returns the compiler source encoding
+	 * @return the compiler source encoding
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#getSourceEncoding()
+	 */
+	@ManagedAttribute(description="The compiler source encoding")
+	public String getSourceEncoding() {
+		return compilerConfiguration.getSourceEncoding();
+	}
+
+	/**
+	 * Sets the compiler source encoding
+	 * @param encoding the compiler source encoding
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#setSourceEncoding(java.lang.String)
+	 */
+	@ManagedAttribute(description="The compiler source encoding")
+	public void setSourceEncoding(String encoding) {
+		compilerConfiguration.setSourceEncoding(encoding);
+	}
+
+	/**
+	 * Returns the compiler target directory
+	 * @return the compiler target directory
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#getTargetDirectory()
+	 */
+	@ManagedAttribute(description="The compiler target directory")
+	public String getTargetDirectory() {		
+		File f = compilerConfiguration.getTargetDirectory();
+		return f==null ? null : f.getAbsolutePath();
+	}
+
+	/**
+	 * Sets the compiler target directory
+	 * @param directory the compiler target directory
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#setTargetDirectory(java.lang.String)
+	 */
+	@ManagedAttribute(description="The compiler target directory")
+	public void setTargetDirectory(String directory) {
+		compilerConfiguration.setTargetDirectory(directory);
+	}
+
+	/**
+	 * Indicates if the compiler is verbose
+	 * @return true if the compiler is verbose, false otherwise
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#getVerbose()
+	 */
+	@ManagedAttribute(description="Indicates if the compiler is verbose")
+	public boolean isVerbose() {
+		return compilerConfiguration.getVerbose();
+	}
+
+	/**
+	 * Sets the verbosity of the compiler
+	 * @param verbose true to make verbose, false otherwise
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#setVerbose(boolean)
+	 */
+	@ManagedAttribute(description="Indicates if the compiler is verbose")
+	public void setVerbose(boolean verbose) {
+		compilerConfiguration.setVerbose(verbose);
+	}
+
+	/**
+	 * Indicates if the compiler is in debug mode
+	 * @return true if the compiler is in debug mode, false otherwise
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#getDebug()
+	 */
+	@ManagedAttribute(description="Indicates if the compiler is in debug mode")
+	public boolean isDebug() {
+		return compilerConfiguration.getDebug();
+	}
+
+	/**
+	 * Sets the debug mode of the compiler
+	 * @param debug true for debug, false otherwise
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#setDebug(boolean)
+	 */
+	@ManagedAttribute(description="Indicates if the compiler is in debug mode")
+	public void setDebug(boolean debug) {
+		compilerConfiguration.setDebug(debug);
+	}
+
+	/**
+	 * Returns the compiler tolerance, which is the maximum number of non-fatal errors before compilation is aborted 
+	 * @return the maximum number of non-fatal errors before compilation is aborted
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#getTolerance()
+	 */
+	@ManagedAttribute(description="The maximum number of non-fatal errors before compilation is aborted")
+	public int getTolerance() {
+		return compilerConfiguration.getTolerance();
+	}
+
+	/**
+	 * Sets the compiler tolerance, which is the maximum number of non-fatal errors before compilation is aborted
+	 * @param tolerance the maximum number of non-fatal errors before compilation is aborted
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#setTolerance(int)
+	 */
+	@ManagedAttribute(description="The maximum number of non-fatal errors before compilation is aborted")
+	public void setTolerance(int tolerance) {
+		compilerConfiguration.setTolerance(tolerance);
+	}
+
+	/**
+	 * Returns the compiler's base script class
+	 * @return the compiler's base script class
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#getScriptBaseClass()
+	 */
+	@ManagedAttribute(description="The compiler's base script class")
+	public String getScriptBaseClass() {
+		return compilerConfiguration.getScriptBaseClass();
+	}
+
+	/**
+	 * Sets the compiler's base script class
+	 * @param scriptBaseClass the compiler's base script class
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#setScriptBaseClass(java.lang.String)
+	 */
+	@ManagedAttribute(description="The compiler's base script class")
+	public void setScriptBaseClass(String scriptBaseClass) {
+		compilerConfiguration.setScriptBaseClass(scriptBaseClass);
+	}
+
+	/**
+	 * Sets the compiler's minimum recompilation interval in seconds
+	 * @param time the compiler's minimum recompilation interval in seconds
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#setMinimumRecompilationInterval(int)
+	 */
+	@ManagedAttribute(description="The compiler's minimum recompilation interval in seconds")
+	public void setMinimumRecompilationInterval(int time) {
+		compilerConfiguration.setMinimumRecompilationInterval(time);
+	}
+
+	/**
+	 * Returns the compiler's minimum recompilation interval in seconds
+	 * @return the compiler's minimum recompilation interval in seconds
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#getMinimumRecompilationInterval()
+	 */
+	@ManagedAttribute(description="The compiler's minimum recompilation interval in seconds")
+	public int getMinimumRecompilationInterval() {
+		return compilerConfiguration.getMinimumRecompilationInterval();
+	}
+
+	/**
+	 * Sets the compiler's target bytecode version
+	 * @param version the compiler's target bytecode version
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#setTargetBytecode(java.lang.String)
+	 */
+	@ManagedAttribute(description="The compiler's target bytecode version")
+	public void setTargetBytecode(String version) {
+		compilerConfiguration.setTargetBytecode(version);
+	}
+
+	/**
+	 * Returns the compiler's target bytecode version
+	 * @return the compiler's target bytecode version
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#getTargetBytecode()
+	 */
+	@ManagedAttribute(description="The compiler's target bytecode version")
+	public String getTargetBytecode() {
+		return compilerConfiguration.getTargetBytecode();
+	}
+
+	/**
+	 * Returns the compiler's optimization options
+	 * @return the compiler's optimization options
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#getOptimizationOptions()
+	 */
+	@ManagedAttribute(description="The compiler's optimization options")
+	public Map<String, Boolean> getOptimizationOptions() {
+		return compilerConfiguration.getOptimizationOptions();
+	}
+
+	/**
+	 * Sets the compiler's optimization options
+	 * @param options the compiler's optimization options
+	 * @see org.codehaus.groovy.control.CompilerConfiguration#setOptimizationOptions(java.util.Map)
+	 */
+	@ManagedAttribute(description="The compiler's optimization options")
+	public void setOptimizationOptions(Map<String, Boolean> options) {
+		compilerConfiguration.setOptimizationOptions(options);
 	}
 }
