@@ -25,11 +25,13 @@
 package org.helios.apmrouter;
 
 import groovy.lang.Binding;
+import groovy.lang.GroovyShell;
 import groovy.lang.GroovySystem;
 import groovy.lang.Script;
 
 import java.io.File;
 import java.lang.reflect.Constructor;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,6 +41,7 @@ import org.helios.apmrouter.server.ServerComponentBean;
 import org.springframework.context.event.ContextStartedEvent;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedOperation;
+import org.springframework.jmx.export.annotation.ManagedOperationParameter;
 
 /**
  * <p>Title: GroovyService</p>
@@ -55,20 +58,32 @@ public class GroovyService extends ServerComponentBean {
 	/** The compiler configuration for script compilations */
 	protected final CompilerConfiguration compilerConfiguration = new CompilerConfiguration();
 	
-	/*
-	 * compile(String name, String source)
-	 * compile(String name, URL source) // needs check for source update
-	 * compile(String name, File source) // needs check for source update
-	 * 
-	 * invoke(String name, OutputStream os, Object...args)  // run, with args in bindings
-	 * invoke(String name, Object...args)  // run, with args in bindings, ditch output
-	 * invokeMethod(String name, String methodName, Object...args)
-	 * invokeMethod(String name, OutputStream os, String methodName, Object...args)
-	 * 
-	 * flushCache
-	 * Groovy Version
-	 * 
+	
+	/**
+	 * Creates a new GroovyService
 	 */
+	public GroovyService() {
+		compilerConfiguration.setOptimizationOptions(Collections.singletonMap("indy", true));
+	}
+	
+	/**
+	 * Flushes the compiled script cache
+	 */
+	@ManagedOperation(description="Flushes the compiled script cache")
+	public void flushScriptCache() {
+		compiledScripts.clear();
+	}
+	
+	/**
+	 * Removes the named script from the script cache
+	 * @param name The name of the script to remove
+	 */
+	@ManagedOperation(description="Removes the named script from the script cache")
+	@ManagedOperationParameter(name="ScriptName", description="The name of the script to remove")
+	public void flushScript(String name) {
+		if(name==null || name.trim().isEmpty()) throw new IllegalArgumentException("The passed name was null or empty", new Throwable());
+		compiledScripts.remove(name);
+	}
 	
 	/**
 	 * Returns the groovy version
@@ -80,6 +95,15 @@ public class GroovyService extends ServerComponentBean {
 	}
 	
 	/**
+	 * Returns the names of the cached compiled scripts
+	 * @return the names of the cached compiled scripts
+	 */
+	@ManagedAttribute(description="The names of the cached compiled scripts")
+	public String[] getScriptNames() {
+		return compiledScripts.keySet().toArray(new String[compiledScripts.size()]);
+	}
+	
+	/**
 	 * Indicates if groovy is using reflection
 	 * @return true if groovy is using reflection, false if using .... ?
 	 */
@@ -87,6 +111,35 @@ public class GroovyService extends ServerComponentBean {
 	public boolean isUseReflection() {
 		return GroovySystem.isUseReflection();
 	}
+	
+	/*
+	 * compile(String name, String source)
+	 * compile(String name, URL source) // needs check for source update
+	 * compile(String name, File source) // needs check for source update
+	 * 
+	 * invoke(String name, OutputStream os, Object...args)  // run, with args in bindings
+	 * invoke(String name, Object...args)  // run, with args in bindings, ditch output
+	 * invokeMethod(String name, String methodName, Object...args)
+	 * invokeMethod(String name, OutputStream os, String methodName, Object...args)
+	 * 
+	 * compileAndInvoke(...)
+	 * 
+	 */
+	
+	/**
+	 * @param name
+	 * @param source
+	 */
+	@ManagedOperation(description="Removes the named script from the script cache")
+	@ManagedOperationParameter(name="ScriptName", description="The name of the script to remove")
+
+	public void compile(String name, CharSequence source) {
+		if(name==null || name.trim().isEmpty()) throw new IllegalArgumentException("The passed script name was null or empty", new Throwable());
+		if(source==null || source.length()==0) throw new IllegalArgumentException("The passed source was null or empty", new Throwable());
+		Script script = new GroovyShell(compilerConfiguration).parse(source.toString(), name);
+		compiledScripts.put(name, script);
+	}
+	
 	
 	/**
 	 * Launches the groovy console 
