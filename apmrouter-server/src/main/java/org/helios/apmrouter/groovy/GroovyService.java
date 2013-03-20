@@ -22,7 +22,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter;
+package org.helios.apmrouter.groovy;
 
 import groovy.lang.Binding;
 import groovy.lang.GroovyShell;
@@ -42,13 +42,14 @@ import org.springframework.context.event.ContextStartedEvent;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedOperation;
 import org.springframework.jmx.export.annotation.ManagedOperationParameter;
+import org.springframework.jmx.export.annotation.ManagedOperationParameters;
 
 /**
  * <p>Title: GroovyService</p>
  * <p>Description: Interactive groovy service</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.GroovyService</code></p>
+ * <p><code>org.helios.apmrouter.groovy.GroovyService</code></p>
  */
 
 public class GroovyService extends ServerComponentBean {
@@ -57,6 +58,9 @@ public class GroovyService extends ServerComponentBean {
 	
 	/** The compiler configuration for script compilations */
 	protected final CompilerConfiguration compilerConfiguration = new CompilerConfiguration();
+	
+	/** The shared bindings */
+	protected final Map<String, Object> beans = new ConcurrentHashMap<String, Object>();
 	
 	
 	/**
@@ -127,17 +131,94 @@ public class GroovyService extends ServerComponentBean {
 	 */
 	
 	/**
-	 * @param name
-	 * @param source
+	 * Compiles the passed source and assignes it the passed name
+	 * @param name The name assigned to the compiled script
+	 * @param source The source code of the script to compiled
 	 */
-	@ManagedOperation(description="Removes the named script from the script cache")
-	@ManagedOperationParameter(name="ScriptName", description="The name of the script to remove")
-
-	public void compile(String name, CharSequence source) {
+	@ManagedOperation(description="Compiles the passed source and assignes it the passed name")
+	@ManagedOperationParameters({
+		@ManagedOperationParameter(name="ScriptName", description="The name assigned to the compiled script"),
+		@ManagedOperationParameter(name="Source", description="The source code of the script to be compiled")
+	})
+	public void compile(String name, String source) {
 		if(name==null || name.trim().isEmpty()) throw new IllegalArgumentException("The passed script name was null or empty", new Throwable());
-		if(source==null || source.length()==0) throw new IllegalArgumentException("The passed source was null or empty", new Throwable());
-		Script script = new GroovyShell(compilerConfiguration).parse(source.toString(), name);
+		if(source==null || source.length()==0) throw new IllegalArgumentException("The passed source was null or empty", new Throwable());		
+		Script script = new GroovyShell(compilerConfiguration).parse(source, name);
+		Binding bindings = getBindings();
+		script.setBinding(bindings);
+		script.setProperty("bindings", bindings);
 		compiledScripts.put(name, script);
+	}
+	
+	/**
+	 * Compiles the passed source and assignes it the passed name
+	 * @param name The name assigned to the compiled script
+	 * @param source The source code of the script to compiled
+	 */
+	@ManagedOperation(description="Compiles the passed source and assignes it the passed name")
+	@ManagedOperationParameters({
+		@ManagedOperationParameter(name="ScriptName", description="The name assigned to the compiled script"),
+		@ManagedOperationParameter(name="Source", description="The source code of the script to be compiled")
+	})
+	public void compileBuffer(String name, CharSequence source) {
+		if(source==null || source.length()==0) throw new IllegalArgumentException("The passed source was null or empty", new Throwable());
+		compile(name, source.toString());
+	}
+	
+	
+	/** Empty object array constant */
+	protected static final Object[] EMPTY_OBJ_ARR = {}; 
+	
+	/**
+	 * Executes the main function of the named script
+	 * @param name The name of the script to execute
+	 * @param args The optional arguments to pass to the script
+	 * @return the return value from the script invocation
+	 */
+	@ManagedOperation(description="Executes the main function of the named script")
+	@ManagedOperationParameters({
+		@ManagedOperationParameter(name="ScriptName", description="The name of the compiled script to run"),
+		@ManagedOperationParameter(name="Args", description="The optional arguments to pass to the script")
+	})
+	public Object runScript(String name, Object...args) {
+		if(name==null || name.trim().isEmpty()) throw new IllegalArgumentException("The passed script name was null or empty", new Throwable());
+		Script script = compiledScripts.get(name);
+		if(script==null) throw new RuntimeException("Failed to find script named [" + name + "]");
+		script.setProperty("args", (args!=null && args.length>0) ? args : EMPTY_OBJ_ARR);
+		return script.run();
+	}
+	
+	/**
+	 * Executes the main function of the named script
+	 * @param name The name of the script to execute
+	 * @return the return value from the script invocation
+	 */
+	@ManagedOperation(description="Executes the main function of the named script")
+	@ManagedOperationParameters({
+		@ManagedOperationParameter(name="ScriptName", description="The name of the compiled script to run")
+	})
+	public Object runScript(String name) {
+		return runScript(name, EMPTY_OBJ_ARR);
+	}
+	
+	
+	
+	/**
+	 * Returns a bindings instance
+	 * @return a bindings instance
+	 */
+	protected Binding getBindings() {
+		if(beans.isEmpty()) {
+			synchronized(beans) {
+				if(beans.isEmpty()) {
+					for(String beanName: applicationContext.getBeanDefinitionNames()) {
+						beans.put(beanName, applicationContext.getBean(beanName));
+					}
+					beans.put("RootCtx", applicationContext);					
+				}
+			}
+		}
+		return new Binding(beans);
 	}
 	
 	
@@ -147,15 +228,9 @@ public class GroovyService extends ServerComponentBean {
 	@ManagedOperation(description="Launches the groovy console")
 	public void launchConsole() {
 		try {
-			Map<String, Object> beans = new HashMap<String, Object>();
-			for(String beanName: applicationContext.getBeanDefinitionNames()) {
-				beans.put(beanName, applicationContext.getBean(beanName));
-			}
-			beans.put("RootCtx", applicationContext);
-			Binding binding = new Binding(beans);
 			Class<?> clazz = Class.forName("groovy.ui.Console");
 			Constructor<?> ctor = clazz.getDeclaredConstructor(Binding.class);
-			Object console = ctor.newInstance(binding);
+			Object console = ctor.newInstance(getBindings());
 			console.getClass().getDeclaredMethod("run").invoke(console);
 		} catch (Exception e) {
 			error("Failed to launch console", e);

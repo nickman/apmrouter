@@ -571,7 +571,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 					actualSkipped=0;
 					info("*** Frequency for collector: " + this.getBeanName() +" is switched back to normal now.");
 				}
-				info("Completed collect for bean: ", this.getBeanName());
+				debug("Completed collect for bean: ", this.getBeanName());
 			} catch (Exception ex){
 				lastTimeCollectionFailed=System.currentTimeMillis();
 				errors=true;
@@ -611,7 +611,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	 * 
 	 */
 	private void logCollectionResultDetails(CollectionResult collectionResult) {
-		info(collectionResult);
+		debug(collectionResult);
 	}
 	
 	/**

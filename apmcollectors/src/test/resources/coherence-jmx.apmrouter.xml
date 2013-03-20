@@ -14,7 +14,11 @@
                        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
 
     <context:annotation-config/>
-    <context:mbean-export registration="ignoreExisting" />
+    	
+    
+    <context:mbean-export registration="replaceExisting" />
+    	
+    
 
 	<bean
 	    class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">

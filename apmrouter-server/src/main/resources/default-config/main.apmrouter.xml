@@ -516,7 +516,7 @@
 		<constructor-arg ref="MBeanServer" />
 	</bean>
 	
-	<bean id="gconsole" class="org.helios.apmrouter.GroovyService" />
+	<bean id="gconsole" class="org.helios.apmrouter.groovy.GroovyService" />
 	
 	<bean id="liveBeansView" class="org.springframework.context.support.LiveBeansView"/>
 		
