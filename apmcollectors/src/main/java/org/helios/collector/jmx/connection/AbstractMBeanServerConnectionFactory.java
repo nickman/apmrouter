@@ -26,8 +26,10 @@ package org.helios.collector.jmx.connection;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.Attribute;
@@ -53,11 +55,13 @@ import javax.management.remote.JMXServiceURL;
 
 import org.apache.commons.collections.ListUtils;
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.collector.jmx.HSPProtocol;
+import org.helios.collector.jmx.connection.triggers.ConnectTrigger;
+import org.helios.collector.jmx.connection.triggers.OnFirstConnectTrigger;
 import org.helios.collector.jmx.identifiers.AbstractMBeanServerIdentifier;
 import org.helios.collector.jmx.identifiers.DefaultMBeanServerIdentifier;
 import org.helios.collector.jmx.identifiers.IMBeanServerIdentifier;
-import org.helios.apmrouter.jmx.JMXHelper;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
@@ -111,6 +115,9 @@ public abstract class AbstractMBeanServerConnectionFactory implements IMBeanServ
 	protected volatile MBeanServerConnection mBeanConnection = null;
 	/** The HSPProtocol definition */
 	protected final HSPProtocol hspProtocol;
+	
+	/** A set of connection triggers */
+	protected final Set<ConnectTrigger> triggers = new CopyOnWriteArraySet<ConnectTrigger>();
 	
 	/** The JMXServiceURL template for local in-vm proxy URLs */
 	public static final String LOCAL_JMX_SERVICE_TEMPLATE = "service:jmx:hsp://{0}/{1}/{2}?shared={3}";
@@ -243,7 +250,7 @@ public abstract class AbstractMBeanServerConnectionFactory implements IMBeanServ
 			//If the connection is already created, return that to the caller
 			synchronized(this) {
 				if(mBeanConnection==null) {
-					mBeanConnection = _getConnection();
+					mBeanConnection = _getConnection();					
 					if(!everConnected){
 						everConnected = true;
 						registerToHeliosServer();
@@ -251,11 +258,26 @@ public abstract class AbstractMBeanServerConnectionFactory implements IMBeanServ
 				}
 			}
 			setConnectionStatus(true);
+			// test the connection if we have registered triggers
+			if(!triggers.isEmpty()) {
+				mBeanConnection.getDefaultDomain();
+				for(ConnectTrigger trigger: triggers) {
+					if(trigger instanceof OnFirstConnectTrigger) {
+						OnFirstConnectTrigger ofct = (OnFirstConnectTrigger)trigger;
+						if(ofct.isFirstConnect()) {
+							ofct.onFirstConnect(mBeanConnection);
+						}
+					}
+				}
+			}
 			return mBeanConnection;
 		} catch (Exception e) {
 			setConnectionStatus(false);
 			if(printStackTrace)
 				log.error(e.getMessage(),e);
+			for(ConnectTrigger trigger: triggers) {
+				trigger.onConnectionFailed();
+			}
 			throw new MBeanServerConnectionFactoryException("Failed to acquire permanent MBeanServer Connection", e);
 		}
 	}
@@ -1187,6 +1209,30 @@ public abstract class AbstractMBeanServerConnectionFactory implements IMBeanServ
 	public void passivateObject(Object obj) throws Exception {
 		// TODO Auto-generated method stub
 		
+	}
+
+
+	/**
+	 * Returns a set of the names of the registered connect triggers
+	 * @return a set of the names of the registered connect triggers
+	 */
+	@ManagedAttribute(description="The names of the registered connect triggers")
+	public Set<String> getTriggerNames() {
+		Set<String> triggerNames = new HashSet<String>(triggers.size());
+		for(ConnectTrigger trigger: triggers) {
+			triggerNames.add(trigger.getClass().getName());
+		}
+		return triggerNames;
+	}
+	
+	/**
+	 * Adds a set of triggers to this connection factory
+	 * @param triggers a set of triggers to add to this connection factory
+	 */
+	public void setTriggers(Set<ConnectTrigger> triggers) {
+		if(triggers!=null) {
+			this.triggers.addAll(triggers);
+		}
 	}
 	
 }

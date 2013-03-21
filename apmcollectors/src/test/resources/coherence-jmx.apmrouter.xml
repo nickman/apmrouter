@@ -145,9 +145,12 @@
 		<bean class="${class_Trace}" p:targetAttributeName="TaskMaxBacklog" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
 		<bean class="${class_Trace}" p:targetAttributeName="Statistics" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
 		<bean class="${class_Trace}" p:targetAttributeName="RequestTotalCount" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
-		<bean class="${class_Trace}" p:targetAttributeName="TaskAverageDuration" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}"/>
+		<bean class="${class_Trace}" p:targetAttributeName="TaskAverageDuration" p:segmentPrefixElements="Service" p:segment="{TARGET-PROPERTY:nodeId}">
+			
+		</bean>
 	    </list>
 	</property>
+		
 	</bean>
 
 </beans>

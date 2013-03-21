@@ -43,8 +43,12 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
+import javax.management.ObjectName;
+
 import org.codehaus.groovy.control.CompilerConfiguration;
+import org.codehaus.groovy.control.customizers.ImportCustomizer;
 import org.helios.apmrouter.groovy.annotations.Start;
+import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.springframework.context.event.ContextStartedEvent;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
@@ -74,13 +78,68 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 	/** A set of registered class listeners */
 	protected final Set<GroovyLoadedScriptListener> listeners = new CopyOnWriteArraySet<GroovyLoadedScriptListener>();
 	
+	/** The compiler configuration's JMX ObjectName */
+	protected final ObjectName compilerConfigurationObjectName;
+	
+	/** A set of implicit imports for the compiler configuration */
+	protected final Set<String> imports = new CopyOnWriteArraySet<String>();
+	/** The initial and default imports customizer for the compiler configuration */
+	protected final ImportCustomizer importCustomizer = new ImportCustomizer(); 
+	
 	/**
 	 * Creates a new GroovyService
 	 */
 	public GroovyService() {
+		objectName = JMXHelper.objectName(getClass().getPackage().getName(), "service", getClass().getSimpleName());
+		compilerConfigurationObjectName = JMXHelper.objectName(getClass().getPackage().getName(), "service", getClass().getSimpleName(), "type", "CompilerConfiguration");
+		imports.add("import org.helios.apmrouter.groovy.annotations.*");
 		compilerConfiguration.setOptimizationOptions(Collections.singletonMap("indy", true));
 		groovyClassLoader =  new GroovyClassLoader(getClass().getClassLoader(), compilerConfiguration);
 		registerLoadListener(this);
+	}
+	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
+	 */
+	protected void doStart() {
+		applyImports(importCustomizer, imports.toArray(new String[imports.size()]));		
+	}
+	
+	/**
+	 * Applies the configured imports to the compiler configuration
+	 * @param impCustomizer The import customizer to add the imports to
+	 * @param imps  The imports to add
+	 */
+	protected void applyImports(ImportCustomizer impCustomizer, String...imps) {		
+		for(String imp: imps) {
+			String _imp = imp.trim().replaceAll("\\s+", " ");
+			if(!_imp.startsWith("import")) {
+				warn("Unrecognized import [", imp, "]");
+				continue;
+			}
+			if(_imp.startsWith("import static ")) {
+				if(_imp.endsWith(".*")) {
+					impCustomizer.addStaticStars(_imp.replace("import static ", "").replace(".*", ""));
+				} else {
+					String cleaned = _imp.replace("import static ", "").replace(".*", "");
+					int index = cleaned.lastIndexOf('.');
+					if(index==-1) {
+						warn("Failed to parse non-star static import [", imp, "]");
+						continue;
+					}
+					impCustomizer.addStaticImport(cleaned.substring(0, index), cleaned.substring(index+1));
+				}
+			} else {
+				if(_imp.endsWith(".*")) {
+					impCustomizer.addStarImports(_imp.replace("import ", "").replace(".*", ""));
+				} else {
+					impCustomizer.addImports(_imp.replace("import ", ""));
+				}
+			}
+		}
+		compilerConfiguration.addCompilationCustomizers(impCustomizer);
 	}
 	
 	/**
@@ -92,6 +151,7 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 			listeners.add(listener);
 		}
 	}
+	
 	
 	/**
 	 * Unregisters the passed load listener
@@ -646,5 +706,32 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 	@Override
 	public void onScanClasses(Set<Class<?>> annotations, Class<?> clazz, Object instance) {
 		info("\n\t===================================\n\tInherritance Match:", clazz.getName(), "\n\t===================================\n");
+	}
+
+
+	/**
+	 * Returns the currently configured compiler imports
+	 * @return the currently configured compiler imports
+	 */
+	@ManagedAttribute(description="The currently configured compiler imports")
+	public Set<String> getImports() {
+		return imports;
+	}
+	
+	/**
+	 * Adds the passed imports to the configured compiler imports
+	 * @param imps the imports to add
+	 */
+	public void setImports(Set<String> imps) {
+		if(imps!=null) {
+			imps.removeAll(imports);
+			if(imps.isEmpty()) return;
+			if(this.isStarted()) {								
+				applyImports(new ImportCustomizer(), imps.toArray(new String[imps.size()]));
+				imports.addAll(imps);
+			} else {
+				imports.addAll(imps);
+			}
+		}
 	}
 }
