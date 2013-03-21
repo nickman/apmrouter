@@ -25,18 +25,26 @@
 package org.helios.apmrouter.groovy;
 
 import groovy.lang.Binding;
+import groovy.lang.GroovyClassLoader;
 import groovy.lang.GroovyShell;
 import groovy.lang.GroovySystem;
 import groovy.lang.Script;
 
 import java.io.File;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.codehaus.groovy.control.CompilerConfiguration;
+import org.helios.apmrouter.groovy.annotations.Start;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.springframework.context.event.ContextStartedEvent;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
@@ -52,23 +60,49 @@ import org.springframework.jmx.export.annotation.ManagedOperationParameters;
  * <p><code>org.helios.apmrouter.groovy.GroovyService</code></p>
  */
 
-public class GroovyService extends ServerComponentBean {
+public class GroovyService extends ServerComponentBean implements GroovyLoadedScriptListener{
 	/** A map of compiled scripts keyed by an arbitrary reference name */
 	protected final Map<String, Script> compiledScripts = new ConcurrentHashMap<String, Script>();
 	
 	/** The compiler configuration for script compilations */
 	protected final CompilerConfiguration compilerConfiguration = new CompilerConfiguration();
-	
+	/** A groovy classloader for compiling scripts */
+	protected final GroovyClassLoader groovyClassLoader; 
 	/** The shared bindings */
 	protected final Map<String, Object> beans = new ConcurrentHashMap<String, Object>();
 	
+	/** A set of registered class listeners */
+	protected final Set<GroovyLoadedScriptListener> listeners = new CopyOnWriteArraySet<GroovyLoadedScriptListener>();
 	
 	/**
 	 * Creates a new GroovyService
 	 */
 	public GroovyService() {
 		compilerConfiguration.setOptimizationOptions(Collections.singletonMap("indy", true));
+		groovyClassLoader =  new GroovyClassLoader(getClass().getClassLoader(), compilerConfiguration);
+		registerLoadListener(this);
 	}
+	
+	/**
+	 * Registers the passed load listener
+	 * @param listener the load listener
+	 */
+	public void registerLoadListener(GroovyLoadedScriptListener listener) {
+		if(listener!=null) {
+			listeners.add(listener);
+		}
+	}
+	
+	/**
+	 * Unregisters the passed load listener
+	 * @param listener the load listener
+	 */
+	public void unregisterLoadListener(GroovyLoadedScriptListener listener) {
+		if(listener!=null) {
+			listeners.remove(listener);
+		}
+	}
+	
 	
 	/**
 	 * Flushes the compiled script cache
@@ -143,12 +177,116 @@ public class GroovyService extends ServerComponentBean {
 	public void compile(String name, String source) {
 		if(name==null || name.trim().isEmpty()) throw new IllegalArgumentException("The passed script name was null or empty", new Throwable());
 		if(source==null || source.length()==0) throw new IllegalArgumentException("The passed source was null or empty", new Throwable());		
-		Script script = new GroovyShell(compilerConfiguration).parse(source, name);
+		Script script = null;
+		try {
+			script = new GroovyShell(compilerConfiguration).parse(source, name);
+			info("Compiled script named [" , name , "]. Class is: [", script.getClass().getName(), "]");
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+			throw new RuntimeException(ex);
+		}		
 		Binding bindings = getBindings();
 		script.setBinding(bindings);
 		script.setProperty("bindings", bindings);
 		compiledScripts.put(name, script);
+		
+		Class<?> clazz = script.getClass();//groovyClassLoader.parseClass(source);
+		scanLoadedClass(clazz, script);
 	}
+	
+	
+	
+	/**
+	 * Scans the passed class and looks for matches with registered groovy loaded class listeners, firing their callbacks when matches are found
+	 * @param clazz The class to scan
+	 * @param instance The instance of the scanned class
+	 */
+	protected void scanLoadedClass(Class<?> clazz, Object instance) {
+		if(listeners.isEmpty()) return;
+		Map<Class<? extends Annotation>, Annotation> typeAnns = new HashMap<Class<? extends Annotation>, Annotation>();
+		Map<Class<? extends Annotation>, Map<Method, Set<Annotation>>> methodAnns = new HashMap<Class<? extends Annotation>, Map<Method, Set<Annotation>>>();
+		for(Annotation annot: clazz.getAnnotations()) {
+			typeAnns.put(annot.annotationType(), annot);
+		}
+		for(Method m: clazz.getMethods()) {
+			for(Annotation annot: m.getAnnotations()) {
+				addMethodAnnotation(methodAnns, m, annot);
+			}				
+		}
+		for(Method m: clazz.getDeclaredMethods()) {
+			for(Annotation annot: m.getAnnotations()) {
+				addMethodAnnotation(methodAnns, m, annot);
+			}				
+		}
+		for(GroovyLoadedScriptListener listener: listeners) {
+			Set<Annotation> matchedAnnotations = new HashSet<Annotation>();
+			for(Class<? extends Annotation> cl: listener.getScanTypeAnnotations()) {
+				Annotation matchedAnnotation = typeAnns.get(cl);
+				if(matchedAnnotation!=null) {
+					matchedAnnotations.add(matchedAnnotation);
+				}
+			}			
+			if(!matchedAnnotations.isEmpty()) {
+				listener.onScanType(matchedAnnotations, clazz, instance);				
+			}
+			Map<Method, Set<Annotation>> matchedMethodAnnotations = new HashMap<Method, Set<Annotation>>();
+			Set<Class<? extends Annotation>> listenerMethodAnnotationTypes = listener.getScanMethodAnnotations();
+			for(Method method: clazz.getMethods()) {
+				for(Annotation methodAnnotation: method.getAnnotations()) {
+					if(listenerMethodAnnotationTypes.contains(methodAnnotation.annotationType())) {
+						Set<Annotation> annotationSet = matchedMethodAnnotations.get(method);
+						if(annotationSet==null) {
+							annotationSet = new HashSet<Annotation>();
+							matchedMethodAnnotations.put(method, annotationSet);
+						}
+						annotationSet.add(methodAnnotation);
+					}
+				}
+			}
+			for(Method method: clazz.getDeclaredMethods()) {
+				for(Annotation methodAnnotation: method.getAnnotations()) {
+					if(listenerMethodAnnotationTypes.contains(methodAnnotation.annotationType())) {
+						Set<Annotation> annotationSet = matchedMethodAnnotations.get(method);
+						if(annotationSet==null) {
+							annotationSet = new HashSet<Annotation>();
+							matchedMethodAnnotations.put(method, annotationSet);
+						}
+						annotationSet.add(methodAnnotation);
+					}
+				}
+			}
+			if(!matchedMethodAnnotations.isEmpty()) {
+				listener.onScanMethod(matchedMethodAnnotations, clazz, instance);
+			}
+			Set<Class<?>> matchedParentClasses = new HashSet<Class<?>>();
+			for(Class<?> parentClass: listener.getScanClasses()) {
+				if(parentClass.isAssignableFrom(clazz)) {
+					matchedParentClasses.add(parentClass);
+				}				
+			}
+			if(!matchedParentClasses.isEmpty()) {
+				listener.onScanClasses(matchedParentClasses, clazz, instance);
+			}
+		}
+	}
+	
+	/**
+	 * Adds the passed method and it's associated annotation to the passed annotation tree
+	 * @param annotationTree The method annotation tree for the class being scanned
+	 * @param method The scanned method
+	 * @param annotation The annotation associated with the passed method
+	 */
+	protected void addMethodAnnotation(final Map<Class<? extends Annotation>, Map<Method, Set<Annotation>>> annotationTree, final Method method, final Annotation annotation) {
+		Class<? extends Annotation> annClass = annotation.annotationType();
+		Map<Method, Set<Annotation>> methodSets = annotationTree.get(annClass);
+		if(methodSets==null) {
+			methodSets = new HashMap<Method, Set<Annotation>>();
+			methodSets.put(method, new HashSet<Annotation>());
+			annotationTree.put(annClass, methodSets);
+		}
+		methodSets.get(method).add(annotation);
+	}
+	
 	
 	/**
 	 * Compiles the passed source and assignes it the passed name
@@ -447,5 +585,66 @@ public class GroovyService extends ServerComponentBean {
 	@ManagedAttribute(description="The compiler's optimization options")
 	public void setOptimizationOptions(Map<String, Boolean> options) {
 		compilerConfiguration.setOptimizationOptions(options);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.groovy.GroovyLoadedScriptListener#getScanTypeAnnotations()
+	 */
+	@Override
+	public Set<Class<? extends Annotation>> getScanTypeAnnotations() {
+		return Collections.emptySet();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.groovy.GroovyLoadedScriptListener#getScanMethodAnnotations()
+	 */
+	@Override
+	public Set<Class<? extends Annotation>> getScanMethodAnnotations() {
+		return new HashSet<Class<? extends Annotation>>(Arrays.asList(Start.class));
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.groovy.GroovyLoadedScriptListener#getScanClasses()
+	 */
+	@Override
+	public Set<Class<?>> getScanClasses() {
+		return Collections.emptySet();
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.groovy.GroovyLoadedScriptListener#onScanType(java.util.Set, java.lang.Class, java.lang.Object)
+	 */
+	@Override
+	public void onScanType(Set<? extends Annotation> annotations, Class<?> clazz, Object instance) {
+		info("\n\t===================================\n\tType Annotation Match:", clazz.getName(), "\n\t===================================\n");
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.groovy.GroovyLoadedScriptListener#onScanMethod(java.util.Map, java.lang.Class, java.lang.Object)
+	 */
+	@Override
+	public void onScanMethod(Map<Method, Set<Annotation>> methods, Class<?> clazz, Object instance) {
+		StringBuilder b = new StringBuilder("\n\t===================================\n\tMethod Annotation Match:" + clazz.getName() + "\n\t===================================\n");
+		for(Map.Entry<Method, Set<Annotation>> match: methods.entrySet()) {
+			b.append("\n\tMethod:").append(match.getKey().getName());
+			for(Annotation ann: match.getValue()) {
+				b.append("\n\t\tAnn:" + ann.annotationType().getSimpleName());
+			}
+		}
+		info(b);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.groovy.GroovyLoadedScriptListener#onScanClasses(java.util.Set, java.lang.Class, java.lang.Object)
+	 */
+	@Override
+	public void onScanClasses(Set<Class<?>> annotations, Class<?> clazz, Object instance) {
+		info("\n\t===================================\n\tInherritance Match:", clazz.getName(), "\n\t===================================\n");
 	}
 }
