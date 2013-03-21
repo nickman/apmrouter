@@ -42,7 +42,7 @@ public class JMXAttributeTrace {
 	protected String segment = null;
 	protected String metricName = null;
 	protected String traceType = "LONG_GAUGE";
-	private MetricType resolvedTraceMetricType = MetricType.LONG_GAUGE;
+    protected MetricType resolvedTraceMetricType = MetricType.LONG_GAUGE;
     protected String[] resolvedPrefix = null;
 	protected List<IObjectFormatter> objectFormatters = new ArrayList<IObjectFormatter>();
 	protected List<IObjectTracer> objectTracers = new ArrayList<IObjectTracer>();
@@ -67,6 +67,7 @@ public class JMXAttributeTrace {
 	    this.objectTracers = jMXAttributeTrace.objectTracers;
 	    this.mandatory = jMXAttributeTrace.mandatory;
 	    this.defaultValue = jMXAttributeTrace.defaultValue;
+        this.resolvedTraceMetricType = jMXAttributeTrace.resolvedTraceMetricType;
         //this.groovyTracers = jMXAttributeTrace.groovyTracers;
 	}
 	/**
@@ -97,20 +98,26 @@ public class JMXAttributeTrace {
 		return traceType;
 	}
 
-    public MetricType getTraceMetricType(){
-        return resolvedTraceMetricType;
-    }
+
 	/**
 	 * @param traceType the tracerType to set
 	 */
 	public void setTraceType(String traceType) {
          this.traceType = traceType;
          try{
-            resolvedTraceMetricType = MetricType.valueOfName(traceType);
+            this.resolvedTraceMetricType = MetricType.valueOfName(traceType);
          } catch (IllegalArgumentException iex){
             /*Ignore exception as default Metric Type
               of LONG_GAUGE will be assigned to this tracer */
          }
+    }
+
+    public MetricType getResolvedTraceMetricType() {
+        return resolvedTraceMetricType;
+    }
+
+    public void setResolvedTraceMetricType(MetricType resolvedTraceMetricType) {
+        this.resolvedTraceMetricType = resolvedTraceMetricType;
     }
 
 	/**
