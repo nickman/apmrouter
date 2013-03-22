@@ -24,18 +24,18 @@
  */
 package org.helios.collector.ping;
 
+import org.helios.collector.core.AbstractCollector;
+import org.helios.collector.core.CollectionResult;
+import org.helios.collector.core.CollectorException;
+import org.springframework.jmx.export.annotation.ManagedOperation;
+import org.springframework.jmx.export.annotation.ManagedResource;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
-
-import org.helios.collector.core.AbstractCollector;
-import org.helios.collector.core.CollectionResult;
-import org.helios.collector.core.CollectorException;
-import org.springframework.jmx.export.annotation.ManagedOperation;
-import org.springframework.jmx.export.annotation.ManagedResource;
 
 
 /**

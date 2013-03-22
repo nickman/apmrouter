@@ -24,14 +24,13 @@
  */
 package org.helios.collector.jmx.connection;
 
+import org.apache.commons.pool.PoolableObjectFactory;
+
+import javax.management.MBeanServerConnection;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-
-import javax.management.MBeanServerConnection;
-
-import org.apache.commons.pool.PoolableObjectFactory;
 
 /**
  * <p>Title: MBeanServerConnectionFactory</p>

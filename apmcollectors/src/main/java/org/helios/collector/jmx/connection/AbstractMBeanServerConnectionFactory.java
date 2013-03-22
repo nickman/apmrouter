@@ -24,35 +24,6 @@
  */
 package org.helios.collector.jmx.connection;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.atomic.AtomicLong;
-
-import javax.management.Attribute;
-import javax.management.AttributeList;
-import javax.management.AttributeNotFoundException;
-import javax.management.InstanceAlreadyExistsException;
-import javax.management.InstanceNotFoundException;
-import javax.management.IntrospectionException;
-import javax.management.InvalidAttributeValueException;
-import javax.management.ListenerNotFoundException;
-import javax.management.MBeanException;
-import javax.management.MBeanInfo;
-import javax.management.MBeanRegistrationException;
-import javax.management.MBeanServerConnection;
-import javax.management.NotCompliantMBeanException;
-import javax.management.NotificationFilter;
-import javax.management.NotificationListener;
-import javax.management.ObjectInstance;
-import javax.management.ObjectName;
-import javax.management.QueryExp;
-import javax.management.ReflectionException;
-import javax.management.remote.JMXServiceURL;
-
 import org.apache.commons.collections.ListUtils;
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.jmx.JMXHelper;
@@ -67,6 +38,16 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedOperation;
 import org.springframework.jmx.export.annotation.ManagedResource;
+
+import javax.management.*;
+import javax.management.remote.JMXServiceURL;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * <p>Title: AbstractMBeanServerConnectionFactory</p>
@@ -327,7 +308,6 @@ public abstract class AbstractMBeanServerConnectionFactory implements IMBeanServ
 	/**
 	 * Detects any domain changes from the previous poll and send notification if there are any changes
 	 * 
-	 * @param oName
 	 * @param domains
 	 */
 	@ManagedOperation

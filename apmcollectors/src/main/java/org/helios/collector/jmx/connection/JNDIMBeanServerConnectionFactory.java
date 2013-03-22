@@ -24,16 +24,15 @@
  */
 package org.helios.collector.jmx.connection;
 
-import java.util.Properties;
-import java.util.concurrent.TimeUnit;
+import org.apache.log4j.Logger;
+import org.helios.collector.jmx.HSPProtocol;
+import org.springframework.jmx.export.annotation.ManagedResource;
 
 import javax.management.MBeanServerConnection;
 import javax.naming.Context;
 import javax.naming.InitialContext;
-
-import org.apache.log4j.Logger;
-import org.helios.collector.jmx.HSPProtocol;
-import org.springframework.jmx.export.annotation.ManagedResource;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 
 /**

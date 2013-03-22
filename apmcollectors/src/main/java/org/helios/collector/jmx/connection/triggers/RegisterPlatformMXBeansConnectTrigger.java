@@ -24,12 +24,10 @@
  */
 package org.helios.collector.jmx.connection.triggers;
 
-import java.lang.management.ManagementFactory;
+import org.helios.apmrouter.jmx.JMXHelper;
 
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
-
-import org.helios.apmrouter.jmx.JMXHelper;
 
 /**
  * <p>Title: RegisterPlatformMXBeansConnectTrigger</p>

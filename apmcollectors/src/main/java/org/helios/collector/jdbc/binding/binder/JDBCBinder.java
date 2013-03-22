@@ -24,10 +24,10 @@
  */
 package org.helios.collector.jdbc.binding.binder;
 
+import org.helios.collector.jdbc.binding.provider.BindProviderConfigurationException;
+
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-
-import org.helios.collector.jdbc.binding.provider.BindProviderConfigurationException;
 
 /**
  * <p>Title: JDBCBinder</p>

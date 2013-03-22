@@ -24,20 +24,6 @@
  */
 package org.helios.collector.jmx.identifiers;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
-import java.util.regex.Pattern;
-
-import javax.management.ObjectName;
-
-import org.apache.log4j.Logger;
-import org.helios.collector.jmx.connection.IMBeanServerConnectionFactory;
-import org.helios.apmrouter.jmx.JMXHelper;
-import org.helios.apmrouter.util.RegexHelper;
-import org.springframework.jmx.export.annotation.ManagedOperation;
 import org.springframework.jmx.export.annotation.ManagedResource;
 
 /**

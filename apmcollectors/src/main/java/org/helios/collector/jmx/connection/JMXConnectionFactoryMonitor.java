@@ -24,25 +24,14 @@
  */
 package org.helios.collector.jmx.connection;
 
-import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-
-import javax.management.MBeanServer;
-import javax.management.MalformedObjectNameException;
-import javax.management.ObjectInstance;
-import javax.management.ObjectName;
-import javax.management.Query;
-import javax.management.QueryExp;
-
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.jmx.ScheduledThreadPoolFactory;
 import org.springframework.jmx.export.annotation.ManagedResource;
+
+import javax.management.*;
+import java.util.Set;
+import java.util.concurrent.*;
 
 /**
  * <p>Title: JMXConnectionFactoryMonitor</p>

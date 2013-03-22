@@ -24,29 +24,25 @@
  */
 package org.helios.collector.jdbc.mapping;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.management.MBeanServer;
-
-//import net.sf.ehcache.Ehcache;
-
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.jmx.XMLHelper;
+import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.trace.ITracer;
 import org.helios.collector.jdbc.binding.provider.BindVariableProviderFactory;
 import org.helios.collector.jdbc.binding.provider.IBindVariableProvider;
 import org.helios.collector.jdbc.extract.IReadOnlyProcessedResultSet;
-import org.helios.apmrouter.jmx.XMLHelper;
-//- import org.helios.ot.deltas.DeltaManager;
-import org.helios.apmrouter.metric.ICEMetric;
-//- import org.helios.ot.trace.Trace.Builder;
-import org.helios.apmrouter.trace.ITracer;
-import org.helios.apmrouter.metric.MetricType;
 import org.w3c.dom.Node;
+
+import javax.management.MBeanServer;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+//import net.sf.ehcache.Ehcache;
+//- import org.helios.ot.deltas.DeltaManager;
+//- import org.helios.ot.trace.Trace.Builder;
 
 /**
  * <p>Title: MetricMap</p>

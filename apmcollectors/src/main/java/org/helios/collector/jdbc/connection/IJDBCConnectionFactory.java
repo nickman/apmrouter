@@ -24,11 +24,10 @@
  */
 package org.helios.collector.jdbc.connection;
 
-import java.sql.Connection;
+import org.helios.collector.jdbc.SQLMapping;
 
 import javax.sql.DataSource;
-
-import org.helios.collector.jdbc.SQLMapping;
+import java.sql.Connection;
 
 /**
  * <p>Title: IJDBCConnectionFactory</p>

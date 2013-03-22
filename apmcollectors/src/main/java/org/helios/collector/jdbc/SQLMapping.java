@@ -24,25 +24,10 @@
  */
 package org.helios.collector.jdbc;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Matcher;
-
-import javax.management.MBeanServer;
-
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.jmx.XMLHelper;
+import org.helios.apmrouter.trace.ITracer;
 import org.helios.collector.jdbc.binding.provider.BindVariableProviderFactory;
 import org.helios.collector.jdbc.binding.provider.IBindVariableProvider;
 import org.helios.collector.jdbc.binding.provider.ProviderNotFoundException;
@@ -50,13 +35,17 @@ import org.helios.collector.jdbc.binding.provider.ProviderToken;
 import org.helios.collector.jdbc.extract.ProcessedResultSet;
 import org.helios.collector.jdbc.mapping.InvalidMetricMappingException;
 import org.helios.collector.jdbc.mapping.MetricMap;
-import org.helios.apmrouter.jmx.XMLHelper;
-import org.helios.apmrouter.trace.ITracer;
 import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.jmx.export.annotation.ManagedResource;
 import org.w3c.dom.Node;
+
+import javax.management.MBeanServer;
+import java.sql.*;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
 
 /**
  * <p>Title: SQLMapping</p>

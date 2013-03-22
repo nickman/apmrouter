@@ -24,9 +24,10 @@
  */
 package org.helios.collector.jmx;
 
-import java.text.MessageFormat;
-import javax.management.ObjectName;
 import org.helios.apmrouter.jmx.JMXHelper;
+
+import javax.management.ObjectName;
+import java.text.MessageFormat;
 
 /**
  * <p>Title: HSPProtocol</p>

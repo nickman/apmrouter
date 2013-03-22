@@ -24,34 +24,9 @@
  */
 package org.helios.collector.jmx;
 
-import java.io.IOException;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryUsage;
-import java.lang.management.ThreadInfo;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.Map.Entry;
-
-import javax.management.Attribute;
-import javax.management.AttributeList;
-import javax.management.InstanceNotFoundException;
-import javax.management.MBeanServerConnection;
-import javax.management.MalformedObjectNameException;
-import javax.management.ObjectName;
-import javax.management.ReflectionException;
-import javax.management.openmbean.CompositeData;
-import javax.management.openmbean.CompositeDataSupport;
-import javax.naming.Context;
-import javax.naming.InitialContext;
-import javax.naming.NamingException;
-
+import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.util.StringHelper;
 import org.helios.collector.core.AbstractCollector;
 import org.helios.collector.core.CollectionResult;
 import org.helios.collector.core.CollectorException;
@@ -61,11 +36,21 @@ import org.helios.collector.jmx.tracers.IObjectFormatter;
 import org.helios.collector.jmx.tracers.IObjectTracer;
 import org.helios.collector.jmx.tracers.JMXAttributeTrace;
 import org.helios.collector.jmx.tracers.JMXObject;
-import org.helios.apmrouter.jmx.JMXHelper;
-import org.helios.apmrouter.metric.MetricType;
-import org.helios.apmrouter.util.StringHelper;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedResource;
+
+import javax.management.*;
+import javax.management.openmbean.CompositeData;
+import javax.management.openmbean.CompositeDataSupport;
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
+import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryUsage;
+import java.lang.management.ThreadInfo;
+import java.util.*;
+import java.util.Map.Entry;
 
 
 /**
@@ -235,7 +220,7 @@ public class JMXCollector extends AbstractCollector {
 
 
     public CollectionResult collectCallback() {
-        long st = System.currentTimeMillis();
+        //long st = System.currentTimeMillis();
         CollectionResult collectionResult = new CollectionResult();
         resetProcessingFlag();
 
@@ -858,7 +843,7 @@ public class JMXCollector extends AbstractCollector {
      */
     protected void processGCStats() {
         String rootSegment[] = null;
-        CompositeDataSupport  usage = null;
+        //CompositeDataSupport  usage = null;
         long collectionCount = 0;
         long collectionTime = 0;
         long elapsedTime = 0;

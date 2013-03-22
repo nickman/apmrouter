@@ -25,23 +25,17 @@
 package org.helios.collector.jdbc.extract;
 
 import gnu.trove.map.hash.TIntObjectHashMap;
+import org.helios.apmrouter.jmx.XMLHelper;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.SQLXML;
+import java.sql.*;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
-
-import org.helios.apmrouter.jmx.XMLHelper;
 
 /**
  * <p>Title: ResultSetExtractorImpl</p>

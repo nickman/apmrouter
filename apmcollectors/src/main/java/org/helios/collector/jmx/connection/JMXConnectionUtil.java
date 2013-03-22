@@ -24,20 +24,14 @@
  */
 package org.helios.collector.jmx.connection;
 
-import java.io.IOException;
-import java.net.SocketTimeoutException;
-import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-
 import javax.management.MBeanServerConnection;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
 import javax.naming.Context;
+import java.io.IOException;
+import java.net.SocketTimeoutException;
+import java.util.Map;
+import java.util.concurrent.*;
 
 /**
  * <p>Title: JMXConnectionUtil </p>

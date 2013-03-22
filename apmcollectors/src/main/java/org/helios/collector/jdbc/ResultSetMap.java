@@ -25,10 +25,10 @@
 package org.helios.collector.jdbc;
 
 
-import java.net.URL;
-
 import org.helios.collector.jdbc.extract.IProcessedResultSet;
 import org.w3c.dom.Node;
+
+import java.net.URL;
 
 
 /**

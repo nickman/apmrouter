@@ -24,13 +24,12 @@
  */
 package org.helios.collector.jdbc.connection;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-
-import javax.sql.DataSource;
-
 import org.helios.collector.jdbc.SQLMapping;
 import org.helios.collector.timeout.ThreadWatcher;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 /**
  * <p>Title: BeanReferenceJDBCConnectionFactory</p>

@@ -27,7 +27,6 @@ package org.helios.collector.jmx.tracers.script;
 import org.apache.log4j.Logger;
 import org.helios.collector.jmx.tracers.AbstractObjectFormatter;
 import org.helios.collector.jmx.tracers.IObjectFormatter;
-import org.helios.collector.jmx.tracers.IObjectFormatter;
 
 /**
  * <p>Title: ScriptObjectFormatter</p>

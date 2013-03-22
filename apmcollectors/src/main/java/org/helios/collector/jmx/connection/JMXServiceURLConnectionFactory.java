@@ -24,15 +24,14 @@
  */
 package org.helios.collector.jmx.connection;
 
-import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import javax.management.MBeanServerConnection;
-import javax.management.remote.JMXServiceURL;
-
 import org.apache.log4j.Logger;
 import org.helios.collector.jmx.HSPProtocol;
 import org.springframework.jmx.export.annotation.ManagedResource;
+
+import javax.management.MBeanServerConnection;
+import javax.management.remote.JMXServiceURL;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * <p>Title: JMXServiceURLConnectionFactory </p>
@@ -68,8 +67,7 @@ public class JMXServiceURLConnectionFactory extends AbstractMBeanServerConnectio
 	/**
 	 * The internal getConnection implementation
 	 * @return an MBeanServerConnection
-	 * @throws IOException
-	 * @throws MBeanServerConnectionFactoryException 
+	 * @throws MBeanServerConnectionFactoryException
 	 */
 	protected MBeanServerConnection _getConnection() throws MBeanServerConnectionFactoryException {
 		try {

@@ -25,7 +25,6 @@
 package org.helios.collector.jmx.tracers;
 
 import org.apache.log4j.Logger;
-import org.helios.apmrouter.util.StringHelper;
 
 /**
  * <p>Title: JMXObjectTracer </p>

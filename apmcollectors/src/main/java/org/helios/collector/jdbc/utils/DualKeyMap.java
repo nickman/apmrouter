@@ -24,12 +24,7 @@
  */
 package org.helios.collector.jdbc.utils;
 
-import java.util.AbstractMap;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.Map.Entry;
 
 /**
@@ -73,67 +68,67 @@ public class DualKeyMap<K, A, V>  {
 	
 	
 	public static void main(String[] args) {
-		DualKeyMap<Integer, String, Object> dkm = new DualKeyMap<Integer, String, Object>(Integer.class, String.class);
-		dkm.put(1, "One", "A");
-		dkm.put(2, "Two", "B");
-		dkm.put(3, "Three", "C");
-		assert dkm.kmap.size()==3;
-		assert dkm.amap.size()==3;
-		assert dkm.ktoa.size()==3;
-		assert dkm.atok.size()==3;
-		
-		assert dkm.get(2).equals("B");
-		assert dkm.get("Two").equals("B");
-		assert !dkm.get(1).equals("B");
-		assert !dkm.get("One").equals("B");
-		assert dkm.remove(1).equals("A");
-		assert dkm.remove("Three").equals("C");
-		assert dkm.kmap.size()==1;
-		assert dkm.amap.size()==1;
-		assert dkm.ktoa.size()==1;
-		assert dkm.atok.size()==1;
-		dkm.clear();
-		assert dkm.kmap.size()==0;
-		assert dkm.amap.size()==0;
-		assert dkm.ktoa.size()==0;
-		assert dkm.atok.size()==0;
-
-		dkm.put(1, "One", "A");
-		dkm.put(2, "Two", "B");
-		dkm.put(3, "Three", "C");
-		Map map = new HashMap();
-		map.put("One", "A");
-		map.put("Two", "B");
-		map.put("Three", "C");
-		
-		assert dkm.entrySet(String.class).toString().equals(map.entrySet().toString());
-		assert dkm.entrySet(String.class).equals(map.entrySet());
-		assert !dkm.entrySet(Integer.class).toString().equals(map.entrySet().toString());
-		assert !dkm.entrySet(Integer.class).equals(map.entrySet());
-		
-		
-		map.clear();
-		map.put(1, "A");
-		map.put(2, "B");
-		map.put(3, "C");
-
-		assert dkm.entrySet(Integer.class).toString().equals(map.entrySet().toString());
-		assert dkm.entrySet(Integer.class).equals(map.entrySet());
-		assert !dkm.entrySet(String.class).toString().equals(map.entrySet().toString());
-		assert !dkm.entrySet(String.class).equals(map.entrySet());
-		
-		dkm.clear();
-		map.clear();
-		
-		assert dkm.entrySet(Integer.class).toString().equals(map.entrySet().toString());
-		assert dkm.entrySet(Integer.class).equals(map.entrySet());
-		assert dkm.entrySet(String.class).toString().equals(map.entrySet().toString());
-		assert dkm.entrySet(String.class).equals(map.entrySet());
-		
-		
-		
-		log("All assertions passed");
-		
+//		DualKeyMap<Integer, String, Object> dkm = new DualKeyMap<Integer, String, Object>(Integer.class, String.class);
+//		dkm.put(1, "One", "A");
+//		dkm.put(2, "Two", "B");
+//		dkm.put(3, "Three", "C");
+//		assert dkm.kmap.size()==3;
+//		assert dkm.amap.size()==3;
+//		assert dkm.ktoa.size()==3;
+//		assert dkm.atok.size()==3;
+//
+//		assert dkm.get(2).equals("B");
+//		assert dkm.get("Two").equals("B");
+//		assert !dkm.get(1).equals("B");
+//		assert !dkm.get("One").equals("B");
+//		assert dkm.remove(1).equals("A");
+//		assert dkm.remove("Three").equals("C");
+//		assert dkm.kmap.size()==1;
+//		assert dkm.amap.size()==1;
+//		assert dkm.ktoa.size()==1;
+//		assert dkm.atok.size()==1;
+//		dkm.clear();
+//		assert dkm.kmap.size()==0;
+//		assert dkm.amap.size()==0;
+//		assert dkm.ktoa.size()==0;
+//		assert dkm.atok.size()==0;
+//
+//		dkm.put(1, "One", "A");
+//		dkm.put(2, "Two", "B");
+//		dkm.put(3, "Three", "C");
+//		Map map = new HashMap();
+//		map.put("One", "A");
+//		map.put("Two", "B");
+//		map.put("Three", "C");
+//
+//		assert dkm.entrySet(String.class).toString().equals(map.entrySet().toString());
+//		assert dkm.entrySet(String.class).equals(map.entrySet());
+//		assert !dkm.entrySet(Integer.class).toString().equals(map.entrySet().toString());
+//		assert !dkm.entrySet(Integer.class).equals(map.entrySet());
+//
+//
+//		map.clear();
+//		map.put(1, "A");
+//		map.put(2, "B");
+//		map.put(3, "C");
+//
+//		assert dkm.entrySet(Integer.class).toString().equals(map.entrySet().toString());
+//		assert dkm.entrySet(Integer.class).equals(map.entrySet());
+//		assert !dkm.entrySet(String.class).toString().equals(map.entrySet().toString());
+//		assert !dkm.entrySet(String.class).equals(map.entrySet());
+//
+//		dkm.clear();
+//		map.clear();
+//
+//		assert dkm.entrySet(Integer.class).toString().equals(map.entrySet().toString());
+//		assert dkm.entrySet(Integer.class).equals(map.entrySet());
+//		assert dkm.entrySet(String.class).toString().equals(map.entrySet().toString());
+//		assert dkm.entrySet(String.class).equals(map.entrySet());
+//
+//
+//
+//		log("All assertions passed");
+//
 		
 	}
 	

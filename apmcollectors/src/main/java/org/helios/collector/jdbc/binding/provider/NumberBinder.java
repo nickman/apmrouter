@@ -24,6 +24,9 @@
  */
 package org.helios.collector.jdbc.binding.provider;
 
+import org.helios.collector.jdbc.binding.binder.Binder;
+import org.helios.collector.jdbc.binding.binder.IBinder;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.PreparedStatement;
@@ -31,9 +34,6 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-
-import org.helios.collector.jdbc.binding.binder.Binder;
-import org.helios.collector.jdbc.binding.binder.IBinder;
 
 /**
  * <p>Title: NumberBinder</p>
