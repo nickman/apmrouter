@@ -28,12 +28,16 @@ import groovy.lang.Binding;
 import groovy.lang.GroovyClassLoader;
 import groovy.lang.GroovyShell;
 import groovy.lang.GroovySystem;
+import groovy.lang.MissingPropertyException;
 import groovy.lang.Script;
 
 import java.io.File;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -244,6 +248,7 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 	 * 	source
 	 *  properties (compiler options)
 	 *  url[] (additional classpaths)
+	 *  classloader
 	 *  
 	 * 
 	 * invoke(String name, OutputStream os, Object...args)  // run, with args in bindings
@@ -254,6 +259,82 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 	 * compileAndInvoke(...)
 	 * 
 	 */
+	
+	/**
+	 * Invokes the named method in the named script and returns the value returned from the invocation
+	 * @param name The name of the script to run
+	 * @param methodName The name of the method to run
+	 * @param os The output stream the script will write to when it calls <p><code>out</code></p>.
+	 * @param es The output stream the script will write to when it calls <p><code>err</code></p>.
+	 * @param args The arguments passed to the script as <p><code>args</code></p>.
+	 * @return the value returned from the script
+	 */
+	public Object invoke(String name, String methodName, OutputStream os, OutputStream es, Object...args) {
+		if(name==null || name.trim().isEmpty() )  throw new IllegalArgumentException("The passed script name was null or empty", new Throwable());
+		if(methodName==null || methodName.trim().isEmpty() )  throw new IllegalArgumentException("The passed method name was null or empty", new Throwable());
+		Script script = compiledScripts.get(name);
+		if(script==null)  throw new IllegalArgumentException("No script found for passed script name [" + name + "]", new Throwable());
+		if(os!=null) {
+			script.setProperty("out", new PrintStream(os, true));
+		}
+		if(es!=null) {
+			script.setProperty("err", new PrintStream(es, true));
+		}		
+		return script.invokeMethod(methodName, args);
+	}
+	
+	/**
+	 * Invokes the named method in the named script and returns the value returned from the invocation
+	 * @param name The name of the script to run
+	 * @param methodName The name of the method to run
+	 * @param args The arguments passed to the script as <p><code>args</code></p>.
+	 * @return the value returned from the script
+	 */
+	public Object invoke(String name, String methodName, Object...args) {
+		if(name==null || name.trim().isEmpty() )  throw new IllegalArgumentException("The passed script name was null or empty", new Throwable());
+		if(methodName==null || methodName.trim().isEmpty() )  throw new IllegalArgumentException("The passed method name was null or empty", new Throwable());
+		Script script = compiledScripts.get(name);
+		if(script==null)  throw new IllegalArgumentException("No script found for passed script name [" + name + "]", new Throwable());
+		return invoke(name, methodName, args);
+	}
+	
+	/**
+	 * Invokes the named method in the named script and returns the value returned from the invocation
+	 * @param name The name of the script to run
+	 * @param methodName The name of the method to run
+	 * @return the value returned from the script
+	 */
+	public Object invoke(String name, String methodName) {
+		return invoke(name, methodName, EMPTY_OBJ_ARR);
+	}
+	
+	
+	
+	/**
+	 * Runs the named script and returns the value returned from the invocation
+	 * @param name The name of the script to run
+	 * @param os The output stream the script will write to when it calls <p><code>out</code></p>.
+	 * @param es The output stream the script will write to when it calls <p><code>err</code></p>.
+	 * @param args The arguments passed to the script as <p><code>args</code></p>.
+	 * @return the value returned from the script
+	 */
+	public Object run(String name, OutputStream os, OutputStream es, Object...args) {
+		if(name==null || name.trim().isEmpty() )  throw new IllegalArgumentException("The passed script name was null or empty", new Throwable());
+		Script script = compiledScripts.get(name);
+		if(script==null)  throw new IllegalArgumentException("No script found for passed script name [" + name + "]", new Throwable());
+		if(args==null || args.length==0) {
+			script.setProperty("args", EMPTY_OBJ_ARR);
+		} else {
+			script.setProperty("args", args);
+		}
+		if(os!=null) {
+			script.setProperty("out", new PrintStream(os, true));
+		}
+		if(es!=null) {
+			script.setProperty("err", new PrintStream(es, true));
+		}		
+		return script.run();
+	}
 	
 	/**
 	 * Compiles the passed source and assignes it the passed name
@@ -409,12 +490,8 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 		@ManagedOperationParameter(name="ScriptName", description="The name of the compiled script to run"),
 		@ManagedOperationParameter(name="Args", description="The optional arguments to pass to the script")
 	})
-	public Object runScript(String name, Object...args) {
-		if(name==null || name.trim().isEmpty()) throw new IllegalArgumentException("The passed script name was null or empty", new Throwable());
-		Script script = compiledScripts.get(name);
-		if(script==null) throw new RuntimeException("Failed to find script named [" + name + "]");
-		script.setProperty("args", (args!=null && args.length>0) ? args : EMPTY_OBJ_ARR);
-		return script.run();
+	public Object run(String name, Object...args) {
+		return run(name, null, null, args);
 	}
 	
 	/**
@@ -427,7 +504,7 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 		@ManagedOperationParameter(name="ScriptName", description="The name of the compiled script to run")
 	})
 	public Object runScript(String name) {
-		return runScript(name, EMPTY_OBJ_ARR);
+		return run(name, EMPTY_OBJ_ARR);
 	}
 	
 	
@@ -447,7 +524,8 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 				}
 			}
 		}
-		return new NullSafeBindng(beans);
+		//return new ThreadSafeNoNullsBinding(beans);
+		return new Binding(beans);
 	}
 	
 	
@@ -458,14 +536,33 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 	public void launchConsole() {
 		try {
 			try {
-				compiledScripts.get("console").invokeMethod("run", new Object[]{});
+				Script consoleScript = compiledScripts.get("console");
+				//consoleScript.setProperty("_", compilerConfiguration);
+				//consoleScript.invokeMethod("main", new Object[]{});
+				GroovyClassLoader loader = new GroovyClassLoader();
+				Class<?> clazz = loader.parseClass(new String(URLHelper.getBytesFromURL(ClassLoader.getSystemResource("groovy/ui/Console.groovy"))));
+				for(Method m: clazz.getDeclaredMethods()) {
+					if(Modifier.isStatic(m.getModifiers())) {
+						System.err.println(m.toGenericString());
+					}
+				}
+				for(Method m: consoleScript.getClass().getMethods()) {
+					if(Modifier.isStatic(m.getModifiers())) {
+						System.err.println(m.toGenericString());
+					}
+				}
+				
+				clazz.getClass().getDeclaredMethod("main", Object[].class).invoke(null, new Object[]{});
 				return;
 			} catch (Exception ex) {
-				ex.printStackTrace(System.err);
+				//ex.printStackTrace(System.err);
 			}
 			Class<?> clazz = Class.forName("groovy.ui.Console");
-			Constructor<?> ctor = clazz.getDeclaredConstructor(Binding.class);
-			Object console = ctor.newInstance(getBindings());
+			//Constructor<?> ctor = clazz.getDeclaredConstructor(Binding.class);
+			//Object console = ctor.newInstance(getBindings());
+			//console.getClass().getDeclaredMethod("run").invoke(console);
+			Constructor<?> ctor = clazz.getDeclaredConstructor();
+			Object console = ctor.newInstance();
 			console.getClass().getDeclaredMethod("run").invoke(console);
 		} catch (Exception e) {
 			error("Failed to launch console", e);
@@ -774,35 +871,48 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 	
 	
 	/**
-	 * <p>Title: NullSafeBindng</p>
+	 * <p>Title: ThreadSafeNoNullsBinding</p>
 	 * <p>Description: A binding extension that prevents nul value property and variable sets</p> 
 	 * <p>Company: Helios Development Group LLC</p>
 	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
-	 * <p><code>org.helios.apmrouter.groovy.GroovyService.NullSafeBindng</code></p>
+	 * <p><code>org.helios.apmrouter.groovy.GroovyService.ThreadSafeNoNullsBinding</code></p>
 	 */
-	protected class NullSafeBindng extends Binding {
-
+	protected class ThreadSafeNoNullsBinding extends Binding {
+		/** The values as thread locals */
+		protected final Map<String, InheritableThreadLocal<Object>> values = new HashMap<String, InheritableThreadLocal<Object>>();
+		
+		
 		/**
-		 * Creates a new NullSafeBindng
+		 * Creates a new ThreadSafeNoNullsBinding
 		 */
-		public NullSafeBindng() {
+		public ThreadSafeNoNullsBinding() {
 			super();
 		}
 
 		/**
-		 * Creates a new NullSafeBindng
+		 * Creates a new ThreadSafeNoNullsBinding
 		 * @param variables The variables to add to the binding
 		 */
-		public NullSafeBindng(Map<String, Object> variables) {
-			super(variables);
+		public ThreadSafeNoNullsBinding(Map<String, Object> variables) {
+			super();
+			if(variables!=null) {
+				for(Map.Entry<String, Object> entry: variables.entrySet()) {
+					InheritableThreadLocal<Object> t = new InheritableThreadLocal<Object>();
+					t.set(entry.getValue());
+					values.put(entry.getKey(), t);
+				}
+			}
 		}
 
 		/**
-		 * Creates a new NullSafeBindng
+		 * Creates a new ThreadSafeNoNullsBinding
 		 * @param args args to the binding
 		 */
-		public NullSafeBindng(String[] args) {
-			super(args);
+		public ThreadSafeNoNullsBinding(String[] args) {
+			super();
+			InheritableThreadLocal<Object> t = new InheritableThreadLocal<Object>();
+			t.set(args);
+			values.put("args", t);			
 		}
 		
 		/**
@@ -814,7 +924,9 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 			if(value==null) {
 				error("Someone attempted to set a null value property into the groovy bindings [", key, "]:[", value, "]");
 			} else {
-				super.setProperty(key, value);
+				InheritableThreadLocal<Object> t = new InheritableThreadLocal<Object>();
+				t.set(value);
+				values.put(key, t);							
 			}
 		}
 		
@@ -827,9 +939,56 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 			if(value==null) {
 				error("Someone attempted to put a null value variable into the groovy bindings [", name, "]:[", value, "]");
 			} else {
-				super.setVariable(name, value);
+				InheritableThreadLocal<Object> t = new InheritableThreadLocal<Object>();
+				t.set(value);
+				values.put(name, t);							
 			}
 		}
 		
+		/**
+		 * {@inheritDoc}
+		 * @see groovy.lang.Binding#getVariable(java.lang.String)
+		 */
+		@Override
+		public Object getVariable(String name) {
+			InheritableThreadLocal<Object> t = values.get(name);
+			if(t==null) throw new MissingPropertyException(name, this.getClass());
+			return t.get();
+		}
+		
+		/**
+		 * {@inheritDoc}
+		 * @see groovy.lang.Binding#getProperty(java.lang.String)
+		 */
+		@Override
+		public Object getProperty(String key) {
+			InheritableThreadLocal<Object> t = values.get(key);
+			if(t==null) return null;
+			return t.get();			
+		}
+		
+		/**
+		 * {@inheritDoc}
+		 * @see groovy.lang.Binding#hasVariable(java.lang.String)
+		 */
+		@Override
+		public boolean hasVariable(String name) {
+			return values.containsKey(name);
+		}
+		
+		/**
+		 * {@inheritDoc}
+		 * @see groovy.lang.Binding#getVariables()
+		 */
+		@Override
+		public Map<String, Object> getVariables() {
+			Map<String, Object> map = new HashMap<String, Object>(values.size());
+			for(Map.Entry<String, InheritableThreadLocal<Object>> entry: values.entrySet()) {
+				if(entry.getValue().get()!=null) {
+					map.put(entry.getKey(), entry.getValue().get());
+				}
+			}
+			return map;
+		}
 	}
 }
