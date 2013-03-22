@@ -24,14 +24,14 @@
  */
 package test.org.helios.apmrouter.sockets;
 
+import org.helios.apmrouter.util.SystemClock;
+
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.concurrent.CountDownLatch;
-
-import org.helios.apmrouter.util.SystemClock;
 
 /**
  * <p>Title: RunSocketClient</p>

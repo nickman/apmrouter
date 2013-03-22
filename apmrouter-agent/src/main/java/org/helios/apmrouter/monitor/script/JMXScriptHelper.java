@@ -24,19 +24,13 @@
  */
 package org.helios.apmrouter.monitor.script;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Hashtable;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.monitor.script.rhino.INativeObject;
+import org.helios.apmrouter.monitor.script.rhino.NativeFactory;
+import org.helios.apmrouter.util.StringHelper.Unformatter;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import javax.management.Attribute;
 import javax.management.AttributeList;
@@ -48,14 +42,10 @@ import javax.script.Bindings;
 import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
-
-import org.helios.apmrouter.jmx.JMXHelper;
-import org.helios.apmrouter.monitor.script.rhino.INativeObject;
-import org.helios.apmrouter.monitor.script.rhino.NativeFactory;
-import org.helios.apmrouter.util.StringHelper.Unformatter;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.*;
 
 /**
  * <p>Title: JMXScriptHelper</p>

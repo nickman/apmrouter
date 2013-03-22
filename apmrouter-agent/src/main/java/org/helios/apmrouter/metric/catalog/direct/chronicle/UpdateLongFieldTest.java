@@ -24,12 +24,10 @@
  */
 package org.helios.apmrouter.metric.catalog.direct.chronicle;
 
-import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
-
 import vanilla.java.chronicle.Excerpt;
 import vanilla.java.chronicle.impl.IndexedChronicle;
+
+import java.io.File;
 
 /**
  * <p>Title: UpdateLongFieldTest</p>

@@ -24,11 +24,6 @@
  */
 package org.helios.apmrouter.byteman;
 
-import java.io.Serializable;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.concurrent.TimeUnit;
-
 import org.cliffc.high_scale_lib.Counter;
 import org.cliffc.high_scale_lib.NonBlockingHashMap;
 import org.helios.apmrouter.jmx.JMXHelper;
@@ -41,6 +36,11 @@ import org.jboss.byteman.agent.RuleScript;
 import org.jboss.byteman.rule.Rule;
 import org.jboss.byteman.rule.helper.Helper;
 import org.snmp4j.PDU;
+
+import java.io.Serializable;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.concurrent.TimeUnit;
 
 
 /**

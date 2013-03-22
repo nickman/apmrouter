@@ -1,23 +1,20 @@
 package org.helios.apmrouter.trace;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryUsage;
-import java.util.concurrent.TimeUnit;
-
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.metric.MetricType;
-import org.helios.apmrouter.monitor.DefaultMonitorBoot;
 import org.helios.apmrouter.nativex.APMSigar;
 import org.helios.apmrouter.sender.ISender;
 import org.helios.apmrouter.sender.SenderFactory;
 import org.helios.apmrouter.util.SystemClock;
-import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.hyperic.sigar.CpuPerc;
 import org.hyperic.sigar.FileSystem;
 import org.hyperic.sigar.FileSystemUsage;
 import org.snmp4j.PDU;
+
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryUsage;
 
 public class TracingDemo {
 

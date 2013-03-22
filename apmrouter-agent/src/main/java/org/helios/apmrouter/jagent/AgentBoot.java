@@ -24,34 +24,6 @@
  */
 package org.helios.apmrouter.jagent;
 
-import static org.helios.apmrouter.util.SimpleLogger.debug;
-import static org.helios.apmrouter.util.SimpleLogger.error;
-import static org.helios.apmrouter.util.SimpleLogger.info;
-import static org.helios.apmrouter.util.SimpleLogger.warn;
-
-import java.io.File;
-import java.io.StringReader;
-import java.lang.instrument.Instrumentation;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.jar.Attributes;
-import java.util.jar.JarFile;
-import java.util.jar.Manifest;
-
-import javax.management.ObjectName;
-import javax.management.remote.JMXConnectorServer;
-import javax.management.remote.JMXConnectorServerFactory;
-import javax.management.remote.JMXServiceURL;
-
-import org.helios.apmrouter.byteman.sockets.impl.SocketImplTransformer;
 import org.helios.apmrouter.instrumentation.Trace;
 import org.helios.apmrouter.instrumentation.TraceClassFileTransformer;
 import org.helios.apmrouter.instrumentation.publifier.ClassPublifier;
@@ -63,6 +35,23 @@ import org.helios.apmrouter.sender.SenderFactory;
 import org.helios.apmrouter.util.SimpleLogger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
+
+import javax.management.ObjectName;
+import javax.management.remote.JMXConnectorServer;
+import javax.management.remote.JMXConnectorServerFactory;
+import javax.management.remote.JMXServiceURL;
+import java.io.File;
+import java.io.StringReader;
+import java.lang.instrument.Instrumentation;
+import java.lang.reflect.Method;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.*;
+import java.util.jar.Attributes;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
+
+import static org.helios.apmrouter.util.SimpleLogger.*;
 //import org.helios.apmrouter.byteman.sockets.impl.TrackingSocketImplFactory;
 
 /**

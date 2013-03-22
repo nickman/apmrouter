@@ -24,15 +24,15 @@
  */
 package org.helios.apmrouter.sender;
 
+import org.helios.apmrouter.jmx.ConfigurationHelper;
+import org.helios.apmrouter.sender.netty.UDPSender;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-
-import org.helios.apmrouter.jmx.ConfigurationHelper;
-import org.helios.apmrouter.sender.netty.UDPSender;
 
 /**
  * <p>Title: SenderFactory</p>

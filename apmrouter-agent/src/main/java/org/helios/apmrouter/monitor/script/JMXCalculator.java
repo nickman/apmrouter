@@ -24,11 +24,11 @@
  */
 package org.helios.apmrouter.monitor.script;
 
+import org.helios.apmrouter.monitor.aggregate.AggregateFunction;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-
-import org.helios.apmrouter.monitor.aggregate.AggregateFunction;
 
 /**
  * <p>Title: JMXCalculator</p>

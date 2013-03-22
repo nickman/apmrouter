@@ -24,16 +24,16 @@
  */
 package org.helios.apmrouter.metric.catalog.heap;
 
-import static org.helios.apmrouter.util.Methods.nvl;
+import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.metric.catalog.IDelegateMetric;
+import org.helios.apmrouter.util.StringHelper;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.helios.apmrouter.metric.IMetric;
-import org.helios.apmrouter.metric.MetricType;
-import org.helios.apmrouter.metric.catalog.IDelegateMetric;
-import org.helios.apmrouter.util.StringHelper;
+import static org.helios.apmrouter.util.Methods.nvl;
 
 
 

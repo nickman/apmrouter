@@ -24,10 +24,9 @@
  */
 package org.helios.apmrouter.jmx;
 
-import java.util.Set;
-
 import javax.management.MXBean;
 import javax.management.ObjectName;
+import java.util.Set;
 
 
 /**

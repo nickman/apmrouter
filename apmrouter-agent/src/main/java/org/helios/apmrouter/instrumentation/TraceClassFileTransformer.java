@@ -25,6 +25,9 @@
 package org.helios.apmrouter.instrumentation;
 
 
+import javassist.*;
+import org.helios.apmrouter.trace.ITracer;
+
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.security.ProtectionDomain;
@@ -32,17 +35,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
-import javassist.ByteArrayClassPath;
-import javassist.ClassPool;
-import javassist.CtClass;
-import javassist.CtField;
-import javassist.CtMethod;
-import javassist.CtNewMethod;
-import javassist.LoaderClassPath;
-import javassist.Modifier;
-
-import org.helios.apmrouter.trace.ITracer;
 
 /**
  * <p>Title: TraceClassFileTransformer</p>

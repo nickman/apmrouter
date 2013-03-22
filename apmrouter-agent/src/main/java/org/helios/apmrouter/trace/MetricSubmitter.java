@@ -24,10 +24,10 @@
  */
 package org.helios.apmrouter.trace;
 
+import org.helios.apmrouter.metric.IMetric;
+
 import java.util.Collection;
 import java.util.concurrent.TimeoutException;
-
-import org.helios.apmrouter.metric.IMetric;
 
 /**
  * <p>Title: MetricSubmitter</p>

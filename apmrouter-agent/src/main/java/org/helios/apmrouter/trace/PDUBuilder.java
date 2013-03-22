@@ -24,21 +24,15 @@
  */
 package org.helios.apmrouter.trace;
 
-import static org.helios.apmrouter.util.Methods.nvl;
+import org.helios.apmrouter.util.SystemClock;
+import org.snmp4j.PDU;
+import org.snmp4j.mp.SnmpConstants;
+import org.snmp4j.smi.*;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import org.helios.apmrouter.util.SystemClock;
-import org.snmp4j.PDU;
-import org.snmp4j.mp.SnmpConstants;
-import org.snmp4j.smi.Counter32;
-import org.snmp4j.smi.Counter64;
-import org.snmp4j.smi.Gauge32;
-import org.snmp4j.smi.OID;
-import org.snmp4j.smi.OctetString;
-import org.snmp4j.smi.TimeTicks;
-import org.snmp4j.smi.VariableBinding;
+import static org.helios.apmrouter.util.Methods.nvl;
 
 /**
  * <p>Title: PDUBuilder</p>

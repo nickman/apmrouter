@@ -25,12 +25,7 @@
 package org.helios.apmrouter.util;
 
 import java.lang.reflect.Array;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * <p>Title: BitMaskedEnum</p>

@@ -24,12 +24,11 @@
  */
 package org.helios.apmrouter.jmx.mbeanserver;
 
-import java.util.Set;
-
 import javax.management.AttributeList;
 import javax.management.MBeanInfo;
 import javax.management.ObjectInstance;
 import javax.management.ObjectName;
+import java.util.Set;
 
 /**
  * <p>Title: EmptyAsynchJMXResponseListener</p>

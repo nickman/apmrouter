@@ -16,15 +16,13 @@
 
 package vanilla.java.chronicle.impl;
 
+import org.helios.apmrouter.unsafe.UnsafeAdapter;
+import sun.misc.Unsafe;
+import sun.nio.ch.DirectBuffer;
+
 import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Date;
-
-import org.helios.apmrouter.collections.LongSlidingWindow;
-import org.helios.apmrouter.unsafe.UnsafeAdapter;
-
-import sun.misc.Unsafe;
-import sun.nio.ch.DirectBuffer;
 
 /**
  * @author peter.lawrey

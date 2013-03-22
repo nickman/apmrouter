@@ -24,6 +24,12 @@
  */
 package org.helios.apmrouter.jmx.connector.protocol.mxl;
 
+import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.jmx.notifications.NotificationListenerContainer;
+
+import javax.management.*;
+import javax.management.remote.JMXConnector;
+import javax.security.auth.Subject;
 import java.io.IOException;
 import java.util.Hashtable;
 import java.util.Map;
@@ -31,18 +37,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicLong;
-
-import javax.management.ListenerNotFoundException;
-import javax.management.MBeanServerConnection;
-import javax.management.MBeanServerInvocationHandler;
-import javax.management.NotificationFilter;
-import javax.management.NotificationListener;
-import javax.management.ObjectName;
-import javax.management.remote.JMXConnector;
-import javax.security.auth.Subject;
-
-import org.helios.apmrouter.jmx.JMXHelper;
-import org.helios.apmrouter.jmx.notifications.NotificationListenerContainer;
 
 /**
  * <p>Title: MXLocalJMXConnector</p>

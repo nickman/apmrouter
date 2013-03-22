@@ -24,11 +24,7 @@
  */
 package org.helios.apmrouter.jagent.aop.bytecode;
 
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * <p>Title: TypeModifier</p>

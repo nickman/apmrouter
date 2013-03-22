@@ -28,7 +28,6 @@ import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.AbstractMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.metric.catalog.direct.chronicle.ChronicleController;
-
 import vanilla.java.chronicle.Excerpt;
 import vanilla.java.chronicle.impl.IndexedChronicle;
 

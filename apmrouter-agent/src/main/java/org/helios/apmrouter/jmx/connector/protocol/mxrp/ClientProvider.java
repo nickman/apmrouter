@@ -24,13 +24,12 @@
  */
 package org.helios.apmrouter.jmx.connector.protocol.mxrp;
 
-import java.io.IOException;
-import java.util.Map;
-
 import javax.management.MBeanServerConnection;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorProvider;
 import javax.management.remote.JMXServiceURL;
+import java.io.IOException;
+import java.util.Map;
 
 /**
  * <p>Title: ClientProvider</p>

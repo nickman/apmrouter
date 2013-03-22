@@ -24,16 +24,15 @@
  */
 package org.helios.apmrouter.jmx.connector.protocol.mxl;
 
+import javax.management.MBeanServerConnection;
+import javax.management.remote.JMXConnector;
+import javax.management.remote.JMXConnectorProvider;
+import javax.management.remote.JMXServiceURL;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.management.MBeanServerConnection;
-import javax.management.remote.JMXConnector;
-import javax.management.remote.JMXConnectorProvider;
-import javax.management.remote.JMXServiceURL;
 
 /**
  * <p>Title: ClientProvider</p>

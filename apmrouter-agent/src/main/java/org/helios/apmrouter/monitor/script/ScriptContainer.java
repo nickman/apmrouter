@@ -24,29 +24,20 @@
  */
 package org.helios.apmrouter.monitor.script;
 
+import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
+import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.util.SystemClock;
+import org.helios.apmrouter.util.URLHelper;
+
+import javax.management.NotificationBroadcasterSupport;
+import javax.management.ObjectName;
+import javax.script.*;
 import java.net.URL;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
-
-import javax.management.NotificationBroadcasterSupport;
-import javax.management.ObjectName;
-import javax.script.Bindings;
-import javax.script.Compilable;
-import javax.script.CompiledScript;
-import javax.script.Invocable;
-import javax.script.ScriptContext;
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineFactory;
-import javax.script.ScriptException;
-import javax.script.SimpleScriptContext;
-
-import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
-import org.helios.apmrouter.jmx.JMXHelper;
-import org.helios.apmrouter.util.SystemClock;
-import org.helios.apmrouter.util.URLHelper;
 
 /**
  * <p>Title: ScriptContainer</p>

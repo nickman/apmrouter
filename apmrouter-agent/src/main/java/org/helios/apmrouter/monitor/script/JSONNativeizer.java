@@ -24,18 +24,14 @@
  */
 package org.helios.apmrouter.monitor.script;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
 import org.helios.apmrouter.monitor.script.rhino.INativeArray;
 import org.helios.apmrouter.monitor.script.rhino.INativeObject;
 import org.helios.apmrouter.monitor.script.rhino.IScriptableObject;
 import org.helios.apmrouter.monitor.script.rhino.NativeFactory;
 import org.json.JSONArray;
 import org.json.JSONObject;
+
+import java.util.*;
 
 
 /**

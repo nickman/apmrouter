@@ -24,31 +24,16 @@
  */
 package org.helios.apmrouter.monitor.jvm;
 
-import java.lang.Thread.State;
-import java.lang.management.ClassLoadingMXBean;
-import java.lang.management.CompilationMXBean;
-import java.lang.management.GarbageCollectorMXBean;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.lang.management.MemoryPoolMXBean;
-import java.lang.management.MemoryUsage;
-import java.lang.management.OperatingSystemMXBean;
-import java.lang.management.RuntimeMXBean;
-import java.lang.management.ThreadInfo;
-import java.lang.management.ThreadMXBean;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.management.Attribute;
-import javax.management.ObjectName;
-
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.monitor.AbstractMonitor;
 import org.helios.apmrouter.util.SystemClock;
+
+import javax.management.Attribute;
+import javax.management.ObjectName;
+import java.lang.Thread.State;
+import java.lang.management.*;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * <p>Title: JVMMonitor</p>

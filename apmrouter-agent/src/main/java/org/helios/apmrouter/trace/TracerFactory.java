@@ -24,15 +24,6 @@
  */
 package org.helios.apmrouter.trace;
 
-import static org.helios.apmrouter.util.Methods.nvl;
-
-import java.lang.management.ManagementFactory;
-import java.lang.reflect.Method;
-import java.util.Date;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
-
 import org.helios.apmrouter.jmx.ITracerService;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.AgentIdentity;
@@ -41,6 +32,15 @@ import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.sender.ISender;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
+
+import java.lang.management.ManagementFactory;
+import java.lang.reflect.Method;
+import java.util.Date;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.helios.apmrouter.util.Methods.nvl;
 
 /**
  * <p>Title: TracerFactory</p>

@@ -24,13 +24,6 @@
  */
 package org.helios.apmrouter.metric.catalog.direct;
 
-import static org.helios.apmrouter.util.Methods.nvl;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
@@ -38,9 +31,14 @@ import org.helios.apmrouter.metric.catalog.direct.chronicle.ChronicleController;
 import org.helios.apmrouter.util.StringHelper;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
-
 import vanilla.java.chronicle.Excerpt;
 import vanilla.java.chronicle.impl.IndexedChronicle;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.helios.apmrouter.util.Methods.nvl;
 
 /**
  * <p>Title: ChronicleICEMetric</p>

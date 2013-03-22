@@ -3,10 +3,10 @@
  */
 package org.helios.apmrouter.metric;
 
+import org.helios.apmrouter.util.SystemClock;
+
 import java.nio.ByteBuffer;
 import java.util.Date;
-
-import org.helios.apmrouter.util.SystemClock;
 
 /**
  * <p>Title: ICEMetricValue</p>

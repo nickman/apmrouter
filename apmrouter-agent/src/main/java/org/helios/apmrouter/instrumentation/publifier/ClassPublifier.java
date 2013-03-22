@@ -24,27 +24,18 @@
  */
 package org.helios.apmrouter.instrumentation.publifier;
 
-import java.lang.instrument.ClassDefinition;
-import java.lang.instrument.ClassFileTransformer;
-import java.lang.instrument.IllegalClassFormatException;
-import java.lang.instrument.Instrumentation;
-import java.lang.instrument.UnmodifiableClassException;
-import java.lang.reflect.Modifier;
-import java.security.ProtectionDomain;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
 import javassist.ByteArrayClassPath;
 import javassist.ClassClassPath;
 import javassist.ClassPool;
 import javassist.CtClass;
-
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.util.SimpleLogger;
+
+import java.lang.instrument.*;
+import java.lang.reflect.Modifier;
+import java.security.ProtectionDomain;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * <p>Title: ClassPublifier</p>

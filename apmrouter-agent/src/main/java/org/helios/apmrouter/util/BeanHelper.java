@@ -24,13 +24,7 @@
  */
 package org.helios.apmrouter.util;
 
-import java.beans.BeanDescriptor;
-import java.beans.BeanInfo;
-import java.beans.Expression;
-import java.beans.Introspector;
-import java.beans.PropertyDescriptor;
-import java.beans.PropertyEditor;
-import java.beans.PropertyEditorManager;
+import java.beans.*;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;

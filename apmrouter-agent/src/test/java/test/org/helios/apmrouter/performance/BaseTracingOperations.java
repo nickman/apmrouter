@@ -3,16 +3,6 @@
  */
 package test.org.helios.apmrouter.performance;
 
-import java.lang.management.ManagementFactory;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Future;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
@@ -28,6 +18,16 @@ import org.helios.apmrouter.util.ThreadUtils.LockInfos;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Test;
+
+import java.lang.management.ManagementFactory;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * <p>Title: BaseTracingOperations</p>

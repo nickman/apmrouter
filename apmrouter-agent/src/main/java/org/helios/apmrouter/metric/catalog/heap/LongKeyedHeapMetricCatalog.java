@@ -24,11 +24,11 @@
  */
 package org.helios.apmrouter.metric.catalog.heap;
 
-import static org.helios.apmrouter.util.Methods.nvl;
-
 import org.helios.apmrouter.metric.MetricType;
 import org.helios.apmrouter.metric.catalog.AbstractMetricCatalog;
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
+
+import static org.helios.apmrouter.util.Methods.nvl;
 
 /**
  * <p>Title: LongKeyedHeapMetricCatalog</p>

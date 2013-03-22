@@ -24,8 +24,6 @@
  */
 package org.helios.apmrouter.instrumentation.interceptors;
 
-import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
-
 /*import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.DefaultCompositeByteBuf;
 import io.netty.buffer.UnpooledByteBufAllocator;

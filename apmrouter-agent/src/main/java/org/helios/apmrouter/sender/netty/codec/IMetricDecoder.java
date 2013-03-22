@@ -25,19 +25,6 @@
 package org.helios.apmrouter.sender.netty.codec;
 
 
-import static org.helios.apmrouter.sender.netty.codec.IMetricDecodePhase.BYTE_ORDER;
-import static org.helios.apmrouter.sender.netty.codec.IMetricDecodePhase.FQN;
-import static org.helios.apmrouter.sender.netty.codec.IMetricDecodePhase.FQNLENGTH;
-import static org.helios.apmrouter.sender.netty.codec.IMetricDecodePhase.ISTOKENIZED;
-import static org.helios.apmrouter.sender.netty.codec.IMetricDecodePhase.LONGVALUE;
-import static org.helios.apmrouter.sender.netty.codec.IMetricDecodePhase.TIMESTAMP;
-import static org.helios.apmrouter.sender.netty.codec.IMetricDecodePhase.TYPE;
-import static org.helios.apmrouter.sender.netty.codec.IMetricDecodePhase.VALUE;
-import static org.helios.apmrouter.sender.netty.codec.IMetricDecodePhase.VLENGTH;
-
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
@@ -49,6 +36,11 @@ import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.handler.codec.replay.ReplayingDecoder;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+
+import static org.helios.apmrouter.sender.netty.codec.IMetricDecodePhase.*;
 
 /**
  * <p>Title: IMetricDecoder</p>

@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.util;
 
+import org.snmp4j.smi.TimeTicks;
+
 import java.lang.management.ManagementFactory;
 import java.math.BigDecimal;
 import java.util.Collection;
@@ -33,8 +35,6 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-
-import org.snmp4j.smi.TimeTicks;
 
 /**
  * <p>Title: SystemClock</p>

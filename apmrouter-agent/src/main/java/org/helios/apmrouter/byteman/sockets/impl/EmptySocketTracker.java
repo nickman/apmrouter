@@ -24,22 +24,21 @@
  */
 package org.helios.apmrouter.byteman.sockets.impl;
 
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.InetAddress;
-import java.net.Socket;
-import java.net.SocketAddress;
-import java.util.Arrays;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-
 import org.cliffc.high_scale_lib.NonBlockingHashSet;
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.nativex.APMSigar;
 import org.helios.apmrouter.util.SimpleLogger;
 import org.helios.apmrouter.util.SimpleLogger.Level;
 import org.hyperic.sigar.NetStat;
+
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.net.SocketAddress;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * <p>Title: EmptySocketTracker</p>

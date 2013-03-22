@@ -24,19 +24,14 @@
  */
 package org.helios.apmrouter.jmx.mbeanserver.notifications;
 
-import java.net.SocketAddress;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-import javax.management.MBeanServer;
-import javax.management.Notification;
-import javax.management.NotificationFilter;
-import javax.management.NotificationListener;
-import javax.management.ObjectName;
-
 import org.helios.apmrouter.jmx.mbeanserver.AgentMBeanServerConnectionFactory;
 import org.helios.apmrouter.util.SimpleLogger;
 import org.jboss.netty.channel.Channel;
+
+import javax.management.*;
+import java.net.SocketAddress;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * <p>Title: NotificationManager</p>

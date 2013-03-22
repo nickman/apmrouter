@@ -1,5 +1,10 @@
 package test.org.helios.apmrouter.performance;
 
+import org.helios.apmrouter.util.SystemClock;
+import org.helios.apmrouter.util.SystemClock.ElapsedTime;
+import org.junit.Ignore;
+import test.org.helios.apmrouter.metric.BaseTestCase;
+
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
 import java.util.ArrayList;
@@ -11,12 +16,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-
-import org.helios.apmrouter.util.SystemClock;
-import org.helios.apmrouter.util.SystemClock.ElapsedTime;
-import org.junit.Ignore;
-
-import test.org.helios.apmrouter.metric.BaseTestCase;
 
 /**
  * <p>Title: BasePerformanceTestCase</p>

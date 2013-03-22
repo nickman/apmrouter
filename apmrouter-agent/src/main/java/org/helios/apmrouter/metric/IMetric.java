@@ -24,13 +24,13 @@
  */
 package org.helios.apmrouter.metric;
 
-import java.nio.ByteBuffer;
-import java.util.Date;
-import java.util.Map;
-
 import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.router.Routable;
 import org.helios.apmrouter.trace.TXContext;
+
+import java.nio.ByteBuffer;
+import java.util.Date;
+import java.util.Map;
 
 /**
  * <p>Title: IMetric</p>

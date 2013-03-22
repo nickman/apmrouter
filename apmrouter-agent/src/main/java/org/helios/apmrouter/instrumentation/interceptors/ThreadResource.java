@@ -24,10 +24,10 @@
  */
 package org.helios.apmrouter.instrumentation.interceptors;
 
-import java.util.Map;
-
 import org.helios.apmrouter.util.BitMaskedEnum;
 import org.helios.apmrouter.util.BitMaskedEnum.ShortBitMaskOperations;
+
+import java.util.Map;
 
 /**
  * <p>Title: ThreadResource</p>

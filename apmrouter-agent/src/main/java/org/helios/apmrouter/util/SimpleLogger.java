@@ -24,11 +24,11 @@
  */
 package org.helios.apmrouter.util;
 
+import org.helios.apmrouter.jmx.ConfigurationHelper;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-
-import org.helios.apmrouter.jmx.ConfigurationHelper;
 
 
 

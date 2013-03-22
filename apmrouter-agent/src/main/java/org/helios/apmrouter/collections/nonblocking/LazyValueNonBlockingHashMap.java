@@ -24,9 +24,9 @@
  */
 package org.helios.apmrouter.collections.nonblocking;
 
-import java.lang.reflect.Field;
-
 import org.cliffc.high_scale_lib.NonBlockingHashMap;
+
+import java.lang.reflect.Field;
 
 /**
  * <p>Title: LazyValueNonBlockingHashMap</p>

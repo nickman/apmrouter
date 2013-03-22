@@ -24,16 +24,16 @@
  */
 package org.helios.apmrouter.trace;
 
-import static org.helios.apmrouter.util.Methods.nvl;
+import org.helios.apmrouter.metric.ICEMetric;
+import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
+import org.snmp4j.PDU;
 
 import java.io.Serializable;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import org.helios.apmrouter.metric.ICEMetric;
-import org.helios.apmrouter.metric.MetricType;
-import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
-import org.snmp4j.PDU;
+import static org.helios.apmrouter.util.Methods.nvl;
 
 /**
  * <p>Title: TracerImpl</p>

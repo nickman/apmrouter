@@ -24,15 +24,14 @@
  */
 package org.helios.apmrouter.instrumentation;
 
+import javassist.ClassPool;
+import javassist.CtClass;
+import org.helios.apmrouter.util.SimpleLogger;
+
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.reflect.Modifier;
 import java.security.ProtectionDomain;
-
-import javassist.ClassPool;
-import javassist.CtClass;
-
-import org.helios.apmrouter.util.SimpleLogger;
 
 /**
  * <p>Title: SocketStreamClassTransformer</p>

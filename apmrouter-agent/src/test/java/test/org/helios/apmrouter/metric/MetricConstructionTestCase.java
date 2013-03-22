@@ -24,21 +24,12 @@
  */
 package test.org.helios.apmrouter.metric;
 
-import java.lang.reflect.Method;
-import java.util.Arrays;
-
-import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.MetricType;
-import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
-import org.helios.apmrouter.trace.ITracer;
-import org.helios.apmrouter.trace.TracerFactory;
-import org.helios.apmrouter.util.StringHelper;
 import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestName;
+
+import java.util.Arrays;
 
 /**
  * <p>Title: MetricConstructionTestCase</p>

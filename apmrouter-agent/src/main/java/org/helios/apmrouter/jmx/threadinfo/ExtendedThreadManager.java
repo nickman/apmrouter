@@ -24,6 +24,10 @@
  */
 package org.helios.apmrouter.jmx.threadinfo;
 
+import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.util.SystemClock;
+
+import javax.management.*;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
@@ -31,15 +35,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-
-import javax.management.MBeanNotificationInfo;
-import javax.management.MBeanServer;
-import javax.management.Notification;
-import javax.management.NotificationBroadcasterSupport;
-import javax.management.ObjectName;
-
-import org.helios.apmrouter.jmx.JMXHelper;
-import org.helios.apmrouter.util.SystemClock;
 
 /**
  * <p>Title: ExtendedThreadManager</p>

@@ -24,9 +24,9 @@
  */
 package org.helios.apmrouter.jmx;
 
-import javax.management.ObjectName;
-
 import org.helios.apmrouter.trace.ITracer;
+
+import javax.management.ObjectName;
 
 /**
  * <p>Title: ITracerServiceMBean</p>

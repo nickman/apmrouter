@@ -24,21 +24,6 @@
  */
 package org.helios.apmrouter.trace;
 
-import static org.helios.apmrouter.util.Methods.nvl;
-
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
-import java.lang.reflect.Field;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Date;
-import java.util.Iterator;
-import java.util.List;
-import java.util.UUID;
-
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
@@ -50,9 +35,17 @@ import org.helios.apmrouter.sender.SenderFactory;
 import org.helios.apmrouter.unsafe.UnsafeAdapter;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
-
 import sun.misc.Unsafe;
 import sun.nio.ch.DirectBuffer;
+
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.lang.reflect.Field;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.*;
+
+import static org.helios.apmrouter.util.Methods.nvl;
 
 /**
  * <p>Title: DirectMetricCollection</p>

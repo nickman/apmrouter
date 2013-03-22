@@ -24,15 +24,10 @@
  */
 package org.helios.apmrouter.instrumentation;
 
+import javassist.bytecode.annotation.*;
+
 import java.lang.reflect.Proxy;
 import java.util.Arrays;
-
-import javassist.bytecode.annotation.Annotation;
-import javassist.bytecode.annotation.AnnotationImpl;
-import javassist.bytecode.annotation.ArrayMemberValue;
-import javassist.bytecode.annotation.EnumMemberValue;
-import javassist.bytecode.annotation.MemberValue;
-import javassist.bytecode.annotation.StringMemberValue;
 
 /**
  * <p>Title: TraceImpl</p>

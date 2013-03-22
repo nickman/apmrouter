@@ -24,7 +24,8 @@
  */
 package org.helios.apmrouter.metric.catalog;
 
-import static org.helios.apmrouter.util.Methods.nvl;
+import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.metric.MetricType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,8 +33,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.helios.apmrouter.metric.IMetric;
-import org.helios.apmrouter.metric.MetricType;
+import static org.helios.apmrouter.util.Methods.nvl;
 
 /**
  * <p>Title: AbstractMetricCatalog</p>

@@ -24,21 +24,17 @@
  */
 package org.helios.apmrouter.trace;
 
-import java.lang.management.ManagementFactory;
-import java.util.Collection;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.RejectedExecutionHandler;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.sender.ISender;
 import org.helios.apmrouter.sender.SenderFactory;
 import org.helios.apmrouter.util.SystemClock;
+
+import java.lang.management.ManagementFactory;
+import java.util.Collection;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * <p>Title: CollectionFunnel</p>

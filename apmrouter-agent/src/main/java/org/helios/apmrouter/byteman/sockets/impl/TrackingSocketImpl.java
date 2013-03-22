@@ -24,19 +24,13 @@
  */
 package org.helios.apmrouter.byteman.sockets.impl;
 
+import org.helios.apmrouter.jmx.ConfigurationHelper;
+import org.helios.apmrouter.util.SimpleLogger;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.InetAddress;
-import java.net.Socket;
-import java.net.SocketAddress;
-import java.net.SocketException;
-import java.net.SocketImpl;
-import java.net.SocketImplFactory;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import org.helios.apmrouter.jmx.ConfigurationHelper;
-import org.helios.apmrouter.util.SimpleLogger;
+import java.net.*;
 
 /**
  * <p>Title: TrackingSocketImpl</p>

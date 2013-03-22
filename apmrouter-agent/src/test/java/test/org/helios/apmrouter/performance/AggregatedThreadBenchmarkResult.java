@@ -3,12 +3,12 @@
  */
 package test.org.helios.apmrouter.performance;
 
-import java.lang.reflect.Method;
-import java.math.BigDecimal;
-
 import org.helios.apmrouter.util.SimpleMath;
 import org.helios.apmrouter.util.SystemClock.AggregatedElapsedTime;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
+
+import java.lang.reflect.Method;
+import java.math.BigDecimal;
 
 /**
  * <p>Title: AggregatedThreadBenchmarkResult</p>
