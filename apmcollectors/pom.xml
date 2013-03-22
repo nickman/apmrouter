@@ -96,6 +96,9 @@
 									<exclude>ch.qos.logback:*</exclude>
 									<exclude>log4j:*</exclude>
 									<exclude>commons-logging:*</exclude>
+								    <exclude>com.jolbox:bonecp-spring</exclude>
+								    <exclude>com.jolbox:bonecp-provider</exclude>
+								    <exclude>com.jolbox:bonecp</exclude>
 								</excludes>
 							</artifactSet>
 							<filters>

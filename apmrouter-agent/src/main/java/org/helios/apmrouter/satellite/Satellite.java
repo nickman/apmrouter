@@ -26,12 +26,10 @@ package org.helios.apmrouter.satellite;
 
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.monitor.DefaultMonitorBoot;
-import org.helios.apmrouter.sender.SenderFactory;
 import org.helios.apmrouter.util.SimpleLogger;
-import org.helios.apmrouter.util.SystemClock;
 
-import static org.helios.apmrouter.sender.SenderFactory.SENDER_URI_PROP;
 import static org.helios.apmrouter.sender.SenderFactory.DEFAULT_SENDER_URI;
+import static org.helios.apmrouter.sender.SenderFactory.SENDER_URI_PROP;
 
 /**
  * <p>Title: Satellite</p>

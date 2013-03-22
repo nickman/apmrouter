@@ -24,13 +24,9 @@
  */
 package org.helios.collector.jdbc.binding.provider;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
 import org.helios.collector.jdbc.binding.binder.IBinder;
+
+import java.lang.annotation.*;
 
 /**
  * <p>Title: BindVariableProvider</p>

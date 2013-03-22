@@ -24,13 +24,13 @@
  */
 package org.helios.apmrouter.sender.netty;
 
-import java.net.URI;
-
 import org.helios.apmrouter.sender.AbstractSender;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelState;
 import org.jboss.netty.channel.ChannelStateEvent;
+
+import java.net.URI;
 
 /**
  * <p>Title: TCPSender</p>

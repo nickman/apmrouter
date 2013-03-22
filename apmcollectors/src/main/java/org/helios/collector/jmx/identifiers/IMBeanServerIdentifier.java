@@ -24,13 +24,8 @@
  */
 package org.helios.collector.jmx.identifiers;
 
+import javax.management.*;
 import java.io.IOException;
-
-import javax.management.AttributeNotFoundException;
-import javax.management.InstanceNotFoundException;
-import javax.management.MBeanException;
-import javax.management.MBeanServerConnection;
-import javax.management.ReflectionException;
 
 
 /**

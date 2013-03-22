@@ -24,19 +24,17 @@
  */
 package org.helios.apmrouter.nativex;
 
-import static org.helios.apmrouter.util.BitMaskedEnum.Support.generateIntMaskMap;
-import static org.helios.apmrouter.util.BitMaskedEnum.Support.getIntBitMask;
-import static org.helios.apmrouter.util.Methods.nvl;
+import org.helios.apmrouter.util.BitMaskedEnum;
+import org.helios.apmrouter.util.SimpleLogger;
 
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.helios.apmrouter.util.BitMaskedEnum;
-import org.helios.apmrouter.util.SimpleLogger;
+import static org.helios.apmrouter.util.BitMaskedEnum.Support.generateIntMaskMap;
+import static org.helios.apmrouter.util.BitMaskedEnum.Support.getIntBitMask;
+import static org.helios.apmrouter.util.Methods.nvl;
 
 /**
  * <p>Title: TCPSocketState</p>

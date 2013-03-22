@@ -24,30 +24,21 @@
  */
 package org.helios.apmrouter.monitor.script;
 
-import java.io.File;
-import java.io.FilenameFilter;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-
-import javax.script.Bindings;
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
-import javax.script.SimpleBindings;
-
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.monitor.AbstractMonitor;
 import org.helios.apmrouter.nativex.APMSigar;
 import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.TracerFactory;
 import org.helios.apmrouter.util.URLHelper;
+
+import javax.script.*;
+import java.io.File;
+import java.io.FilenameFilter;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * <p>Title: ScriptMonitor</p>

@@ -24,14 +24,13 @@
  */
 package org.helios.apmrouter.util;
 
+import org.helios.apmrouter.collections.ILongStack;
+import org.helios.apmrouter.collections.UnsafeLongStack;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-
-import org.helios.apmrouter.collections.ILongStack;
-import org.helios.apmrouter.collections.UnsafeLongStack;
-import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 
 /**
  * <p>Title: NestedSystemClock</p>

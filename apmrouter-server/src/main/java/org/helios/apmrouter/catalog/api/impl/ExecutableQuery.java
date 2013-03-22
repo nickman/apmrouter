@@ -26,11 +26,12 @@ package org.helios.apmrouter.catalog.api.impl;
 
 import java.util.List;
 
+
 import org.hibernate.Session;
 
 /**
  * <p>Title: ExecutableQuery</p>
- * <p>Description: Defines a class for which an instance is returned from the {@link JSONQueryParser#parse(String)} which can be executed.</p> 
+ * <p>Description: Defines a class for which an instance is returned from the {@literal JSONQueryParser#parse(String)} which can be executed.</p>
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.catalog.api.impl.ExecutableQuery</code></p>
@@ -38,14 +39,14 @@ import org.hibernate.Session;
 
 public interface ExecutableQuery {
 	/**
-	 * Executes the {@link JSONQueryParser#parse(String)} parsed query
+	 * Executes the {@literal JSONQueryParser#parse(String)} parsed query
 	 * @param session The hibernate session to execute with
 	 * @return The result of the query
 	 */
 	public List<?> execute(Session session);
 	
 	/**
-	 * Executes the {@link JSONQueryParser#parse(String)} parsed query for a unique result
+	 * Executes the {@literal JSONQueryParser#parse(String)} parsed query for a unique result
 	 * @param session The hibernate session to execute with
 	 * @return The single unique result of the query
 	 */

@@ -24,37 +24,28 @@
  */
 package org.helios.collector.core;
 
+<<<<<<< HEAD
 import java.lang.Thread.UncaughtExceptionHandler;
-import java.util.Date;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.management.Notification;
-import javax.management.ObjectName;
-
+=======
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.TracerFactory;
 import org.helios.collector.BlackoutInfo;
-import org.springframework.jmx.export.annotation.ManagedAttribute;
-import org.springframework.jmx.export.annotation.ManagedNotification;
-import org.springframework.jmx.export.annotation.ManagedNotifications;
-import org.springframework.jmx.export.annotation.ManagedOperation;
-import org.springframework.jmx.export.annotation.ManagedOperationParameter;
-import org.springframework.jmx.export.annotation.ManagedOperationParameters;
-import org.springframework.jmx.export.annotation.ManagedResource;
+import org.springframework.jmx.export.annotation.*;
+
+import javax.management.Notification;
+import javax.management.ObjectName;
+>>>>>>> d1e78c27c2f15a0acf3c096a78ee28ec04eaf28f
+import java.util.Date;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * <p>Title: AbstractCollector</p>

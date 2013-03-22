@@ -24,18 +24,15 @@
  */
 package org.helios.apmrouter.monitor.script;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
-import javax.management.MBeanServerConnection;
-
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.json.JSONArray;
 import org.json.JSONObject;
+
+import javax.management.MBeanServerConnection;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * <p>Title: JMXScriptRequest</p>

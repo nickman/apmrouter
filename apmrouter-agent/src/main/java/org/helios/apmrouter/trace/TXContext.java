@@ -24,12 +24,11 @@
  */
 package org.helios.apmrouter.trace;
 
+import org.helios.apmrouter.util.SystemClock;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicLong;
-
-import org.helios.apmrouter.util.SystemClock;
 
 /**
  * <p>Title: TXContext</p>

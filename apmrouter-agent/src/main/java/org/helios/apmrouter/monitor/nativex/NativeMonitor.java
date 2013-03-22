@@ -24,32 +24,15 @@
  */
 package org.helios.apmrouter.monitor.nativex;
 
-import java.net.NetworkInterface;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.monitor.AbstractMonitor;
 import org.helios.apmrouter.nativex.APMSigar;
 import org.helios.apmrouter.util.SystemClock;
-import org.hyperic.sigar.CpuInfo;
-import org.hyperic.sigar.CpuPerc;
-import org.hyperic.sigar.FileSystem;
-import org.hyperic.sigar.FileSystemUsage;
-import org.hyperic.sigar.Mem;
-import org.hyperic.sigar.NetInterfaceConfig;
-import org.hyperic.sigar.NetInterfaceStat;
-import org.hyperic.sigar.NetStat;
-import org.hyperic.sigar.ProcCpu;
-import org.hyperic.sigar.ProcMem;
-import org.hyperic.sigar.ProcStat;
-import org.hyperic.sigar.Sigar;
-import org.hyperic.sigar.Swap;
-import org.hyperic.sigar.Tcp;
+import org.hyperic.sigar.*;
+
+import java.net.NetworkInterface;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /**
  * <p>Title: NativeMonitor</p>

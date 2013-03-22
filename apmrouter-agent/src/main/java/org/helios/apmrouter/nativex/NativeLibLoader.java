@@ -24,26 +24,19 @@
  */
 package org.helios.apmrouter.nativex;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.PrintStream;
-import java.io.RandomAccessFile;
+import org.helios.apmrouter.util.IO;
+import org.helios.apmrouter.util.ReadableWritableByteChannelBuffer;
+import org.hyperic.sigar.Cpu;
+import org.hyperic.sigar.Sigar;
+import org.hyperic.sigar.SigarLoader;
+
+import java.io.*;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
-
-import org.helios.apmrouter.util.IO;
-import org.helios.apmrouter.util.ReadableWritableByteChannelBuffer;
-import org.hyperic.sigar.Cpu;
-import org.hyperic.sigar.Sigar;
-import org.hyperic.sigar.SigarLoader;
 
 /**
  * <p>Title: NativeLibLoader</p>

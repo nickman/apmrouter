@@ -24,14 +24,11 @@
  */
 package org.helios.apmrouter.util;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
-import java.io.PrintStream;
+import org.snmp4j.PDU;
+import org.snmp4j.asn1.BERInputStream;
+import org.snmp4j.asn1.BEROutputStream;
+
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
@@ -39,10 +36,6 @@ import java.nio.channels.WritableByteChannel;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-
-import org.snmp4j.PDU;
-import org.snmp4j.asn1.BERInputStream;
-import org.snmp4j.asn1.BEROutputStream;
 
 /**
  * <p>Title: IO</p>

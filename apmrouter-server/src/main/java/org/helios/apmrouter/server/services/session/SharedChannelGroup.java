@@ -693,7 +693,6 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 
 	/**
 	 * {@inheritDoc}
-	 * @see java.util.Set#toArray(T[])
 	 */
 	@Override
 	public <T> T[] toArray(T[] a) {
@@ -711,7 +710,6 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.services.session.SharedChannelGroupMXBean#disconnect()
 	 */
 	@Override
 	public ChannelGroupFuture disconnect() {
@@ -729,7 +727,6 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.services.session.SharedChannelGroupMXBean#close()
 	 */
 	@Override
 	public ChannelGroupFuture close() {

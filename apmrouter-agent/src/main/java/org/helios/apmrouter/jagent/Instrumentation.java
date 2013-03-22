@@ -24,14 +24,13 @@
  */
 package org.helios.apmrouter.jagent;
 
+import org.helios.apmrouter.jmx.JMXHelper;
+
+import javax.management.ObjectName;
 import java.lang.instrument.ClassDefinition;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.UnmodifiableClassException;
 import java.util.jar.JarFile;
-
-import javax.management.ObjectName;
-
-import org.helios.apmrouter.jmx.JMXHelper;
 
 /**
  * <p>Title: Instrumentation</p>

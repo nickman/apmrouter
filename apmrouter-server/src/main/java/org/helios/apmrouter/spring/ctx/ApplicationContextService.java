@@ -198,7 +198,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return      int
 	 * @see java.lang.Object#hashCode()
 	 */
 	@Override
@@ -215,7 +215,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return   ClassLoader
 	 * @see org.springframework.core.io.DefaultResourceLoader#getClassLoader()
 	 */
 	public ClassLoader getClassLoader() {
@@ -224,7 +224,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param obj
-	 * @return
+	 * @return  boolean
 	 * @see java.lang.Object#equals(java.lang.Object)
 	 */
 	@Override
@@ -275,7 +275,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param location
-	 * @return
+	 * @return     Resource
 	 * @see org.springframework.context.support.GenericApplicationContext#getResource(java.lang.String)
 	 */
 	public Resource getResource(String location) {
@@ -284,7 +284,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param locationPattern
-	 * @return
+	 * @return      Resource[]
 	 * @throws IOException
 	 * @see org.springframework.context.support.GenericApplicationContext#getResources(java.lang.String)
 	 */
@@ -293,7 +293,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return   String
 	 * @see org.springframework.context.support.AbstractApplicationContext#getId()
 	 */
 	public String getId() {
@@ -309,7 +309,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return     ConfigurableListableBeanFactory
 	 * @see org.springframework.context.support.GenericApplicationContext#getBeanFactory()
 	 */
 	public final ConfigurableListableBeanFactory getBeanFactory() {
@@ -317,7 +317,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return     DefaultListableBeanFactory
 	 * @see org.springframework.context.support.GenericApplicationContext#getDefaultListableBeanFactory()
 	 */
 	public final DefaultListableBeanFactory getDefaultListableBeanFactory() {
@@ -325,7 +325,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return    String
 	 * @see org.springframework.context.support.AbstractApplicationContext#getDisplayName()
 	 */
 	public String getDisplayName() {
@@ -333,7 +333,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return     ApplicationContext
 	 * @see org.springframework.context.support.AbstractApplicationContext#getParent()
 	 */
 	public ApplicationContext getParent() {
@@ -341,7 +341,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return    AutowireCapableBeanFactory
 	 * @throws IllegalStateException
 	 * @see org.springframework.context.support.AbstractApplicationContext#getAutowireCapableBeanFactory()
 	 */
@@ -362,7 +362,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return   long
 	 * @see org.springframework.context.support.AbstractApplicationContext#getStartupDate()
 	 */
 	public long getStartupDate() {
@@ -389,7 +389,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param beanName
-	 * @return
+	 * @return BeanDefinition
 	 * @throws NoSuchBeanDefinitionException
 	 * @see org.springframework.context.support.GenericApplicationContext#getBeanDefinition(java.lang.String)
 	 */
@@ -400,7 +400,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param beanName
-	 * @return
+	 * @return     boolean
 	 * @see org.springframework.context.support.GenericApplicationContext#isBeanNameInUse(java.lang.String)
 	 */
 	public boolean isBeanNameInUse(String beanName) {
@@ -426,7 +426,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param beanName
-	 * @return
+	 * @return  boolean
 	 * @see org.springframework.context.support.GenericApplicationContext#isAlias(java.lang.String)
 	 */
 	public boolean isAlias(String beanName) {
@@ -443,7 +443,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return       List<BeanFactoryPostProcessor>
 	 * @see org.springframework.context.support.AbstractApplicationContext#getBeanFactoryPostProcessors()
 	 */
 	public List<BeanFactoryPostProcessor> getBeanFactoryPostProcessors() {
@@ -459,7 +459,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return    Collection<ApplicationListener<?>>
 	 * @see org.springframework.context.support.AbstractApplicationContext#getApplicationListeners()
 	 */
 	public Collection<ApplicationListener<?>> getApplicationListeners() {
@@ -500,7 +500,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return  boolean
 	 * @see org.springframework.context.support.AbstractApplicationContext#isActive()
 	 */
 	public boolean isActive() {
@@ -509,7 +509,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param name
-	 * @return
+	 * @return    Object
 	 * @throws BeansException
 	 * @see org.springframework.context.support.AbstractApplicationContext#getBean(java.lang.String)
 	 */
@@ -520,7 +520,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	/**
 	 * @param name
 	 * @param requiredType
-	 * @return
+	 * @return   <T> T
 	 * @throws BeansException
 	 * @see org.springframework.context.support.AbstractApplicationContext#getBean(java.lang.String, java.lang.Class)
 	 */
@@ -531,7 +531,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param requiredType
-	 * @return
+	 * @return    <T> T
 	 * @throws BeansException
 	 * @see org.springframework.context.support.AbstractApplicationContext#getBean(java.lang.Class)
 	 */
@@ -542,7 +542,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	/**
 	 * @param name
 	 * @param args
-	 * @return
+	 * @return   Object
 	 * @throws BeansException
 	 * @see org.springframework.context.support.AbstractApplicationContext#getBean(java.lang.String, java.lang.Object[])
 	 */
@@ -552,7 +552,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param name
-	 * @return
+	 * @return   boolean
 	 * @see org.springframework.context.support.AbstractApplicationContext#containsBean(java.lang.String)
 	 */
 	public boolean containsBean(String name) {
@@ -561,7 +561,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param name
-	 * @return
+	 * @return  boolean
 	 * @throws NoSuchBeanDefinitionException
 	 * @see org.springframework.context.support.AbstractApplicationContext#isSingleton(java.lang.String)
 	 */
@@ -572,7 +572,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param name
-	 * @return
+	 * @return  boolean
 	 * @throws NoSuchBeanDefinitionException
 	 * @see org.springframework.context.support.AbstractApplicationContext#isPrototype(java.lang.String)
 	 */
@@ -585,7 +585,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param name
-	 * @return
+	 * @return    Class<?>
 	 * @throws NoSuchBeanDefinitionException
 	 * @see org.springframework.context.support.AbstractApplicationContext#getType(java.lang.String)
 	 */
@@ -595,7 +595,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param name
-	 * @return
+	 * @return   String[]
 	 * @see org.springframework.context.support.AbstractApplicationContext#getAliases(java.lang.String)
 	 */
 	public String[] getAliases(String name) {
@@ -604,7 +604,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param beanName
-	 * @return
+	 * @return  boolean
 	 * @see org.springframework.context.support.AbstractApplicationContext#containsBeanDefinition(java.lang.String)
 	 */
 	public boolean containsBeanDefinition(String beanName) {
@@ -612,7 +612,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return  int
 	 * @see org.springframework.context.support.AbstractApplicationContext#getBeanDefinitionCount()
 	 */
 	public int getBeanDefinitionCount() {
@@ -620,7 +620,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return   String[]
 	 * @see org.springframework.context.support.AbstractApplicationContext#getBeanDefinitionNames()
 	 */
 	public String[] getBeanDefinitionNames() {
@@ -632,7 +632,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param type
-	 * @return
+	 * @return      <T> Map<String, T>
 	 * @throws BeansException
 	 * @see org.springframework.context.support.AbstractApplicationContext#getBeansOfType(java.lang.Class)
 	 */
@@ -645,7 +645,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	 * @param type
 	 * @param includeNonSingletons
 	 * @param allowEagerInit
-	 * @return
+	 * @return     <T> Map<String, T>
 	 * @throws BeansException
 	 * @see org.springframework.context.support.AbstractApplicationContext#getBeansOfType(java.lang.Class, boolean, boolean)
 	 */
@@ -658,7 +658,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param annotationType
-	 * @return
+	 * @return    Map<String, Object>
 	 * @throws BeansException
 	 * @see org.springframework.context.support.AbstractApplicationContext#getBeansWithAnnotation(java.lang.Class)
 	 */
@@ -670,7 +670,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	/**
 	 * @param beanName
 	 * @param annotationType
-	 * @return
+	 * @return     <A extends Annotation> A
 	 * @see org.springframework.context.support.AbstractApplicationContext#findAnnotationOnBean(java.lang.String, java.lang.Class)
 	 */
 	public <A extends Annotation> A findAnnotationOnBean(String beanName,
@@ -679,7 +679,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return    BeanFactory
 	 * @see org.springframework.context.support.AbstractApplicationContext#getParentBeanFactory()
 	 */
 	public BeanFactory getParentBeanFactory() {
@@ -688,7 +688,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 
 	/**
 	 * @param name
-	 * @return
+	 * @return     boolean
 	 * @see org.springframework.context.support.AbstractApplicationContext#containsLocalBean(java.lang.String)
 	 */
 	public boolean containsLocalBean(String name) {
@@ -700,7 +700,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	 * @param args
 	 * @param defaultMessage
 	 * @param locale
-	 * @return
+	 * @return     String
 	 * @see org.springframework.context.support.AbstractApplicationContext#getMessage(java.lang.String, java.lang.Object[], java.lang.String, java.util.Locale)
 	 */
 	public String getMessage(String code, Object[] args, String defaultMessage,
@@ -712,7 +712,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	 * @param code
 	 * @param args
 	 * @param locale
-	 * @return
+	 * @return  String
 	 * @throws NoSuchMessageException
 	 * @see org.springframework.context.support.AbstractApplicationContext#getMessage(java.lang.String, java.lang.Object[], java.util.Locale)
 	 */
@@ -724,7 +724,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	/**
 	 * @param resolvable
 	 * @param locale
-	 * @return
+	 * @return  String
 	 * @throws NoSuchMessageException
 	 * @see org.springframework.context.support.AbstractApplicationContext#getMessage(org.springframework.context.MessageSourceResolvable, java.util.Locale)
 	 */
@@ -750,7 +750,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return   boolean
 	 * @see org.springframework.context.support.AbstractApplicationContext#isRunning()
 	 */
 	public boolean isRunning() {
@@ -758,7 +758,7 @@ public class ApplicationContextService implements ApplicationContextServiceMBean
 	}
 
 	/**
-	 * @return
+	 * @return    String
 	 * @see org.springframework.context.support.AbstractApplicationContext#toString()
 	 */
 	@Override

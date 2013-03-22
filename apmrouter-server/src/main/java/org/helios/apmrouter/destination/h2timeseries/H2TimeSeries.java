@@ -149,8 +149,8 @@ public class H2TimeSeries implements Externalizable {
 	
 	/**
 	 * Creates a new H2TimeSeries
-	 * @param STEP The STEP size in ms.
-	 * @param WIDTH The WIDTH, or number of entries in the window
+	 * @param step The STEP size in ms.
+	 * @param width The WIDTH, or number of entries in the window
 	 * @param sticky Indicates if the metric is sticky
 	 * @return a new H2TimeSeries
 	 */
@@ -161,8 +161,8 @@ public class H2TimeSeries implements Externalizable {
 	/**
 	 * Creates a new H2TimeSeries and adds a new value
 	 * @param conn The connection to lookup the existing time-series
-	 * @param STEP The STEP size in ms.
-	 * @param WIDTH The WIDTH, or number of entries in the window
+	 * @param step The STEP size in ms.
+	 * @param width The WIDTH, or number of entries in the window
 	 * @param sticky Indicates if the metric is sticky
 	 * @param id The metric ID of the metric to upsert a time-series entry for
 	 * @param ts The timestamp of the value to add
@@ -250,7 +250,7 @@ public class H2TimeSeries implements Externalizable {
 	 * @param conn
 	 * @param oldestPeriod 
 	 * @param ids
-	 * @return
+	 * @return  ResultSet
 	 * @throws SQLException
 	 */
 	public static ResultSet getValues(Connection conn, long oldestPeriod, Long...ids) throws SQLException {
@@ -305,8 +305,8 @@ public class H2TimeSeries implements Externalizable {
 	
 	/**
 	 * Creates a new H2TimeSeries
-	 * @param STEP The STEP size in ms.
-	 * @param WIDTH The WIDTH, or number of entries in the window
+	 * @param step The STEP size in ms.
+	 * @param width The WIDTH, or number of entries in the window
 	 */
 	public H2TimeSeries(long step, int width) {
 		super();
@@ -691,7 +691,7 @@ public class H2TimeSeries implements Externalizable {
 	    }
 
 	    /**
-	     * @return
+	     * @return ObjectStreamClass
 	     * @throws IOException
 	     * @throws ClassNotFoundException
 	     */

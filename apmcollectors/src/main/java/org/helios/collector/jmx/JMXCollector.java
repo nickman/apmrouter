@@ -24,34 +24,9 @@
  */
 package org.helios.collector.jmx;
 
-import java.io.IOException;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryUsage;
-import java.lang.management.ThreadInfo;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.Map.Entry;
-
-import javax.management.Attribute;
-import javax.management.AttributeList;
-import javax.management.InstanceNotFoundException;
-import javax.management.MBeanServerConnection;
-import javax.management.MalformedObjectNameException;
-import javax.management.ObjectName;
-import javax.management.ReflectionException;
-import javax.management.openmbean.CompositeData;
-import javax.management.openmbean.CompositeDataSupport;
-import javax.naming.Context;
-import javax.naming.InitialContext;
-import javax.naming.NamingException;
-
+import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.util.StringHelper;
 import org.helios.collector.core.AbstractCollector;
 import org.helios.collector.core.CollectionResult;
 import org.helios.collector.core.CollectorException;
@@ -61,11 +36,21 @@ import org.helios.collector.jmx.tracers.IObjectFormatter;
 import org.helios.collector.jmx.tracers.IObjectTracer;
 import org.helios.collector.jmx.tracers.JMXAttributeTrace;
 import org.helios.collector.jmx.tracers.JMXObject;
-import org.helios.apmrouter.jmx.JMXHelper;
-import org.helios.apmrouter.metric.MetricType;
-import org.helios.apmrouter.util.StringHelper;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedResource;
+
+import javax.management.*;
+import javax.management.openmbean.CompositeData;
+import javax.management.openmbean.CompositeDataSupport;
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
+import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryUsage;
+import java.lang.management.ThreadInfo;
+import java.util.*;
+import java.util.Map.Entry;
 
 
 /**
@@ -235,6 +220,7 @@ public class JMXCollector extends AbstractCollector {
 
 
     public CollectionResult collectCallback() {
+<<<<<<< HEAD
     	final String threadName = Thread.currentThread().getName();
     	try {
     		Thread.currentThread().setName("JMXCollectorThread[" + connectionFactory.getHostId() + "]");
@@ -351,6 +337,118 @@ public class JMXCollector extends AbstractCollector {
     	} finally {
     		Thread.currentThread().setName(threadName);
     	}
+=======
+        //long st = System.currentTimeMillis();
+        CollectionResult collectionResult = new CollectionResult();
+        resetProcessingFlag();
+
+        // Check the status of MBeanServerConnection
+        if(checkMBeanServerConnection(collectionResult)==false){
+            // Error getting MBean Server connection so no reason to proceed further
+            // Return the CollectionResult object back 
+            return collectionResult;
+        }
+
+        // Run an additional availability check (if provided)
+        if(availabilityMBean != null && availabilityAttribute != null) {
+            if(availibilityCheck(collectionResult)==false){
+                // User MBean Server availability check failed so no reason to proceed further
+                // Return the CollectionResult object back 
+                return collectionResult;
+            }
+        }
+
+        boolean anySuccess = false;
+        boolean anyFailure = false;
+        for(JMXObject tr: jmxObjects) {
+            try {
+                List<JMXAttributeTrace> jmxAttributeTraces = tr.getTargetAttributeTraces();
+                if(anyAttributesToProcess(tr, jmxAttributeTraces)==false){
+                    // There are no attribute defined to query for this target objectName
+                    // Skip the processing for this object and continue to next JMXObject
+                    anyFailure=true;
+                    continue;
+                }
+                Iterator<ObjectName> mbeans = null;
+                Map<ObjectName, Map<String, Object>> mappedValues;
+                try{
+                    mappedValues = JMXHelper.getMBeanAttributeMap(mBeanServerConnection, tr.targetObjectName, compoundNameDelimeter, tr.getAttributeNames());
+                    mbeans = mappedValues.keySet().iterator();
+                } catch (Exception ioex){
+                    // Error communicating with MBean Server
+                    anyFailure=true;
+                    mBeanServerConnection = null;
+                    if(logErrors)
+                        error("Failed to read results from MBeanServer", ioex);
+                    traceDefaultsForOffline();
+                    collectionResult.setAnyException(ioex);
+                    return determineStatus(anySuccess, anyFailure, collectionResult);
+                }
+                while(mbeans.hasNext()) {
+                    ObjectName on = mbeans.next();
+                    if(tr.getAttributeNames().size()>0){
+                        // get values for all attributes in one swipe for this MBean 
+                        Map<String,Object> explodedResults = mappedValues.get(on);
+                        if(explodedResults == null){
+                            // Error occured while processing attributes for this MBean
+                            // skip this one and proceed processing OTHER MBeans
+                            anyFailure=true;
+                            continue;
+                        }
+
+                        // Check whether this MBean has been processed before.  if yes, then used resolved 
+                        // metric/segment/segmentPrefixElements instead of resolving tokens again
+                        if(resolvedJMXObjects.containsKey(on.getCanonicalName())){
+                            trace("Already have the key in cache: "+on.getCanonicalName());
+                            JMXObject cachedObject = resolvedJMXObjects.get(on.getCanonicalName());
+                            if(cachedObject!=null){
+                                processCachedObject(on, cachedObject, explodedResults);
+                                anySuccess=true;
+                                cachedObject.setProcessed(true);
+                                JMXObject tempObject = new JMXObject(cachedObject);
+                                resolvedJMXObjects.put(on.getCanonicalName(),tempObject);
+                            }
+                        } else {
+                            // Either a new MBean popped up as part of the returned results 
+                            // or its the first poll of this JMXCollector
+                            trace("**************** No entry in cache for key : "+on.getCanonicalName());
+                            processNonCachedObject(on, tr, explodedResults,jmxAttributeTraces);
+                            anySuccess=true;
+                            // Mark Processing status to true - If this key already exist in the list, its status will be changed to true, if not
+                            // it will be added to this list with status true.                        
+                            tr.setProcessed(true);
+                            JMXObject tempObject = new JMXObject(tr);
+                            resolvedJMXObjects.put(on.getCanonicalName(),tempObject);
+                            tr.clearResolvedAttributes();
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                anyFailure=true;
+                if(logErrors)
+                    error("Exception occured while tracing JMX Attributes for MBean: "+tr.getTargetObjectName(), ex);
+                continue;
+            }
+        }
+
+        // Done with processing of all online MBeans that were returned by this query. Now check whether
+        // there are any MBean(s) that were online during the last collection but are offline this time
+        traceDefaultsForOffline();
+        try {
+            if(traceMXBeans){
+                long startMX = System.currentTimeMillis();
+                collectMXBeans();
+                //tracer.trace(System.currentTimeMillis()-startMX, "Elapsed Time for MXBeans", StringHelper.append(tracingNameSpace,true,mxBeanSegment));
+                tracer.traceGauge(System.currentTimeMillis()-startMX, "ElapsedTimeMXBeans", StringHelper.append(false, tracingNameSpace,mxBeanSegment));
+            }
+        } catch (Exception mxe) {
+            anyFailure=true;
+            if(logErrors) {
+                error("MXBean Collection Error", mxe);
+            }
+        }
+        return determineStatus(anySuccess, anyFailure, collectionResult);
+>>>>>>> d1e78c27c2f15a0acf3c096a78ee28ec04eaf28f
     }
 
     /**
@@ -864,7 +962,7 @@ public class JMXCollector extends AbstractCollector {
      */
     protected void processGCStats() {
         String rootSegment[] = null;
-        CompositeDataSupport  usage = null;
+        //CompositeDataSupport  usage = null;
         long collectionCount = 0;
         long collectionTime = 0;
         long elapsedTime = 0;

@@ -24,16 +24,15 @@
  */
 package org.helios.collector.jmx.connection;
 
-import java.util.NoSuchElementException;
-
-import javax.management.MBeanServerConnection;
-
 import org.apache.commons.pool.ObjectPool;
 import org.apache.commons.pool.PoolableObjectFactory;
 import org.apache.commons.pool.impl.GenericObjectPool;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedOperation;
 import org.springframework.jmx.export.annotation.ManagedResource;
+
+import javax.management.MBeanServerConnection;
+import java.util.NoSuchElementException;
 
 /**
  * <p>Title: MBeanServerConnectionPool</p>

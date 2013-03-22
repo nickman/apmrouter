@@ -24,7 +24,8 @@
  */
 package org.helios.apmrouter.byteman.sockets.impl;
 
-import static org.helios.apmrouter.util.SimpleLogger.log;
+import org.helios.apmrouter.byteman.sockets.ServerConnection;
+import org.helios.apmrouter.util.SimpleLogger;
 
 import java.io.FileDescriptor;
 import java.io.InputStream;
@@ -34,8 +35,7 @@ import java.net.ServerSocket;
 import java.net.SocketAddress;
 import java.util.Iterator;
 
-import org.helios.apmrouter.byteman.sockets.ServerConnection;
-import org.helios.apmrouter.util.SimpleLogger;
+import static org.helios.apmrouter.util.SimpleLogger.log;
 
 /**
  * <p>Title: LoggingSocketTracker</p>

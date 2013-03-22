@@ -51,7 +51,7 @@ public class WARDeployer {
 
 	/**
 	 * Deploys the passed war file into the passed application context
-	 * @param appCtx The application context assumed to contain a {@link org.eclipse.jetty.server.Server}
+	 * @param appCtx The application context assumed to contain a {@literal org.eclipse.jetty.server.Server}
 	 * @param warFile The war file to deploy
 	 */
 	public static void deploy(GenericApplicationContext appCtx, File warFile) {

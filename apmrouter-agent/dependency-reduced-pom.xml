@@ -28,6 +28,9 @@
           <source>1.6</source>
           <target>1.6</target>
           <executable>${JAVA_1_7_HOME}/bin/javac</executable>
+          <debug>false</debug>
+          <showDeprecation>false</showDeprecation>
+          <showWarnings>false</showWarnings>
         </configuration>
       </plugin>
       <plugin>

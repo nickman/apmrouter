@@ -34,24 +34,24 @@ package org.helios.apmrouter.catalog.jdbc.h2;
 
 public interface AsynchAbstractTriggerMBean extends AbstractTriggerMBean {
 	/**
-	 * @return
+	 * @return  int
 	 */
 	public int getActiveCount();
 
 	/**
-	 * @return
+	 * @return   String
 	 * @see org.helios.apmrouter.server.ServerComponentBean#getBeanName()
 	 */
 	public String getBeanName();
 
 	/**
-	 * @return
+	 * @return  int
 	 * @see org.helios.apmrouter.util.thread.ManagedThreadPool#getPoolSize()
 	 */
 	public int getPoolSize();
 
 	/**
-	 * @return
+	 * @return   int
 	 * @see org.helios.apmrouter.util.thread.ManagedThreadPool#getQueueSize()
 	 */
 	
@@ -64,25 +64,25 @@ public interface AsynchAbstractTriggerMBean extends AbstractTriggerMBean {
 	public void resetMetrics();
 
 	/**
-	 * @return
+	 * @return    long
 	 * @see org.helios.apmrouter.util.thread.ManagedThreadPool#getTaskCount()
 	 */
 	public long getTaskCount();
 
 	/**
-	 * @return
+	 * @return   boolean
 	 * @see org.helios.apmrouter.util.thread.ManagedThreadPool#isShutdown()
 	 */
 	public boolean isShutdown();
 
 	/**
-	 * @return
+	 * @return   boolean
 	 * @see org.helios.apmrouter.util.thread.ManagedThreadPool#isTerminated()
 	 */
 	public boolean isTerminated();
 
 	/**
-	 * @return
+	 * @return    boolean
 	 * @see org.helios.apmrouter.util.thread.ManagedThreadPool#isTerminating()
 	 */
 	public boolean isTerminating();
@@ -94,25 +94,25 @@ public interface AsynchAbstractTriggerMBean extends AbstractTriggerMBean {
 	public void purge();
 
 	/**
-	 * @return
+	 * @return   String[]
 	 * @see org.helios.apmrouter.util.thread.ManagedThreadPool#getThreadStats()
 	 */
 	public String[] getThreadStats();
 
 	/**
-	 * @return
+	 * @return    boolean
 	 * @see org.helios.apmrouter.server.ServerComponentBean#isStarted()
 	 */
 	public boolean isStarted();
 	
 	/**
-	 * @return
+	 * @return  int
 	 * @see java.util.concurrent.ThreadPoolExecutor#getLargestPoolSize()
 	 */
 	public int getLargestPoolSize();
 	
 	/**
-	 * @return
+	 * @return   int
 	 * @see java.util.concurrent.ThreadPoolExecutor#getMaximumPoolSize()
 	 */
 	public int getMaximumPoolSize();	

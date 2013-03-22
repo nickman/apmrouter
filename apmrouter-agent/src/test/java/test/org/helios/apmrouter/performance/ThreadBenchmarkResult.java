@@ -3,11 +3,11 @@
  */
 package test.org.helios.apmrouter.performance;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadInfo;
-
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
+
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
 
 /**
  * <p>Title: ThreadBenchmarkResult</p>

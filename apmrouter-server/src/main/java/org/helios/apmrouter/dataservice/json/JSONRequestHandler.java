@@ -35,7 +35,7 @@ import org.springframework.stereotype.Component;
 /**
  * <p>Title: JSONRequestHandler</p>
  * <p>Description: Annotates a named JSON data service method</p> 
- * <p>Annotated methods must implement the signature defined in {@link JSONDataService#processRequest(org.json.JSONObject, org.jboss.netty.channel.Channel)}.</p>
+ * <p>Annotated methods must implement the signature defined in {@literal JSONDataService#processRequest(org.json.JSONObject, org.jboss.netty.channel.Channel)}.</p>
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.dataservice.json.JSONRequestHandler</code></p>

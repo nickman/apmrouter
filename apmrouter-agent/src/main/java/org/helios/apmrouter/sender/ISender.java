@@ -24,13 +24,13 @@
  */
 package org.helios.apmrouter.sender;
 
-import java.net.SocketAddress;
-import java.net.URI;
-import java.util.concurrent.TimeoutException;
-
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.helios.apmrouter.trace.MetricSubmitter;
+
+import java.net.SocketAddress;
+import java.net.URI;
+import java.util.concurrent.TimeoutException;
 
 /**
  * <p>Title: ISender</p>

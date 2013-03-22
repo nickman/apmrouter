@@ -24,16 +24,13 @@
  */
 package org.helios.apmrouter.metric.catalog;
 
-import static org.helios.apmrouter.util.Methods.nvl;
+import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.metric.MetricType;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
 
-import org.helios.apmrouter.metric.IMetric;
-import org.helios.apmrouter.metric.MetricType;
-import org.helios.apmrouter.util.SystemClock;
-import org.helios.apmrouter.util.SystemClock.ElapsedTime;
+import static org.helios.apmrouter.util.Methods.nvl;
 
 /**
  * <p>Title: ICEMetricCatalog</p>

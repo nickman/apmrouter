@@ -3,19 +3,15 @@
  */
 package org.helios.apmrouter.metric;
 
+import org.helios.apmrouter.jmx.ConfigurationHelper;
+import org.helios.apmrouter.jmx.StringHelper;
+
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.HashSet;
-import java.util.Set;
-
-import org.helios.apmrouter.jmx.ConfigurationHelper;
-import org.helios.apmrouter.jmx.StringHelper;
+import java.util.*;
 
 /**
  * <p>Title: AgentIdentity</p>

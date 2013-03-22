@@ -24,10 +24,10 @@
  */
 package org.helios.collector.jdbc.binding.provider;
 
+import org.helios.collector.jdbc.binding.binder.IBinder;
+
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-
-import org.helios.collector.jdbc.binding.binder.IBinder;
 
 /**
  * <p>Title: SpringBeanBindVariableProvider</p>

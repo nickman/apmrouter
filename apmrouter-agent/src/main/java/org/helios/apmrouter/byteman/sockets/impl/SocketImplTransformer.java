@@ -24,34 +24,18 @@
  */
 package org.helios.apmrouter.byteman.sockets.impl;
 
+import javassist.*;
+import org.helios.apmrouter.jmx.ConfigurationHelper;
+import org.helios.apmrouter.util.SimpleLogger;
+
 import java.io.File;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.SocketImpl;
-import java.net.SocketImplFactory;
-import java.net.SocketOptions;
+import java.net.*;
 import java.security.ProtectionDomain;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import javassist.ByteArrayClassPath;
-import javassist.ClassPool;
-import javassist.CtClass;
-import javassist.CtConstructor;
-import javassist.CtMethod;
-import javassist.LoaderClassPath;
-import javassist.Modifier;
-import javassist.NotFoundException;
-
-import org.helios.apmrouter.jmx.ConfigurationHelper;
-import org.helios.apmrouter.util.SimpleLogger;
 
 /**
  * <p>Title: SocketImplTransformer</p>

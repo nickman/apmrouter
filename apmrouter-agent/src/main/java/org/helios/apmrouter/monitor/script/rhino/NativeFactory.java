@@ -24,19 +24,13 @@
  */
 package org.helios.apmrouter.monitor.script.rhino;
 
+import javassist.*;
+
 import java.io.File;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Map;
-
-import javassist.ClassClassPath;
-import javassist.ClassPool;
-import javassist.CtClass;
-import javassist.CtConstructor;
-import javassist.CtField;
-import javassist.CtMethod;
-import javassist.LoaderClassPath;
 
 /**
  * <p>Title: NativeFactory</p>

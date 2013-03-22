@@ -24,15 +24,14 @@
  */
 package org.helios.collector.jmx.tracers;
 
+import org.apache.log4j.Logger;
+
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import javax.management.MalformedObjectNameException;
-import javax.management.ObjectName;
-
-import org.apache.log4j.Logger;
 
 /**
  * <p>Title: JMXObject</p>

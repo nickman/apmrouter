@@ -24,15 +24,10 @@
  */
 package org.helios.collector.jmx.identifiers;
 
-import java.io.IOException;
-
-import javax.management.AttributeNotFoundException;
-import javax.management.InstanceNotFoundException;
-import javax.management.MBeanException;
-import javax.management.MBeanServerConnection;
-import javax.management.ReflectionException;
-
 import org.helios.apmrouter.jmx.JMXHelper;
+
+import javax.management.*;
+import java.io.IOException;
 
 /**
  * <p>Title: JBossMBeanServerIdentifier</p>

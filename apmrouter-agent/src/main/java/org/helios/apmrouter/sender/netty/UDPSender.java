@@ -24,16 +24,7 @@
  */
 package org.helios.apmrouter.sender.netty;
 
-import static org.helios.apmrouter.util.Methods.nvl;
-
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.net.URI;
-import java.nio.channels.ClosedChannelException;
-import java.util.concurrent.CountDownLatch;
-
 import org.helios.apmrouter.OpCode;
-import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.jmx.mbeanserver.AgentMBeanServerConnectionFactory;
 import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.sender.AbstractSender;
@@ -44,21 +35,18 @@ import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelPipeline;
-import org.jboss.netty.channel.ChannelState;
-import org.jboss.netty.channel.ChannelStateEvent;
-import org.jboss.netty.channel.Channels;
-import org.jboss.netty.channel.ExceptionEvent;
-import org.jboss.netty.channel.FixedReceiveBufferSizePredictorFactory;
-import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
-import org.jboss.netty.channel.socket.nio.NioDatagramChannel;
+import org.jboss.netty.channel.*;
 import org.jboss.netty.channel.socket.nio.NioDatagramChannelFactory;
 import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLogLevel;
+
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.net.URI;
+import java.nio.channels.ClosedChannelException;
+import java.util.concurrent.CountDownLatch;
+
+import static org.helios.apmrouter.util.Methods.nvl;
 
 /**
  * <p>Title: UDPSender</p>

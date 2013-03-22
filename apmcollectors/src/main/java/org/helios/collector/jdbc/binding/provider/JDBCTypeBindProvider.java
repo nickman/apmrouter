@@ -24,11 +24,11 @@
  */
 package org.helios.collector.jdbc.binding.provider;
 
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-
 import org.helios.collector.jdbc.binding.binder.Binder;
 import org.helios.collector.jdbc.binding.binder.IBinder;
+
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 
 /**
  * <p>Title: JDBCTypeBindProvider</p>

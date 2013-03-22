@@ -24,8 +24,6 @@
  */
 package org.helios.apmrouter.util;
 
-import java.util.concurrent.atomic.AtomicLong;
-
 /**
  * <p>Title: CircularCounter</p>
  * <p>Description: Atomic circular counter</p> 

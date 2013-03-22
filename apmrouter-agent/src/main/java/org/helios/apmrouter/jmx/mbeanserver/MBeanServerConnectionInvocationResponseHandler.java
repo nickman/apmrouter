@@ -24,15 +24,14 @@
  */
 package org.helios.apmrouter.jmx.mbeanserver;
 
-import java.lang.reflect.Method;
-
-import javax.management.Notification;
-
 import org.helios.apmrouter.OpCode;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+
+import javax.management.Notification;
+import java.lang.reflect.Method;
 
 /**
  * <p>Title: MBeanServerConnectionInvocationResponseHandler</p>

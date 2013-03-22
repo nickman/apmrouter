@@ -24,10 +24,10 @@
  */
 package org.helios.collector.jmx.connection.triggers;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * <p>Title: AbstractOnFirstConnectTrigger</p>

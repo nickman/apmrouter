@@ -24,17 +24,6 @@
  */
 package org.helios.apmrouter.byteman.sockets;
 
-import java.io.OutputStream;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-
 import org.cliffc.high_scale_lib.NonBlockingHashMap;
 import org.helios.apmrouter.byteman.sockets.impl.ISocketImpl;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
@@ -42,6 +31,15 @@ import org.helios.apmrouter.nativex.APMSigar;
 import org.helios.apmrouter.nativex.TCPSocketState;
 import org.helios.apmrouter.util.SimpleLogger;
 import org.hyperic.sigar.NetStat;
+
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * <p>Title: ServerConnection</p>

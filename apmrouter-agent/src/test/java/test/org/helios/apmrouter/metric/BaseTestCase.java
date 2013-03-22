@@ -24,8 +24,6 @@
  */
 package test.org.helios.apmrouter.metric;
 
-import java.lang.reflect.Method;
-
 import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
 import org.helios.apmrouter.trace.ITracer;
@@ -35,6 +33,8 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.rules.TestName;
+
+import java.lang.reflect.Method;
 
 /**
  * <p>Title: BaseTestCase</p>

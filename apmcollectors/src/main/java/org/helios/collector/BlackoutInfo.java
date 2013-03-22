@@ -24,10 +24,10 @@
  */
 package org.helios.collector;
 
+import org.apache.log4j.Logger;
+
 import java.util.Calendar;
 import java.util.Date;
-
-import org.apache.log4j.Logger;
 
 /**
  * <p>Title: BlackoutInfo</p>

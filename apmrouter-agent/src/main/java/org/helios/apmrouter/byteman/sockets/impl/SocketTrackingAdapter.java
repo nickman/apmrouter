@@ -24,6 +24,10 @@
  */
 package org.helios.apmrouter.byteman.sockets.impl;
 
+import org.helios.apmrouter.util.SimpleLogger;
+
+import javax.management.MBeanServerInvocationHandler;
+import javax.management.ObjectName;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.management.ManagementFactory;
@@ -33,11 +37,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
-import javax.management.MBeanServerInvocationHandler;
-import javax.management.ObjectName;
-
-import org.helios.apmrouter.util.SimpleLogger;
 
 
 

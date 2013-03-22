@@ -24,10 +24,10 @@
  */
 package org.helios.apmrouter.unsafe;
 
+import sun.misc.Unsafe;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-
-import sun.misc.Unsafe;
 
 /**
  * <p>Title: UnsafeAdapter</p>

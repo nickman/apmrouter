@@ -24,6 +24,13 @@
  */
 package org.helios.collector.jdbc.binding.provider;
 
+import org.apache.log4j.Logger;
+import org.helios.collector.jdbc.binding.binder.Binder;
+import org.helios.collector.jdbc.binding.binder.IBinder;
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Collections;
@@ -31,15 +38,6 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Matcher;
-
-import org.apache.log4j.Logger;
-import org.helios.collector.jdbc.binding.binder.Binder;
-import org.helios.collector.jdbc.binding.binder.BinderNotFoundException;
-import org.helios.collector.jdbc.binding.binder.IBinder;
-import org.springframework.beans.BeansException;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
 
 /**
  * <p>Title: AbstractBindVariableProvider</p>

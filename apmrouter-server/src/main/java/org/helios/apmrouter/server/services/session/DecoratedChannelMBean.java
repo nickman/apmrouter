@@ -77,40 +77,17 @@ public interface DecoratedChannelMBean {
 	 */
 	public abstract long getConnectTime();
 
-	/**
-	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.Channel#getId()
-	 */
 	public abstract Integer getId();
 
-	/**
-	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.Channel#isOpen()
-	 */
+
 	public abstract boolean isOpen();
 
-	/**
-	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.Channel#isBound()
-	 */
 	public abstract boolean isBound();
 
-	/**
-	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.Channel#isConnected()
-	 */
 	public abstract boolean isConnected();
 
-	/**
-	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.Channel#isReadable()
-	 */
 	public abstract boolean isReadable();
 
-	/**
-	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.Channel#isWritable()
-	 */
 	public abstract boolean isWritable();
 	
 	/**

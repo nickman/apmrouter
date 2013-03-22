@@ -43,8 +43,7 @@ import java.lang.annotation.Target;
 
 public @interface Route {
 	/**
-	 * Annotates a method that returns a routing key in the form of a {@link java.lang.CharSequence}.
-	 * @see {@link Routable}
+	 * Annotates a method that returns a routing key in the form of a {@literal java.lang.CharSequence}.
 	 */
 	String routingKey();
 }

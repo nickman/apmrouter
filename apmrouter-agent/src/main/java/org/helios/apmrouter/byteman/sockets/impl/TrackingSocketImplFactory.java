@@ -29,7 +29,6 @@ import java.lang.reflect.Field;
 import java.net.Socket;
 import java.net.SocketImpl;
 import java.net.SocketImplFactory;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * <p>Title: TrackingSocketImplFactory</p>

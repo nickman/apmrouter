@@ -24,15 +24,12 @@
  */
 package org.helios.apmrouter.metric.catalog.direct.chronicle;
 
+import vanilla.java.chronicle.Excerpt;
+import vanilla.java.chronicle.impl.IndexedChronicle;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteOrder;
-import java.nio.CharBuffer;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
-
-import vanilla.java.chronicle.Excerpt;
-import vanilla.java.chronicle.impl.IndexedChronicle;
 
 /**
  * <p>Title: ChronicleController</p>

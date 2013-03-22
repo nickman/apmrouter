@@ -3,6 +3,8 @@
  */
 package test.org.helios.apmrouter.performance;
 
+import org.helios.apmrouter.util.ResourceHelper.NamedMemoryUsage;
+
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
@@ -11,9 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-
-import org.helios.apmrouter.util.ResourceHelper;
-import org.helios.apmrouter.util.ResourceHelper.NamedMemoryUsage;
 
 /**
  * <p>Title: BenchmarkResult</p>

@@ -24,20 +24,14 @@
  */
 package org.helios.collector.jmx.tracers.script;
 
+import org.apache.log4j.Logger;
+
+import javax.script.*;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-
-import javax.script.Invocable;
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
-import javax.script.SimpleBindings;
-
-import org.apache.log4j.Logger;
 
 /**
  * <p>Title: ScriptManagerWrapper</p>

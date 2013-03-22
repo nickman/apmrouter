@@ -24,7 +24,10 @@
  */
 package org.helios.apmrouter.metric;
 
-import static org.helios.apmrouter.util.Methods.nvl;
+import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
+import org.helios.apmrouter.metric.catalog.IDelegateMetric;
+import org.helios.apmrouter.trace.TXContext;
+import org.helios.apmrouter.util.StringHelper;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;
@@ -32,10 +35,7 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
-import org.helios.apmrouter.metric.catalog.IDelegateMetric;
-import org.helios.apmrouter.trace.TXContext;
-import org.helios.apmrouter.util.StringHelper;
+import static org.helios.apmrouter.util.Methods.nvl;
 
 
 /**

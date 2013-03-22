@@ -24,10 +24,10 @@
  */
 package org.helios.collector.jmx.connection;
 
+import org.helios.collector.jmx.HSPProtocol;
+
 import javax.management.MBeanServer;
 import javax.management.MBeanServerConnection;
-
-import org.helios.collector.jmx.HSPProtocol;
 
 /**
  * <p>Title: LocalMBeanServerConnectionFactory</p>

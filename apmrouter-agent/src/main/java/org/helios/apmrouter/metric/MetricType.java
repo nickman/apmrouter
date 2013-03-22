@@ -3,25 +3,20 @@
  */
 package org.helios.apmrouter.metric;
 
-import static org.helios.apmrouter.util.Methods.nvl;
+import org.helios.apmrouter.util.BitMaskedEnum;
+import org.helios.apmrouter.util.BitMaskedEnum.IntBitMaskOperations;
+import org.helios.apmrouter.util.IO;
+import org.snmp4j.PDU;
 
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.zip.GZIPOutputStream;
 
-import org.helios.apmrouter.util.BitMaskedEnum;
-import org.helios.apmrouter.util.BitMaskedEnum.IntBitMaskOperations;
-import org.helios.apmrouter.util.IO;
-import org.snmp4j.PDU;
+import static org.helios.apmrouter.util.Methods.nvl;
 
 
 /**

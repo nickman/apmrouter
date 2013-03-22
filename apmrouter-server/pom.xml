@@ -16,14 +16,14 @@
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 	</properties>
 	<dependencies>
-			<!-- ==========================================================			
+			<!-- ==========================================================
 			  Logging Dependencies, put first so they sort high in cp
 			    ========================================================== -->
 			<dependency>
 				<groupId>log4j</groupId>
 				<artifactId>log4j</artifactId>
 			</dependency>
-			  
+
 			<dependency>
 				<groupId>org.slf4j</groupId>
 				<artifactId>slf4j-log4j12</artifactId>
@@ -33,27 +33,27 @@
 				<artifactId>slf4j-api</artifactId>
 			</dependency>
 
-			
-			<!-- ==========================================================			
+
+			<!-- ==========================================================
 			  Testing Dependencies
 			    ========================================================== -->
-			
+
 			<dependency>
 				<groupId>junit</groupId>
 				<artifactId>junit</artifactId>
 				<scope>test</scope>
 			</dependency>
 
-			<!-- ==========================================================			
+			<!-- ==========================================================
 			  APMRouter Agent Dependencies
 			    ========================================================== -->
-			<dependency>			  
+			<dependency>
 			  <groupId>org.helios.apmrouter</groupId>
 			  <artifactId>apmrouter-agent</artifactId>
 			  <version>${project.version}</version>
 			</dependency>
-			  
-			<!-- ==========================================================			
+
+			<!-- ==========================================================
 			  Byteman & AOP
 			    ========================================================== -->
 			  <dependency>
@@ -64,23 +64,23 @@
 			  <groupId>org.javassist</groupId>
 			  <artifactId>javassist</artifactId>
 			</dependency>
-			
-			<!-- ==========================================================			
+
+			<!-- ==========================================================
 			  for h2 catalog and time series
 			    ========================================================== -->
 		      <dependency>
 			<groupId>com.h2database</groupId>
 			<artifactId>h2</artifactId>
 		      </dependency>
-			
+
 		      <dependency>
 			<groupId>org.hibernate</groupId>
 			<artifactId>hibernate-core</artifactId>
 		      </dependency>
-		      
-		      
+
+
 		      <!-- ==========================
-			    JDBC Pooling Support 
+			    JDBC Pooling Support
 			      ========================== -->
 		      <dependency>
 			<groupId>com.jolbox</groupId>
@@ -97,9 +97,9 @@
 			<artifactId>bonecp-spring</artifactId>
 			<classifier>jdk5</classifier>
 		      </dependency>
-		      
 
-		      <!-- ==========================================================			
+
+		      <!-- ==========================================================
 			Spring container for apmrouter-server
 			  ========================================================== -->
 			<dependency>
@@ -115,10 +115,10 @@
 			  <artifactId>spring-web</artifactId>
 			</dependency>
 
-		      <!-- ==========================================================			
+		      <!-- ==========================================================
 			JSON Marshalling
 			  ========================================================== -->
-			
+
 		      <dependency>
 			<groupId>org.json</groupId>
 			<artifactId>json</artifactId>
@@ -127,42 +127,42 @@
 			<groupId>com.google.code.gson</groupId>
 			<artifactId>gson</artifactId>
 		      </dependency>
-			
-		      <!-- ==========================================================			
+
+		      <!-- ==========================================================
 			JMX Support
 			  ========================================================== -->
 			<dependency>
 			  <groupId>org.jvnet.opendmk</groupId>
 			  <artifactId>jmxremote_optional</artifactId>
 			</dependency>
-			
-		      <!-- ==========================================================			
+
+		      <!-- ==========================================================
 			Google Libs
 			  ========================================================== -->
 			<dependency>
 			  <groupId>com.google.guava</groupId>
 			  <artifactId>guava</artifactId>
 			</dependency>
-			
-		      <!-- ==========================================================			
-			SNMP dependencies 
+
+		      <!-- ==========================================================
+			SNMP dependencies
 			  ========================================================== -->
 			<dependency>
 			  <groupId>org.snmp4j</groupId>
 			  <artifactId>snmp4j</artifactId>
 			  <version>${snmp4j.version}</version>
-			</dependency>		
-			
-			
-		      <!-- ==========================================================			
+			</dependency>
+
+
+		      <!-- ==========================================================
 			Netty
 			  ========================================================== -->
 		      <dependency>
 			<groupId>io.netty</groupId>
 			<artifactId>netty</artifactId>
 		      </dependency>
-		      
-		      <!-- ==========================================================			
+
+		      <!-- ==========================================================
 			Sigar
 			  ========================================================== -->
 		      <dependency>
@@ -170,7 +170,7 @@
 			<artifactId>sigar</artifactId>
 		      </dependency>
 
-		      <!-- ==========================================================			
+		      <!-- ==========================================================
 			Miscellaneous, Collections, Utils
 			  ========================================================== -->
 			<dependency>
@@ -178,16 +178,16 @@
 			  <artifactId>high-scale-lib</artifactId>
 			</dependency>
 
-		      <!-- ==========================================================			
+		      <!-- ==========================================================
 			Scripting, Groovy Console
 			  ========================================================== -->
 		      <dependency>
 						<groupId>org.codehaus.groovy</groupId>
 						<artifactId>groovy-all</artifactId>
 						<classifier>indy</classifier>
-		      </dependency>				
-		
-		
+		      </dependency>
+
+
 	</dependencies>
 	<build>
 		<defaultGoal>install</defaultGoal>
@@ -214,14 +214,24 @@
 	            <configuration>
 	              <artifactSet>
 	                <excludes>
-	                  <exclude>org.slf4j:log4j-over-slf4j</exclude>	
-	                  <exclude>ch.qos.logback:*</exclude>	 	                                                
-
+	                  <exclude>org.slf4j:log4j-over-slf4j</exclude>
+	                  <exclude>ch.qos.logback:*</exclude>
+	                  <exclude>org.jboss.byteman:byteman</exclude>
+	                  <exclude>org.javassist:javassist</exclude>
+	                  <exclude>com.jolbox:bonecp-spring</exclude>
+	                  <exclude>com.jolbox:bonecp-provider</exclude>
+	                  <exclude>com.jolbox:bonecp</exclude>
+	                  <exclude>org.json:json</exclude>
+	                  <exclude>org.snmp4j:snmp4j</exclude>
+	                  <exclude>org.fusesource:sigar</exclude>
+	                  <exclude>io.netty:netty</exclude>
+	                  <exclude>com.github.stephenc.high-scale-lib:high-scale-lib</exclude>
+	                  <exclude>org.jvnet.opendmk:jmxremote_optional</exclude>
 	                </excludes>
 	              </artifactSet>
 					<mainClass>org.helios.apmrouter.APMRouter</mainClass>
 				    <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-				    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>	                      					
+				    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
 					<includePluginDependencies>false</includePluginDependencies>
 				<transformers>
 	                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
@@ -237,18 +247,18 @@
 	                </transformer>
 	                <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
 	                  <resource>META-INF/spring.tooling</resource>
-	                </transformer>	                
-	              </transformers>	              
+	                </transformer>
+	              </transformers>
 	            </configuration>
 	          </execution>
 	        </executions>
-	      </plugin>	     
+	      </plugin>
 			<plugin>
 	            <artifactId>maven-assembly-plugin</artifactId>
 				<configuration>
 					<Main-Class>org.helios.apmrouter.APMRouter</Main-Class>
 				    <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-				    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>	                      					
+				    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
 					<includePluginDependencies>true</includePluginDependencies>
 						<manifestEntries>
 							<Main-Class>org.helios.apmrouter.APMRouter</Main-Class>
@@ -297,10 +307,11 @@
                 <configuration>
                     <show>public</show>
                     <nohelp>true</nohelp>
+                    <quiet>true</quiet>
                 </configuration>
             </plugin>
-   	         
-			
+
+
 		</plugins>
 	</build>
 </project>
@@ -319,17 +330,17 @@
 			<groupId>org.apache.camel</groupId>
 			<artifactId>camel-spring</artifactId>
 		</dependency>
-		
+
 		<dependency>
 		  <groupId>org.apache.camel</groupId>
 		  <artifactId>camel-bindy</artifactId>
 		</dependency>
-		
+
 		<dependency>
 			<groupId>org.apache.camel</groupId>
 			<artifactId>camel-netty</artifactId>
 		</dependency>
-			
+
 			<plugin>
 				<groupId>org.apache.camel</groupId>
 				<artifactId>camel-maven-plugin</artifactId>

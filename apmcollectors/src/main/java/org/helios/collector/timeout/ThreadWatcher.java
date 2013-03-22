@@ -24,34 +24,21 @@
  */
 package org.helios.collector.timeout;
 
+import org.apache.log4j.Logger;
+import org.helios.apmrouter.jmx.ConfigurationHelper;
+import org.helios.apmrouter.jmx.JMXHelper;
+import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedResource;
+
+import javax.management.ObjectName;
+import javax.management.openmbean.*;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-
-import javax.management.ObjectName;
-import javax.management.openmbean.CompositeData;
-import javax.management.openmbean.CompositeDataSupport;
-import javax.management.openmbean.CompositeType;
-import javax.management.openmbean.OpenDataException;
-import javax.management.openmbean.OpenType;
-import javax.management.openmbean.SimpleType;
-import javax.management.openmbean.TabularData;
-import javax.management.openmbean.TabularDataSupport;
-import javax.management.openmbean.TabularType;
-
-import org.apache.log4j.Logger;
-import org.helios.apmrouter.jmx.JMXHelper;
-import org.helios.apmrouter.jmx.ConfigurationHelper;
-import org.springframework.jmx.export.annotation.ManagedAttribute;
-import org.springframework.jmx.export.annotation.ManagedResource;
 
 /**
  * <p>Title: ThreadWatcher</p>

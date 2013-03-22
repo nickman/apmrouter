@@ -24,12 +24,12 @@
  */
 package org.helios.collector.jdbc.binding.provider;
 
+import org.apache.log4j.Logger;
+
 import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.apache.log4j.Logger;
 
 /**
  * <p>Title: ProviderToken</p>

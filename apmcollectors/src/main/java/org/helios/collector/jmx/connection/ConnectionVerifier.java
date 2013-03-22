@@ -24,18 +24,12 @@
  */
 package org.helios.collector.jmx.connection;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-
-import javax.management.InstanceNotFoundException;
-import javax.management.MBeanException;
-import javax.management.MBeanServer;
-import javax.management.MBeanServerConnection;
-import javax.management.ObjectName;
-import javax.management.ReflectionException;
-
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.jmx.JMXHelper;
+
+import javax.management.*;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * <p>Title: ConnectionVerifier</p>

@@ -24,14 +24,6 @@
  */
 package test.org.helios.apmrouter.collections;
 
-import java.lang.management.ManagementFactory;
-import java.util.HashSet;
-import java.util.Random;
-import java.util.Set;
-import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicLong;
-
 import org.helios.apmrouter.collections.ConcurrentLongSortedSet;
 import org.helios.apmrouter.collections.UnsafeArrayBuilder;
 import org.helios.apmrouter.collections.UnsafeLongArray;
@@ -39,6 +31,14 @@ import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+import java.lang.management.ManagementFactory;
+import java.util.HashSet;
+import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * <p>Title: ConcurrentLongSortedSetTestCase</p>

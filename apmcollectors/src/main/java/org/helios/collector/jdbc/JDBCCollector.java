@@ -24,6 +24,17 @@
  */
 package org.helios.collector.jdbc;
 
+import org.apache.log4j.Logger;
+import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.collector.core.AbstractCollector;
+import org.helios.collector.core.CollectionResult;
+import org.helios.collector.core.CollectorException;
+import org.helios.collector.jdbc.connection.IJDBCConnectionFactory;
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+import org.springframework.jmx.export.annotation.ManagedResource;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
@@ -32,18 +43,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-
-import org.apache.log4j.Logger;
-import org.helios.collector.core.AbstractCollector;
-import org.helios.collector.core.CollectionResult;
-import org.helios.collector.core.CollectorException;
-import org.helios.collector.jdbc.connection.IJDBCConnectionFactory;
-import org.helios.apmrouter.trace.ITracer;
-import org.springframework.beans.BeansException;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
-import org.springframework.jmx.export.annotation.ManagedResource;
-import org.helios.apmrouter.jmx.JMXHelper;
 
 /**
  * <p>Title: JDBCCollector</p>

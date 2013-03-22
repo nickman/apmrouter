@@ -24,14 +24,13 @@
  */
 package org.helios.collector.jmx.tracers;
 
-import java.util.Arrays;
-import java.util.List;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import sun.management.counter.Counter;
 import sun.management.counter.Variability;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * <p>Title: ManagementCounterTracer</p>

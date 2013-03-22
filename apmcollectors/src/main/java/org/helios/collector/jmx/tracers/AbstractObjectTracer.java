@@ -24,11 +24,11 @@
  */
 package org.helios.collector.jmx.tracers;
 
+import org.apache.log4j.Logger;
+
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-
-import org.apache.log4j.Logger;
 
 
 /**

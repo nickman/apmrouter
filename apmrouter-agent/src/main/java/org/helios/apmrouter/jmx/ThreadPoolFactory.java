@@ -24,18 +24,9 @@
  */
 package org.helios.apmrouter.jmx;
 
-import java.lang.management.ManagementFactory;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.Executor;
-import java.util.concurrent.RejectedExecutionHandler;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-
 import javax.management.ObjectName;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
@@ -97,10 +88,10 @@ public class ThreadPoolFactory extends ThreadPoolExecutor implements ThreadFacto
 	 * @param domain The JMX domain where the MBean will be published 
 	 * @param name The name property for the MBean ObjectName
 	 */
-	private ThreadPoolFactory(final String domain, final String name) {
-		super(1, ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors()*2, 50L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
+	private ThreadPoolFactory(String domain, String name) {
+		super(0, Integer.MAX_VALUE, 50L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
+		setThreadFactory(this);
 		this.name = name;
-		setThreadFactory(this);		
 		prestartAllCoreThreads();
 		objectName = JMXHelper.objectName(domain + ":service=ThreadPool,name=" + name);
 		try {			

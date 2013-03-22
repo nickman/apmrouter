@@ -24,6 +24,11 @@
  */
 package org.helios.apmrouter.jmx;
 
+import org.helios.apmrouter.util.StringHelper;
+
+import javax.management.*;
+import javax.management.openmbean.CompositeData;
+import javax.management.remote.*;
 import java.beans.BeanInfo;
 import java.beans.Introspector;
 import java.io.IOException;
@@ -33,36 +38,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.server.RMISocketFactory;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Hashtable;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.management.Attribute;
-import javax.management.AttributeList;
-import javax.management.DynamicMBean;
-import javax.management.MBeanInfo;
-import javax.management.MBeanServer;
-import javax.management.MBeanServerConnection;
-import javax.management.MBeanServerFactory;
-import javax.management.MBeanServerInvocationHandler;
-import javax.management.ObjectName;
-import javax.management.QueryExp;
-import javax.management.openmbean.CompositeData;
-import javax.management.remote.JMXConnector;
-import javax.management.remote.JMXConnectorFactory;
-import javax.management.remote.JMXConnectorServer;
-import javax.management.remote.JMXConnectorServerFactory;
-import javax.management.remote.JMXServiceURL;
-
-import org.helios.apmrouter.util.StringHelper;
 
 /**
  * <p>Title: JMXHelper</p>

@@ -24,13 +24,12 @@
  */
 package org.helios.apmrouter.collections;
 
+import org.helios.apmrouter.unsafe.UnsafeAdapter;
+import sun.misc.Unsafe;
+
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicLong;
-
-import org.helios.apmrouter.unsafe.UnsafeAdapter;
-
-import sun.misc.Unsafe;
 
 /**
  * <p>Title: UnsafeArray</p>

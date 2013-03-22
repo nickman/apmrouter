@@ -24,16 +24,14 @@
  */
 package org.helios.apmrouter.byteman.sockets.impl;
 
+import org.cliffc.high_scale_lib.Counter;
+import org.cliffc.high_scale_lib.NonBlockingHashMap;
+import org.cliffc.high_scale_lib.NonBlockingHashSet;
+
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import org.cliffc.high_scale_lib.Counter;
-import org.cliffc.high_scale_lib.NonBlockingHashMap;
-import org.cliffc.high_scale_lib.NonBlockingHashSet;
-import org.helios.apmrouter.util.SimpleLogger;
 
 /**
  * <p>Title: ConnectionTracker</p>

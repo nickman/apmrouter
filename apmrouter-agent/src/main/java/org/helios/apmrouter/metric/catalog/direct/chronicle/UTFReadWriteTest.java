@@ -24,16 +24,11 @@
  */
 package org.helios.apmrouter.metric.catalog.direct.chronicle;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.nio.ByteOrder;
-import java.util.TreeSet;
-
 import vanilla.java.chronicle.Excerpt;
 import vanilla.java.chronicle.impl.IndexedChronicle;
+
+import java.io.*;
+import java.util.TreeSet;
 
 /**
  * <p>Title: UTFReadWriteTest</p>

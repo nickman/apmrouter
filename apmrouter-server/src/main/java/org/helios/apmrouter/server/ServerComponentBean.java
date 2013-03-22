@@ -153,11 +153,7 @@ public abstract class ServerComponentBean extends ServerComponent implements
 
 	}
 	
-	/**
-	 * {@inheritDoc}
-	 * @see org.springframework.jmx.export.naming.ObjectNamingStrategy#getObjectName(java.lang.Object, java.lang.String)
-	 */
-	
+
 	public ObjectName getObjectName(Object managedBean, String beanKey) throws MalformedObjectNameException {
 		StringBuilder b = new StringBuilder(getClass().getPackage().getName());
 		b.delete(b.lastIndexOf("."), b.length()-1);

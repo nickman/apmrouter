@@ -24,6 +24,9 @@
  */
 package org.helios.collector.jdbc.binding.provider;
 
+import org.helios.collector.jdbc.binding.binder.Binder;
+import org.helios.collector.jdbc.binding.binder.IBinder;
+
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -33,10 +36,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import org.helios.collector.jdbc.binding.binder.Binder;
-import org.helios.collector.jdbc.binding.binder.IBinder;
 
 /**
  * <p>Title: SysTimeProvider</p>

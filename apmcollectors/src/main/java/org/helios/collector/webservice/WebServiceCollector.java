@@ -24,14 +24,14 @@
  */
 package org.helios.collector.webservice;
 
-import java.io.UnsupportedEncodingException;
-
 import org.apache.commons.httpclient.methods.RequestEntity;
 import org.apache.commons.httpclient.methods.StringRequestEntity;
 import org.helios.collector.core.CollectorException;
 import org.helios.collector.url.URLCollector;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedResource;
+
+import java.io.UnsupportedEncodingException;
 
 /**
  * <p>Title: WebServiceCollector</p>

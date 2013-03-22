@@ -24,9 +24,9 @@
  */
 package org.helios.apmrouter.collections;
 
-import java.util.Arrays;
-
 import org.helios.apmrouter.unsafe.UnsafeAdapter;
+
+import java.util.Arrays;
 
 
 /**

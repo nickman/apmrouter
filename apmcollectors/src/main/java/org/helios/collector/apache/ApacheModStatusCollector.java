@@ -24,15 +24,15 @@
  */
 package org.helios.collector.apache;
 
+import org.helios.collector.core.CollectionResult;
+import org.helios.collector.url.URLCollector;
+import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedResource;
+
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-
-import org.helios.collector.url.URLCollector;
-import org.helios.collector.core.CollectionResult;
-import org.springframework.jmx.export.annotation.ManagedAttribute;
-import org.springframework.jmx.export.annotation.ManagedResource;
 
 /**
  * <p>Title: ApacheModStatusCollector</p>

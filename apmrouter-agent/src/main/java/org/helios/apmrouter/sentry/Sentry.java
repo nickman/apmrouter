@@ -24,18 +24,11 @@
  */
 package org.helios.apmrouter.sentry;
 
-import java.lang.management.ManagementFactory;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.RejectedExecutionHandler;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import org.helios.apmrouter.jmx.ScheduledThreadPoolFactory;
+
+import java.util.Map;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * <p>Title: Sentry</p>

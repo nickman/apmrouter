@@ -24,12 +24,11 @@
  */
 package org.helios.apmrouter.util.perf;
 
+import org.helios.apmrouter.util.SystemClock.Clock;
+import sun.misc.Perf;
+
 import java.lang.management.ManagementFactory;
 import java.util.concurrent.TimeUnit;
-
-import org.helios.apmrouter.util.SystemClock.Clock;
-
-import sun.misc.Perf;
 
 /**
  * <p>Title: HighResClock</p>

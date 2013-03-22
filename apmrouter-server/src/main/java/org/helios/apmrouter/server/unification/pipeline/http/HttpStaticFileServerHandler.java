@@ -194,7 +194,7 @@ public class HttpStaticFileServerHandler extends AbstractHttpRequestHandler {
 	 * @param e
 	 * @param request
 	 * @param path
-	 * @return
+	 * @return   ChannelFuture
 	 * @throws ParseException
 	 * @throws IOException
 	 */
@@ -255,7 +255,7 @@ public class HttpStaticFileServerHandler extends AbstractHttpRequestHandler {
 	 * @param e
 	 * @param request
 	 * @param path
-	 * @return
+	 * @return    ChannelFuture
 	 * @throws ParseException
 	 * @throws IOException
 	 */
@@ -427,7 +427,7 @@ public class HttpStaticFileServerHandler extends AbstractHttpRequestHandler {
      * 
      * @param response
      *            HTTP response
-     * @param file
+     * @param resourceName
      *            file to extract content type
      */
     private void setContentTypeHeader(HttpResponse response, String resourceName) {

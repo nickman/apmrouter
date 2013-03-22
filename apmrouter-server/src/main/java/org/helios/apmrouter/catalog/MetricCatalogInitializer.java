@@ -80,7 +80,7 @@ public class MetricCatalogInitializer extends ServerComponentBean implements IMe
 	 * @param name
 	 * @param type
 	 * @param namespace
-	 * @return
+	 * @return  IDelegateMetric
 	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#get(java.lang.String, java.lang.String, java.lang.CharSequence, org.helios.apmrouter.metric.MetricType, java.lang.CharSequence[])
 	 */
 	@Override
@@ -91,7 +91,7 @@ public class MetricCatalogInitializer extends ServerComponentBean implements IMe
 
 	/**
 	 * @param metricIdToken
-	 * @return
+	 * @return  IDelegateMetric
 	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#get(long)
 	 */
 	@Override
@@ -105,21 +105,20 @@ public class MetricCatalogInitializer extends ServerComponentBean implements IMe
 	 * @param name
 	 * @param type
 	 * @param namespace
-	 * @return
+	 * @return    long
 	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#setToken(java.lang.String, java.lang.String, java.lang.CharSequence, org.helios.apmrouter.metric.MetricType, java.lang.CharSequence[])
 	 */
-	@Override
-	public long setToken(String host, String agent, CharSequence name,
+   	public long setToken(String host, String agent, CharSequence name,
 			MetricType type, CharSequence... namespace) {
 		return catalog.setToken(host, agent, name, type, namespace);
 	}
 
 	/**
 	 * @param metric
-	 * @return
+	 * @return  long
 	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#setToken(org.helios.apmrouter.metric.IMetric)
 	 */
-	@Override
+
 	public long setToken(IMetric metric) {
 		return catalog.setToken(metric);
 	}
@@ -129,19 +128,17 @@ public class MetricCatalogInitializer extends ServerComponentBean implements IMe
 	 * @param token
 	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#setToken(java.lang.CharSequence, long)
 	 */
-	@Override
-	public void setToken(CharSequence metricFqn, long token) {
+  	public void setToken(CharSequence metricFqn, long token) {
 		catalog.setToken(metricFqn, token);
 	}
 
 	/**
 	 * @param metricId
 	 * @param token
-	 * @return
+	 * @return  long
 	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#setToken(org.helios.apmrouter.metric.catalog.IDelegateMetric, long)
 	 */
-	@Override
-	public long setToken(IDelegateMetric metricId, long token) {
+  	public long setToken(IDelegateMetric metricId, long token) {
 		return catalog.setToken(metricId, token);
 	}
 
@@ -151,10 +148,9 @@ public class MetricCatalogInitializer extends ServerComponentBean implements IMe
 	 * @param name
 	 * @param type
 	 * @param namespace
-	 * @return
+	 * @return  IDelegateMetric
 	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#get(java.lang.String, java.lang.String, java.lang.CharSequence, int, java.lang.CharSequence[])
 	 */
-	@Override
 	public IDelegateMetric get(String host, String agent, CharSequence name,
 			int type, CharSequence... namespace) {
 		return catalog.get(host, agent, name, type, namespace);
@@ -166,10 +162,9 @@ public class MetricCatalogInitializer extends ServerComponentBean implements IMe
 	 * @param name
 	 * @param type
 	 * @param namespace
-	 * @return
+	 * @return  IDelegateMetric
 	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#get(java.lang.String, java.lang.String, java.lang.CharSequence, java.lang.String, java.lang.CharSequence[])
 	 */
-	@Override
 	public IDelegateMetric get(String host, String agent, CharSequence name,
 			String type, CharSequence... namespace) {
 		return catalog.get(host, agent, name, type, namespace);
@@ -181,7 +176,7 @@ public class MetricCatalogInitializer extends ServerComponentBean implements IMe
 	 * @param agent
 	 * @param name
 	 * @param namespace
-	 * @return
+	 * @return Long
 	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#getDelta(long, java.lang.String, java.lang.String, java.lang.CharSequence, java.lang.CharSequence[])
 	 */
 	@Override
@@ -211,7 +206,7 @@ public class MetricCatalogInitializer extends ServerComponentBean implements IMe
 	/**
 	 * @param fqn
 	 * @param type
-	 * @return
+	 * @return  IDelegateMetric
 	 * @see org.helios.apmrouter.metric.catalog.IMetricCatalog#build(java.lang.String, org.helios.apmrouter.metric.MetricType)
 	 */
 	@Override

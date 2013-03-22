@@ -24,11 +24,11 @@
  */
 package org.helios.apmrouter.byteman.sockets;
 
-import static org.helios.apmrouter.util.Methods.nvl;
+import org.helios.apmrouter.util.SimpleLogger;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.helios.apmrouter.util.SimpleLogger;
+import static org.helios.apmrouter.util.Methods.nvl;
 
 /**
  * <p>Title: SocketTracingLevel</p>
