@@ -250,8 +250,8 @@ options:
                 frame(
                     title: 'Helios GroovyConsole',
                     //location: [100,100], // in groovy 2.0 use platform default location
-                    iconImage: imageIcon("/groovy/ui/ConsoleIcon.png").image,
-                    //iconImage: imageIcon("www/ICE_30_30.png").image,
+                    //iconImage: imageIcon("/groovy/ui/ConsoleIcon.png").image,
+                    iconImage: imageIcon(Console.class.classLoader.getResource('www/ICE_30_30.png')).image,
                     
                     defaultCloseOperation: JFrame.DO_NOTHING_ON_CLOSE,
                 ) {
