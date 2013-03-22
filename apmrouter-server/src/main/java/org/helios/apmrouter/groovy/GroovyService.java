@@ -50,6 +50,7 @@ import org.codehaus.groovy.control.customizers.ImportCustomizer;
 import org.helios.apmrouter.groovy.annotations.Start;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.util.URLHelper;
 import org.springframework.context.event.ContextStartedEvent;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedOperation;
@@ -81,6 +82,9 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 	/** The compiler configuration's JMX ObjectName */
 	protected final ObjectName compilerConfigurationObjectName;
 	
+	/** The source of the console to execute */
+	protected String consoleSource = null;
+	
 	/** A set of implicit imports for the compiler configuration */
 	protected final Set<String> imports = new CopyOnWriteArraySet<String>();
 	/** The initial and default imports customizer for the compiler configuration */
@@ -103,8 +107,29 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
 	 */
+	@Override
 	protected void doStart() {
-		applyImports(importCustomizer, imports.toArray(new String[imports.size()]));		
+		applyImports(importCustomizer, imports.toArray(new String[imports.size()]));
+		try {
+			consoleSource = new String(URLHelper.getBytesFromURL(ClassLoader.getSystemResource("groovy/ui/Console.groovy")));
+			// this is slow, so chucking it into a one time thread.			
+			Thread t = new Thread("ConsoleCompiler"){
+				@Override
+				public void run() {
+					try {
+						compile("console", consoleSource);
+						info("Background compilation of gconsole completed");
+					} catch (Exception ex) {
+						warn("Background compilation of gconsole failed", ex);
+					}
+				}
+			};
+			t.setDaemon(true);
+			t.start();
+						
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+		}
 	}
 	
 	/**
@@ -214,6 +239,12 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 	 * compile(String name, String source)
 	 * compile(String name, URL source) // needs check for source update
 	 * compile(String name, File source) // needs check for source update
+	 * all options:
+	 * 	name
+	 * 	source
+	 *  properties (compiler options)
+	 *  url[] (additional classpaths)
+	 *  
 	 * 
 	 * invoke(String name, OutputStream os, Object...args)  // run, with args in bindings
 	 * invoke(String name, Object...args)  // run, with args in bindings, ditch output
@@ -416,7 +447,7 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 				}
 			}
 		}
-		return new Binding(beans);
+		return new NullSafeBindng(beans);
 	}
 	
 	
@@ -426,6 +457,12 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 	@ManagedOperation(description="Launches the groovy console")
 	public void launchConsole() {
 		try {
+			try {
+				compiledScripts.get("console").invokeMethod("run", new Object[]{});
+				return;
+			} catch (Exception ex) {
+				ex.printStackTrace(System.err);
+			}
 			Class<?> clazz = Class.forName("groovy.ui.Console");
 			Constructor<?> ctor = clazz.getDeclaredConstructor(Binding.class);
 			Object console = ctor.newInstance(getBindings());
@@ -733,5 +770,66 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 				imports.addAll(imps);
 			}
 		}
+	}
+	
+	
+	/**
+	 * <p>Title: NullSafeBindng</p>
+	 * <p>Description: A binding extension that prevents nul value property and variable sets</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.groovy.GroovyService.NullSafeBindng</code></p>
+	 */
+	protected class NullSafeBindng extends Binding {
+
+		/**
+		 * Creates a new NullSafeBindng
+		 */
+		public NullSafeBindng() {
+			super();
+		}
+
+		/**
+		 * Creates a new NullSafeBindng
+		 * @param variables The variables to add to the binding
+		 */
+		public NullSafeBindng(Map<String, Object> variables) {
+			super(variables);
+		}
+
+		/**
+		 * Creates a new NullSafeBindng
+		 * @param args args to the binding
+		 */
+		public NullSafeBindng(String[] args) {
+			super(args);
+		}
+		
+		/**
+		 * {@inheritDoc}
+		 * @see groovy.lang.Binding#setProperty(java.lang.String, java.lang.Object)
+		 */
+		@Override
+		public void setProperty(String key, Object value) {
+			if(value==null) {
+				error("Someone attempted to set a null value property into the groovy bindings [", key, "]:[", value, "]");
+			} else {
+				super.setProperty(key, value);
+			}
+		}
+		
+		/**
+		 * {@inheritDoc}
+		 * @see groovy.lang.Binding#setVariable(java.lang.String, java.lang.Object)
+		 */
+		@Override
+		public void setVariable(String name, Object value) { 
+			if(value==null) {
+				error("Someone attempted to put a null value variable into the groovy bindings [", name, "]:[", value, "]");
+			} else {
+				super.setVariable(name, value);
+			}
+		}
+		
 	}
 }

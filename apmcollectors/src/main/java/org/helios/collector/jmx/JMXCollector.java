@@ -282,7 +282,7 @@ public class JMXCollector extends AbstractCollector {
                     return determineStatus(anySuccess, anyFailure, collectionResult);
                 }
                 while(mbeans.hasNext()) {
-                    ObjectName on = (ObjectName)mbeans.next();
+                    ObjectName on = mbeans.next();
                     if(tr.getAttributeNames().size()>0){
                         // get values for all attributes in one swipe for this MBean 
                         Map<String,Object> explodedResults = mappedValues.get(on);
@@ -336,7 +336,7 @@ public class JMXCollector extends AbstractCollector {
                 long startMX = System.currentTimeMillis();
                 collectMXBeans();
                 //tracer.trace(System.currentTimeMillis()-startMX, "Elapsed Time for MXBeans", StringHelper.append(tracingNameSpace,true,mxBeanSegment));
-                tracer.traceGauge(System.currentTimeMillis()-startMX, "ElapsedTimeMXBeans", StringHelper.append(tracingNameSpace,false,mxBeanSegment));
+                tracer.traceGauge(System.currentTimeMillis()-startMX, "ElapsedTimeMXBeans", StringHelper.append(false, tracingNameSpace,mxBeanSegment));
             }
         } catch (Exception mxe) {
             anyFailure=true;
@@ -354,16 +354,16 @@ public class JMXCollector extends AbstractCollector {
         // Check if it is the first run for this JMXCollector.  If yes, skip tracing 
         // defaults as we never got an MBeanServerConnection.  Otherwise proceed with tracing defaults. 
         if(resolvedJMXObjects!=null && !resolvedJMXObjects.isEmpty()){
-            Iterator keys = resolvedJMXObjects.keySet().iterator();
+            Iterator<String> keys = resolvedJMXObjects.keySet().iterator();
             while(keys.hasNext()){
-                String tempKey = (String)keys.next();
-                JMXObject cachedObject = (JMXObject)resolvedJMXObjects.get(tempKey);
+                String tempKey = keys.next();
+                JMXObject cachedObject = resolvedJMXObjects.get(tempKey);
                 if(! cachedObject.isProcessed()){
                     for(int b=0; b<cachedObject.getResolvedAttributes().size();b++){
                         JMXAttributeTrace cachedTrace = cachedObject.getResolvedAttributes().get(b);
                         if(cachedTrace!=null && cachedTrace.getDefaultValue()!=null){
                             //- tracer.smartTrace(cachedTrace.getTraceType(),cachedTrace.getDefaultValue(),cachedTrace.getMetricName(), StringHelper.append(tracingNameSpace,true,cachedTrace.getResolvedPrefix()), "");
-                            tracer.trace(cachedTrace.getDefaultValue(), cachedTrace.getMetricName(), cachedTrace.getResolvedTraceMetricType(), StringHelper.append(tracingNameSpace,false,cachedTrace.getResolvedPrefix()));
+                            tracer.trace(cachedTrace.getDefaultValue(), cachedTrace.getMetricName(), cachedTrace.getResolvedTraceMetricType(), StringHelper.append(false, tracingNameSpace,cachedTrace.getResolvedPrefix()));
                         }
                     }
                 }
@@ -496,13 +496,13 @@ public class JMXCollector extends AbstractCollector {
             Object attrValue = explodedResults.get(trace.getTargetAttributeName());
             if(attrValue!=null) {
                 //- tracer.smartTrace(trace.getTraceType(),attrValue.toString(),trace.getMetricName(), StringHelper.append(tracingNameSpace,true,trace.getResolvedPrefix()), "");
-                tracer.trace(attrValue.toString(), trace.getMetricName(),  trace.getResolvedTraceMetricType(), StringHelper.append(tracingNameSpace,false,trace.getResolvedPrefix()));
+                tracer.trace(attrValue.toString(), trace.getMetricName(),  trace.getResolvedTraceMetricType(), StringHelper.append(false, tracingNameSpace,trace.getResolvedPrefix()));
             }
         }
 
         for(IObjectFormatter oFormatter: trace.getObjectFormatters()){
             //- tracer.smartTrace(trace.getTraceType(),oFormatter.format(explodedResults.get(trace.getTargetAttributeName())),oFormatter.getMetricName().equals("")?trace.getMetricName():oFormatter.getMetricName(), StringHelper.append(tracingNameSpace,true,trace.getResolvedPrefix()), "");
-            tracer.trace(oFormatter.format(explodedResults.get(trace.getTargetAttributeName())), oFormatter.getMetricName().equals("")?trace.getMetricName():oFormatter.getMetricName(), trace.getResolvedTraceMetricType(), StringHelper.append(tracingNameSpace,false,trace.getResolvedPrefix()));
+            tracer.trace(oFormatter.format(explodedResults.get(trace.getTargetAttributeName())), oFormatter.getMetricName().equals("")?trace.getMetricName():oFormatter.getMetricName(), trace.getResolvedTraceMetricType(), StringHelper.append(false,tracingNameSpace,trace.getResolvedPrefix()));
         }
 
         for(IObjectTracer oTracer: trace.getObjectTracers()){
@@ -680,7 +680,7 @@ public class JMXCollector extends AbstractCollector {
             nonDaemonThreads = activeThreads - daemonThreads;
             peakThreadCount = (Integer)(getValue(attrs, THREAD_STATS[3]));
 
-            String[] rootSegment = StringHelper.append(tracingNameSpace,false,mxBeanSegment,"Threads");
+            String[] rootSegment = StringHelper.append(false,tracingNameSpace,mxBeanSegment,"Threads");
 //            tracer.traceStickyDelta(totalStartedThreads, "Threads Started (Delta)", rootSegment);
 //            tracer.traceSticky(activeThreads, "Active Threads", rootSegment);
 //            tracer.traceSticky(daemonThreads, "Daemon Threads", rootSegment);
@@ -718,7 +718,7 @@ public class JMXCollector extends AbstractCollector {
                         }
                     }
                     if(supportsThreadContention) {
-                        rootSegment = StringHelper.append(tracingNameSpace,false,mxBeanSegment,"Threads", "Deadlocks");
+                        rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Threads", "Deadlocks");
                         CompositeData[] infos = (CompositeData[])mBeanServerConnection.invoke(threadMXBean, "getThreadInfo", new Object[]{monitorLockedThreads}, new String[]{"[J"});
                         for(CompositeData info: infos) {
                             threadInfo = ThreadInfo.from(info);
@@ -734,16 +734,16 @@ public class JMXCollector extends AbstractCollector {
                     }
                 }
                 tmElapsed = System.currentTimeMillis() - tmStart;
-                tracer.traceGauge(tmElapsed, "DeadlockMonitorElapsedTime", StringHelper.append(tracingNameSpace,false,mxBeanSegment));
+                tracer.traceGauge(tmElapsed, "DeadlockMonitorElapsedTime", StringHelper.append(false,tracingNameSpace,mxBeanSegment));
             }
             if(threadMonitor) {
-                rootSegment = StringHelper.append(tracingNameSpace,false,mxBeanSegment, "Threads");
+                rootSegment = StringHelper.append(false,tracingNameSpace,mxBeanSegment, "Threads");
                 tmStart = System.currentTimeMillis();
                 long[] allThreads = (long[])mBeanServerConnection.getAttribute(threadMXBean, "AllThreadIds");
                 CompositeData[] infos = (CompositeData[])mBeanServerConnection.invoke(threadMXBean, "getThreadInfo", new Object[]{allThreads}, new String[]{"[J"});
                 tmElapsed = System.currentTimeMillis()-tmStart;
-                tracer.traceGauge(tmElapsed, "ThreadMonitorElapsedTime", StringHelper.append(tracingNameSpace,false,mxBeanSegment));
-                rootSegment = StringHelper.append(tracingNameSpace,false,mxBeanSegment, "Threads", "States");
+                tracer.traceGauge(tmElapsed, "ThreadMonitorElapsedTime", StringHelper.append(false, tracingNameSpace,mxBeanSegment));
+                rootSegment = StringHelper.append(false,tracingNameSpace,mxBeanSegment, "Threads", "States");
                 resetThreadStatus();
                 for(CompositeData info: infos) {
                     threadInfo = ThreadInfo.from(info);
@@ -807,7 +807,7 @@ public class JMXCollector extends AbstractCollector {
                 try {
                     memoryPoolMXBean = new ObjectName(ManagementFactory.MEMORY_POOL_MXBEAN_DOMAIN_TYPE+",*");
                     if(!shouldBeCollected(memoryPoolMXBean)) return;
-                    Set<ObjectName> memoryPools = (Set<ObjectName>)mBeanServerConnection.queryNames(memoryPoolMXBean, null);
+                    Set<ObjectName> memoryPools = mBeanServerConnection.queryNames(memoryPoolMXBean, null);
                     if(memoryPools.size()==0) {
                         if(mbeanQueryAttempted<mbeanQueryAttempts) {
                             memoryPoolObjectNames=null;
@@ -833,8 +833,8 @@ public class JMXCollector extends AbstractCollector {
             for(Entry<String, ObjectName> entry: memoryPoolObjectNames.entrySet()) {
                 poolType = (String)mBeanServerConnection.getAttribute(entry.getValue(), "Type");
                 usage = (CompositeDataSupport)mBeanServerConnection.getAttribute(entry.getValue(), "Usage");
-                rootSegment = StringHelper.append(tracingNameSpace,false,mxBeanSegment,"Memory Pools", poolType, entry.getKey());
-                for(String key: (Set<String>)usage.getCompositeType().keySet()) {
+                rootSegment = StringHelper.append(false,tracingNameSpace,mxBeanSegment,"Memory Pools", poolType, entry.getKey());
+                for(String key: usage.getCompositeType().keySet()) {
                     tracer.traceGauge((Long)usage.get(key),key,rootSegment);
                 }
                 getPercentUsedOfCommited(usage, rootSegment);
@@ -872,7 +872,7 @@ public class JMXCollector extends AbstractCollector {
                 try {
                     gcMXBean = new ObjectName(ManagementFactory.GARBAGE_COLLECTOR_MXBEAN_DOMAIN_TYPE+",*");
                     if(!shouldBeCollected(gcMXBean)) return;
-                    Set<ObjectName> gcs = (Set<ObjectName>)mBeanServerConnection.queryNames(gcMXBean, null);
+                    Set<ObjectName> gcs = mBeanServerConnection.queryNames(gcMXBean, null);
                     if(gcs.size()==0) {
                         if(mbeanQueryAttempted<mbeanQueryAttempts) {
                             gcObjectNames=null;
@@ -902,7 +902,7 @@ public class JMXCollector extends AbstractCollector {
                 pollGCPercent=false;
             }
             for(Entry<String, ObjectName> entry: gcObjectNames.entrySet()) {
-                rootSegment = StringHelper.append(tracingNameSpace,false,mxBeanSegment,"Garbage Collectors", entry.getKey());
+                rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Garbage Collectors", entry.getKey());
                 collectionCount = (Long)mBeanServerConnection.getAttribute(entry.getValue(), "CollectionCount");
                 collectionTime = (Long)mBeanServerConnection.getAttribute(entry.getValue(), "CollectionTime");
                 currentTime = System.currentTimeMillis();
@@ -949,14 +949,14 @@ public class JMXCollector extends AbstractCollector {
                     mxBeanObjectNames.put(ManagementFactory.CLASS_LOADING_MXBEAN_NAME, new ObjectName(beanSet.iterator().next().getCanonicalName()));
             }
             if(!shouldBeCollected(clMXBean)) return;
-            String rootSegment[] = StringHelper.append(tracingNameSpace,false,mxBeanSegment,"Class Loading");
+            String rootSegment[] = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Class Loading");
             stats = mBeanServerConnection.getAttributes(clMXBean, CLASS_LOADING_STATS);
             for (int i=0;i<stats.size();i++){
                 Attribute attr = (Attribute)stats.get(i);
                 if("LoadedClassCount".equals(attr.getName())) {
                     tracer.traceGauge((Integer)attr.getValue(), attr.getName(),rootSegment);
                 } else {
-                    tracer.trace((Long)attr.getValue(), attr.getName()+"(Delta)", MetricType.DELTA_COUNTER, rootSegment);
+                    tracer.trace(attr.getValue(), attr.getName()+"(Delta)", MetricType.DELTA_COUNTER, rootSegment);
                 }
             }
         } catch (InstanceNotFoundException ine) {
@@ -990,7 +990,7 @@ public class JMXCollector extends AbstractCollector {
                 supportsCompilerTime = (Boolean)mBeanServerConnection.getAttribute(jitMXBean, "CompilationTimeMonitoringSupported");
             }
             if(!supportsCompilerTime) return;
-            String rootSegment[] = StringHelper.append(tracingNameSpace,false,mxBeanSegment,"JIT Compiler");
+            String rootSegment[] = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"JIT Compiler");
             long totalComplilationTime = (Long)mBeanServerConnection.getAttribute(jitMXBean, "TotalCompilationTime");
             //tracer.traceStickyDelta(totalComplilationTime, "CompileTime(Delta)", rootSegment);
             tracer.trace(totalComplilationTime, "TotalCompileTime", MetricType.DELTA_GAUGE, rootSegment);
@@ -1024,7 +1024,7 @@ public class JMXCollector extends AbstractCollector {
                 runtimeCollected = true;
                 return;
             }
-            String[] rootSegment = StringHelper.append(tracingNameSpace,false,mxBeanSegment,"Runtime");
+            String[] rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Runtime");
             long startTime = (Long)mBeanServerConnection.getAttribute(runTimeMXBean, "StartTime");
             String[] inputArguments = (String[])mBeanServerConnection.getAttribute(runTimeMXBean, "InputArguments");
             StringBuilder buff = new StringBuilder();
@@ -1065,23 +1065,23 @@ public class JMXCollector extends AbstractCollector {
             if(!shouldBeCollected(memoryMXBean)) return;
 
             CompositeDataSupport heap = (CompositeDataSupport) mBeanServerConnection.getAttribute(memoryMXBean, "HeapMemoryUsage");
-            rootSegment = StringHelper.append(tracingNameSpace,false,mxBeanSegment,"Memory", "Heap Memory Usage");
-            for(String key: (Set<String>)heap.getCompositeType().keySet()) {
-                tracer.trace((Long)heap.get(key),key,rootSegment);
+            rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Memory", "Heap Memory Usage");
+            for(String key: heap.getCompositeType().keySet()) {
+                tracer.trace(heap.get(key),key,rootSegment);
             }
             getPercentUsedOfCommited(heap, rootSegment);
             getPercentUsedOfCapacity(heap, rootSegment);
 
             CompositeDataSupport nonHeap = (CompositeDataSupport) mBeanServerConnection.getAttribute(memoryMXBean, "NonHeapMemoryUsage");
-            rootSegment = StringHelper.append(tracingNameSpace,false,mxBeanSegment, "Memory", "Non Heap Memory Usage");
-            for(String key: (Set<String>)nonHeap.getCompositeType().keySet()) {
-                tracer.trace((Long)heap.get(key),key,rootSegment);
+            rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment, "Memory", "Non Heap Memory Usage");
+            for(String key: nonHeap.getCompositeType().keySet()) {
+                tracer.trace(heap.get(key),key,rootSegment);
             }
             getPercentUsedOfCommited(nonHeap, rootSegment);
             getPercentUsedOfCapacity(nonHeap, rootSegment);
 
-            rootSegment = StringHelper.append(tracingNameSpace,false,mxBeanSegment, "Memory");
-            tracer.trace((Integer)mBeanServerConnection.getAttribute(memoryMXBean, "ObjectPendingFinalizationCount"), "Objects Pending Finalization",rootSegment);
+            rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment, "Memory");
+            tracer.trace(mBeanServerConnection.getAttribute(memoryMXBean, "ObjectPendingFinalizationCount"), "Objects Pending Finalization",rootSegment);
         } catch (InstanceNotFoundException ine) {
             if(logErrors) { warn("MXBean Collector for bean collector " + this.getBeanName() + " could Not Locate MBean " + memoryMXBean); }
         } catch (IOException ioex){
@@ -1166,10 +1166,10 @@ public class JMXCollector extends AbstractCollector {
      */
     public void resetProcessingFlag(){
         if(resolvedJMXObjects!=null && !resolvedJMXObjects.isEmpty()){
-            Iterator keys = resolvedJMXObjects.keySet().iterator();
+            Iterator<String> keys = resolvedJMXObjects.keySet().iterator();
             while(keys.hasNext()){
-                String tempKey = (String)keys.next();
-                JMXObject tempObject = (JMXObject)resolvedJMXObjects.get(tempKey);
+                String tempKey = keys.next();
+                JMXObject tempObject = resolvedJMXObjects.get(tempKey);
                 tempObject.setProcessed(false);
                 resolvedJMXObjects.put(tempKey,tempObject);
             }
@@ -1267,7 +1267,8 @@ public class JMXCollector extends AbstractCollector {
     /**
      * @return the availabilitySegment
      */
-    @ManagedAttribute
+    @SuppressWarnings("cast")
+	@ManagedAttribute
     public String[] getAvailabilitySegment() {
         return (String[])availabilitySegment.clone();
     }

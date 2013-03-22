@@ -36,14 +36,25 @@ import org.helios.apmrouter.trace.TracerImpl;
  */
 
 public class ServerTracerImpl extends TracerImpl {
+	/** the assigned virtual agent serial */
+	protected final long serial;
 	/**
 	 * Creates a new ServerTracerImpl
 	 * @param host The tracer's host
 	 * @param agent The tracer's agent
 	 * @param submitter The metric submitter
+	 * @param serial the assigned virtual agent serial
 	 */
-	public ServerTracerImpl(String host, String agent, MetricSubmitter submitter) {
+	public ServerTracerImpl(String host, String agent, MetricSubmitter submitter, long serial) {
 		super(host, agent, submitter);
+		this.serial = serial;
+	}
+	/**
+	 * Returns the assigned virtual agent serial
+	 * @return the assigned virtual agent serial
+	 */
+	public long getSerial() {
+		return serial;
 	}
 
 }

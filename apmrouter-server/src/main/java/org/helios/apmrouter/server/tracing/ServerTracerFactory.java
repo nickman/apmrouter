@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.metric.AgentIdentity;
@@ -63,7 +64,7 @@ import org.springframework.jmx.support.MetricType;
  */
 public class ServerTracerFactory extends ServerComponentBean implements MetricSubmitter, ITracerFactory {
 	/** The default tracer */
-	protected ITracer defaultTracer = new ServerTracerImpl(APMROUTER_HOST_NAME, APMROUTER_AGENT_NAME, this);
+	protected ITracer defaultTracer = new ServerTracerImpl(APMROUTER_HOST_NAME, APMROUTER_AGENT_NAME, this, 0);
 	/** A map of created tracers keyed by host/agent */
 	private final Map<String, ITracer> tracers = new ConcurrentHashMap<String, ITracer>(Collections.singletonMap(APMROUTER_HOST_NAME + ":" + APMROUTER_AGENT_NAME, defaultTracer));
 	/** The metric catalog service */
@@ -72,11 +73,12 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	protected IMetricCatalog metricCatalog = ICEMetricCatalog.getInstance();
 	/** The delegate metricSubmitter */
 	protected MetricSubmitter metricSubmitter = null;
-	
+	/** The virtual agent serial generator */
+	private static final AtomicLong virtualAgentSerial = new AtomicLong(0);
 
 	
 	/** The local sender URI */
-	public static final URI LOCAL_SENDER_URI = makeURI("local:0");
+	public static final String LOCAL_SENDER_URI = "local:%s";
 	/** The APMRouter agent name */
 	public static final String APMROUTER_AGENT_NAME = "APMRouterServer";
 	/** The APMRouter host name */
@@ -101,7 +103,7 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 */
 	@Override
 	protected void doStart() throws Exception {
-		metricCatalogService.hostAgentState(true, APMROUTER_HOST_NAME, "", APMROUTER_AGENT_NAME, LOCAL_SENDER_URI.toString());
+		metricCatalogService.hostAgentState(true, APMROUTER_HOST_NAME, "", APMROUTER_AGENT_NAME, String.format(LOCAL_SENDER_URI, 0));
 		metricSubmitter = applicationContext.getBean(AgentMetricHandler.class);
 		info("Set ServerTracerFactory MetricSubmitter");
 	}
@@ -115,7 +117,7 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 		metricSubmitter = null;
 		info("Stopping all local agents");
 		for(ITracer tracer: tracers.values()) {
-			metricCatalogService.hostAgentState(false, tracer.getHost(), "", tracer.getAgent(), LOCAL_SENDER_URI.toString());
+			metricCatalogService.hostAgentState(false, tracer.getHost(), "", tracer.getAgent(), String.format(LOCAL_SENDER_URI, 0));
 		}
 		info("Stopped [", tracers.size(), "] local agents");
 		tracers.clear();
@@ -162,6 +164,7 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 * @param agent The agent name to create a tracer for
 	 * @return a tracer instance
 	 */
+	@Override
 	public ITracer getTracer(String host, String agent) {
 		String key = nvl(host, "Host Name").trim() + ":" + nvl(agent, "Agent Name").trim();
 		ITracer tracer = tracers.get(key);
@@ -169,9 +172,10 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 			synchronized(tracers) {
 				tracer = tracers.get(key);
 				if(tracer==null) {
-					tracer = new ServerTracerImpl(host.trim(), agent.trim(), this);
+					final long serial = virtualAgentSerial.incrementAndGet();
+					tracer = new ServerTracerImpl(host.trim(), agent.trim(), this, serial);
 					tracers.put(key, tracer);
-					metricCatalogService.hostAgentState(true, host.trim(), "", agent.trim(), LOCAL_SENDER_URI.toString());
+					metricCatalogService.hostAgentState(true, host.trim(), "", agent.trim(), String.format(LOCAL_SENDER_URI, serial));
 				}
 			}
 		}

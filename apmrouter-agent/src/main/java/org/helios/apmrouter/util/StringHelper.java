@@ -248,9 +248,8 @@ public class StringHelper {
 	 * @param newValues The array to be appended.
 	 * @return A newly sized or created array.
 	 */
-	@SuppressWarnings("unchecked")
 	public static <E> E[] append(E[] array, E...newValues) {
-		return append(array, true, newValues);		
+		return append(true, array, newValues);		
 	}
 	
 	/**
@@ -261,7 +260,7 @@ public class StringHelper {
 	 * @return A newly sized or created array.
 	 */
 	@SuppressWarnings("unchecked")
-	public static <E> E[] append(E[] array, boolean dropNulls, E...newValues) {
+	public static <E> E[] append(boolean dropNulls, E[] array, E...newValues) {
 		try {
 			if(newValues==null || newValues.length < 1) return (E[]) (dropNulls ? Array.newInstance(array.getClass().getComponentType(), 0) :array);
 			if(array==null) {
