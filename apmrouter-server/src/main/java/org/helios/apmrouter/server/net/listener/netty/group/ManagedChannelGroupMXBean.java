@@ -64,7 +64,7 @@ public interface ManagedChannelGroupMXBean {
 	//public abstract ChannelGroupFuture disconnect();
 
 	/**
-	 * @return
+	 * @return     String
 	 * @see org.jboss.netty.channel.group.ChannelGroup#getName()
 	 */
 	public abstract String getName();
@@ -77,13 +77,13 @@ public interface ManagedChannelGroupMXBean {
 	//public abstract Channel find(Integer id);
 
 	/**
-	 * @return
+	 * @return   boolean
 	 * @see java.util.Set#isEmpty()
 	 */
 	public abstract boolean isEmpty();
 
 	/**
-	 * @return
+	 * @return    int
 	 * @see java.util.Set#size()
 	 */
 	public abstract int size();

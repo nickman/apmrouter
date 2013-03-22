@@ -36,79 +36,79 @@ import javax.management.MXBean;
 public interface ChannelTrackerMBean {
 
 	/**
-	 * @return
+	 * @return    String
 	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannel#getName()
 	 */
 	public abstract String getName();
 
 	/**
-	 * @return
+	 * @return     String
 	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannel#getType()
 	 */
 	public abstract String getType();
 
 	/**
-	 * @return
+	 * @return   int
 	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannel#getId()
 	 */
 	public abstract int getId();
 
 	/**
-	 * @return
+	 * @return   boolean
 	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannel#isOpen()
 	 */
 	public abstract boolean isOpen();
 
 	/**
-	 * @return
+	 * @return   boolean
 	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannel#isBound()
 	 */
 	public abstract boolean isBound();
 
 	/**
-	 * @return
+	 * @return     boolean
 	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannel#isConnected()
 	 */
 	public abstract boolean isConnected();
 
 	/**
-	 * @return
+	 * @return    String
 	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannel#getLocalURI()
 	 */
 	public abstract String getLocalURI();
 
 	/**
-	 * @return
+	 * @return    String
 	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannel#getRemoteURI()
 	 */
 	public abstract String getRemoteURI();
 
 	/**
-	 * @return
+	 * @return     boolean
 	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannel#isReadable()
 	 */
 	public abstract boolean isReadable();
 
 	/**
-	 * @return
+	 * @return     boolean
 	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannel#isWritable()
 	 */
 	public abstract boolean isWritable();
 
 	/**
-	 * @return
+	 * @return     boolean
 	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannel#isTcpNoDelay()
 	 */
 	public abstract boolean isTcpNoDelay();
 
 	/**
-	 * @return
+	 * @return   int
 	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannel#getSoLinger()
 	 */
 	public abstract int getSoLinger();
 
 	/**
-	 * @return
+	 * @return     int
 	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannel#getInterestOps()
 	 */
 	public abstract int getInterestOps();

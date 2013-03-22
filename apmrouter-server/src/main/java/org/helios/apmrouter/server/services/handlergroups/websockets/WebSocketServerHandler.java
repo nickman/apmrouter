@@ -70,7 +70,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 /**
  * <p>Title: WebSocketServerHandler</p>
  * <p>Description: The push handler for websockets.</p> 
- * <p>Based on {@link org.jboss.netty.example.http.websocketx.server.WebSocketServerHandler}
+ * <p>Based on {@literal org.jboss.netty.example.http.websocketx.server.WebSocketServerHandler}
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.services.handlergroups.websockets.WebSocketServerHandler</code></p>

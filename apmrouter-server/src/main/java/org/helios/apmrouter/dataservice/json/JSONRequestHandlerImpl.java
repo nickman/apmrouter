@@ -71,7 +71,7 @@ public class JSONRequestHandlerImpl implements JSONDataService {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.dataservice.json.JSONDataService#processRequest(org.helios.apmrouter.dataservice.json.JSONRequestRouter.JsonRequest, org.jboss.netty.channel.Channel)
+	 *
 	 */
 	@Override
 	public void processRequest(JsonRequest request, Channel channel) {

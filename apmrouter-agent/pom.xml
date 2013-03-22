@@ -15,8 +15,8 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 	</properties>
-	
-	
+
+
 	<dependencies>
 		<!--   TEST   -->
 		<dependency>
@@ -27,18 +27,18 @@
 		  <groupId>org.fusesource</groupId>
 		  <artifactId>sigar</artifactId>
 		</dependency>
-	
-<!-- 
+
+<!--
 		<dependency>
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
 		</dependency>
-		
-		
+
+
 		<dependency>
 		  <groupId>org.helios.helios-native</groupId>
 		  <artifactId>helios-native-sigar</artifactId>
-		  <version>1.0-SNAPSHOT</version>		
+		  <version>1.0-SNAPSHOT</version>
 		</dependency>
 
  -->
@@ -55,50 +55,50 @@
 			<groupId>org.javassist</groupId>
 			<artifactId>javassist</artifactId>
 		</dependency>
-		
+
 			<dependency>
 			  <groupId>com.github.stephenc.high-scale-lib</groupId>
 			  <artifactId>high-scale-lib</artifactId>
-			</dependency>		
-		
+			</dependency>
+
 		<!--  JSON Formatting -->
 			<dependency>
 				<groupId>org.json</groupId>
 				<artifactId>json</artifactId>
 			</dependency>
-		
-		
+
+
 		      <dependency>
 			<groupId>io.netty</groupId>
 			<artifactId>netty</artifactId>
 		      </dependency>
-		
-		
+
+
 		<dependency>
 		  <groupId>org.snmp4j</groupId>
 		  <artifactId>snmp4j</artifactId>
-		</dependency>	
-		
+		</dependency>
+
 			<!--  Byteman -->
 	 	  <dependency>
 	       <groupId>org.jboss.byteman</groupId>
 	       <artifactId>byteman</artifactId>
 	       <scope>compile</scope>
-		  </dependency>		
-		
+		  </dependency>
+
 		<!-- JMXMP Server and Client Protocols -->
 		<dependency>
 		  <groupId>org.jvnet.opendmk</groupId>
 		  <artifactId>jmxremote_optional</artifactId>
 		</dependency>
-				
-		
+
+
 	</dependencies>
 	<build>
 		<defaultGoal>install</defaultGoal>
 		<plugins>
-		
-		<!-- 
+
+		<!--
 			===========================================
 			Eclipse Compiler Plugin
 		 	===========================================
@@ -112,6 +112,9 @@
 		      <source>1.6</source>
 		      <target>1.6</target>
 		      <executable>${JAVA_1_7_HOME}/bin/javac</executable>
+		      <debug>false</debug>
+		      <showDeprecation>false</showDeprecation>
+		      <showWarnings>false</showWarnings>
 		   </configuration>
 		   <dependencies>
 		      <dependency>
@@ -121,11 +124,11 @@
 		      </dependency>
 		   </dependencies>
 		</plugin>
-		 
-		 <!-- 
+
+		 <!--
 			===========================================
 			Javac Compiler Plugin
-		 	===========================================		 				 		
+		 	===========================================
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
@@ -133,18 +136,18 @@
 				<configuration>
 					<source>1.6</source>
 					<target>1.6</target>
-					<executable>${JAVA_1_7_HOME}/bin/javac</executable>					
+					<executable>${JAVA_1_7_HOME}/bin/javac</executable>
 				</configuration>
 			</plugin>
 		  -->
-			
+
 		       <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-eclipse-plugin</artifactId>
 		    		<version>2.9</version>
                 </plugin>
-                
-               
+
+
            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
@@ -178,7 +181,7 @@
                     <nohelp>true</nohelp>
                 </configuration>
             </plugin-->
-            		
+
 			<!-- allows the route to be ran via 'mvn camel:run' -->
 			<plugin>
 				<groupId>org.apache.camel</groupId>
@@ -205,13 +208,13 @@
 	              <artifactSet>
 	                <excludes>
 	                  <exclude>log4j:*</exclude>
-	                  <exclude>org.slf4j:*</exclude>	
-	                  <exclude>ch.qos.logback:*</exclude>	                                
+	                  <exclude>org.slf4j:*</exclude>
+	                  <exclude>ch.qos.logback:*</exclude>
 	                </excludes>
 	              </artifactSet>
 					<mainClass>org.helios.apmrouter.satellite.Satellite</mainClass>
 				    <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-				    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>	                      					
+				    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
 					<includePluginDependencies>false</includePluginDependencies>
 						<manifestEntries>
 			 				<Premain-Class>org.helios.apmrouter.Agent</Premain-Class>
@@ -221,7 +224,7 @@
 			            	<Can-Retransform-Classes>true</Can-Retransform-Classes>
 			            	<Can-Set-Native-Method-Prefix>true</Can-Set-Native-Method-Prefix>
 						</manifestEntries>
-					
+
 				<transformers>
 	                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
 	                	<mainClass>org.helios.apmrouter.satellite.Satellite</mainClass>
@@ -233,19 +236,19 @@
 			            	<Can-Retransform-Classes>true</Can-Retransform-Classes>
 			            	<Can-Set-Native-Method-Prefix>true</Can-Set-Native-Method-Prefix>
 	                  </manifestEntries>
-	                  
+
 	                </transformer>
-	              </transformers>	              
+	              </transformers>
 	            </configuration>
 	          </execution>
 	        </executions>
-	      </plugin>	        
+	      </plugin>
 			<plugin>
 	            <artifactId>maven-assembly-plugin</artifactId>
 				<configuration>
 					<mainClass>org.helios.apmrouter.satellite.Satellite</mainClass>
 				    <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-				    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>	                      					
+				    <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
 					<includePluginDependencies>false</includePluginDependencies>
 						<manifestEntries>
 							<Main-Class>org.helios.apmrouter.satellite.Satellite</Main-Class>
@@ -255,10 +258,10 @@
 			            	<Can-Retransform-Classes>true</Can-Retransform-Classes>
 			            	<Can-Set-Native-Method-Prefix>true</Can-Set-Native-Method-Prefix>
 						</manifestEntries>
-					
+
 				</configuration>
 	        </plugin>
-			
+
 		</plugins>
 	</build>
 </project>

@@ -68,7 +68,7 @@ public class ManagedChannel implements Channel {
 	}
 
 	/**
-	 * @return
+	 * @return  String
 	 */
 	public String getName() {
 		return name;
@@ -80,7 +80,6 @@ public class ManagedChannel implements Channel {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelMBean#getId()
 	 */
 	@Override
 	public Integer getId() {
@@ -89,7 +88,6 @@ public class ManagedChannel implements Channel {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelMBean#isOpen()
 	 */
 	@Override
 	public boolean isOpen() {
@@ -98,7 +96,6 @@ public class ManagedChannel implements Channel {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelMBean#isBound()
 	 */
 	@Override
 	public boolean isBound() {
@@ -107,7 +104,6 @@ public class ManagedChannel implements Channel {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelMBean#isConnected()
 	 */
 	@Override
 	public boolean isConnected() {
@@ -116,7 +112,6 @@ public class ManagedChannel implements Channel {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelMBean#getLocalAddress()
 	 */
 	public SocketAddress getLocalAddress() {		
 		return channel.getLocalAddress();
@@ -124,14 +119,13 @@ public class ManagedChannel implements Channel {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelMBean#getRemoteAddress()
 	 */
 	public SocketAddress getRemoteAddress() {
 		return channel.getRemoteAddress();
 	}
 
 	/**
-	 * @return
+	 * @return   String
 	 */
 	public String getLocalURI() {
 		SocketAddress sa = channel.getLocalAddress();
@@ -141,7 +135,7 @@ public class ManagedChannel implements Channel {
 	}
 
 	/**
-	 * @return
+	 * @return   String
 	 */
 	public String getRemoteURI() {
 		SocketAddress sa = channel.getRemoteAddress();
@@ -151,7 +145,6 @@ public class ManagedChannel implements Channel {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelMBean#isReadable()
 	 */
 	@Override
 	public boolean isReadable() {
@@ -160,7 +153,6 @@ public class ManagedChannel implements Channel {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelMBean#isWritable()
 	 */
 	@Override
 	public boolean isWritable() {
@@ -168,7 +160,7 @@ public class ManagedChannel implements Channel {
 	}
 
 	/**
-	 * @return
+	 * @return    boolean
 	 */
 	public boolean isTcpNoDelay() {
 		if(channel instanceof SocketChannel) {
@@ -178,7 +170,7 @@ public class ManagedChannel implements Channel {
 	}
 
 	/**
-	 * @return
+	 * @return   int
 	 */
 	public int getSoLinger() {
 		if(channel instanceof SocketChannel) {
@@ -196,7 +188,7 @@ public class ManagedChannel implements Channel {
 	}
 
 	/**
-	 * @return
+	 * @return   ChannelFactory
 	 * @see org.jboss.netty.channel.Channel#getFactory()
 	 */
 	public ChannelFactory getFactory() {
@@ -204,7 +196,7 @@ public class ManagedChannel implements Channel {
 	}
 
 	/**
-	 * @return
+	 * @return   Channel
 	 * @see org.jboss.netty.channel.Channel#getParent()
 	 */
 	public Channel getParent() {
@@ -212,7 +204,7 @@ public class ManagedChannel implements Channel {
 	}
 
 	/**
-	 * @return
+	 * @return   ChannelConfig
 	 * @see org.jboss.netty.channel.Channel#getConfig()
 	 */
 	public ChannelConfig getConfig() {
@@ -220,7 +212,7 @@ public class ManagedChannel implements Channel {
 	}
 
 	/**
-	 * @return
+	 * @return    ChannelPipeline
 	 * @see org.jboss.netty.channel.Channel#getPipeline()
 	 */
 	public ChannelPipeline getPipeline() {
@@ -229,7 +221,7 @@ public class ManagedChannel implements Channel {
 
 	/**
 	 * @param message
-	 * @return
+	 * @return   ChannelFuture
 	 * @see org.jboss.netty.channel.Channel#write(java.lang.Object)
 	 */
 	public ChannelFuture write(Object message) {
@@ -239,7 +231,7 @@ public class ManagedChannel implements Channel {
 	/**
 	 * @param message
 	 * @param remoteAddress
-	 * @return
+	 * @return   ChannelFuture
 	 * @see org.jboss.netty.channel.Channel#write(java.lang.Object, java.net.SocketAddress)
 	 */
 	public ChannelFuture write(Object message, SocketAddress remoteAddress) {
@@ -248,7 +240,7 @@ public class ManagedChannel implements Channel {
 
 	/**
 	 * @param localAddress
-	 * @return
+	 * @return    ChannelFuture
 	 * @see org.jboss.netty.channel.Channel#bind(java.net.SocketAddress)
 	 */
 	public ChannelFuture bind(SocketAddress localAddress) {
@@ -257,7 +249,7 @@ public class ManagedChannel implements Channel {
 
 	/**
 	 * @param remoteAddress
-	 * @return
+	 * @return       ChannelFuture
 	 * @see org.jboss.netty.channel.Channel#connect(java.net.SocketAddress)
 	 */
 	public ChannelFuture connect(SocketAddress remoteAddress) {
@@ -265,7 +257,7 @@ public class ManagedChannel implements Channel {
 	}
 
 	/**
-	 * @return
+	 * @return    ChannelFuture
 	 * @see org.jboss.netty.channel.Channel#disconnect()
 	 */
 	public ChannelFuture disconnect() {
@@ -273,7 +265,7 @@ public class ManagedChannel implements Channel {
 	}
 
 	/**
-	 * @return
+	 * @return    ChannelFuture
 	 * @see org.jboss.netty.channel.Channel#unbind()
 	 */
 	public ChannelFuture unbind() {
@@ -281,7 +273,7 @@ public class ManagedChannel implements Channel {
 	}
 
 	/**
-	 * @return
+	 * @return        ChannelFuture
 	 * @see org.jboss.netty.channel.Channel#close()
 	 */
 	public ChannelFuture close() {
@@ -289,7 +281,7 @@ public class ManagedChannel implements Channel {
 	}
 
 	/**
-	 * @return
+	 * @return    ChannelFuture
 	 * @see org.jboss.netty.channel.Channel#getCloseFuture()
 	 */
 	public ChannelFuture getCloseFuture() {
@@ -297,7 +289,7 @@ public class ManagedChannel implements Channel {
 	}
 
 	/**
-	 * @return
+	 * @return    int
 	 * @see org.jboss.netty.channel.Channel#getInterestOps()
 	 */
 	public int getInterestOps() {
@@ -306,7 +298,7 @@ public class ManagedChannel implements Channel {
 
 	/**
 	 * @param interestOps
-	 * @return
+	 * @return   ChannelFuture
 	 * @see org.jboss.netty.channel.Channel#setInterestOps(int)
 	 */
 	public ChannelFuture setInterestOps(int interestOps) {
@@ -315,7 +307,7 @@ public class ManagedChannel implements Channel {
 
 	/**
 	 * @param readable
-	 * @return
+	 * @return   ChannelFuture
 	 * @see org.jboss.netty.channel.Channel#setReadable(boolean)
 	 */
 	public ChannelFuture setReadable(boolean readable) {
@@ -323,7 +315,7 @@ public class ManagedChannel implements Channel {
 	}
 
 	/**
-	 * @return
+	 * @return    Object
 	 * @see org.jboss.netty.channel.Channel#getAttachment()
 	 */
 	public Object getAttachment() {

@@ -55,7 +55,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 	
 	/**
 	 * @param name
-	 * @return
+	 * @return    ManagedChannelGroup
 	 */
 	public static final ManagedChannelGroup getInstance(String name) {
 		ManagedChannelGroup mcg = groups.get(name);
@@ -105,10 +105,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean#getManagedChannels()
 	 */
-	@Override
-	//@ManagedAttribute
 	public Set<ChannelTracker> getChannels() {
 		Set<ChannelTracker>  set = new HashSet<ChannelTracker>(size());
 		for(ManagedChannel mc: toArray(new ManagedChannel[0])) {
@@ -130,7 +127,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 	
 	/**
 	 * Adds a named channel
-	 * @parma name The name of this channel
+	 * @param name The name of this channel
 	 * @param channel The channel to add
 	 * @return true if the channel was not in the group before the add
 	 * @see java.util.Set#add(java.lang.Object)
@@ -144,8 +141,8 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 	
 
 	/**
-	 * @param arg0
-	 * @return
+	 * @param channels
+	 * @return    boolean
 	 * @see java.util.Set#addAll(java.util.Collection)
 	 */
 	@Override
@@ -171,7 +168,6 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean#close()
 	 */
 	@Override
 	public ChannelGroupFuture close() {
@@ -180,7 +176,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 
 	/**
 	 * @param arg0
-	 * @return
+	 * @return  int
 	 * @see java.lang.Comparable#compareTo(java.lang.Object)
 	 */
 	@Override
@@ -190,7 +186,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 
 	/**
 	 * @param arg0
-	 * @return
+	 * @return        boolean
 	 * @see java.util.Set#contains(java.lang.Object)
 	 */
 	@Override
@@ -200,7 +196,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 
 	/**
 	 * @param arg0
-	 * @return
+	 * @return    boolean
 	 * @see java.util.Set#containsAll(java.util.Collection)
 	 */
 	@Override
@@ -210,8 +206,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean#disconnect()
-	 */
+     */
 	@Override
 	public ChannelGroupFuture disconnect() {
 		return channelGroup.disconnect();
@@ -219,7 +214,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 
 	/**
 	 * @param arg0
-	 * @return
+	 * @return    boolean
 	 * @see java.util.Set#equals(java.lang.Object)
 	 */
 	@Override
@@ -238,8 +233,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean#find(java.lang.Integer)
-	 */
+     */
 	@Override
 	public Channel find(Integer id) {
 		return channelGroup.find(id);
@@ -247,7 +241,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 	
 
 	/**
-	 * @return
+	 * @return    int
 	 * @see java.util.Set#hashCode()
 	 */
 	@Override
@@ -265,7 +259,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 	}
 
 	/**
-	 * @return
+	 * @return  Iterator<Channel>
 	 * @see java.util.Set#iterator()
 	 */
 	@Override
@@ -275,7 +269,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 
 	/**
 	 * @param arg0
-	 * @return
+	 * @return  boolean
 	 * @see java.util.Set#remove(java.lang.Object)
 	 */
 	@Override
@@ -285,7 +279,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 
 	/**
 	 * @param arg0
-	 * @return
+	 * @return  boolean
 	 * @see java.util.Set#removeAll(java.util.Collection)
 	 */
 	@Override
@@ -295,7 +289,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 
 	/**
 	 * @param arg0
-	 * @return
+	 * @return  boolean
 	 * @see java.util.Set#retainAll(java.util.Collection)
 	 */
 	@Override
@@ -305,7 +299,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 
 	/**
 	 * @param interestOps
-	 * @return
+	 * @return  ChannelGroupFuture
 	 * @see org.jboss.netty.channel.group.ChannelGroup#setInterestOps(int)
 	 */
 	@Override
@@ -315,7 +309,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 
 	/**
 	 * @param readable
-	 * @return
+	 * @return    ChannelGroupFuture
 	 * @see org.jboss.netty.channel.group.ChannelGroup#setReadable(boolean)
 	 */
 	@Override
@@ -333,7 +327,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 	}
 
 	/**
-	 * @return
+	 * @return  Object[]
 	 * @see java.util.Set#toArray()
 	 */
 	@Override
@@ -343,8 +337,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 
 	/**
 	 * @param arg0
-	 * @return
-	 * @see java.util.Set#toArray(T[])
+	 * @return <T> T[]
 	 */
 	@Override
 	public <T> T[] toArray(T[] arg0) {
@@ -353,7 +346,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 
 	/**
 	 * @param message
-	 * @return
+	 * @return    ChannelGroupFuture
 	 * @see org.jboss.netty.channel.group.ChannelGroup#write(java.lang.Object)
 	 */
 	@Override
@@ -364,7 +357,7 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 	/**
 	 * @param message
 	 * @param remoteAddress
-	 * @return
+	 * @return   ChannelGroupFuture
 	 * @see org.jboss.netty.channel.group.ChannelGroup#write(java.lang.Object, java.net.SocketAddress)
 	 */
 	@Override
@@ -374,7 +367,6 @@ public class ManagedChannelGroup implements ChannelGroup, ManagedChannelGroupMXB
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.net.listener.netty.group.ManagedChannelGroupMXBean#unbind()
 	 */
 	@Override
 	public ChannelGroupFuture unbind() {

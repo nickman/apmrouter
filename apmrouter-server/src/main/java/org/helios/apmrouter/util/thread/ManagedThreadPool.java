@@ -192,7 +192,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return  boolean
 	 * @see java.util.concurrent.ThreadPoolExecutor#allowsCoreThreadTimeOut()
 	 */
 	@ManagedAttribute
@@ -203,7 +203,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	/**
 	 * @param timeout
 	 * @param unit
-	 * @return
+	 * @return     boolean
 	 * @throws InterruptedException
 	 * @see java.util.concurrent.ThreadPoolExecutor#awaitTermination(long, java.util.concurrent.TimeUnit)
 	 */
@@ -225,7 +225,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return    int
 	 * @see java.util.concurrent.ThreadPoolExecutor#getActiveCount()
 	 */
 	@ManagedMetric(category="")
@@ -234,7 +234,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return    long
 	 * @see java.util.concurrent.ThreadPoolExecutor#getCompletedTaskCount()
 	 */
 	@ManagedAttribute
@@ -243,7 +243,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return    int
 	 * @see java.util.concurrent.ThreadPoolExecutor#getCorePoolSize()
 	 */
 	@ManagedAttribute
@@ -253,7 +253,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 
 	/**
 	 * @param unit
-	 * @return
+	 * @return    long
 	 * @see java.util.concurrent.ThreadPoolExecutor#getKeepAliveTime(java.util.concurrent.TimeUnit)
 	 */
 	public long getKeepAliveTime(TimeUnit unit) {
@@ -261,7 +261,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return    int
 	 * @see java.util.concurrent.ThreadPoolExecutor#getLargestPoolSize()
 	 */
 	@ManagedAttribute
@@ -270,7 +270,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return   int
 	 * @see java.util.concurrent.ThreadPoolExecutor#getMaximumPoolSize()
 	 */
 	@ManagedAttribute
@@ -279,7 +279,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return   int
 	 * @see java.util.concurrent.ThreadPoolExecutor#getPoolSize()
 	 */
 	@ManagedAttribute
@@ -288,7 +288,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return   BlockingQueue<Runnable>
 	 * @see java.util.concurrent.ThreadPoolExecutor#getQueue()
 	 */
 	public BlockingQueue<Runnable> getQueue() {
@@ -301,7 +301,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return    RejectedExecutionHandler
 	 * @see java.util.concurrent.ThreadPoolExecutor#getRejectedExecutionHandler()
 	 */
 	public RejectedExecutionHandler getRejectedExecutionHandler() {
@@ -309,7 +309,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return  long
 	 * @see java.util.concurrent.ThreadPoolExecutor#getTaskCount()
 	 */
 	@ManagedAttribute
@@ -318,7 +318,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return   ThreadFactory
 	 * @see java.util.concurrent.ThreadPoolExecutor#getThreadFactory()
 	 */
 	public ThreadFactory getThreadFactory() {
@@ -329,7 +329,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	 * @param arg0
 	 * @param arg1
 	 * @param arg2
-	 * @return
+	 * @return   <T> List<Future<T>>
 	 * @throws InterruptedException
 	 * @see java.util.concurrent.AbstractExecutorService#invokeAll(java.util.Collection, long, java.util.concurrent.TimeUnit)
 	 */
@@ -342,7 +342,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 
 	/**
 	 * @param arg0
-	 * @return
+	 * @return  <T> List<Future<T>>
 	 * @throws InterruptedException
 	 * @see java.util.concurrent.AbstractExecutorService#invokeAll(java.util.Collection)
 	 */
@@ -356,7 +356,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	 * @param tasks
 	 * @param timeout
 	 * @param unit
-	 * @return
+	 * @return    <T> T
 	 * @throws InterruptedException
 	 * @throws ExecutionException
 	 * @throws TimeoutException
@@ -371,7 +371,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 
 	/**
 	 * @param arg0
-	 * @return
+	 * @return  <T> T
 	 * @throws InterruptedException
 	 * @throws ExecutionException
 	 * @see java.util.concurrent.AbstractExecutorService#invokeAny(java.util.Collection)
@@ -383,7 +383,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return  boolean
 	 * @see java.util.concurrent.ThreadPoolExecutor#isShutdown()
 	 */
 	@Override
@@ -393,7 +393,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return   boolean
 	 * @see java.util.concurrent.ThreadPoolExecutor#isTerminated()
 	 */
 	@Override
@@ -403,7 +403,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return    boolean
 	 * @see java.util.concurrent.ThreadPoolExecutor#isTerminating()
 	 */
 	@ManagedAttribute
@@ -412,7 +412,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return    int
 	 * @see java.util.concurrent.ThreadPoolExecutor#prestartAllCoreThreads()
 	 */
 	@ManagedOperation
@@ -421,7 +421,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return      boolean
 	 * @see java.util.concurrent.ThreadPoolExecutor#prestartCoreThread()
 	 */
 	@ManagedOperation
@@ -440,7 +440,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 
 	/**
 	 * @param task
-	 * @return
+	 * @return  boolean
 	 * @see java.util.concurrent.ThreadPoolExecutor#remove(java.lang.Runnable)
 	 */
 	public boolean remove(Runnable task) {
@@ -501,7 +501,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return   List<Runnable>
 	 * @see java.util.concurrent.ThreadPoolExecutor#shutdownNow()
 	 */
 	@Override
@@ -511,7 +511,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 
 	/**
 	 * @param task
-	 * @return
+	 * @return    <T> Future<T>
 	 * @see java.util.concurrent.AbstractExecutorService#submit(java.util.concurrent.Callable)
 	 */
 	@Override
@@ -522,7 +522,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	/**
 	 * @param task
 	 * @param result
-	 * @return
+	 * @return  <T> Future<T>
 	 * @see java.util.concurrent.AbstractExecutorService#submit(java.lang.Runnable, java.lang.Object)
 	 */
 	@Override
@@ -532,7 +532,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 
 	/**
 	 * @param task
-	 * @return
+	 * @return Future<?>
 	 * @see java.util.concurrent.AbstractExecutorService#submit(java.lang.Runnable)
 	 */
 	@Override
@@ -541,7 +541,7 @@ public class ManagedThreadPool extends ServerComponentBean implements ExecutorSe
 	}
 
 	/**
-	 * @return
+	 * @return   String
 	 * @see java.lang.Object#toString()
 	 */
 	@Override

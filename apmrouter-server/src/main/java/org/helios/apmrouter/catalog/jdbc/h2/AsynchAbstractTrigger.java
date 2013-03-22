@@ -136,7 +136,7 @@ public abstract class AsynchAbstractTrigger extends AbstractTrigger implements A
 	protected abstract void doFire(DataSource dataSource, Object[] oldRow, Object[] newRow);
 
 	/**
-	 * @return
+	 * @return   int
 	 * @see org.helios.apmrouter.util.thread.ManagedThreadPool#getActiveCount()
 	 */
 	public int getActiveCount() {
@@ -148,7 +148,7 @@ public abstract class AsynchAbstractTrigger extends AbstractTrigger implements A
 	}	
 
 	/**
-	 * @return
+	 * @return  String
 	 * @see org.helios.apmrouter.server.ServerComponentBean#getBeanName()
 	 */
 	public String getBeanName() {
@@ -156,7 +156,7 @@ public abstract class AsynchAbstractTrigger extends AbstractTrigger implements A
 	}
 
 	/**
-	 * @return
+	 * @return    int
 	 * @see org.helios.apmrouter.util.thread.ManagedThreadPool#getPoolSize()
 	 */
 	public int getPoolSize() {
@@ -172,7 +172,7 @@ public abstract class AsynchAbstractTrigger extends AbstractTrigger implements A
 	}
 
 	/**
-	 * @return
+	 * @return int
 	 * @see org.helios.apmrouter.util.thread.ManagedThreadPool#getQueueSize()
 	 */
 	public int getQueueSize() {
@@ -188,7 +188,7 @@ public abstract class AsynchAbstractTrigger extends AbstractTrigger implements A
 	}
 
 	/**
-	 * @return
+	 * @return  long
 	 * @see org.helios.apmrouter.util.thread.ManagedThreadPool#getTaskCount()
 	 */
 	public long getTaskCount() {
@@ -196,7 +196,7 @@ public abstract class AsynchAbstractTrigger extends AbstractTrigger implements A
 	}
 
 	/**
-	 * @return
+	 * @return  boolean
 	 * @see org.helios.apmrouter.util.thread.ManagedThreadPool#isShutdown()
 	 */
 	public boolean isShutdown() {
@@ -204,7 +204,7 @@ public abstract class AsynchAbstractTrigger extends AbstractTrigger implements A
 	}
 
 	/**
-	 * @return
+	 * @return  boolean
 	 * @see org.helios.apmrouter.util.thread.ManagedThreadPool#isTerminated()
 	 */
 	public boolean isTerminated() {
@@ -212,7 +212,7 @@ public abstract class AsynchAbstractTrigger extends AbstractTrigger implements A
 	}
 
 	/**
-	 * @return
+	 * @return   boolean
 	 * @see org.helios.apmrouter.util.thread.ManagedThreadPool#isTerminating()
 	 */
 	public boolean isTerminating() {
@@ -228,7 +228,7 @@ public abstract class AsynchAbstractTrigger extends AbstractTrigger implements A
 	}
 
 	/**
-	 * @return
+	 * @return     String[]
 	 * @see org.helios.apmrouter.util.thread.ManagedThreadPool#getThreadStats()
 	 */
 	public String[] getThreadStats() {
@@ -236,7 +236,7 @@ public abstract class AsynchAbstractTrigger extends AbstractTrigger implements A
 	}
 
 	/**
-	 * @return
+	 * @return    boolean
 	 * @see org.helios.apmrouter.server.ServerComponentBean#isStarted()
 	 */
 	public boolean isStarted() {
