@@ -80,7 +80,7 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 	/** Thread pool for asynch tasks */
 	protected final Executor threadPool = ThreadPoolFactory.newCachedThreadPool(getClass().getPackage().getName(), getClass().getSimpleName());
 	/** Scheduler for scheduled tasks */
-	protected final TaskScheduler scheduler = ScheduledThreadPoolFactory.getInstance(getClass().getSimpleName());
+	protected final TaskScheduler scheduler = ScheduledThreadPoolFactory.newScheduler(getClass().getSimpleName());
 	
 	/** The compiler configuration for script compilations */
 	protected final CompilerConfiguration compilerConfiguration = new CompilerConfiguration();
@@ -547,21 +547,11 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 				//consoleScript.invokeMethod("main", new Object[]{});
 				GroovyClassLoader loader = new GroovyClassLoader();
 				Class<?> clazz = loader.parseClass(new String(URLHelper.getBytesFromURL(ClassLoader.getSystemResource("groovy/ui/Console.groovy"))));
-				for(Method m: clazz.getDeclaredMethods()) {
-					if(Modifier.isStatic(m.getModifiers())) {
-						System.err.println(m.toGenericString());
-					}
-				}
-				for(Method m: consoleScript.getClass().getMethods()) {
-					if(Modifier.isStatic(m.getModifiers())) {
-						System.err.println(m.toGenericString());
-					}
-				}
-				
-				clazz.getClass().getDeclaredMethod("main", Object[].class).invoke(null, new Object[]{});
+				loader.close();
+				clazz.getDeclaredMethod("main", String[].class).invoke(null, new Object[]{new String[]{}});
 				return;
 			} catch (Exception ex) {
-				//ex.printStackTrace(System.err);
+				ex.printStackTrace(System.err);
 			}
 			Class<?> clazz = Class.forName("groovy.ui.Console");
 			//Constructor<?> ctor = clazz.getDeclaredConstructor(Binding.class);

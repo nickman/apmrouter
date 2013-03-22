@@ -175,7 +175,10 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     Closure afterExecution
 
     public static URL ICON_PATH = Console.class.classLoader.getResource('groovy/ui/ConsoleIcon.png') // used by ObjectBrowser and AST Viewer
+    //public static URL ICON_PATH = Console.class.classLoader.getResource('www/ICE_30_30.png') // used by ObjectBrowser and AST Viewer
+    
     public static URL NODE_ICON_PATH = Console.class.classLoader.getResource('groovy/ui/icons/bullet_green.png') // used by AST Viewer
+    //public static URL NODE_ICON_PATH = Console.class.classLoader.getResource('www/ICE_30_30.png') // used by AST Viewer
 
     static groovyFileFilter = new GroovyFileFilter()
     boolean scriptRunning = false
@@ -245,9 +248,11 @@ options:
     static def frameConsoleDelegates = [
             rootContainerDelegate:{
                 frame(
-                    title: 'GroovyConsole',
+                    title: 'Helios GroovyConsole',
                     //location: [100,100], // in groovy 2.0 use platform default location
                     iconImage: imageIcon("/groovy/ui/ConsoleIcon.png").image,
+                    //iconImage: imageIcon("www/ICE_30_30.png").image,
+                    
                     defaultCloseOperation: JFrame.DO_NOTHING_ON_CLOSE,
                 ) {
                     try {
@@ -1067,7 +1072,7 @@ options:
         def pane = swing.optionPane()
          // work around GROOVY-1048
         pane.setMessage('Welcome to the Groovy Console for evaluating Groovy scripts\nVersion ' + version)
-        def dialog = pane.createDialog(frame, 'About GroovyConsole')
+        def dialog = pane.createDialog(frame, 'About Helios GroovyConsole')
         dialog.show()
     }
 
@@ -1129,7 +1134,7 @@ options:
     void updateTitle() {
         if (frame.properties.containsKey('title')) {
             if (scriptFile != null) {
-                frame.title = scriptFile.name + (dirty?" * ":"") + " - GroovyConsole"
+                frame.title = scriptFile.name + (dirty?" * ":"") + " - Helios GroovyConsole"
             } else {
                 frame.title = "Helios GroovyConsole"
             }

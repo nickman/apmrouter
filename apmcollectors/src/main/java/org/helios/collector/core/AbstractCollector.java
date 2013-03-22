@@ -24,9 +24,7 @@
  */
 package org.helios.collector.core;
 
-<<<<<<< HEAD
 import java.lang.Thread.UncaughtExceptionHandler;
-=======
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.server.ServerComponentBean;
@@ -37,7 +35,7 @@ import org.springframework.jmx.export.annotation.*;
 
 import javax.management.Notification;
 import javax.management.ObjectName;
->>>>>>> d1e78c27c2f15a0acf3c096a78ee28ec04eaf28f
+
 import java.util.Date;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
