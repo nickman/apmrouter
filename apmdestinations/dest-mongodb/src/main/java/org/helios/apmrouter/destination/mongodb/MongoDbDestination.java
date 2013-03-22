@@ -254,7 +254,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#resetMetrics()
 	 */
 	@Override
 	public void resetMetrics() {		
@@ -310,7 +309,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getSupportedMetricNames()
 	 */
 	@Override
 	public Set<String> getSupportedMetricNames() {
@@ -328,7 +326,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getHostsQueuedForInsert()
 	 */
 	@Override
 	@ManagedMetric(category="MongoDbCatalog", metricType=MetricType.COUNTER, description="the number of hosts queued for insert")
@@ -338,7 +335,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getHostsInserted()
 	 */
 	@Override
 	@ManagedMetric(category="MongoDbCatalog", metricType=MetricType.COUNTER, description="the number of hosts inserted")
@@ -348,7 +344,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getAgentsQueuedForInsert()
 	 */
 	@Override
 	@ManagedMetric(category="MongoDbCatalog", metricType=MetricType.COUNTER, description="the number of agents queued for insert")
@@ -358,7 +353,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getAgentsInserted()
 	 */
 	@Override
 	@ManagedMetric(category="MongoDbCatalog", metricType=MetricType.COUNTER, description="the number of agents inserted")
@@ -369,7 +363,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getMetricsQueuedForInsert()
 	 */
 	@Override
 	@ManagedMetric(category="MongoDbCatalog", metricType=MetricType.COUNTER, description="the number of metrics queued for insert")
@@ -379,7 +372,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getMetricsInserted()
 	 */
 	@Override
 	@ManagedMetric(category="MongoDbCatalog", metricType=MetricType.COUNTER, description="the number of metrics inserted")
@@ -392,7 +384,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getLastElapsedWriteTimeMs()
 	 */
 	@Override
 	@ManagedMetric(category="MongoDbCatalog", metricType=MetricType.GAUGE, description="the last elapsed write time in ms")
@@ -402,7 +393,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getRollingElapsedWriteTimeMs()
 	 */
 	@Override
 	@ManagedMetric(category="MongoDbCatalog", metricType=MetricType.GAUGE, description="the rolling average of elapsed write times in ms")
@@ -412,7 +402,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getLastElapsedWriteTimeNs()
 	 */
 	@Override
 	@ManagedMetric(category="MongoDbCatalog", metricType=MetricType.GAUGE, description="the last elapsed write time in ns")
@@ -422,7 +411,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getRollingElapsedWriteTimeNs()
 	 */
 	@Override
 	@ManagedMetric(category="MongoDbCatalog", metricType=MetricType.GAUGE, description="the rolling average of elapsed write times in ns")
@@ -432,7 +420,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getLastBatchSize()
 	 */
 	@Override
 	@ManagedMetric(category="MongoDbMetrics", metricType=MetricType.GAUGE, description="the last written batch size")
@@ -442,7 +429,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getRollingBatchSizes()
 	 */
 	@Override
 	@ManagedMetric(category="MongoDbMetrics", metricType=MetricType.GAUGE, description="the rolling average of the written batch sizes")
@@ -471,7 +457,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getTimeTrigger()
 	 */
 	@Override
 	@ManagedAttribute(description="The elapsed time after which accumulated time-series writes are flushed")
@@ -490,7 +475,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getSizeTrigger()
 	 */
 	@Override
 	@ManagedAttribute(description="The number of accumulated time-series writes that triggers a flush")
@@ -534,7 +518,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getTsDefinition()
 	 */
 	@Override
 	@ManagedAttribute(description="The time-series model definition")
@@ -552,7 +535,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getModelMatrix()
 	 */
 	@Override
 	@ManagedAttribute(description="The time-series model matrix")
@@ -563,7 +545,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getModelMatrixString()
 	 */
 	@Override
 	@ManagedAttribute(description="The time-series model matrix as a string [periodDuration.seconds, tier.tierDuration.seconds, tier.periodCount]")
@@ -574,7 +555,6 @@ public class MongoDbDestination extends BaseDestination implements Runnable, Flu
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.destination.org.helios.apmrouter.destination.mongodb.MongoDbDestinationMXBean#getTimeSeriesTiers()
 	 */
 	@Override
 	@ManagedAttribute(description="The time-series tiers")

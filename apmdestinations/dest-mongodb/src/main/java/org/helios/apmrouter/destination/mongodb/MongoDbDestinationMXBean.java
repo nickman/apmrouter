@@ -41,16 +41,10 @@ import org.springframework.jmx.support.MetricType;
 
 public interface MongoDbDestinationMXBean {
 
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.ServerComponent#resetMetrics()
-	 */
+
 	public abstract void resetMetrics();
 
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
-	 */
+
 	public abstract Set<String> getSupportedMetricNames();
 
 	/**
