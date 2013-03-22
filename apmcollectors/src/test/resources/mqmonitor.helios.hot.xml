@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:p="http://www.springframework.org/schema/p" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="
+	  http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+	  http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd
+	  http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.5.xsd
+	  http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-2.5.xsd
+	  http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-2.5.xsd">
+
+
+	<bean id="MQPCFFactoryLocalhost" class="org.helios.collectors.pooling.PCFMessageAgentResourceFactory">
+		<property name="host" value="localhost" />
+		<property name="port" value="1415" />
+		<property name="channel" value="JBOSS.SVRCONN" />		
+	</bean>
+
+	<bean id="MQPCFFactoryECSEUUAT" class="org.helios.collectors.pooling.PCFMessageAgentResourceFactory"> 
+		<property name="host" value="10.8.144.32" />
+		<property name="port" value="1420" />
+		<property name="channel" value="JBOSS.SVRCONN" />	 	
+	</bean>
+
+
+	<bean id="MQMonitorScript" class="org.helios.scripting.manager.script.ScriptInstance" scope="prototype">
+		<constructor-arg>
+			<bean class="java.io.File"><constructor-arg value="C:/Users/nwhitehe/hotdir/MQMonitor.groovy" /></bean>
+		</constructor-arg>
+	</bean>
+	
+	<bean id="IScopeTracer" class="org.helios.ot.endpoint.introscope.IScopeOneOffTracer" factory-method="getInstance" />
+	
+	<bean id="LocalMQCollector" class="org.helios.collectors.script.ScriptedCollector">		
+		<property name="scriptInstance" ref="MQMonitorScript" />
+		<property name="cacheEntryTimeToLive" value="600" />
+		<property name="logErrors" value="true" />		
+		<property name="bindings"><map>
+				<entry key="pcfFactory" value-ref="MQPCFFactoryLocalhost" />
+				<entry key="qMgrName" value="NJW_QM" />
+				<entry key="iscope" value-ref="IScopeTracer" />
+		</map></property>
+	</bean>
+	
+	<bean id="ECSEUUATMQCollector" class="org.helios.collectors.script.ScriptedCollector">		
+		<property name="scriptInstance" ref="MQMonitorScript" />
+		<property name="cacheEntryTimeToLive" value="600" />		
+		<property name="bindings"><map>
+				<entry key="pcfFactory" value-ref="MQPCFFactoryECSEUUAT" />
+				<entry key="qMgrName" value="ICEQMGRUAT" />
+				<entry key="iscope" value-ref="IScopeTracer" />
+		</map></property>
+	</bean>
+	
+
+</beans>

@@ -69,6 +69,11 @@ public class ManagementCounterTracer implements IObjectTracer {
 		return true;
 	}
 	
+//	-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC
+//	-XX:+UseParallelGC
+//	-XX:PermSize=256M 
+//	-XX:MaxPermSize=512M	
+//	-XX:+UseConcMarkSweepGC -XX:+UseParNewGC
 	
 	protected void traceCounter(Counter counter) {
 		Variability type = counter.getVariability(); // INVALID, CONSTANT, MONOTONIC OR VARIABLE

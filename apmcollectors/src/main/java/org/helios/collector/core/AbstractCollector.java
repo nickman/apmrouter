@@ -24,6 +24,7 @@
  */
 package org.helios.collector.core;
 
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.Date;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
@@ -68,7 +69,8 @@ import org.springframework.jmx.export.annotation.ManagedResource;
 })
 @ManagedResource
 public abstract class AbstractCollector extends ServerComponentBean implements 
-					  Callable<CollectionResult>, 
+					  Callable<CollectionResult>,
+					  Thread.UncaughtExceptionHandler,
 					  Collector{
 	//TODO: 
 	// Emit notification - done
@@ -76,11 +78,14 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	// streamline lifecycle
 	// Replace JMX's dependency from Apache Commons pool to BoneCP
 	
+	private static final AtomicInteger serial = new AtomicInteger();
+	
 	/** The scheduler shared amongst all collector instances */
 	protected static final ScheduledThreadPoolExecutor scheduler = (ScheduledThreadPoolExecutor)Executors.newScheduledThreadPool(10, new ThreadFactory(){
-		final AtomicInteger serial = new AtomicInteger();
+		
 		final ThreadGroup threadGroup = new ThreadGroup("CollectorsThreadGroup");
 		final ClassLoader context = AbstractCollector.class.getClassLoader();
+		
 		@Override
 		public Thread newThread(Runnable r) {
 			Thread t = new Thread(threadGroup, r, "CollectorsThread#" + serial.incrementAndGet());
@@ -552,8 +557,10 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 			}
 		}
 		if(getState() == CollectorState.STARTED){
+			final String threadName = Thread.currentThread().getName();
 			try {
-				
+				Thread.currentThread().setName("Collector[" + this.getBeanName() + "]");				
+				info("[", threadName, "] Starting collect for bean: ", this.getBeanName());
 				setState(CollectorState.COLLECTING);
 				//numberOfCollectorsRunning.incrementAndGet();
 				preCollect();
@@ -586,20 +593,24 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 					error("Collection failed for bean collector: "+this.getBeanName(),ex);
 				//executeExceptionScript();
 			}finally {
-				totalCollectionCount++;
-				setState(currState);
-				if(!errors){
-					postCollect();
-					lastTimeCollectionCompleted=System.currentTimeMillis();
-					lastCollectionElapsedTime = lastTimeCollectionCompleted - lastTimeCollectionStarted;
-					debug("Last Collection Elapsed Time: " + lastCollectionElapsedTime + " milliseconds");
+				try {
+					totalCollectionCount++;
+					setState(currState);
+					if(!errors){
+						postCollect();
+						lastTimeCollectionCompleted=System.currentTimeMillis();
+						lastCollectionElapsedTime = lastTimeCollectionCompleted - lastTimeCollectionStarted;
+						debug("Last Collection Elapsed Time: " + lastCollectionElapsedTime + " milliseconds");
+					}
+					if(logCollectionResult) 
+						logCollectionResultDetails(collectionResult);
+					if(collectorLock.isLocked())
+						collectorLock.unlock();
+					//numberOfCollectorsRunning.decrementAndGet();
+					tracer.traceGauge(lastCollectionElapsedTime, "ElapsedTime", getTracingNameSpace());
+				} finally {
+					Thread.currentThread().setName(threadName);
 				}
-				if(logCollectionResult) 
-					logCollectionResultDetails(collectionResult);
-				if(collectorLock.isLocked())
-					collectorLock.unlock();
-				//numberOfCollectorsRunning.decrementAndGet();
-				tracer.traceGauge(lastCollectionElapsedTime, "ElapsedTime", getTracingNameSpace());
 			}	
 		} else {
 			trace("Not executing collect method as the collector state is not STARTED.");
@@ -761,8 +772,9 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	 */
 	public void scheduleCollect() {
 		long collectPeriod = getCollectionPeriod();
+		final UncaughtExceptionHandler ueh = this;
 		scheduleHandle = scheduler.scheduleAtFixedRate(new Runnable(){
-			public void run() { call(); }
+			public void run() { Thread.currentThread().setUncaughtExceptionHandler(ueh); call(); }
 		}, 0,collectPeriod, TimeUnit.MILLISECONDS);
 		info("Started collection schedule with frequency of ["+ collectPeriod + "] ms. for collector [" + this.getBeanName() + "]");
 	}
@@ -792,7 +804,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 		if(name.contains("{SEGMENT")) {
 			name = bindTokens(objectName, name, segmentPattern);
 		}				
-		return name;
+		return name.replace('/', '-');
 	}
 	
 	/**
@@ -807,7 +819,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 		if(name.contains("{THIS-DOMAIN")) {
 			name = bindTokens(objectName, name, targetDomainPattern);
 		}				
-		return name;
+		return name.replace('/', '-');
 	}
 	
 	
@@ -841,6 +853,13 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 			text = text.replace(token, propertyValue);
 		}
 		return text;
+	}
+
+	@Override
+	public void uncaughtException(Thread t, Throwable e) {
+		error("Uncaught Exception in Scheduled Task on Thread [", t, "]", e);
+		e.printStackTrace(System.err);
+		
 	}
 
 //	public void handleNotification(Notification notification, Object handback) {}

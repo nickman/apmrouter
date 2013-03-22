@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.Executor;
 
 import javax.management.ObjectName;
 
@@ -53,6 +54,9 @@ import org.codehaus.groovy.control.CompilerConfiguration;
 import org.codehaus.groovy.control.customizers.ImportCustomizer;
 import org.helios.apmrouter.groovy.annotations.Start;
 import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.jmx.ScheduledThreadPoolFactory;
+import org.helios.apmrouter.jmx.TaskScheduler;
+import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.util.URLHelper;
 import org.springframework.context.event.ContextStartedEvent;
@@ -72,6 +76,11 @@ import org.springframework.jmx.export.annotation.ManagedOperationParameters;
 public class GroovyService extends ServerComponentBean implements GroovyLoadedScriptListener{
 	/** A map of compiled scripts keyed by an arbitrary reference name */
 	protected final Map<String, Script> compiledScripts = new ConcurrentHashMap<String, Script>();
+	
+	/** Thread pool for asynch tasks */
+	protected final Executor threadPool = ThreadPoolFactory.newCachedThreadPool(getClass().getPackage().getName(), getClass().getSimpleName());
+	/** Scheduler for scheduled tasks */
+	protected final TaskScheduler scheduler = ScheduledThreadPoolFactory.getInstance(getClass().getSimpleName());
 	
 	/** The compiler configuration for script compilations */
 	protected final CompilerConfiguration compilerConfiguration = new CompilerConfiguration();
@@ -116,8 +125,8 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 		applyImports(importCustomizer, imports.toArray(new String[imports.size()]));
 		try {
 			consoleSource = new String(URLHelper.getBytesFromURL(ClassLoader.getSystemResource("groovy/ui/Console.groovy")));
-			// this is slow, so chucking it into a one time thread.			
-			Thread t = new Thread("ConsoleCompiler"){
+			// this is slow, so chucking it into a one time thread.
+			threadPool.execute(new Runnable(){
 				@Override
 				public void run() {
 					try {
@@ -127,10 +136,7 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 						warn("Background compilation of gconsole failed", ex);
 					}
 				}
-			};
-			t.setDaemon(true);
-			t.start();
-						
+			});
 		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
 		}

@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:p="http://www.springframework.org/schema/p" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="
+	  http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+	  http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd
+	  http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.5.xsd
+	  http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-2.5.xsd
+	  http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-2.5.xsd">
+
+
+	<bean id="PropertyEditors" class="org.springframework.beans.factory.config.CustomEditorConfigurer">
+		<property name="customEditors">
+			<map>
+				<entry key="org.w3c.dom.Node" value="org.helios.editors.XMLNodeEditor" />
+			</map>
+		</property>
+	</bean>
+	
+	<util:properties id="connProperties">
+		<prop key="v$program">helios-collector</prop>
+	</util:properties>
+
+
+	<bean id="OracleConnectionFactory" class="org.helios.collectors.jdbc.connection.BeanReferenceJDBCConnectionFactory">
+		<property name="dataSource" ref="OracleDataSource" />
+	</bean>
+
+	<bean id="CollectorCacheService" class="org.helios.collectors.cache.CollectorCacheService" factory-method="getInstance">
+		<property name="cacheManager" ref="ehcache" />
+	</bean>
+	
+	<bean id="OracleDataSource" class="org.apache.commons.dbcp.BasicDataSource"
+		destroy-method="close" p:url="jdbc:oracle:thin:@localhost:1521:ORCL"
+		p:driverClassName="oracle.jdbc.OracleDriver" p:username="ecsus"
+		p:password="ecs" p:initial-size="2" p:max-active="6" p:connectionProperties="v$session.program=helios-collector"
+		p:pool-prepared-statements="true" p:maxOpenPreparedStatements="200"
+		p:validation-query="SELECT SYSDATE FROM DUAL" p:test-on-borrow="false"
+		p:test-while-idle="false" />
+
+	
+
+	<bean id="LocalOracleCollector" class="org.helios.collectors.jdbc.JDBCCollector" init-method="start">
+		<property name="connectionFactory" ref="OracleConnectionFactory" />
+		<property name="connectionTimeout" value="3000" />
+		<property name="frequency" value="5000" />
+		<property name="logErrors" value="true" />
+		<property name="tracingNameSpace" value="Database" />
+		<property name="objectName" value="org.helios.collectors:type=JDBCCollector,name=LocalOracle" />
+		<property name="logCollectionResult" value="true" />
+		<property name="sqlMaps">
+			<set>
+			  <ref bean="OracleSQLMetrics" />
+			  <ref bean="OracleRollbackSegmentMetrics" />
+			  <ref bean="OracleUserTXRBSegments" />		
+			  <ref bean="OracleBlockSystemStats" />		
+			  <ref bean="OracleServiceStats" />		
+			  <ref bean="OracleCursorCache" />		  
+			</set>
+		</property>
+	</bean>
+
+	<bean id="OracleSQLMetrics" class="org.helios.collectors.jdbc.SQLMapping">
+		<property name="sql">
+			<value>
+				SELECT AVG(T.PARSE_CALLS) PARSE_CALLS, AVG(T.DISK_READS) DISK_READS, AVG(T.BUFFER_GETS) BUFFER_GETS, AVG(T.ROWS_PROCESSED) ROWS_PROCESSED, 
+				AVG(T.FETCHES) FETCHES, AVG(T.EXECUTIONS) EXECUTIONS, AVG(T.LOADS) LOADS, AVG(T.CPU_TIME) CPU_TIME, AVG(T.ELAPSED_TIME) ELAPSED_TIME, 
+				AVG(T.AVG_HARD_PARSE_TIME) AVG_HARD_PARSE_TIME, AVG(T.APPLICATION_WAIT_TIME) APPLICATION_WAIT_TIME, 
+				AVG(T.CONCURRENCY_WAIT_TIME) CONCURRENCY_WAIT_TIME, AVG(T.CLUSTER_WAIT_TIME) CLUSTER_WAIT_TIME, AVG(T.USER_IO_WAIT_TIME) USER_IO_WAIT_TIME, 
+				AVG(T.SHARABLE_MEM) SHARABLE_MEM, AVG(T.SORTS) SORTS, AVG(T.IO_INTERCONNECT_BYTES) IO_INTERCONNECT_BYTES, COUNT(*) INSTANCE_COUNT, SQL_TEXT
+				FROM V$ACTIVE_SESSION_HISTORY A, V$SQLSTATS T WHERE A.SQL_ID = T.SQL_ID
+				AND EXECUTIONS > 4
+				-- AND SQL_TEXT NOT LIKE 'SELECT * FROM ActualSpecie WHERE specie_id=%'
+				AND  EXISTS (
+				  SELECT * FROM V$SESSION S WHERE S.SID = A.SESSION_ID 
+				  AND S.USER# = A.USER_ID AND S.USERNAME = 'ECSISG'  AND PROGRAM = 'ecs' )				  
+				GROUP BY SQL_TEXT
+				ORDER bY EXECUTIONS DESC
+			</value>
+		</property>
+		<property name="metricMapsNode">
+			<value><![CDATA[
+			  <MetricMaps>
+                <MetricMap value="{v:CPU_TIME}" name="CPU Time" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />       
+                <MetricMap value="{v:PARSE_CALLS}" name="Parse Calls" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />               
+                <MetricMap value="{v:DISK_READS}" name="Disk Reads" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />
+                <MetricMap value="{v:BUFFER_GETS}" name="Buffer Gets" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />
+                <MetricMap value="{v:ROWS_PROCESSED}" name="Rows Processed" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />
+                <MetricMap value="{v:FETCHES}" name="Fetches" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />
+                <MetricMap value="{v:EXECUTIONS}" name="Executions" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />
+                <MetricMap value="{v:LOADS}" name="Loads" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />
+                <MetricMap value="{v:AVG_HARD_PARSE_TIME}" name="Hard Parse Time µs" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />
+                <MetricMap value="{v:ELAPSED_TIME}" name="Elapsed Time µs" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />
+                <MetricMap value="{v:APPLICATION_WAIT_TIME}" name="App Wait Time µs" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />
+                <MetricMap value="{v:CONCURRENCY_WAIT_TIME}" name="Concurrency Time µs" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />
+                <MetricMap value="{v:USER_IO_WAIT_TIME}" name="User IO Wait µs" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />
+                <MetricMap value="{v:SORTS}" name="Sorts" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />
+                <MetricMap value="{v:INSTANCE_COUNT}" name="Instance Count" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_LONG_AVG" scope="0" />
+                <MetricMap value="{v:SHARABLE_MEM}" name="Sharable Memory" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_LONG_AVG" scope="0" />               
+			  </MetricMaps>
+			]]></value>
+		</property>
+	</bean>
+
+	<bean id="OracleRollbackSegmentMetrics" class="org.helios.collectors.jdbc.SQLMapping">
+		<property name="sql">
+			<value>
+					SELECT R.TABLESPACE_NAME TS_NAME, 
+					SUM(RS.WRITES) WRITES, SUM(RS.GETS) GETS, 
+					SUM(RS.WAITS) WAITS, ROUND((SUM(RS.GETS)-SUM(RS.WAITS))*100/SUM(RS.GETS),2) HIT_RATIO,
+					SUM(RS.XACTS) TX_COUNT, 
+					sum(rs.wraps) WRAPS, sum(rs.extends) EXTENDS, sum(rs.shrinks) SHRINKS
+					FROM v$rollstat rs, v$rollname rn, dba_rollback_segs r
+					WHERE RS.USN = RN.USN
+					AND RN.NAME = R.SEGMENT_NAME
+          GROUP BY R.TABLESPACE_NAME
+			</value>
+		</property>
+		<property name="metricMapsNode">
+			<value><![CDATA[
+			  <MetricMaps>
+                <MetricMap value="{v:WRITES}" name="Writes" segment="ECS|Oracle|Rollback Segments|Resources|{v:TS_NAME}" type="STICKY_DELTA_LONG_AVG" scope="0" />       
+                <MetricMap value="{v:GETS}" name="Header Gets" segment="ECS|Oracle|Rollback Segments|Resources|{v:TS_NAME}" type="STICKY_DELTA_LONG_AVG" scope="0" />    
+                <MetricMap value="{v:WAITS}" name="Header Waits" segment="ECS|Oracle|Rollback Segments|Resources|{v:TS_NAME}" type="STICKY_DELTA_LONG_AVG" scope="0" />          
+                <MetricMap value="{v:WRAPS}" name="Wraps" segment="ECS|Oracle|Rollback Segments|Resources|{v:TS_NAME}" type="STICKY_DELTA_LONG_AVG" scope="0" />          
+                <MetricMap value="{v:EXTENDS}" name="Extends" segment="ECS|Oracle|Rollback Segments|Resources|{v:TS_NAME}" type="STICKY_DELTA_LONG_AVG" scope="0" />          
+                <MetricMap value="{v:SHRINKS}" name="Shrinks" segment="ECS|Oracle|Rollback Segments|Resources|{v:TS_NAME}" type="STICKY_DELTA_LONG_AVG" scope="0" />          
+                <MetricMap value="{v:HIT_RATIO}" name="Hit Ratio" segment="ECS|Oracle|Rollback Segments|Resources|{v:TS_NAME}" type="STICKY_LONG_AVG" scope="0" />       
+                <MetricMap value="{v:TX_COUNT}" name="Active Transactions" segment="ECS|Oracle|Rollback Segments|Resources|{v:TS_NAME}" type="STICKY_LONG_AVG" scope="0" />          
+			  </MetricMaps>
+			]]></value>
+		</property>
+	</bean>
+
+	<bean id="OracleUserTXRBSegments" class="org.helios.collectors.jdbc.SQLMapping">
+		<property name="sql">
+			<value>
+				SELECT a.username USERNAME, sum(b.used_urec) UREC, sum(b.used_ublk) UBLK, COUNT(*) TXCOUNT
+				FROM V$SESSION A, V$TRANSACTION B
+				WHERE A.SADDR = B.SES_ADDR
+				AND B.STATUS = 'ACTIVE'
+				GROUP BY A.USERNAME
+			</value>
+		</property>
+		<property name="metricMapsNode">
+			<value><![CDATA[
+			  <MetricMaps>
+                <MetricMap value="{v:UREC}" name="Undo Records Used" segment="ECS|Oracle|Rollback Segments|Transactions|{v:USERNAME}" type="STICKY_LONG_AVG" scope="0" />       
+                <MetricMap value="{v:UBLK}" name="Undo Blocks Used" segment="ECS|Oracle|Rollback Segments|Transactions|{v:USERNAME}" type="STICKY_LONG_AVG" scope="0" />       
+                <MetricMap value="{v:TXCOUNT}" name="Active Transactions" segment="ECS|Oracle|Rollback Segments|Transactions|{v:USERNAME}" type="STICKY_LONG_AVG" scope="0" />       
+			  </MetricMaps>
+			]]></value>
+		</property>
+	</bean>
+
+	<bean id="OracleBlockSystemStats" class="org.helios.collectors.jdbc.SQLMapping">
+		<property name="sql">
+			<value>
+				select NAME,
+				       VALUE
+				from   v$sysstat
+				where  name in (
+				       'consistent gets',
+				       'consistent changes',
+				       'transaction tables consistent reads - undo records applied',
+				       'transaction tables consistent read rollbacks',
+				       'data blocks consistent reads - undo records applied',
+				       'no work - consistent read gets',
+				       'cleanouts only - consistent read gets',
+				       'rollbacks only - consistent read gets',
+				       'cleanouts and rollbacks - consistent read gets')
+				ORDER  BY NAME
+			</value>
+		</property>
+		<property name="metricMapsNode">
+			<value><![CDATA[
+			  <MetricMaps>
+                <MetricMap value="{v:VALUE}" name="{v:NAME}" segment="ECS|Oracle|Block System Stats" type="STICKY_DELTA_LONG_AVG" scope="0" />       
+			  </MetricMaps>
+			]]></value>
+		</property>
+	</bean>
+
+	<bean id="OracleServiceStats" class="org.helios.collectors.jdbc.SQLMapping">
+		<property name="sql">
+			<value>
+				SELECT SERVICE_NAME, STAT_NAME, VALUE FROM V$SERVICE_STATS WHERE VALUE > 0
+			</value>
+		</property>
+		<property name="metricMapsNode">
+			<value><![CDATA[
+			  <MetricMaps>
+                <MetricMap value="{v:VALUE}" name="{v:STAT_NAME} µs" segment="ECS|Oracle|Services|{v:SERVICE_NAME}" type="STICKY_DELTA_LONG_AVG" scope="0" />       
+			  </MetricMaps>
+			]]></value>
+		</property>
+	</bean>
+	
+	<bean id="OracleCursorCache" class="org.helios.collectors.jdbc.SQLMapping">
+		<property name="sql">
+			<value>
+				select MAXIMUM, COUNT, OPENS, HITS, round(HIT_RATIO*100) HIT_RATIO from V$SESSION_CURSOR_CACHE
+			</value>
+		</property>
+		<property name="metricMapsNode">
+			<value><![CDATA[
+			  <MetricMaps>
+                <MetricMap value="{v:MAXIMUM}" name="Maximum Cursors" segment="ECS|Oracle|CursorCache" type="STICKY_LONG_AVG" scope="0" />       
+                <MetricMap value="{v:COUNT}" name="Current Cursors" segment="ECS|Oracle|CursorCache" type="STICKY_LONG_AVG" scope="0" />        
+                <MetricMap value="{v:OPENS}" name="Cursor Open Rate" segment="ECS|Oracle|CursorCache" type="STICKY_DELTA_LONG_AVG" scope="0" />        
+                <MetricMap value="{v:HITS}" name="Cursor Hit Rate" segment="ECS|Oracle|CursorCache" type="STICKY_DELTA_LONG_AVG" scope="0" />        
+                <MetricMap value="{v:HIT_RATIO}" name="Cursor Hit Ratio" segment="ECS|Oracle|CursorCache" type="STICKY_LONG_AVG" scope="0" />        
+			  </MetricMaps>
+			]]></value>
+		</property>
+	</bean>
+	
+
+</beans>
+
+<!--
+
+			    <MetricMap value="{v:CPU_TIME}" name="CPU Time" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />		
+			    <MetricMap value="{v:PARSE_CALLS}" name="Parse Calls" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_LONG_AVG" scope="0" />			    
+			    <MetricMap value="{v:DISK_READS}" name="Disk Reads" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_LONG_AVG" scope="0" />
+			    <MetricMap value="{v:BUFFER_GETS}" name="Buffer Gets" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_LONG_AVG" scope="0" />
+			    <MetricMap value="{v:ROWS_PROCESSED}" name="Rows Processed" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />
+			    <MetricMap value="{v:ELAPSED_TIME}" name="Elapsed Time" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_DELTA_LONG_AVG" scope="0" />
+			    <MetricMap value="{v:SHARABLE_MEM}" name="Sharable Memory" segment="ECS|Oracle|SQL|Statements|{v:SQL_TEXT}" type="STICKY_LONG_AVG" scope="0" />			    
+
+
+	<bean id="OracleSessions" class="org.helios.collectors.jdbc.SQLMapping">
+		<property name="sql">
+			<value>
+				SELECT COUNT(*) ECSSESSIONS FROM V$SESSION WHERE PROGRAM = 'ecs'
+			</value>
+		</property>
+		<property name="metricMapsNode">
+			<value><![CDATA[
+			  <MetricMaps>
+			    <MetricMap value="{v:ECSSESSIONS}" name="Connections" segment="ECS|Oracle|Sessions" type="STICKY_LONG_AVG" scope="0" />
+                          </MetricMaps>
+                         ]]></value>
+		</property>
+	</bean>
+
+	<bean id="OracleSessionsByStatus" class="org.helios.collectors.jdbc.SQLMapping">
+		<property name="sql">
+			<value>
+				SELECT COUNT(*) ECSSESSIONS, STATUS FROM V$SESSION WHERE PROGRAM = 'ecs'
+				GROUP BY STATUS
+			</value>
+		</property>
+		<property name="metricMapsNode">
+			<value><![CDATA[
+			  <MetricMaps>
+			    <MetricMap value="{v:ECSSESSIONS}" name="{v:STATUS}" segment="ECS|Oracle|Sessions" type="STICKY_LONG_AVG" scope="0" />
+			      </MetricMaps>
+			]]></value>
+		</property>
+	</bean>
+
+-->
+

@@ -64,6 +64,12 @@ public interface IMBeanServerConnectionFactory extends PoolableObjectFactory {
 	public MBeanServerConnection getConnection() throws MBeanServerConnectionFactoryException;
 	
 	/**
+	 * Returns the host Id that this factory connects to 
+	 * @return the host Id that this factory connects to
+	 */
+	public String getHostId();
+	
+	/**
 	 * Returns a new connection
 	 * @return An MBeanConnection.
 	 * @throws MBeanServerConnectionFactoryException

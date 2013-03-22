@@ -178,6 +178,9 @@ public abstract class AbstractMBeanServerConnectionFactory implements IMBeanServ
 		//reflectObject(connectionPool);
 		objectName = JMXHelper.objectName(new StringBuilder(CONNECTION_MBEAN_DOMAIN + ":host=").append(hostId).append(",vm=").append(vmId).append(",domain=").append(defaultDomain));
 		try {
+			if(JMXHelper.getHeliosMBeanServer().isRegistered(objectName)) {
+				JMXHelper.getHeliosMBeanServer().unregisterMBean(objectName);
+			}
 			JMXHelper.getHeliosMBeanServer().registerMBean(this, objectName);
 		} catch (Exception e) {
 			e.printStackTrace(System.err);
