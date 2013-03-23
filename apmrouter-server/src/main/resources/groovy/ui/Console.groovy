@@ -175,10 +175,8 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     Closure afterExecution
 
     public static URL ICON_PATH = Console.class.classLoader.getResource('groovy/ui/ConsoleIcon.png') // used by ObjectBrowser and AST Viewer
-    //public static URL ICON_PATH = Console.class.classLoader.getResource('www/ICE_30_30.png') // used by ObjectBrowser and AST Viewer
     
     public static URL NODE_ICON_PATH = Console.class.classLoader.getResource('groovy/ui/icons/bullet_green.png') // used by AST Viewer
-    //public static URL NODE_ICON_PATH = Console.class.classLoader.getResource('www/ICE_30_30.png') // used by AST Viewer
 
     static groovyFileFilter = new GroovyFileFilter()
     boolean scriptRunning = false
@@ -251,7 +249,7 @@ options:
                     title: 'Helios GroovyConsole',
                     //location: [100,100], // in groovy 2.0 use platform default location
                     //iconImage: imageIcon("/groovy/ui/ConsoleIcon.png").image,
-                    iconImage: imageIcon(Console.class.classLoader.getResource('www/ICE_30_30.png')).image,
+                    iconImage: imageIcon(Console.class.classLoader.getResource('www/Helios_Symbol_30_45.png')).image,
                     
                     defaultCloseOperation: JFrame.DO_NOTHING_ON_CLOSE,
                 ) {

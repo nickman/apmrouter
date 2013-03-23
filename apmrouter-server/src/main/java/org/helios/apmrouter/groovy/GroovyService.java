@@ -542,10 +542,7 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 	public void launchConsole() {
 		try {
 			try {
-				Script consoleScript = compiledScripts.get("console");
-				//consoleScript.setProperty("_", compilerConfiguration);
-				//consoleScript.invokeMethod("main", new Object[]{});
-				GroovyClassLoader loader = new GroovyClassLoader();
+				GroovyClassLoader loader = new GroovyClassLoader(getClass().getClassLoader(), compilerConfiguration);
 				Class<?> clazz = loader.parseClass(new String(URLHelper.getBytesFromURL(ClassLoader.getSystemResource("groovy/ui/Console.groovy"))));
 				loader.close();
 				clazz.getDeclaredMethod("main", String[].class).invoke(null, new Object[]{new String[]{}});
@@ -554,9 +551,6 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 				ex.printStackTrace(System.err);
 			}
 			Class<?> clazz = Class.forName("groovy.ui.Console");
-			//Constructor<?> ctor = clazz.getDeclaredConstructor(Binding.class);
-			//Object console = ctor.newInstance(getBindings());
-			//console.getClass().getDeclaredMethod("run").invoke(console);
 			Constructor<?> ctor = clazz.getDeclaredConstructor();
 			Object console = ctor.newInstance();
 			console.getClass().getDeclaredMethod("run").invoke(console);
