@@ -138,7 +138,7 @@ public class MetricURI implements MetricURIMBean {
 	private static final byte[] DEFAULT_SUB_TYPES = MetricURISubscriptionType.getAllSubTypeOrdinals();
 	
 	/** The default metric statuses */
-	private static final byte[] DEFAULT_METRIC_STATUS = new byte[]{0,1};
+	private static final byte[] DEFAULT_METRIC_STATUS = new byte[]{0,1,2};
 	
 	/** The escaped single character wild card */
 	public static final String ONE_CHAR_WILDCARD = "\\_";

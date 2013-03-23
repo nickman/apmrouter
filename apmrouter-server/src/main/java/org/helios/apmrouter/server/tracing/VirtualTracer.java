@@ -264,7 +264,7 @@ public class VirtualTracer extends TracerImpl implements Delayed, VirtualTracerM
 		}
 
 		/**
-		 * 
+		 * Touches the virtual agent to keep-alive
 		 */
 		public void touch() {
 			if(expired.get()) throw new IllegalStateException("This virtual agent [" + host + ":" + agent + "] already expired", new Throwable());
