@@ -24,9 +24,13 @@
  */
 package org.helios.apmrouter.catalog;
 
+import java.io.ObjectStreamException;
+import java.io.Serializable;
 import java.util.Arrays;
 
 import com.google.gson.annotations.SerializedName;
+import com.sun.jmx.mbeanserver.DefaultMXBeanMappingFactory;
+import com.sun.jmx.mbeanserver.MXBeanMapping;
 
 /**
  * <p>Title: DChannelEvent</p>
@@ -35,7 +39,9 @@ import com.google.gson.annotations.SerializedName;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.services.session.DChannelEvent</code></p>
  */
-public class DChannelEvent {
+public class DChannelEvent implements DChannelEventMBean, Serializable {
+	/**  */
+	private static final long serialVersionUID = -8100596482850128611L;
 	/** The event type */
 	@SerializedName("event")
 	public final DChannelEventType eventType;
@@ -45,6 +51,7 @@ public class DChannelEvent {
 	/** The host */
 	@SerializedName("h")
 	public final String host;
+	
 	/** The host id */
 	@SerializedName("hi")
 	public final int hostId;
@@ -58,6 +65,29 @@ public class DChannelEvent {
 	@SerializedName("hc")
 	public final boolean hostChange;
 	
+	/** MX mapping to convert DChannelEvent instances to open-type datas */
+	protected static final MXBeanMapping mapping;
+	
+	static {
+		try {
+			mapping = DefaultMXBeanMappingFactory.DEFAULT.mappingForType(DChannelEventMBean.class, DefaultMXBeanMappingFactory.DEFAULT);
+		} catch (Exception ex) {
+			throw new RuntimeException(ex);
+		}
+	}
+
+	/**
+	 * Replaces this object with an opentype when being serialized
+	 * @return an open type data object representing this channel
+	 * @throws ObjectStreamException
+	 */
+	private Object writeReplace() throws ObjectStreamException {
+		try {
+			return mapping.toOpenValue(this);
+		} catch (Exception ex) {
+			throw new RuntimeException(ex);
+		}
+	}
 	
 	
 	/**
@@ -124,7 +154,68 @@ public class DChannelEvent {
 		return builder.toString();
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.DChannelEventMBean#getEventType()
+	 */
+	@Override
+	public String getEventType() {
+		return eventType.name();
+	}
 
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.DChannelEventMBean#getDomain()
+	 */
+	@Override
+	public String[] getDomain() {
+		return domain;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.DChannelEventMBean#getHost()
+	 */
+	@Override
+	public String getHost() {
+		return host;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.DChannelEventMBean#getHostId()
+	 */
+	@Override
+	public int getHostId() {
+		return hostId;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.DChannelEventMBean#getAgent()
+	 */
+	@Override
+	public String getAgent() {
+		return agent;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.DChannelEventMBean#getAgentId()
+	 */
+	@Override
+	public int getAgentId() {
+		return agentId;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.catalog.DChannelEventMBean#isHostChange()
+	 */
+	@Override
+	public boolean isHostChange() {
+		return hostChange;
+	}
 	
 	
 }

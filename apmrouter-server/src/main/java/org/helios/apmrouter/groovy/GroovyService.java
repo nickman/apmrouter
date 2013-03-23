@@ -533,18 +533,35 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 		//return new ThreadSafeNoNullsBinding(beans);
 		return new Binding(beans);
 	}
+
+	/**
+	 * Launches the groovy console, loading an empty console 
+	 */
+	@ManagedOperation(description="Launches the empty groovy console")
+	public void launchConsole() {
+		launchConsole(null);
+	}
 	
 	
 	/**
 	 * Launches the groovy console 
+	 * @param fileName The name of the local file to load
 	 */
-	@ManagedOperation(description="Launches the groovy console")
-	public void launchConsole() {
+	@ManagedOperation(description="Launches the groovy console and loads the passed file name")
+	@ManagedOperationParameter(name="fileName", description="The name of the local file to load" )
+	public void launchConsole(String fileName) {
 		try {
 			try {
 				GroovyClassLoader loader = new GroovyClassLoader(getClass().getClassLoader(), compilerConfiguration);
 				Class<?> clazz = loader.parseClass(new String(URLHelper.getBytesFromURL(ClassLoader.getSystemResource("groovy/ui/Console.groovy"))));
 				loader.close();
+				if(fileName!=null) {
+					File file = new File(fileName);
+					if(file.canRead()) {
+						clazz.getDeclaredMethod("main", String[].class).invoke(null, new Object[]{new String[]{fileName}});
+						return;
+					}
+				}				
 				clazz.getDeclaredMethod("main", String[].class).invoke(null, new Object[]{new String[]{}});
 				return;
 			} catch (Exception ex) {

@@ -55,6 +55,7 @@ import javax.management.NotificationListener;
 
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.catalog.DChannelEvent;
+import org.helios.apmrouter.catalog.DChannelEventMBean;
 import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
@@ -312,7 +313,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 		ChannelFutureListener relay = new ChannelFutureListener() {			
 			@Override
 			public void operationComplete(ChannelFuture future) throws Exception {
-				final DChannelEvent dce = mcs.onClosedChannel(dchannel);
+				final DChannelEventMBean dce = mcs.onClosedChannel(dchannel);
 				sendChannelClosedEvent(dchannel, dce);
 				for(final ChannelSessionListener listener: forwardTo) {
 					threadPool.submit(new Runnable() {
@@ -381,7 +382,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 	 * @param dchannel The closed channel
 	 * @param dce The channel state change event context
 	 */
-	protected void sendChannelClosedEvent(final DecoratedChannelMBean dchannel, DChannelEvent dce) {
+	protected void sendChannelClosedEvent(final DecoratedChannelMBean dchannel, DChannelEventMBean dce) {
 		Notification notif = new Notification(CLOSED_SESSION_EVENT, OBJECT_NAME, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Channel Session Closed [" + dchannel.toString() + "]");
 		notif.setUserData(dce);
 		sendNotification(notif);
@@ -519,7 +520,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 				channelsByHostAgent.remove(key);
 			}
 		});
-		final DChannelEvent dce = mcs.onIdentifiedChannel(dchannel);
+		final DChannelEventMBean dce = mcs.onIdentifiedChannel(dchannel);
 		for(final ChannelSessionListener listener: listeners) {
 			if(listener instanceof FilteredChannelSessionListener) {
 				if(((FilteredChannelSessionListener)listener).include(dchannel)) {
@@ -544,6 +545,27 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 		notif.setUserData(dce);
 		sendNotification(notif);
 	}
+	
+	/**
+	 * Sends a notification to listeners indicating that a new virtual agent came on line
+	 * @param dce The contrived {@link DChannelEvent} created for the virtual agent
+	 */
+	public void sendVirtualAgentStartedEvent(DChannelEvent dce) {
+		Notification notif = new Notification(IDENTIFIED_SESSION_EVENT, OBJECT_NAME, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Channel Session Identified [" + dce.host + "/" + dce.agent + "]");
+		notif.setUserData(dce);
+		sendNotification(notif);		
+	}
+	
+	/**
+	 * Sends a notification to listeners indicating that a virtual agent expired
+	 * @param dce The contrived {@link DChannelEvent} created for the expired virtual agent
+	 */
+	public void sendVirtualAgentExpiredEvent(DChannelEvent dce) {
+		Notification notif = new Notification(CLOSED_SESSION_EVENT, OBJECT_NAME, jmxNotifSerial.incrementAndGet(), SystemClock.time(), "Channel Session Closed [" + dce.host + "/" + dce.agent + "]");
+		notif.setUserData(dce);
+		sendNotification(notif);		
+	}
+	
 
 	/**
 	 * Removes a channel from the ChannelGroup
@@ -597,6 +619,7 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.services.session.SharedChannelGroupMXBean#getSize()
 	 */
+	@Override
 	public int getSize() {
 		return size();
 	}

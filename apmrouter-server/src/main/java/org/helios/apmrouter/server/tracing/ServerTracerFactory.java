@@ -37,11 +37,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.DelayQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.helios.apmrouter.catalog.MetricCatalogService;
 import org.helios.apmrouter.destination.chronicletimeseries.ChronicleTSManager;
+import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
@@ -50,6 +52,7 @@ import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.server.net.listener.netty.handlers.AgentMetricHandler;
+import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.helios.apmrouter.server.tracing.RefreshingExpiryTest.Expirer;
 import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.ITracerFactory;
@@ -68,7 +71,7 @@ import org.springframework.jmx.support.MetricType;
  */
 public class ServerTracerFactory extends ServerComponentBean implements MetricSubmitter, ITracerFactory {
 	/** The default tracer */
-	protected ITracer defaultTracer = new ServerTracerImpl(APMROUTER_HOST_NAME, APMROUTER_AGENT_NAME, this, 0, Long.MAX_VALUE);
+	protected ITracer defaultTracer = new ServerTracerImpl(APMROUTER_HOST_NAME, APMROUTER_AGENT_NAME, this, 0);
 	/** A map of created tracers keyed by host/agent */
 	private final Map<String, ITracer> tracers = new ConcurrentHashMap<String, ITracer>(Collections.singletonMap(APMROUTER_HOST_NAME + ":" + APMROUTER_AGENT_NAME, defaultTracer));
 	/** The metric catalog service */
@@ -82,8 +85,8 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	/** The virtual agent timeout period */
 	protected long vaTimeout;
 	/** The virtual agent expiry queue */
-	protected final DelayQueue<ServerTracerImpl> vaExpiryQueue = new DelayQueue<ServerTracerImpl>(); 
-
+	protected final DelayQueue<VirtualTracer> vaExpiryQueue = new DelayQueue<VirtualTracer>(); 
+	
 	
 	/** The local sender URI */
 	public static final String LOCAL_SENDER_URI = "local:%s";
@@ -116,15 +119,33 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	protected void doStart() throws Exception {
 		metricCatalogService.hostAgentState(true, APMROUTER_HOST_NAME, "", APMROUTER_AGENT_NAME, String.format(LOCAL_SENDER_URI, 0));
 		metricSubmitter = applicationContext.getBean(AgentMetricHandler.class);
-		vaTimeout = applicationContext.getBean("chronicleTs", ChronicleTSManager.class).getOffLineWindowSize();
+		vaTimeout = applicationContext.getBean("chronicleTs", ChronicleTSManager.class).getStaleWindowSize();
 		info("Set ServerTracerFactory MetricSubmitter");
 		expiryThread = new Thread("VAExpiryThread") {
 			@Override
 			public void run() {
 				while(true) {
 					try {
-						ServerTracerImpl expired = vaExpiryQueue.take();					
-						expired.expire();												
+						VirtualTracer expired = vaExpiryQueue.poll(2000, TimeUnit.MILLISECONDS);
+						if(expired==null && vaExpiryQueue.size()>0) {
+							Set<VirtualTracer> drain = new HashSet<VirtualTracer>(vaExpiryQueue.size());
+							Collections.addAll(drain, vaExpiryQueue.toArray(new VirtualTracer[0]));							
+							vaExpiryQueue.clear();
+							vaExpiryQueue.addAll(drain);							
+							continue;
+						}
+						expired.expire();	
+						try {
+							JMXHelper.getHeliosMBeanServer().unregisterMBean(expired.getObjectName());
+						} catch (Exception ex) {
+							ex.printStackTrace(System.err);
+						}
+						SharedChannelGroup.getInstance().sendVirtualAgentExpiredEvent(
+								metricCatalogService.hostAgentState(false, expired.getHost(), "", expired.getAgent(), String.format(LOCAL_SENDER_URI, expired.getSerial()))
+						);
+
+						incr("expiredCount");						
+						tracers.remove(expired.getHost() + ":" + expired.getAgent());
 					} catch (InterruptedException e) {
 						if(!isStarted()) {
 							break;
@@ -148,10 +169,10 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 		super.doStop();
 		if(expiryThread!=null) {
 			expiryThread.interrupt();
-			ServerTracerImpl[] toExpire = new ServerTracerImpl[vaExpiryQueue.size()];
+			VirtualTracer[] toExpire = new VirtualTracer[vaExpiryQueue.size()];
 			vaExpiryQueue.toArray(toExpire);
 			vaExpiryQueue.clear();
-			for(ServerTracerImpl sti: toExpire) {
+			for(VirtualTracer sti: toExpire) {
 				sti.expire();
 			}
 		}
@@ -183,12 +204,25 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 * Returns the default tracer instance
 	 * @return the default tracer instance
 	 */
+	@Override
 	public ITracer getTracer() {
 		return defaultTracer;
 	}
 	
+	/**
+	 * Returns the number of times a virtual agent has been expired 
+	 * @return the number of times a virtual agent has been expired
+	 */
+	@ManagedMetric(category="VirtualAgents", displayName="ExpiredVirtualAgentCount", metricType=MetricType.COUNTER, description="The number of times a virtual agent has been expired")
+	public long getExpiredVirtualAgentCount() {
+		return this.getMetricValue("expiredCount");
+	}
 	
-	
+	/**
+	 * Builds an agent URI from the passed string
+	 * @param string
+	 * @return
+	 */
 	private static URI makeURI(String string) {
 		try {
 			return new URI(string);
@@ -214,9 +248,12 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 				tracer = tracers.get(key);
 				if(tracer==null) {
 					final long serial = virtualAgentSerial.incrementAndGet();
-					tracer = new ServerTracerImpl(host.trim(), agent.trim(), this, serial, vaTimeout);
+					tracer = new VirtualTracer(host.trim(), agent.trim(), this, serial, vaTimeout);
+					vaExpiryQueue.add((VirtualTracer)tracer);
 					tracers.put(key, tracer);
-					metricCatalogService.hostAgentState(true, host.trim(), "", agent.trim(), String.format(LOCAL_SENDER_URI, serial));
+					SharedChannelGroup.getInstance().sendVirtualAgentStartedEvent(
+							metricCatalogService.hostAgentState(true, host.trim(), "", agent.trim(), String.format(LOCAL_SENDER_URI, serial))
+					);
 				}
 			}
 		}
@@ -238,7 +275,7 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 * @see org.helios.apmrouter.sender.ISender#getSentMetrics()
 	 */
 	@Override
-	@ManagedMetric(category="ServerSender", metricType=MetricType.COUNTER, description="The number of metrics sent")
+	@ManagedMetric(category="ServerSender", displayName="SentMetrics", metricType=MetricType.COUNTER, description="The number of metrics sent")
 	public long getSentMetrics() {
 		return metricSubmitter.getSentMetrics();
 	}
@@ -248,7 +285,7 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 * @see org.helios.apmrouter.sender.ISender#getDroppedMetrics()
 	 */
 	@Override
-	@ManagedMetric(category="ServerSender", metricType=MetricType.COUNTER, description="the number of metrics dropped")
+	@ManagedMetric(category="ServerSender", displayName="DroppedMetrics", metricType=MetricType.COUNTER, description="the number of metrics dropped")
 	public long getDroppedMetrics() {
 		return metricSubmitter.getDroppedMetrics();
 	}
@@ -257,7 +294,7 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 * Returns the number of failed metric submissions
 	 * @return the number of failed metric submissions
 	 */
-	@ManagedMetric(category="ServerSender", metricType=MetricType.COUNTER, description="the number of metrics failed")
+	@ManagedMetric(category="ServerSender", displayName="FailedSubmissions", metricType=MetricType.COUNTER, description="the number of metrics failed")
 	public long getFailedMetrics() {
 		return getMetricValue("MetricsFailed");
 	}
@@ -266,7 +303,7 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 * Returns the number of assigned metric tokens
 	 * @return the number of assigned metric tokens
 	 */
-	@ManagedMetric(category="ServerSender", metricType=MetricType.COUNTER, description="the number of assigned metric tokens")
+	@ManagedMetric(category="ServerSender", displayName="TokensAssigned", metricType=MetricType.COUNTER, description="the number of assigned metric tokens")
 	public long getTokensAssigned() {
 		return getMetricValue("TokensAssigned");
 	}
@@ -275,7 +312,7 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 * Returns the number of metrics dropped because of a token lookup failure
 	 * @return the number of metrics dropped because of a token lookup failure
 	 */
-	@ManagedMetric(category="ServerSender", metricType=MetricType.COUNTER, description="the number of metrics dropped because of a token lookup failure")
+	@ManagedMetric(category="ServerSender", displayName="TokenLookupDrop", metricType=MetricType.COUNTER, description="the number of metrics dropped because of a token lookup failure")
 	public long getTokensLookupDrops() {
 		return getMetricValue("TokenLookupDrop");
 	}
@@ -360,22 +397,6 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 		}
 	}
 	
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.ServerComponent#getSupportedMetricNames()
-	 */
-	@Override
-	public Set<String> getSupportedMetricNames() {
-		Set<String> metrics = new HashSet<String>(super.getSupportedMetricNames());
-		metrics.add("TokenLookupDrop");
-		metrics.add("MetricsSent");
-		metrics.add("MetricsDropped");
-		metrics.add("MetricsFailed");
-		metrics.add("TokensAssigned");
-		return metrics;
-	}		
-
-
 
 	/**
 	 * {@inheritDoc}
@@ -415,6 +436,16 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	public long getVirtualAgentTimeout() {
 		return vaTimeout;
 	}
+	
+	/**
+	 * Returns the number of registered live virtual agents
+	 * @return the number of registered live virtual agents
+	 */
+	@ManagedMetric(category="VirtualAgents", displayName="LiveVirtualAgentCount", metricType=MetricType.GAUGE, description="The number of live virtual agents")
+	public int getVirtualAgentCount() {
+		return vaExpiryQueue.size();
+	}
+	
 
 	/**
 	 * Sets the virtual agent timeout in ms.

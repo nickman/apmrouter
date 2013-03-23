@@ -29,14 +29,14 @@ import java.util.Date;
 import org.helios.apmrouter.trace.MetricSubmitter;
 
 /**
- * <p>Title: VirtualAgentMXBean</p>
+ * <p>Title: ServerTracerImplMBean</p>
  * <p>Description: JMX interface for exposing virtual agent management interfaces</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.server.tracing.VirtualAgentMXBean</code></p>
+ * <p><code>org.helios.apmrouter.server.tracing.ServerTracerImplMBean</code></p>
  */
 
-public interface VirtualAgentMXBean extends MetricSubmitter {
+public interface ServerTracerImplMBean extends MetricSubmitter {
 	/**
 	 * Returns the virtual agent's host
 	 * @return the virtual agent's host

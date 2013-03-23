@@ -24,16 +24,13 @@
  */
 package org.helios.apmrouter.server.services.session;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import javax.management.ObjectName;
 
 import org.helios.apmrouter.jmx.JMXHelper;
 
 /**
  * <p>Title: SharedChannelGroupMXBean</p>
- * <p>Description: </p> 
+ * <p>Description: MX interface for the SharedChannelGroup</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.services.session.SharedChannelGroupMXBean</code></p>

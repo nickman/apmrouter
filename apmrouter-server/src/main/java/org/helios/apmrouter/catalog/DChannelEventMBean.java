@@ -22,39 +22,57 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.server.tracing;
-
-import org.helios.apmrouter.trace.MetricSubmitter;
-import org.helios.apmrouter.trace.TracerImpl;
+package org.helios.apmrouter.catalog;
 
 /**
- * <p>Title: ServerTracerImpl</p>
- * <p>Description: A special tracer implementation that sends directly to the in-vm pattern router.</p> 
+ * <p>Title: DChannelEventMBean</p>
+ * <p>Description: MBean interface for {@link DChannelEvent} to support open-type notifications</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.server.tracing.ServerTracerImpl</code></p>
+ * <p><code>org.helios.apmrouter.catalog.DChannelEventMBean</code></p>
  */
 
-public class ServerTracerImpl extends TracerImpl {
-	/** the assigned virtual agent serial */
-	protected final long serial;
+public interface DChannelEventMBean {
 	/**
-	 * Creates a new ServerTracerImpl
-	 * @param host The tracer's host
-	 * @param agent The tracer's agent
-	 * @param submitter The metric submitter
-	 * @param serial the assigned virtual agent serial
+	 * Returns the event type name
+	 * @return the event type name
 	 */
-	public ServerTracerImpl(String host, String agent, MetricSubmitter submitter, long serial) {
-		super(host, agent, submitter);
-		this.serial = serial;
-	}
+	public String getEventType();
+
 	/**
-	 * Returns the assigned virtual agent serial
-	 * @return the assigned virtual agent serial
+	 * Returns the agent's host domain
+	 * @return the domain
 	 */
-	public long getSerial() {
-		return serial;
-	}
+	public String[] getDomain();
+
+	/**
+	 * Returns the agent's host 
+	 * @return the host
+	 */
+	public String getHost();
+
+	/**
+	 * Returns the agent's host id
+	 * @return the hostId
+	 */
+	public int getHostId();
+
+	/**
+	 * Returns the agent's name
+	 * @return the agent
+	 */
+	public String getAgent();
+
+	/**
+	 * Returns the agent's id
+	 * @return the agentId
+	 */
+	public int getAgentId();
+
+	/**
+	 * Indicates if this event caused a state change in the agent's host
+	 * @return true if this event caused a state change in the agent's host, false otherwise
+	 */
+	public boolean isHostChange();
 
 }
