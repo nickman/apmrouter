@@ -26,6 +26,8 @@ package org.helios.collector.jmx;
 
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.trace.ITracer;
+import org.helios.apmrouter.trace.TracerFactory;
 import org.helios.apmrouter.util.StringHelper;
 import org.helios.collector.core.AbstractCollector;
 import org.helios.collector.core.CollectionResult;
@@ -130,14 +132,14 @@ public class JMXCollector extends AbstractCollector {
     /** A map of GC Collection and Elapsed Times keyed by the gc name */
     protected Map<String, long[]> gcTimes = new HashMap<String, long[]>();
 
-//    /** An objectName / Attribute name for a virtual tracer host name */
-//    protected String virtualHostLocator = null; 
-//    /** An objectName / Attribute name for a virtual tracer agent name */
-//    protected String virtualAgentLocator = null; 
-//    /** The virtual tracer host */
-//    protected String virtualHost = null;
-//    /** The virtual tracer agent */
-//    protected String virtualAgent = null;
+    /** An objectName / Attribute name for a virtual tracer host name */
+    protected String virtualHostLocator = null;
+    /** An objectName / Attribute name for a virtual tracer agent name */
+    protected String virtualAgentLocator = null;
+    /** The virtual tracer host */
+    protected String virtualHost = null;
+    /** The virtual tracer agent */
+    protected String virtualAgent = null;
 
     /** A map of MemoryPool ObjectNames keyed by the memory pool name */
     protected Map<String, ObjectName> memoryPoolObjectNames = null;
@@ -162,7 +164,6 @@ public class JMXCollector extends AbstractCollector {
     protected Map<Thread.State, Integer> threadStates = new HashMap<Thread.State, Integer>(12);
 
     protected Context ctx = null;
-
 
     /**
      * The constructor for passing an instance of IMBeanServerConnectionFactory
@@ -193,22 +194,24 @@ public class JMXCollector extends AbstractCollector {
             if(ctx==null) {
                 ctx = new InitialContext();
             }
-//            if(this.virtualHostLocator!=null) {
-//                virtualHost = (String)JMXHelper.getAttribute(mBeanServerConnection, virtualHostLocator);
-//                if(virtualHost==null) {
-//                    warn("A virtual host locator [" + virtualHostLocator + "] was supplied but could not be resolved. A virtual tracer will not be used." );
-//                }
-//            }
-//            
-//            if(this.virtualAgentLocator!=null && this.virtualHostLocator!=null) {
-//                virtualAgent= (String)JMXHelper.getAttribute(mBeanServerConnection, virtualAgentLocator);
-//                if(virtualHost==null) {
-//                    warn("A virtual agent locator [" + virtualAgentLocator + "] was supplied but could not be resolved. A virtual tracer will not be used." );
-//                }
-//            }
-//            if(virtualHost!=null && virtualAgent!=null) {
-//                this.tracer = this.tracer.getVirtualTracer(virtualHost, virtualAgent);
-//            }            
+
+            if(this.virtualHostLocator!=null) {
+                virtualHost = (String)JMXHelper.getAttribute(mBeanServerConnection, virtualHostLocator);
+                if(virtualHost==null) {
+                    warn("A virtual host locator [" + virtualHostLocator + "] was supplied but could not be resolved. A virtual tracer will not be used." );
+                }
+            }
+
+            if(this.virtualAgentLocator!=null && this.virtualHostLocator!=null) {
+                virtualAgent = (String)JMXHelper.getAttribute(mBeanServerConnection, virtualAgentLocator);
+                if(virtualHost==null) {
+                    warn("A virtual agent locator [" + virtualAgentLocator + "] was supplied but could not be resolved. A virtual tracer will not be used." );
+                }
+            }
+            if(virtualHost!=null && virtualAgent!=null) {
+                //this.tracer = this.tracer.getVirtualTracer(virtualHost, virtualAgent);
+                this.tracer = TracerFactory.getTracer(virtualHost, virtualAgent);
+            }
         }catch(MBeanServerConnectionFactoryException mex){
             throw new Exception("Unable to get MBeanServerConnection for JMXCollector",mex);
         }catch(NamingException nex){
@@ -1325,60 +1328,76 @@ public class JMXCollector extends AbstractCollector {
     }
 
 
-//    /**
-//     * Returns the virtual host locator.
-//     * @return the virtual host locator.
-//     */
-//    @ManagedAttribute
-//    public String getVirtualHostLocator() {
-//        return virtualHostLocator;
-//    }
-//
-//
-//    /**
-//     * Sets the virtual host locator
-//     * @param virtualTracerHost
-//     */
-//    public void setVirtualHostLocator(String virtualHostLocator) {
-//        this.virtualHostLocator = virtualHostLocator;
-//    }
-//
-//
-//    /**
-//     * Returns the virtual agent locator.
-//     * @return the virtual agent locator.
-//     */
-//    @ManagedAttribute
-//    public String getVirtualAgentLocator() {
-//        return virtualAgentLocator;
-//    }
-//
-//
-//    /**
-//     * Sets the virtual agent locator.
-//     * @param virtualTracerAgent
-//     */
-//    public void setVirtualAgentLocator(String virtualAgentLocator) {
-//        this.virtualAgentLocator = virtualAgentLocator;
-//    }
-//
-//    /**
-//     * Returns the virtual host for this target MBeanServer
-//     * @return the virtual host for this target MBeanServer
-//     */
-//    @ManagedOperation
-//    public String getVirtualHost() {
-//        return virtualHost;
-//    }
-//
-//
-//    /**
-//     * Returns the virtual agent for this target MBeanServer
-//     * @return the virtual agent for this target MBeanServer
-//     */
-//    @ManagedOperation
-//    public String getVirtualAgent() {
-//        return virtualAgent;
-//    }
+    /**
+     * Returns the virtual host locator.
+     * @return the virtual host locator.
+     */
+    @ManagedAttribute
+    public String getVirtualHostLocator() {
+        return virtualHostLocator;
+    }
+
+
+    /**
+     * Sets the virtual host locator
+     * @param virtualTracerHost
+     */
+    public void setVirtualHostLocator(String virtualHostLocator) {
+        this.virtualHostLocator = virtualHostLocator;
+    }
+
+
+    /**
+     * Returns the virtual agent locator.
+     * @return the virtual agent locator.
+     */
+    @ManagedAttribute
+    public String getVirtualAgentLocator() {
+        return virtualAgentLocator;
+    }
+
+
+    /**
+     * Sets the virtual agent locator.
+     * @param virtualAgentLocator
+     */
+    public void setVirtualAgentLocator(String virtualAgentLocator) {
+        this.virtualAgentLocator = virtualAgentLocator;
+    }
+
+    /**
+     * Returns the virtual host for this target MBeanServer
+     * @return the virtual host for this target MBeanServer
+     */
+    @ManagedAttribute
+    public String getVirtualHost() {
+        return virtualHost;
+    }
+
+    /**
+     * Sets the virtual host for the Target MBeanServer
+     * @param virtualHost
+     */
+    public void setVirtualHost(String virtualHost){
+         this.virtualHost = virtualHost;
+    }
+
+
+    /**
+     * Returns the virtual agent for this target MBeanServer
+     * @return the virtual agent for this target MBeanServer
+     */
+    @ManagedAttribute
+    public String getVirtualAgent() {
+        return virtualAgent;
+    }
+
+    /**
+     * Sets the virtual agent for the Target MBeanServer
+     * @param virtualAgent
+     */
+    public void setVirtualAgent(String virtualAgent){
+        this.virtualAgent = virtualAgent;
+    }
 
 }

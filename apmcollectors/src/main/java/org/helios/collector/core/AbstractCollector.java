@@ -88,7 +88,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	*/ 
 		
 	/** The tracer instance */
-	protected final ITracer tracer = TracerFactory.getTracer();
+	protected ITracer tracer = TracerFactory.getTracer();
 	/** The scheduler handle for this collector */
 	protected ScheduledFuture<?> scheduleHandle = null;
 	/** The collection period in ms. */
