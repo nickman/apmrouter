@@ -162,10 +162,12 @@ public class TracerFactory {
 	 * Returns a tracer instance for the passed host and agent
 	 * @param host The host name to create a tracer for
 	 * @param agent The agent name to create a tracer for
+	 * @param tracerName The tracer name
+	 * @param timeout  The tracer timeout in ms.
 	 * @return a tracer instance
 	 */
-	public static ITracer getTracer(String host, String agent) {
-		if(serverTracerFactory!=null) return serverTracerFactory.getTracer(host, agent);
+	public static ITracer getTracer(String host, String agent, String tracerName, long timeout) {
+		if(serverTracerFactory!=null) return serverTracerFactory.getTracer(host, agent, tracerName, timeout);
 		String key = nvl(host, "Host Name").trim() + ":" + nvl(agent, "Agent Name").trim();
 		ITracer tracer = tracers.get(key);
 		if(tracer==null) {

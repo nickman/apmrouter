@@ -35,7 +35,7 @@ import java.util.Map;
  * <p>Company: Helios Development Group</p>
  * @author Whitehead (whitehead.nicholas@gmail.com)
  * @version $LastChangedRevision: 1167 $
- * $HeadURL: https://helios.dev.java.net/svn/helios/helios-collectors-pre-maven/trunk/src/org/helios/collectors/jmx/tracers/CollectionSizeFormatter.java $
+ * $HeadURL: https://helios.dev.java.net/svn/helios/helios-collectors-pre-maven/trunk/src/org/helios/collectors/jmx/tracerExpiryQueue/CollectionSizeFormatter.java $
  * $Id: CollectionSizeFormatter.java 1167 2009-03-28 12:03:03Z nwhitehead $
  */
 public class CollectionSizeFormatter extends AbstractObjectFormatter {

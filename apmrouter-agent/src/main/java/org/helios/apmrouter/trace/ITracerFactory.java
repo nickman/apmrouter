@@ -43,9 +43,11 @@ public interface ITracerFactory {
 	 * Returns a tracer instance for the passed host and agent
 	 * @param host The host name to create a tracer for
 	 * @param agent The agent name to create a tracer for
+	 * @param tracerName The tracer name
+	 * @param timeout  The tracer timeout
 	 * @return a tracer instance
 	 */
-	public ITracer getTracer(String host, String agent);
+	public ITracer getTracer(String host, String agent, String tracerName, long timeout);
 
 
 }

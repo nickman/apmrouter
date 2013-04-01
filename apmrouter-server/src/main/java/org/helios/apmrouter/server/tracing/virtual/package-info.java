@@ -22,33 +22,12 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.server.tracing;
-
-import org.helios.apmrouter.trace.MetricSubmitter;
-import org.helios.apmrouter.trace.TracerImpl;
-
 /**
- * <p>Title: ServerTracerImpl</p>
- * <p>Description: A special tracer implementation that sends directly to the in-vm pattern router.</p> 
+ * <p>Title: package-info</p>
+ * <p>Description: </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.server.tracing.ServerTracerImpl</code></p>
+ * <p><code>org.helios.apmrouter.server.tracing.virtual.package-info</code></p>
  */
 
-public class ServerTracerImpl extends TracerImpl {
-	
-	
-	/**
-	 * Creates a new ServerTracerImpl
-	 * @param host The tracer's host
-	 * @param agent The tracer's agent
-	 * @param submitter The metric submitter
-	 */
-	public ServerTracerImpl(String host, String agent, MetricSubmitter submitter) {
-		super(host, agent, submitter);
-	}
-	
-	
-	
-
-}
+package org.helios.apmrouter.server.tracing.virtual;

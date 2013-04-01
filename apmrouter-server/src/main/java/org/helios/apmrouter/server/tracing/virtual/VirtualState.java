@@ -22,33 +22,37 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.server.tracing;
-
-import org.helios.apmrouter.trace.MetricSubmitter;
-import org.helios.apmrouter.trace.TracerImpl;
+package org.helios.apmrouter.server.tracing.virtual;
 
 /**
- * <p>Title: ServerTracerImpl</p>
- * <p>Description: A special tracer implementation that sends directly to the in-vm pattern router.</p> 
+ * <p>Title: VirtualState</p>
+ * <p>Description: Enumerates the possible states of {@link VirtualTracer}s and {@link VirtualAgent}s </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.server.tracing.ServerTracerImpl</code></p>
+ * <p><code>org.helios.apmrouter.server.tracing.VirtualTracerState</code></p>
  */
 
-public class ServerTracerImpl extends TracerImpl {
+public enum VirtualState {
+	/** The virtual instance is up but has not seen any activity yet */
+	INIT(true),
+	/** The virtual instance is up and active */
+	UP(true),
+	/** The virtual instance has timed out but is still valid  */
+	SOFTDOWN(true),
+	/** The virtual agent has timed so this instance has been invalidated */
+	HARDDOWN(false);
 	
-	
-	/**
-	 * Creates a new ServerTracerImpl
-	 * @param host The tracer's host
-	 * @param agent The tracer's agent
-	 * @param submitter The metric submitter
-	 */
-	public ServerTracerImpl(String host, String agent, MetricSubmitter submitter) {
-		super(host, agent, submitter);
+	private VirtualState(boolean canTrace) {
+		this.canTrace = canTrace;
 	}
 	
+	private final boolean canTrace;
 	
-	
-
+	/**
+	 * Indicates if tracing is allowed when in this state
+	 * @return true if tracing is allowed when in this state, false otherwise
+	 */
+	public boolean canTrace() {
+		return canTrace;
+	}
 }

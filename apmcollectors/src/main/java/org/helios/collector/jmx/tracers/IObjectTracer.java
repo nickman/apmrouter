@@ -26,7 +26,7 @@ package org.helios.collector.jmx.tracers;
 
 /**
  * <p>Title: IObjectTracer</p>
- * <p>Description: Interface defining the behavior of object tracers
+ * <p>Description: Interface defining the behavior of object tracerExpiryQueue
  *  which take a JMX attribute of an arbitrary type and render metrics from it. </p> 
  * <p>Company: Helios Development Group</p>
  * @author Sandeep Malhotra (smalhotra@heliosdev.org)

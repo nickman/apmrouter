@@ -26,6 +26,9 @@
 	<context:mbean-export registration="ignoreExisting" />
 	
 	<bean id="ServerTracerFactory" class="org.helios.apmrouter.server.tracing.ServerTracerFactory" factory-method="getInstance" />
+	<bean id="VirtualAgentManager" class="org.helios.apmrouter.server.tracing.virtual.VirtualAgentManager">
+		<property name="invalidationPeriod" value="30000"/>
+	</bean>
 	<bean id="ServerMonitor" class="org.helios.apmrouter.server.monitor.ServerMonitor" depends-on="ServerTracerFactory" />		
 
 	<bean id="HotDeployer" class="org.helios.apmrouter.deployer.SpringHotDeployer">

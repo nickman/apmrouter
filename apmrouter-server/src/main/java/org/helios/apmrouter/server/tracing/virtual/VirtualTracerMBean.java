@@ -22,63 +22,65 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.server.tracing;
+package org.helios.apmrouter.server.tracing.virtual;
 
 import java.util.Date;
 
 import org.helios.apmrouter.trace.MetricSubmitter;
 
 /**
- * <p>Title: VirtualAgentMXBean</p>
- * <p>Description: JMX interface for exposing virtual agent management interfaces</p> 
+ * <p>Title: VirtualTracerMBean</p>
+ * <p>Description: </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.server.tracing.VirtualAgentMXBean</code></p>
+ * <p><code>org.helios.apmrouter.server.tracing.VirtualTracerMBean</code></p>
  */
 
-public interface VirtualAgentMXBean extends MetricSubmitter {
+public interface VirtualTracerMBean extends MetricSubmitter {
+
 	/**
-	 * Returns the virtual agent's host
-	 * @return the virtual agent's host
+	 * Returns the activity highwater timestamp
+	 * @return the activity highwater timestamp
 	 */
-	public String getHost();
+	public long getLastTouchTimestamp();
+
 	/**
-	 * Returns the virtual agent's agent name
-	 * @return the virtual agent's agent name
+	 * Returns the activity highwater date
+	 * @return the activity highwater date
 	 */
-	public String getAgent();
-	
+	public Date getLastTouchDate();
+
 	/**
-	 * Touches the virtual agent's keep-alive timestamp
+	 * Returns this tracer's serial number
+	 * @return this tracer's serial number
+	 */
+	public long getSerial();
+
+	/**
+	 * Touches the activity highwater timestamp
 	 */
 	public void touch();
-	
+
 	/**
-	 * Expires this virtual agent
+	 * Expires this virtual tracer.
 	 */
 	public void expire();
 	
 	/**
-	 * Returns the assigned virtual agent serial
-	 * @return the assigned virtual agent serial
+	 * Invalidates this virtual tracer
 	 */
-	public long getSerial();
-	
+	public void invalidate();	
+
 	/**
-	 * Returns the number of ms. until expiry
-	 * @return the imminent expiry time unless touched in ms.
+	 * Returns the time until this virtual tracer expires, unless there is additional activity
+	 * @return the time until this virtual tracer expires, or -1 if it already expired
 	 */
 	public long getTimeToExpiry();
-	
+
 	/**
-	 * Returns the last touch timestamp for this virtual agent
-	 * @return the last touch timestamp for this virtual agent
+	 * Returns the tracer's current state
+	 * @return the tracer's current state
 	 */
-	public long getLastTouchTimestamp();
-	
-	/**
-	 * Returns the last touch date for this virtual agent
-	 * @return the last touch date for this virtual agent
-	 */
-	public Date getLastTouchDate();
+	public VirtualState getState();
+
 }

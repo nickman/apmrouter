@@ -52,8 +52,6 @@ import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.support.MetricType;
 
-import com.google.gson.JsonObject;
-
 /**
  * <p>Title: MetricURISubscriptionService</p>
  * <p>Description: Service to manage subscriptions to metric events in the form of {@link MetricURI}s.</p> 
@@ -179,6 +177,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 * @param response The json response to format the response (with the correct RID)
 	 * @param channel The {@link Channel} to subscribe
 	 */
+	
 	public void subscribeMetricURI(MetricURI metricUri, JsonResponse response, Channel channel) {
 		Session session = null;
 		try {

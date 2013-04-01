@@ -140,7 +140,7 @@ public class WebSocketServerHandler implements ChannelUpstreamHandler, ChannelDo
             sendHttpResponse(ctx, req, new DefaultHttpResponse(HTTP_1_1, FORBIDDEN));
             return;
         }
-        
+        //protected final WebSocketServerHandshakerFactory wsFactory new WebSocketServerHandshakerFactory(getWebSocketLocation(req), null, false);
         // Handshake
         WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory(getWebSocketLocation(req), null, false);
         this.handshaker = wsFactory.newHandshaker(req);

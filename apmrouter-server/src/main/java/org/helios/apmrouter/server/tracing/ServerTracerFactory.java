@@ -24,8 +24,6 @@
  */
 package org.helios.apmrouter.server.tracing;
 
-import static org.helios.apmrouter.util.Methods.nvl;
-
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,15 +31,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.DelayQueue;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.helios.apmrouter.catalog.MetricCatalogService;
-import org.helios.apmrouter.destination.chronicletimeseries.ChronicleTSManager;
 import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
@@ -50,12 +43,11 @@ import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.metric.catalog.IMetricCatalog;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.server.net.listener.netty.handlers.AgentMetricHandler;
-import org.helios.apmrouter.server.tracing.RefreshingExpiryTest.Expirer;
+import org.helios.apmrouter.server.tracing.virtual.VirtualAgentManager;
 import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.ITracerFactory;
 import org.helios.apmrouter.trace.MetricSubmitter;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.support.MetricType;
 
@@ -68,21 +60,15 @@ import org.springframework.jmx.support.MetricType;
  */
 public class ServerTracerFactory extends ServerComponentBean implements MetricSubmitter, ITracerFactory {
 	/** The default tracer */
-	protected ITracer defaultTracer = new ServerTracerImpl(APMROUTER_HOST_NAME, APMROUTER_AGENT_NAME, this, 0, Long.MAX_VALUE);
-	/** A map of created tracers keyed by host/agent */
-	private final Map<String, ITracer> tracers = new ConcurrentHashMap<String, ITracer>(Collections.singletonMap(APMROUTER_HOST_NAME + ":" + APMROUTER_AGENT_NAME, defaultTracer));
+	protected ITracer defaultTracer = new ServerTracerImpl(APMROUTER_HOST_NAME, APMROUTER_AGENT_NAME, this);
 	/** The metric catalog service */
 	protected MetricCatalogService metricCatalogService = null;
 	/** The metric catalog */
 	protected IMetricCatalog metricCatalog = ICEMetricCatalog.getInstance();
 	/** The delegate metricSubmitter */
 	protected MetricSubmitter metricSubmitter = null;
-	/** The virtual agent serial generator */
-	private static final AtomicLong virtualAgentSerial = new AtomicLong(0);
-	/** The virtual agent timeout period */
-	protected long vaTimeout;
-	/** The virtual agent expiry queue */
-	protected final DelayQueue<ServerTracerImpl> vaExpiryQueue = new DelayQueue<ServerTracerImpl>(); 
+	/** The virtual agent manager */
+	protected VirtualAgentManager vaManager = null;
 
 	
 	/** The local sender URI */
@@ -97,8 +83,6 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	/** The singleton instance ctor lock */
 	private static final Object lock = new Object();
 	
-	/** The virtual agent expiry thread */
-	private Thread expiryThread = null;
 	
 	
 	/**
@@ -116,26 +100,6 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	protected void doStart() throws Exception {
 		metricCatalogService.hostAgentState(true, APMROUTER_HOST_NAME, "", APMROUTER_AGENT_NAME, String.format(LOCAL_SENDER_URI, 0));
 		metricSubmitter = applicationContext.getBean(AgentMetricHandler.class);
-		vaTimeout = applicationContext.getBean("chronicleTs", ChronicleTSManager.class).getOffLineWindowSize();
-		info("Set ServerTracerFactory MetricSubmitter");
-		expiryThread = new Thread("VAExpiryThread") {
-			@Override
-			public void run() {
-				while(true) {
-					try {
-						ServerTracerImpl expired = vaExpiryQueue.take();					
-						expired.expire();												
-					} catch (InterruptedException e) {
-						if(!isStarted()) {
-							break;
-						}
-						Thread.interrupted();
-					}
-				}
-			}
-		};
-		expiryThread.setDaemon(true);
-		expiryThread.start();		
 	}
 	
 	/**
@@ -144,23 +108,9 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 */
 	@Override
 	protected void doStop() {
+		metricCatalogService.hostAgentState(false, APMROUTER_HOST_NAME, "", APMROUTER_AGENT_NAME, String.format(LOCAL_SENDER_URI, 0));
 		metricSubmitter = null;
 		super.doStop();
-		if(expiryThread!=null) {
-			expiryThread.interrupt();
-			ServerTracerImpl[] toExpire = new ServerTracerImpl[vaExpiryQueue.size()];
-			vaExpiryQueue.toArray(toExpire);
-			vaExpiryQueue.clear();
-			for(ServerTracerImpl sti: toExpire) {
-				sti.expire();
-			}
-		}
-		info("Stopping all local agents");
-		for(ITracer tracer: tracers.values()) {
-			metricCatalogService.hostAgentState(false, tracer.getHost(), "", tracer.getAgent(), String.format(LOCAL_SENDER_URI, 0));
-		}
-		info("Stopped [", tracers.size(), "] local agents");
-		tracers.clear();
 		
 	}
 	
@@ -203,29 +153,17 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	 * Returns a tracer instance for the passed host and agent
 	 * @param host The host name to create a tracer for
 	 * @param agent The agent name to create a tracer for
+	 * @param tracerName The tracer name
+	 * @param timeout  The tracer timeout in ms.
 	 * @return a tracer instance
 	 */
-	@Override
-	public ITracer getTracer(String host, String agent) {
-		String key = nvl(host, "Host Name").trim() + ":" + nvl(agent, "Agent Name").trim();
-		ITracer tracer = tracers.get(key);
-		if(tracer==null) {
-			synchronized(tracers) {
-				tracer = tracers.get(key);
-				if(tracer==null) {
-					final long serial = virtualAgentSerial.incrementAndGet();
-					tracer = new ServerTracerImpl(host.trim(), agent.trim(), this, serial, vaTimeout);
-					tracers.put(key, tracer);
-					metricCatalogService.hostAgentState(true, host.trim(), "", agent.trim(), String.format(LOCAL_SENDER_URI, serial));
-				}
-			}
-		}
-		return tracer;
+	public ITracer getTracer(String host, String agent, String tracerName, long timeout) {		
+		return vaManager.getVirtualTracer(host, agent, tracerName, timeout);
 	}
 
 	
 	/**
-	 * Sets the metric submitter the server tracers will send to
+	 * Sets the metric submitter the server tracerExpiryQueue will send to
 	 * @param metricSubmitter the metric submitter to use
 	 */	
 	public void setMetricSubmitter(MetricSubmitter metricSubmitter) {
@@ -408,19 +346,21 @@ public class ServerTracerFactory extends ServerComponentBean implements MetricSu
 	}
 
 	/**
-	 * Returns the virtual agent timeout in ms. 
-	 * @return the virtual agent timeout in ms.
+	 * Returns the virtual agent manager
+	 * @return the virtual agent manager
 	 */
-	@ManagedAttribute(description="The VirtualAgent timeout in ms.")
-	public long getVirtualAgentTimeout() {
-		return vaTimeout;
+	public VirtualAgentManager getVaManager() {
+		return vaManager;
 	}
 
 	/**
-	 * Sets the virtual agent timeout in ms.
-	 * @param vaTimeout the virtual agent timeout in ms.
+	 * Sets the virtual agent manager
+	 * @param vaManager the vaManager to set
 	 */
-	public void setVirtualAgentTimeout(long vaTimeout) {
-		this.vaTimeout = vaTimeout;
-	}	
+	@Autowired(required=true)
+	public void setVirtualAgentManager(VirtualAgentManager vaManager) {
+		this.vaManager = vaManager;
+	}
+
+
 }
