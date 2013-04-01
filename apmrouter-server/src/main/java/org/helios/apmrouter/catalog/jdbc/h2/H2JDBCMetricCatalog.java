@@ -42,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 import javax.sql.DataSource;
 
 import org.helios.apmrouter.catalog.DChannelEvent;
+import org.helios.apmrouter.catalog.DChannelEventMBean;
 import org.helios.apmrouter.catalog.DChannelEventType;
 import org.helios.apmrouter.catalog.EntryStatus;
 import org.helios.apmrouter.catalog.EntryStatus.EntryStatusChange;
@@ -528,9 +529,9 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onClosedChannel(org.helios.apmrouter.server.services.session.DecoratedChannel)
 	 */
 	@Override
-	public DChannelEvent onClosedChannel(DecoratedChannel channel) {
+	public DChannelEventMBean onClosedChannel(DecoratedChannel channel) {
 		if(channel.getAgent()!=null && !channel.getAgent().trim().isEmpty()) {
-			DChannelEvent result = hostAgentState(false, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getType() + "/" + channel.getRemoteAddress().toString());
+			DChannelEventMBean result = hostAgentState(false, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getType() + "/" + channel.getRemoteAddress().toString());
 			info("Marked [", channel.getHost(), "/", channel.getAgent(), "] DOWN. Context:" + result);
 			return result;
 		}
@@ -543,9 +544,9 @@ public class H2JDBCMetricCatalog extends ServerComponentBean implements MetricCa
 	 * @see org.helios.apmrouter.server.services.session.ChannelSessionListener#onIdentifiedChannel(org.helios.apmrouter.server.services.session.DecoratedChannel)
 	 */
 	@Override
-	public DChannelEvent onIdentifiedChannel(DecoratedChannel channel) {
+	public DChannelEventMBean onIdentifiedChannel(DecoratedChannel channel) {
 		if(channel.getAgent()!=null && !channel.getAgent().trim().isEmpty()) {
-			DChannelEvent result = hostAgentState(true, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getURI());
+			DChannelEventMBean result = hostAgentState(true, channel.getHost(), ((InetSocketAddress)channel.getRemoteAddress()).getAddress().getHostAddress(), channel.getAgent(), channel.getURI());
 			info("Marked [", channel.getHost(), "/", channel.getAgent(), "] UP. Context:" + result);
 			return result;
 		}

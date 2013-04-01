@@ -30,6 +30,11 @@
 		subsBySubKey: {},
 		/** A repository of subscriptions keyed by req Id */
 		subsByReqId: {},
+		/** Clears all subs */
+		resetSubs: function() {
+			this.subsBySubKey = {};
+			this.subsByReqId = {};
+		},
 		
 		/** Indicates if down nodes (hosts and agents) should be loaded in the tree when expanding */
 		loadDownNodes: true,
@@ -262,6 +267,8 @@
 		var sub = $.apmr.sub(callback || $.apmr.stateChange, "start", "jmx", "service:jmx:local://DefaultDomain", "org.helios.apmrouter.session:service=SharedChannelGroup");
 		if(sub==null) {  // restart the sub.
 			console.warn("Need to restart tree sub");
+			$.apmr.config.resetSubs();
+			$.apmr.subtreeOn();
 		} else {
 			console.info("Started Sub [#%s] for [%s]-[%s]", sub.topic, "service:jmx:local://DefaultDomain", "org.helios.apmrouter.session:service=SharedChannelGroup");
 			var subHandle = $.subscribe(sub.topic, callback || $.apmr.stateChange);

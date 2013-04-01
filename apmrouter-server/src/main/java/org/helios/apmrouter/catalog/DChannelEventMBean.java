@@ -22,37 +22,57 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.server.tracing.virtual;
+package org.helios.apmrouter.catalog;
 
 /**
- * <p>Title: VirtualState</p>
- * <p>Description: Enumerates the possible states of {@link VirtualTracer}s and {@link VirtualAgent}s </p> 
+ * <p>Title: DChannelEventMBean</p>
+ * <p>Description: MBean interface for {@link DChannelEvent} to support open-type notifications</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.server.tracing.VirtualTracerState</code></p>
+ * <p><code>org.helios.apmrouter.catalog.DChannelEventMBean</code></p>
  */
 
-public enum VirtualState {
-	/** The virtual instance is up but has not seen any activity yet */
-	INIT(true),
-	/** The virtual instance is up and active */
-	UP(true),
-	/** The virtual instance has timed out but is still valid  */
-	SOFTDOWN(true),
-	/** The virtual agent has timed so this instance has been invalidated */
-	HARDDOWN(false);
-	
-	private VirtualState(boolean canTrace) {
-		this.canTrace = canTrace;
-	}
-	
-	private final boolean canTrace;
-	
+public interface DChannelEventMBean {
 	/**
-	 * Indicates if tracing is allowed when in this state
-	 * @return true if tracing is allowed when in this state, false otherwise
+	 * Returns the event type name
+	 * @return the event type name
 	 */
-	public boolean canTrace() {
-		return canTrace;
-	}
+	public String getEventType();
+
+	/**
+	 * Returns the agent's host domain
+	 * @return the domain
+	 */
+	public String[] getDomain();
+
+	/**
+	 * Returns the agent's host 
+	 * @return the host
+	 */
+	public String getHost();
+
+	/**
+	 * Returns the agent's host id
+	 * @return the hostId
+	 */
+	public int getHostId();
+
+	/**
+	 * Returns the agent's name
+	 * @return the agent
+	 */
+	public String getAgent();
+
+	/**
+	 * Returns the agent's id
+	 * @return the agentId
+	 */
+	public int getAgentId();
+
+	/**
+	 * Indicates if this event caused a state change in the agent's host
+	 * @return true if this event caused a state change in the agent's host, false otherwise
+	 */
+	public boolean isHostChange();
+
 }

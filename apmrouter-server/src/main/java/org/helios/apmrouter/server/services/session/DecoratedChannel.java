@@ -69,6 +69,7 @@ public class DecoratedChannel implements Channel, DecoratedChannelMBean, Seriali
 	protected String host = null;
 	/** The agent (if an agent's connection) */
 	protected String agent = null;
+	/** A mapping factory to create open-type datas for decorated channels */
 	protected static final MXBeanMapping mapping; 
 	
 	static {

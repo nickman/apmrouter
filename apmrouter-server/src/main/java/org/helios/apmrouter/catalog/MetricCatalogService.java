@@ -108,14 +108,14 @@ public interface MetricCatalogService extends EntryStatusChangeListener {
 	 * @param channel The closed channel
 	 * @return The dchannel state change event
 	 */
-	public DChannelEvent onClosedChannel(DecoratedChannel channel);
+	public DChannelEventMBean onClosedChannel(DecoratedChannel channel);
 	
 	/**
 	 * Fired when a connected channel is identified
 	 * @param channel The identified channel
 	 * @return The dchannel state change event
 	 */
-	public DChannelEvent onIdentifiedChannel(DecoratedChannel channel);
+	public DChannelEventMBean onIdentifiedChannel(DecoratedChannel channel);
 	
 	/**
 	 * Finds the assigned metric ID for the passed host/agent/name and namespace

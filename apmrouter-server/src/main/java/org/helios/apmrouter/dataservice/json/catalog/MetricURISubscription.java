@@ -46,7 +46,6 @@ import org.apache.log4j.Logger;
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.catalog.EntryStatus;
 import org.helios.apmrouter.catalog.domain.Metric;
-import org.helios.apmrouter.catalog.jdbc.h2.MetricTrigger;
 import org.helios.apmrouter.collections.ConcurrentLongSortedSet;
 import org.helios.apmrouter.dataservice.json.JsonResponse;
 import org.helios.apmrouter.metric.IMetric;
