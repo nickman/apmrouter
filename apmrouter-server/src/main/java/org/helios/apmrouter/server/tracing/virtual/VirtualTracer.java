@@ -84,7 +84,7 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 		if(priorState!=state) {
 			receiver.onTracerStateChange(name, state, priorState);
 			if(state.ordinal() >= VirtualState.SOFTDOWN.ordinal()) {
-				traceAvailability(false);
+				//traceAvailability(false);
 			}
 		}
 	}
@@ -128,7 +128,7 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 		avns = new CharSequence[]{TRACER_NAMESPACE, name};
 		this.timeoutPeriod = timeoutPeriod;
 		touched = new AtomicLong(System.currentTimeMillis());
-		traceAvailability(true);
+		traceAvailabilityX(true);
 	}
 	
 	
@@ -174,7 +174,7 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 			setState(VirtualState.UP);
 		}
 		
-		traceAvailability(true);
+//		traceAvailability(true);
 		receiver.onDelayChange(this, System.currentTimeMillis());		
 	}
 	
@@ -301,9 +301,16 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	 * Traces the virtual tracer availability, bypassing the virtual tracer's internal controls
 	 * @param up true to mark the virtual tracer up, false to mark it down
 	 */
-	protected void traceAvailability(boolean up) {
+	protected void traceAvailabilityX(boolean up) {
 		System.out.println("Tracing [" + (up ? 1 : 0) + "] for [" + host + "/" + agent + "/" + name);
 		_submitter.submit(ICEMetric.trace(up ? 1L : 0L, host, agent, AVAIL_METRIC_NAME, MetricType.LONG_GAUGE, avns));
+	}
+	
+	/**
+	 * Traces the tracers availability
+	 */
+	void traceAvailability() {
+		traceAvailabilityX(getState().ordinal() < VirtualState.SOFTDOWN.ordinal());
 	}
 	
 	/**

@@ -99,6 +99,9 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 	
 	/** The expiration thread */
 	protected Thread expirationThread = null;
+	/** The availability thread */
+	protected Thread availabilityThread = null;
+	
 	/** A serial number factory for expiration threads */
 	private static final AtomicInteger serial = new AtomicInteger();
 	/** A serial number factory for virtual agent instance local URIs */
@@ -267,20 +270,35 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 		return vt;
 	}
 	
+	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.ServerComponentBean#onApplicationContextStart(org.springframework.context.event.ContextStartedEvent)
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
 	 */
 	@Override
-	public void onApplicationContextStart(ContextStartedEvent event) {		
-	}
-	
 	protected void doStart() throws Exception {		
 		//super.onApplicationContextStart(event);
 		expirationThread = new Thread(this, "VirtualAgentExpirationThread#" + serial.incrementAndGet());
 		expirationThread.setDaemon(true);
 		started.set(true);
 		expirationThread.start();
+		availabilityThread = new Thread(new Runnable(){
+			@Override
+			public void run() {
+				while(isStarted()) {
+					try {			
+						Thread.currentThread().join(15000);
+						for(VirtualAgent va: virtualAgents.values()) {
+							for(VirtualTracer vt: va) {
+								vt.traceAvailability();
+							}
+						}
+					} catch (Exception ex) {}
+				}
+			}
+		}, "VirtualTracerAvailabilityThread#" + serial.incrementAndGet());
+		availabilityThread.setDaemon(true);
+		availabilityThread.start();
 		info("Virtual Agent Expiration Thread Started");
 		
 	}
