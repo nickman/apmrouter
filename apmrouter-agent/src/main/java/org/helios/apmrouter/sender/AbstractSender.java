@@ -24,6 +24,23 @@
  */
 package org.helios.apmrouter.sender;
 
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.net.URI;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.collections.ILongSlidingWindow;
@@ -31,6 +48,7 @@ import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.jmx.ScheduledThreadPoolFactory;
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
+import org.helios.apmrouter.jmx.threadinfo.ExtendedThreadManager;
 import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.catalog.ICEMetricCatalog;
@@ -45,18 +63,16 @@ import org.helios.apmrouter.util.SimpleLogger;
 import org.helios.apmrouter.util.TimeoutQueueMap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.*;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFactory;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelPipeline;
+import org.jboss.netty.channel.ChannelPipelineFactory;
+import org.jboss.netty.channel.ChannelState;
+import org.jboss.netty.channel.ChannelStateEvent;
+import org.jboss.netty.channel.group.ChannelGroup;
+import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.json.JSONObject;
-
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.net.URI;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 
 
 /**
@@ -93,8 +109,9 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	protected final URI serverURI;
 	/** The sending channel */
 	protected Channel senderChannel;
-	/** The listener channel */
-	protected Channel listenerChannel;
+	
+	/** Channel group to close channels */
+	protected ChannelGroup closeGroup = new DefaultChannelGroup("ShutDownGroup");
 	
 	/** The server socket to send to */
 	protected InetSocketAddress socketAddress;
@@ -127,6 +144,12 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	/** Final shutdown flag */
 	protected static final AtomicBoolean shutdown = new AtomicBoolean(false);
 	
+	static {
+		if(!ExtendedThreadManager.isInstalled()) {
+			ExtendedThreadManager.install();
+		}
+	}
+	
 	
 	/** The ping schedule handle */
 	protected ScheduledFuture<?> pingScheduleHandle = null;
@@ -142,7 +165,17 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 		heartbeatTimeout = ConfigurationHelper.getLongSystemThenEnvProperty(HBEAT_TO_PROP, DEFAULT_HBEAT_TO);
 		resetPingSchedule();
 		metricCatalog = ICEMetricCatalog.getInstance();
-		workerPool =  ThreadPoolFactory.newCachedThreadPool(getClass().getPackage().getName(), getClass().getSimpleName() + "Worker/" + serverURI.getHost() + "/" + serverURI.getPort());
+		final String threadPrefix = "Worker/" + serverURI.getHost() + "/" + serverURI.getPort() + "#";
+//		workerPool = Executors.newCachedThreadPool(new ThreadFactory(){
+//			final AtomicInteger serial = new AtomicInteger();
+//			@Override
+//			public Thread newThread(Runnable r) {
+//				Thread t = new Thread(r, threadPrefix + serial.incrementAndGet()); 
+//				t.setDaemon(false);
+//				return t;
+//			}
+//		});  
+		workerPool = ThreadPoolFactory.newCachedThreadPool(getClass().getPackage().getName(), getClass().getSimpleName() + "Worker/" + serverURI.getHost() + "/" + serverURI.getPort());
 		try {
 			JMXHelper.registerMBean(JMXHelper.objectName(
 					new StringBuilder("org.helios.apmrouter.sender:protocol=")
@@ -154,21 +187,22 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 			System.err.println("Failed to publish management interface for sender [" + serverURI + "]. Continuing without");
 			e.printStackTrace(System.err);
 		}
-		Runtime.getRuntime().addShutdownHook(new Thread(){
+		final Thread shutdownThread = new Thread("SHUTDOWN-THREAD"){
 			@Override
 			public void run() {
 				try {	
 					shutdown.set(true);
-					senderChannel.write(ChannelBuffers.wrappedBuffer(new byte[]{OpCode.BYE.op()}), socketAddress).addListener(new ChannelFutureListener() {
-						@Override
-						public void operationComplete(ChannelFuture f) throws Exception {						
-							channelFactory.releaseExternalResources();
-						}
-					});
-					log("Attempted to send Bye");
+					if(!senderChannel.write(ChannelBuffers.wrappedBuffer(new byte[]{OpCode.BYE.op()}), socketAddress).await(1000)) {
+						SimpleLogger.warn("Failed to say BYE");
+					}
+					closeGroup.close().await(500);
+					channelFactory.releaseExternalResources();
+					SimpleLogger.info("Exiting...");
 				} catch (Exception ex) {}
-			}
-		});		
+			}			
+		};
+		shutdownThread.setDaemon(true);		
+		Runtime.getRuntime().addShutdownHook(shutdownThread);
 	}
 	
 	/**

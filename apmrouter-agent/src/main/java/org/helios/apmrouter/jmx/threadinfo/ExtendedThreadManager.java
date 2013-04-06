@@ -24,17 +24,24 @@
  */
 package org.helios.apmrouter.jmx.threadinfo;
 
-import org.helios.apmrouter.jmx.JMXHelper;
-import org.helios.apmrouter.util.SystemClock;
-
-import javax.management.*;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+
+import javax.management.MBeanNotificationInfo;
+import javax.management.MBeanServer;
+import javax.management.Notification;
+import javax.management.NotificationBroadcasterSupport;
+import javax.management.ObjectName;
+
+import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.util.SystemClock;
 
 /**
  * <p>Title: ExtendedThreadManager</p>
@@ -131,42 +138,60 @@ public class ExtendedThreadManager extends NotificationBroadcasterSupport implem
 		this.delegate = delegate;
 	}
 	
+	@Override
 	public ObjectName getObjectName() {
 		return delegate.getObjectName();
 	}
+	@Override
 	public int getThreadCount() {
 		return delegate.getThreadCount();
 	}
+	@Override
 	public int getPeakThreadCount() {
 		return delegate.getPeakThreadCount();
 	}
+	@Override
 	public long getTotalStartedThreadCount() {
 		return delegate.getTotalStartedThreadCount();
 	}
+	@Override
 	public int getDaemonThreadCount() {
 		return delegate.getDaemonThreadCount();
 	}
+	@Override
+	public int getNonDaemonThreadCount() {
+		return delegate.getThreadCount() - delegate.getDaemonThreadCount();
+	}
+	
+	@Override
 	public long[] getAllThreadIds() {
 		return delegate.getAllThreadIds();
 	}
+	@Override
 	public ThreadInfo getThreadInfo(long id) {
 		return delegate.getThreadInfo(id);
 	}
+	@Override
 	public ThreadInfo[] getThreadInfo(long[] ids) {
 		return delegate.getThreadInfo(ids);
 	}
+	@Override
 	public ThreadInfo getThreadInfo(long id, int maxDepth) {
 		return delegate.getThreadInfo(id, maxDepth);
 	}
+	@Override
 	public ThreadInfo[] getThreadInfo(long[] ids, int maxDepth) {
 		return delegate.getThreadInfo(ids, maxDepth);
 	}
+	@Override
 	public boolean isThreadContentionMonitoringSupported() {
 		return delegate.isThreadContentionMonitoringSupported();
 	}
+	@Override
 	public boolean isThreadContentionMonitoringEnabled() {
 		return delegate.isThreadContentionMonitoringEnabled();
 	}
+	@Override
 	public void setThreadContentionMonitoringEnabled(boolean enable) {
 		delegate.setThreadContentionMonitoringEnabled(enable);
 		if(enable) {
@@ -175,27 +200,35 @@ public class ExtendedThreadManager extends NotificationBroadcasterSupport implem
 			sendNotification(new Notification(NOTIF_TCM_DISABLED, THREAD_MX_NAME, serial.incrementAndGet(), SystemClock.time(), "Thread Contention Monitoring Disabled"));
 		}
 	}
+	@Override
 	public long getCurrentThreadCpuTime() {
 		return delegate.getCurrentThreadCpuTime();
 	}
+	@Override
 	public long getCurrentThreadUserTime() {
 		return delegate.getCurrentThreadUserTime();
 	}
+	@Override
 	public long getThreadCpuTime(long id) {
 		return delegate.getThreadCpuTime(id);
 	}
+	@Override
 	public long getThreadUserTime(long id) {
 		return delegate.getThreadUserTime(id);
 	}
+	@Override
 	public boolean isThreadCpuTimeSupported() {
 		return delegate.isThreadCpuTimeSupported();
 	}
+	@Override
 	public boolean isCurrentThreadCpuTimeSupported() {
 		return delegate.isCurrentThreadCpuTimeSupported();
 	}
+	@Override
 	public boolean isThreadCpuTimeEnabled() {
 		return delegate.isThreadCpuTimeEnabled();
 	}
+	@Override
 	public void setThreadCpuTimeEnabled(boolean enable) {
 		delegate.setThreadCpuTimeEnabled(enable);
 		if(enable) {
@@ -204,31 +237,70 @@ public class ExtendedThreadManager extends NotificationBroadcasterSupport implem
 			sendNotification(new Notification(NOTIF_TCT_DISABLED, THREAD_MX_NAME, serial.incrementAndGet(), SystemClock.time(), "Thread CPU Time Monitoring Disabled"));
 		}		
 	}
+	@Override
 	public long[] findMonitorDeadlockedThreads() {
 		return delegate.findMonitorDeadlockedThreads();
 	}
+	@Override
 	public void resetPeakThreadCount() {
 		delegate.resetPeakThreadCount();
 	}
+	@Override
 	public long[] findDeadlockedThreads() {
 		return delegate.findDeadlockedThreads();
 	}
+	@Override
 	public boolean isObjectMonitorUsageSupported() {
 		return delegate.isObjectMonitorUsageSupported();
 	}
+	@Override
 	public boolean isSynchronizerUsageSupported() {
 		return delegate.isSynchronizerUsageSupported();
 	}
+	@Override
 	public ThreadInfo[] getThreadInfo(long[] ids, boolean lockedMonitors,
 			boolean lockedSynchronizers) {
 		return delegate.getThreadInfo(ids, lockedMonitors, lockedSynchronizers);
 	}
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.management.ThreadMXBean#dumpAllThreads(boolean, boolean)
+	 */
+	@Override
 	public ThreadInfo[] dumpAllThreads(boolean lockedMonitors,
 			boolean lockedSynchronizers) {
 		return delegate.dumpAllThreads(lockedMonitors, lockedSynchronizers);
 	}
 	
-
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.jmx.threadinfo.ExtendedThreadManagerMXBean#getNonDaemonThreadNames()
+	 */
+	@Override
+	public String[] getNonDaemonThreadNames() {
+		try {
+			Thread[] allThreads = new Thread[getThreadCount()];
+			Thread.enumerate(allThreads);
+			Set<String> threadNames=  new HashSet<String>();
+			for(Thread t: allThreads) {
+				if(t==null) continue;
+				if(!t.isDaemon()) {
+					threadNames.add(t.toString());
+				}
+			}
+			return threadNames.toArray(new String[threadNames.size()]);
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+			throw new RuntimeException("Failed to list non-daemon threads:" + ex);
+		}
+	}
+	
+/*
+Thread[AWT-Shutdown,5,main]
+Thread[AWT-EventQueue-0,6,main]
+Thread[DestroyJavaVM,5,main]
+Thread[Thread-10,6,main]
+ */
 	
 	private static MBeanNotificationInfo[] createMBeanInfo() {
 		return new MBeanNotificationInfo[]{
@@ -243,6 +315,7 @@ public class ExtendedThreadManager extends NotificationBroadcasterSupport implem
 	 * Returns the max depth used for getting thread infos
 	 * @return the max depth used for getting thread infos
 	 */
+	@Override
 	public int getMaxDepth() {
 		return maxDepth;
 	}
@@ -251,6 +324,7 @@ public class ExtendedThreadManager extends NotificationBroadcasterSupport implem
 	 * Sets the max depth used for getting thread infos
 	 * @param maxDepth the max depth used for getting thread infos
 	 */
+	@Override
 	public void setMaxDepth(int maxDepth) {
 		this.maxDepth = maxDepth;
 	}

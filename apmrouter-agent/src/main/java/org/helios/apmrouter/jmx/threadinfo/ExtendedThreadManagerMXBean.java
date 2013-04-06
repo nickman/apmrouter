@@ -52,5 +52,17 @@ public interface ExtendedThreadManagerMXBean extends ThreadMXBean {
 	 * @return an array ExtendedThreadInfos for all threads in the VM
 	 */
 	public ExtendedThreadInfo[] getThreadInfo();
+	
+	/**
+	 * Returns the number of non-daemon threads
+	 * @return the number of non-daemon threads
+	 */
+	public int getNonDaemonThreadCount();
+	
+	/**
+	 * Returns the names of the non-daemon threads
+	 * @return the names of the non-daemon threads
+	 */
+	public String[] getNonDaemonThreadNames();
 
 }

@@ -209,6 +209,7 @@ public class UDPSender extends AbstractSender  {
 			
 		//senderChannel = (NioDatagramChannel) channelFactory.newChannel(getPipeline());
 		senderChannel = bstrap.bind();
+		closeGroup.add(senderChannel);
 		log("Listening on [" + senderChannel.getLocalAddress()+  "]");					
 		
 		
