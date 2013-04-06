@@ -218,7 +218,6 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 			final long finalTimeout = heartbeatTimeout;
 			@Override
 			public void run() {
-				log("Scheduled Ping");
 				if(!ping(finalTimeout)) {
 					pingTimeOuts.incrementAndGet();
 				}

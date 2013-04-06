@@ -39,7 +39,7 @@ public interface AbstractSenderMXBean  {
 	/** The system property name for the heartbeat period */
 	public static final String HBEAT_PERIOD_PROP = "org.helios.apmrouter.heartbeat.period";
 	/** The default heartbeat period */
-	public static final long DEFAULT_HBEAT_PERIOD = 5000;
+	public static final long DEFAULT_HBEAT_PERIOD = 15000;
 	/** The system property name for the heartbeat timeout */
 	public static final String HBEAT_TO_PROP = "org.helios.apmrouter.heartbeat.timeout";
 	/** The default heartbeat timeout */
