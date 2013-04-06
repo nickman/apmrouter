@@ -41,6 +41,7 @@ import org.helios.apmrouter.sender.netty.handler.ChannelStateListener;
 import org.helios.apmrouter.subscription.MetricURIEvent;
 import org.helios.apmrouter.subscription.MetricURISubscriptionEventListener;
 import org.helios.apmrouter.trace.DirectMetricCollection;
+import org.helios.apmrouter.util.SimpleLogger;
 import org.helios.apmrouter.util.TimeoutQueueMap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -102,7 +103,7 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	/** The sender's scheduler */
 	protected final ScheduledThreadPoolExecutor scheduler = ScheduledThreadPoolFactory.newScheduler("AgentScheduler");
 	/** The frequency in ms. of heartbeat pings to the apmrouter server */
-	protected long heartbeatPingPeriod = 5000;
+	protected long heartbeatPingPeriod = 15000;
 	/** The heartbeat ping timeout in ms. */
 	protected long heartbeatTimeout = 1000;
 	/** The number of consecutive heartbeat ping timeouts that trigger a disconnected state */
@@ -241,14 +242,14 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 			ChannelBuffer ping = encodePing(key);
 			senderChannel.write(ping,address);
 			CountDownLatch latch = new CountDownLatch(1);
-			log("Sent ping [" + key + "]");
+			SimpleLogger.debug("Sent ping [" , key , "]");
 			timeoutMap.put(key.toString(), latch, timeout);
 			boolean success = latch.await(timeout, TimeUnit.MILLISECONDS);
 			if(success) {
-				log("Ping Confirmed");
+				SimpleLogger.debug("Ping Confirmed");
 				resetConsecutiveTimeouts();
 			} else {
-				log("Ping Timed Out");
+				SimpleLogger.warn("Ping Timed Out");
 				incrConsecutiveTimeouts();
 			}
 			return success;
