@@ -254,7 +254,7 @@ public class H2TimeSeries implements Externalizable {
 	 * @throws SQLException
 	 */
 	public static ResultSet getValues(Connection conn, long oldestPeriod, Long...ids) throws SQLException {
-		log("OLDEST PERIOD:" + oldestPeriod + "   [" + new Date(oldestPeriod) + "]");
+//		log("OLDEST PERIOD:" + oldestPeriod + "   [" + new Date(oldestPeriod) + "]");
 	    SimpleResultSet rs = new SimpleResultSet();
 	    rs.addColumn("ID", Types.NUMERIC, 255, 22);
 	    rs.addColumn("TS", Types.TIMESTAMP, 1, 22);

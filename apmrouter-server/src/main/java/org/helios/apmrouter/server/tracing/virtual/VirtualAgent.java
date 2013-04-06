@@ -218,7 +218,7 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 		VirtualTracer vt = null;
 		try {
 			while(true) {
-				log.info("tracerExpiryQueue: size:" + tracerExpiryQueue.size() + "  last:" + tracerExpiryQueue.last().getTimeToExpiry() + "  first:" + tracerExpiryQueue.first().getTimeToExpiry());
+				if(log.isTraceEnabled()) log.trace("tracerExpiryQueue: size:" + tracerExpiryQueue.size() + "  last:" + tracerExpiryQueue.last().getTimeToExpiry() + "  first:" + tracerExpiryQueue.first().getTimeToExpiry());
 				vt = tracerExpiryQueue.first();  
 				long tte = vt.getTimeToExpiry();
 				if(tte<1) {

@@ -53,7 +53,7 @@ public class ChronicleTSAdapter {
 	
 	
 	public static ResultSet getValues(Connection conn, long oldestPeriod, Long...ids) throws SQLException {
-		System.err.println("OLDEST PERIOD:" + oldestPeriod + "   [" + new Date(oldestPeriod) + "]");
+//		System.err.println("OLDEST PERIOD:" + oldestPeriod + "   [" + new Date(oldestPeriod) + "]");
 	    String url = conn.getMetaData().getURL();
 	    if (url.equals("jdbc:columnlist:connection")) {
 	        return COL_DESCRIPTOR;

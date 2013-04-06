@@ -302,6 +302,7 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	 * @param up true to mark the virtual tracer up, false to mark it down
 	 */
 	protected void traceAvailability(boolean up) {
+		System.out.println("Tracing [" + (up ? 1 : 0) + "] for [" + host + "/" + agent + "/" + name);
 		_submitter.submit(ICEMetric.trace(up ? 1L : 0L, host, agent, AVAIL_METRIC_NAME, MetricType.LONG_GAUGE, avns));
 	}
 	
