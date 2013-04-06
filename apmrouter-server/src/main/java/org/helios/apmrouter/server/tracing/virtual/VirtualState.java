@@ -22,23 +22,37 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.collections.delay;
+package org.helios.apmrouter.server.tracing.virtual;
 
 /**
- * <p>Title: DelayChangeReceiver</p>
- * <p>Description: Defines a invocation point for {@link NotifyingDelay}s to invoke when their delay driver changes.</p> 
+ * <p>Title: VirtualState</p>
+ * <p>Description: Enumerates the possible states of {@link VirtualTracer}s and {@link VirtualAgent}s </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.collections.delay.DelayChangeReceiver</code></p>
- * @param <E> the type of elements expected to be emitting delay change notifications
+ * <p><code>org.helios.apmrouter.server.tracing.VirtualTracerState</code></p>
  */
 
-public interface DelayChangeReceiver<E extends NotifyingDelay<?>> {
-	/**
-	 * Called by a {@link NotifyingDelay} when its delay driver changes
-	 * @param notifyingDelay The instance of the {@link NotifyingDelay} that changed 
-	 * @param updatedTimestamp The new timestamp to apply to the notifying delay once it has been dequeued 
-	 */
-	public void onDelayChange(E notifyingDelay, long updatedTimestamp);
+public enum VirtualState {
+	/** The virtual instance is up but has not seen any activity yet */
+	INIT(true),
+	/** The virtual instance is up and active */
+	UP(true),
+	/** The virtual instance has timed out but is still valid  */
+	SOFTDOWN(true),
+	/** The virtual agent has timed so this instance has been invalidated */
+	HARDDOWN(false);
 	
+	private VirtualState(boolean canTrace) {
+		this.canTrace = canTrace;
+	}
+	
+	private final boolean canTrace;
+	
+	/**
+	 * Indicates if tracing is allowed when in this state
+	 * @return true if tracing is allowed when in this state, false otherwise
+	 */
+	public boolean canTrace() {
+		return canTrace;
+	}
 }

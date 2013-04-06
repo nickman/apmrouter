@@ -22,23 +22,30 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.collections.delay;
+package org.helios.apmrouter.server.tracing;
+
+import org.helios.apmrouter.trace.MetricSubmitter;
+import org.helios.apmrouter.trace.TracerImpl;
 
 /**
- * <p>Title: DelayChangeReceiver</p>
- * <p>Description: Defines a invocation point for {@link NotifyingDelay}s to invoke when their delay driver changes.</p> 
+ * <p>Title: ServerTracerImpl</p>
+ * <p>Description: A special tracer implementation that sends directly to the in-vm pattern router.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.collections.delay.DelayChangeReceiver</code></p>
- * @param <E> the type of elements expected to be emitting delay change notifications
+ * <p><code>org.helios.apmrouter.server.tracing.ServerTracerImpl</code></p>
  */
 
-public interface DelayChangeReceiver<E extends NotifyingDelay<?>> {
+public class ServerTracerImpl extends TracerImpl {
 	/**
-	 * Called by a {@link NotifyingDelay} when its delay driver changes
-	 * @param notifyingDelay The instance of the {@link NotifyingDelay} that changed 
-	 * @param updatedTimestamp The new timestamp to apply to the notifying delay once it has been dequeued 
+	 * Creates a new ServerTracerImpl
+	 * @param host The tracer's host
+	 * @param agent The tracer's agent
+	 * @param submitter The metric submitter
 	 */
-	public void onDelayChange(E notifyingDelay, long updatedTimestamp);
+	public ServerTracerImpl(String host, String agent, MetricSubmitter submitter) {
+		super(host, agent, submitter);
+	}
 	
+	
+
 }

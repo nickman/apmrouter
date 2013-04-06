@@ -16,20 +16,23 @@
 	    <property name="dataSource" ref="DataSource"/>
 	  </bean>
 
-	  
+	  <!-- 
+05:37:42,364 WARN  [jolbox.bonecp.BoneCPConfig] Please use setIdleConnectionTestPeriodInMinutes in place of setIdleConnectionTestPeriod. This method has been deprecated.
+05:37:42,365 WARN  [jolbox.bonecp.BoneCPConfig] Please use setIdleMaxAgeInMinutes in place of setIdleMaxAge. This method has been deprecated.
+05:37:42,365 WARN  [jolbox.bonecp.BoneCPConfig] Please use setStatementsCacheSize in place of setPreparedStatementsCacheSize. This method has been deprecated.	  
+	   -->
 	 <bean id="DataSource" class="com.jolbox.bonecp.BoneCPDataSource" destroy-method="close" >
 	   <property name="driverClass" value="org.h2.Driver" />
 	   <property name="jdbcUrl" value="jdbc:h2:file:~/.apmrouter/h2/db;JMX=TRUE;MULTI_THREADED=TRUE;DB_CLOSE_DELAY=-1" />
 	   <property name="username" value="sa"/>
 	   <property name="password" value=""/>
-	   <property name="idleConnectionTestPeriod" value="60"/>
-	   <property name="idleMaxAge" value="240"/>
+	   <property name="idleConnectionTestPeriodInMinutes" value="1"/>
+	   <property name="idleMaxAgeInMinutes" value="4"/>
 	   <property name="maxConnectionsPerPartition" value="30"/>
 	   <property name="minConnectionsPerPartition" value="5"/>
 	   <property name="partitionCount" value="3"/>
 	   <property name="acquireIncrement" value="5"/>
 	   <property name="statementsCacheSize" value="100"/>
-	   <property name="preparedStatementsCacheSize" value="100"/>
 	   <property name="releaseHelperThreads" value="3"/>
 	   <property name="statisticsEnabled" value="true"/>
 	   <property name="disableJMX" value="false"/>
@@ -42,14 +45,13 @@
 	   <property name="jdbcUrl" value="jdbc:h2:file:~/.apmrouter/h2/tsdb;JMX=TRUE;MULTI_THREADED=TRUE;DB_CLOSE_DELAY=-1" />
 	   <property name="username" value="TSDB"/>
 	   <property name="password" value=""/>
-	   <property name="idleConnectionTestPeriod" value="60"/>
-	   <property name="idleMaxAge" value="240"/>
+	   <property name="idleConnectionTestPeriodInMinutes" value="1"/>
+	   <property name="idleMaxAgeInMinutes" value="4"/>
 	   <property name="maxConnectionsPerPartition" value="30"/>
 	   <property name="minConnectionsPerPartition" value="5"/>
 	   <property name="partitionCount" value="1"/>
 	   <property name="acquireIncrement" value="5"/>
-	   <property name="statementsCacheSize" value="100"/>
-	   <property name="preparedStatementsCacheSize" value="100"/>
+	   <property name="statementsCacheSize" value="100"/>	   
 	   <property name="releaseHelperThreads" value="3"/>
 	   <property name="statisticsEnabled" value="true"/>
 	   <property name="disableJMX" value="false"/>

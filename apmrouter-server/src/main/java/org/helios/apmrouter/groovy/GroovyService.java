@@ -26,7 +26,6 @@ package org.helios.apmrouter.groovy;
 
 import groovy.lang.Binding;
 import groovy.lang.GroovyClassLoader;
-import groovy.lang.GroovyShell;
 import groovy.lang.GroovySystem;
 import groovy.lang.MissingPropertyException;
 import groovy.lang.Script;
@@ -37,7 +36,7 @@ import java.io.PrintStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -47,11 +46,13 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.ObjectName;
 
 import org.codehaus.groovy.control.CompilerConfiguration;
 import org.codehaus.groovy.control.customizers.ImportCustomizer;
+import org.helios.apmrouter.groovy.annotations.ScriptName;
 import org.helios.apmrouter.groovy.annotations.Start;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.jmx.ScheduledThreadPoolFactory;
@@ -342,27 +343,50 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 		return script.run();
 	}
 	
+	/** A synthetic script name serial generator */
+	protected static final AtomicLong nameSerial = new AtomicLong();
+	
 	/**
-	 * Compiles the passed source and assignes it the passed name
-	 * @param name The name assigned to the compiled script
+	 * Compiles the passed source and assigns it the passed name
+	 * @param scriptName The name assigned to the compiled script. If this is null, and no {@link ScriptName} annotation is found, a synthetic name will be assigned.
 	 * @param source The source code of the script to compiled
+	 * @return The name of the compiled script
 	 */
-	@ManagedOperation(description="Compiles the passed source and assignes it the passed name")
+	@ManagedOperation(description="Compiles the passed source and assigns it the passed name")
 	@ManagedOperationParameters({
 		@ManagedOperationParameter(name="ScriptName", description="The name assigned to the compiled script"),
 		@ManagedOperationParameter(name="Source", description="The source code of the script to be compiled")
 	})
-	public void compile(String name, String source) {
-		if(name==null || name.trim().isEmpty()) throw new IllegalArgumentException("The passed script name was null or empty", new Throwable());
-		if(source==null || source.length()==0) throw new IllegalArgumentException("The passed source was null or empty", new Throwable());		
+	public String compile(String scriptName, String source) {
+		if(scriptName!=null && scriptName.trim().isEmpty()) scriptName=null;
+		//else scriptName = scriptName.trim();
+		if(source==null || source.length()==0) throw new IllegalArgumentException("The passed source was null or empty", new Throwable());	
+		source = source.replace("\\n", "\n");
 		Script script = null;
+		String name = scriptName!=null ? scriptName.trim() : "groovy#" + nameSerial.incrementAndGet();
+		GroovyClassLoader gcl = new GroovyClassLoader(Thread.currentThread().getContextClassLoader(), compilerConfiguration);
 		try {
-			script = new GroovyShell(compilerConfiguration).parse(source, name);
-			info("Compiled script named [" , name , "]. Class is: [", script.getClass().getName(), "]");
+			//script = new GroovyShell(compilerConfiguration).parse(source, name);
+			Class<?> clazz = gcl.parseClass(source);
+			ScriptName sn = clazz.getAnnotation(ScriptName.class);
+			if(sn!=null && !sn.value().trim().isEmpty()) {
+				name = sn.value().trim();
+			}
+			info("Compiled script named [" , name , "]. Class is: [", clazz.getName(), "]");
+			Class<?> p = clazz.getSuperclass();
+			while(p!=Object.class) {
+				info("Compiled Parent:", p.getName());
+				p = p.getSuperclass();
+			}
+			for(Class<?> iface: clazz.getInterfaces()) {
+				info("Compiled Iface:", iface.getName());
+			}
 		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
 			throw new RuntimeException(ex);
-		}		
+		} finally {
+			try { gcl.close(); } catch (Exception ex) {}
+		}
 		Binding bindings = getBindings();
 		script.setBinding(bindings);
 		script.setProperty("bindings", bindings);
@@ -370,8 +394,50 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 		
 		Class<?> clazz = script.getClass();//groovyClassLoader.parseClass(source);
 		scanLoadedClass(clazz, script);
+		return name;
 	}
 	
+	/**
+	 * Compiles the passed source and assigns it the passed name
+	 * @param source The source code of the script to compiled
+	 * @return The name of the compiled script
+	 */
+	@ManagedOperation(description="Compiles the passed source and assigns it the passed name")
+	@ManagedOperationParameters({
+		@ManagedOperationParameter(name="Source", description="The source code of the script to be compiled")
+	})
+	public String compile(String source) {
+		return compile(null, source);
+	}
+	
+	/**
+	 * Sets a compiler optimization option
+	 * @param name The name of the option
+	 * @param value true to enable, false to disable
+	 */
+	@ManagedOperation(description="Sets a compiler optimization option")
+	@ManagedOperationParameters({
+		@ManagedOperationParameter(name="OptionName", description="The name of the option to set"),
+		@ManagedOperationParameter(name="Enabled", description="true to enable, false to disable")
+	})
+	public void setOptimizationOption(String name, boolean value) {
+		compilerConfiguration.setOptimizationOptions(Collections.singletonMap(name, value));
+	}
+	
+	/**
+	 * Compiles the source read from the passed URL and assigns it the passed name
+	 * @param sourceUrl The source code URL of the script to compiled
+	 * @return The name of the compiled script
+	 */
+	@ManagedOperation(description="Compiles the source read from the passed URL and assigns it the passed name")
+	@ManagedOperationParameters({
+		@ManagedOperationParameter(name="SourceURL", description="The source code of the script to be compiled")
+	})
+	public String compileFromUrl(String sourceUrl) {
+		URL url = URLHelper.toURL(sourceUrl);
+		String source = URLHelper.getTextFromURL(url);
+		return compile(source);
+	}
 	
 	
 	/**

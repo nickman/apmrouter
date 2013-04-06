@@ -60,12 +60,13 @@ public class DynamicDelayQueue<E extends NotifyingDelay> extends DelayQueue<E> i
 	 * This call removes the changed instance and [if the remove is successful] re-inserts it so it
 	 * assumes its new position in the queue.</p>
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.collections.delay.DelayChangeReceiver#onDelayChange(org.helios.apmrouter.collections.delay.NotifyingDelay)
+	 * @see org.helios.apmrouter.collections.delay.DelayChangeReceiver#onDelayChange(org.helios.apmrouter.collections.delay.NotifyingDelay, long)
 	 */
 	@SuppressWarnings("unchecked")
 	@Override
-	public void onDelayChange(NotifyingDelay notifyingDelay) {
+	public void onDelayChange(NotifyingDelay notifyingDelay, long updatedTimestamp) {
 		if(super.remove(notifyingDelay)) {
+			notifyingDelay.setUpdatedTimestamp(updatedTimestamp);
 			super.add((E) notifyingDelay);
 		}		
 	}
@@ -294,10 +295,11 @@ public class DynamicDelayQueue<E extends NotifyingDelay> extends DelayQueue<E> i
 	 */
 	@Override
 	public E take() throws InterruptedException {
-		E e = take();
+		E e = super.take();
 		e.clearDelayChangeReceiver();
 		return e;
 	}
-	
+
+
 	
 }

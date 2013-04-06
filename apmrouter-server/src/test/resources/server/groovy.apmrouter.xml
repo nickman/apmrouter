@@ -15,6 +15,11 @@
 				<value>import groovy.transform.*</value>
 			</util:set>
 		</property>
+		<property name="optimizationOptions">
+			<util:map>
+				<entry key="indy" value="true" value-type="boolean"/>
+			</util:map>
+		</property>
 	</bean>
 	
 

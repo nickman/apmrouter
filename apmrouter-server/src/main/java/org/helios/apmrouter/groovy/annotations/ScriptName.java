@@ -2,7 +2,7 @@
  * Helios, OpenSource Monitoring
  * Brought to you by the Helios Development Group
  *
- * Copyright 2013, Helios Development Group and individual contributors
+ * Copyright 2007, Helios Development Group and individual contributors
  * as indicated by the @author tags. See the copyright.txt file in the
  * distribution for a full listing of individual contributors.
  *
@@ -25,42 +25,25 @@
 package org.helios.apmrouter.groovy.annotations;
 
 import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
+import static java.lang.annotation.ElementType.*;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.util.concurrent.TimeUnit;
+
 
 /**
- * <p>Title: Scheduled</p>
- * <p>Description: Annotates a method in a groovy script that should be invoked on a schedule defined in the annotation instance</p> 
+ * <p>Title: ScriptName</p>
+ * <p>Description: Type level annotation to specify the name of the script.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.groovy.annotations.Scheduled</code></p>
+ * <p><code>org.helios.apmrouter.groovy.annotations.ScriptName</code></p>
  */
-@Target({ElementType.METHOD})
+@Target(value={CONSTRUCTOR,FIELD,LOCAL_VARIABLE,METHOD,PARAMETER,TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-public @interface Scheduled {
+public @interface ScriptName {
 	/**
-	 * The period in ms. at which the annotated method should be excuted
+	 * The name of this script
 	 */
-	public long period();
-	
-	/**
-	 * The unit of the period
-	 */
-	public TimeUnit unit() default TimeUnit.MILLISECONDS;
-	
-	/**
-	 * If true, task will be scheduled on a fixed delay, otherwise at a fixed rate
-	 */
-	public boolean fixedDelay() default true;
-	
-	/**
-	 * The zero parameter method name to call in order to cancel the scheduled task.
-	 * Can also be specified as <b><code>stop#</code></p> to prefix the <b><code>@Scheduled</code></p> 
-	 * annotated method name as a stop method. 
-	 */
-	public String stopOn() default "stop";
+	public String value();
 }

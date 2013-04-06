@@ -399,6 +399,27 @@ public class JMXHelper {
 		registerMBean(getHeliosMBeanServer(), objectName, mbean);
 	}
 	
+	/**
+	 * Unregisters the named MBean from the passed MBeanServer
+	 * @param server The MBeanServer to unregister from
+	 * @param objectName The ObjectName of the MBean to unregister
+	 */
+	public static void unregisterMBean(MBeanServer server, ObjectName objectName) {
+		try {
+			server.unregisterMBean(objectName);
+		} catch(Exception e) {
+			//throw new RuntimeException("Failed to register MBean [" + objectName + "]", e);
+			System.err.println("Failed to unregister MBean [" + objectName + "]");
+		}		
+	}
+	
+	/**
+	 * Unregisters the named MBean from the Helios MBeanServer
+	 * @param objectName The ObjectName of the MBean to unregister
+	 */
+	public static void unregisterMBean(ObjectName objectName) {
+		unregisterMBean(getHeliosMBeanServer(), objectName);
+	}
 	
 	
 	/**

@@ -16,7 +16,7 @@
 	<context:annotation-config/>
 	<context:mbean-export registration="replaceExisting" />
 
-	<bean id="NashServer" class="org.helios.nash.Server" init-method="start" destroy-method="stop">
+	<bean id="NashServer" class="org.helios.apmrouter.nash.Server" init-method="start" destroy-method="stop">
 		<constructor-arg value="0.0.0.0"/>
 		<constructor-arg value="2113"/>
 		<constructor-arg>

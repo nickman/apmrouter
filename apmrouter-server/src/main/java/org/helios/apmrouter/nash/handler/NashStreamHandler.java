@@ -22,23 +22,34 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.collections.delay;
+package org.helios.apmrouter.nash.handler;
+
+import java.util.Map;
+
+import org.jboss.netty.channel.ChannelHandler;
 
 /**
- * <p>Title: DelayChangeReceiver</p>
- * <p>Description: Defines a invocation point for {@link NotifyingDelay}s to invoke when their delay driver changes.</p> 
+ * <p>Title: NashStreamHandler</p>
+ * <p>Description: Defines a class that can supply zero, one or more channel handlers that will decode an incoming 
+ * STDIN stream from the nailgun client and then process the decoded content. If no handlers are supplied, the handler will
+ * will be called back with simple ChannelBuffers.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.collections.delay.DelayChangeReceiver</code></p>
- * @param <E> the type of elements expected to be emitting delay change notifications
+ * <p><code>org.helios.apmrouter.nash.handler.NashStreamHandler</code></p>
+ * @param <T> The type that the STDIN stream will be decoded to and called back with 
  */
 
-public interface DelayChangeReceiver<E extends NotifyingDelay<?>> {
+public interface NashStreamHandler<T> {
 	/**
-	 * Called by a {@link NotifyingDelay} when its delay driver changes
-	 * @param notifyingDelay The instance of the {@link NotifyingDelay} that changed 
-	 * @param updatedTimestamp The new timestamp to apply to the notifying delay once it has been dequeued 
+	 * Returns a map of channel handlers keyed by arbitrary (but informative) names that will be used to create the netty pipeline
+	 * that will decode the STDIN stream.
+	 * @return a map of channel handlers
 	 */
-	public void onDelayChange(E notifyingDelay, long updatedTimestamp);
+	public Map<String, ChannelHandler> getChannelHandlers();
 	
+	/**
+	 * Callback from the created pipeline when a STDIN stream decode event is complete
+	 * @param decodedEvent The decoded STDIN event
+	 */
+	public void onStreamDecode(T decodedEvent);
 }

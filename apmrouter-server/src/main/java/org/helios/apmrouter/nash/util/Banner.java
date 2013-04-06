@@ -22,23 +22,30 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.collections.delay;
+package org.helios.apmrouter.nash.util;
 
 /**
- * <p>Title: DelayChangeReceiver</p>
- * <p>Description: Defines a invocation point for {@link NotifyingDelay}s to invoke when their delay driver changes.</p> 
+ * <p>Title: Banner</p>
+ * <p>Description: Formats bannered console messages</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.collections.delay.DelayChangeReceiver</code></p>
- * @param <E> the type of elements expected to be emitting delay change notifications
+ * <p><code>org.helios.apmrouter.nash.util.Banner</code></p>
  */
 
-public interface DelayChangeReceiver<E extends NotifyingDelay<?>> {
+public class Banner {
 	/**
-	 * Called by a {@link NotifyingDelay} when its delay driver changes
-	 * @param notifyingDelay The instance of the {@link NotifyingDelay} that changed 
-	 * @param updatedTimestamp The new timestamp to apply to the notifying delay once it has been dequeued 
+	 * Wraps the passed object in a formatted banner
+	 * @param objs The objects to print inside the banner
+	 * @return a formated banner
 	 */
-	public void onDelayChange(E notifyingDelay, long updatedTimestamp);
-	
+	public static String banner(Object...objs) {
+		if(objs==null || objs.length<1) return "";
+		StringBuilder b = new StringBuilder("\n\t================================");
+		for(Object obj: objs) {
+			b.append("\n\t").append(obj);
+		}
+		b.append("\n\t================================");
+		return b.toString();
+		
+	}
 }

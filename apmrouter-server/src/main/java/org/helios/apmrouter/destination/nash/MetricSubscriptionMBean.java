@@ -22,23 +22,40 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.collections.delay;
+package org.helios.apmrouter.destination.nash;
 
 /**
- * <p>Title: DelayChangeReceiver</p>
- * <p>Description: Defines a invocation point for {@link NotifyingDelay}s to invoke when their delay driver changes.</p> 
+ * <p>Title: MetricSubscriptionMBean</p>
+ * <p>Description: </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.collections.delay.DelayChangeReceiver</code></p>
- * @param <E> the type of elements expected to be emitting delay change notifications
+ * <p><code>org.helios.apmrouter.destination.MetricSubscriptionMBean</code></p>
  */
 
-public interface DelayChangeReceiver<E extends NotifyingDelay<?>> {
+public interface MetricSubscriptionMBean {
+
 	/**
-	 * Called by a {@link NotifyingDelay} when its delay driver changes
-	 * @param notifyingDelay The instance of the {@link NotifyingDelay} that changed 
-	 * @param updatedTimestamp The new timestamp to apply to the notifying delay once it has been dequeued 
+	 * Returns the count of matches
+	 * @return the count of matches
 	 */
-	public void onDelayChange(E notifyingDelay, long updatedTimestamp);
-	
+	public abstract long getMatches();
+
+	/**
+	 * Returns the count of misses
+	 * @return the count of misses
+	 */
+	public abstract long getMisses();
+
+	/**
+	 * Returns the remote address of the subscriber 
+	 * @return the remote address of the subscriber
+	 */
+	public abstract String getRemote();
+
+	/**
+	 * Returns the subscriber's match pattern 
+	 * @return the subscriber's match pattern
+	 */
+	public abstract String getMatchPattern();
+
 }

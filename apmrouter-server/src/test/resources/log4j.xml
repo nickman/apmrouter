@@ -28,6 +28,18 @@
 			<param name="ConversionPattern" value="%-4r [%t] %-5p %c %x - %m%n" />
 		</layout>
 	</appender>   
+
+	<!-- 
+	<appender name="VFILE" class="org.apache.log4j.RollingFileAppender">
+		<param name="append" value="false"/>
+		<param name="maxFileSize" value="1024000"/>
+		<param name="File" value="va.log"/>
+		<param name="Threshold" value="DEBUG"/>
+		<layout class="org.apache.log4j.PatternLayout">
+			<param name="ConversionPattern" value="%-4r [%t] %-5p %c %x - %m%n" />
+		</layout>
+	</appender>   
+   -->
    
    <!-- 
 	 <appender name="SOCKET" class="org.apache.log4j.net.SocketAppender">
@@ -77,6 +89,13 @@
    <category name="org.apache.log4j">
      <priority value="FATAL"/>
    </category>
+   
+   <!--
+   <category name="org.helios.apmrouter.server.tracing.virtual" additivity="true">
+     <priority value="FATAL"/>
+     <appender-ref ref="VFILE"/>
+   </category>
+   -->
    
    
   <category name="org">

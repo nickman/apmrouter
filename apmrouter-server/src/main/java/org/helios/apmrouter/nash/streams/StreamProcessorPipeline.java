@@ -22,23 +22,43 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.collections.delay;
+package org.helios.apmrouter.nash.streams;
+
+import org.helios.apmrouter.nash.codecs.NashRequestDecoder;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.channel.ChannelPipeline;
 
 /**
- * <p>Title: DelayChangeReceiver</p>
- * <p>Description: Defines a invocation point for {@link NotifyingDelay}s to invoke when their delay driver changes.</p> 
+ * <p>Title: StreamProcessorPipeline</p>
+ * <p>Description: A stream processor that receives channel buffers from the {@link NashRequestDecoder} and processes
+ * them in its own pipeline, delivering the decoded output to the request handler.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.collections.delay.DelayChangeReceiver</code></p>
- * @param <E> the type of elements expected to be emitting delay change notifications
+ * <p><code>org.helios.apmrouter.nash.streams.StreamProcessorPipeline</code></p>
  */
 
-public interface DelayChangeReceiver<E extends NotifyingDelay<?>> {
+public class StreamProcessorPipeline {
+	/** The stream processor's pipeline */
+	protected final ChannelPipeline pipeline;
+
 	/**
-	 * Called by a {@link NotifyingDelay} when its delay driver changes
-	 * @param notifyingDelay The instance of the {@link NotifyingDelay} that changed 
-	 * @param updatedTimestamp The new timestamp to apply to the notifying delay once it has been dequeued 
+	 * Creates a new StreamProcessorPipeline
+	 * @param pipeline The pipeline that will process the stream
 	 */
-	public void onDelayChange(E notifyingDelay, long updatedTimestamp);
+	public StreamProcessorPipeline(ChannelPipeline pipeline) {
+		this.pipeline = pipeline;
+	}
+
+	/**
+	 * Returns the stream processor's pipeline
+	 * @return the stream processor's pipeline
+	 */
+	ChannelPipeline getPipeline() {
+		return pipeline;
+	}
 	
+	public void writeStdInChunk(ChannelBuffer channelBuffer) { 
+		
+		
+	}
 }

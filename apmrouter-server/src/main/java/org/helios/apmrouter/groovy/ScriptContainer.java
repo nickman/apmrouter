@@ -22,23 +22,20 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.collections.delay;
+package org.helios.apmrouter.groovy;
 
 /**
- * <p>Title: DelayChangeReceiver</p>
- * <p>Description: Defines a invocation point for {@link NotifyingDelay}s to invoke when their delay driver changes.</p> 
+ * <p>Title: ScriptContainer</p>
+ * <p>Description: A container for a compiled script and associated annotation configurations</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.collections.delay.DelayChangeReceiver</code></p>
- * @param <E> the type of elements expected to be emitting delay change notifications
+ * <p><code>org.helios.apmrouter.groovy.ScriptContainer</code></p>
  */
 
-public interface DelayChangeReceiver<E extends NotifyingDelay<?>> {
-	/**
-	 * Called by a {@link NotifyingDelay} when its delay driver changes
-	 * @param notifyingDelay The instance of the {@link NotifyingDelay} that changed 
-	 * @param updatedTimestamp The new timestamp to apply to the notifying delay once it has been dequeued 
-	 */
-	public void onDelayChange(E notifyingDelay, long updatedTimestamp);
+public class ScriptContainer {
+
 	
+	public void dispose() {
+		
+	}
 }

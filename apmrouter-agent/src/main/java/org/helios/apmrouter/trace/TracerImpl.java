@@ -49,7 +49,7 @@ public class TracerImpl implements ITracer {
 	/** The originating agent of the metrics created by this tracer */
 	protected final String agent;
 	/** The collection submitter */
-	protected final MetricSubmitter submitter; 
+	protected MetricSubmitter submitter; 
 	
 	
 	
