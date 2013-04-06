@@ -94,12 +94,7 @@ public class PingRequestHandler extends AbstractAgentRequestHandler implements T
 			pingTimes.insert(System.nanoTime()-pingKey);
 			break;
 		case PING:
-			sessionTimeoutMap.put(remoteAddress.toString(), remoteAddress);
-			String agentAddr = "AgentConnection/" + remoteAddress; 
-			if(channelGroup.add(channel, agentAddr)) {
-				// handle new channel
-				info("Agent Connected from [", agentAddr, "]");
-			}
+			sessionTimeoutMap.put(remoteAddress.toString(), remoteAddress);			
 			buff.resetReaderIndex();
 			buff.readByte();
 			final int byteCount = buff.readInt();
@@ -109,7 +104,7 @@ public class PingRequestHandler extends AbstractAgentRequestHandler implements T
 			ping.writeByte(OpCode.PING_RESPONSE.op());
 			ping.writeInt(byteCount);
 			ping.writeBytes(bytes);
-			channel.write(ping,remoteAddress).addListener(new ChannelFutureListener() {
+			getChannelForRemote(channel, remoteAddress).write(ping,remoteAddress).addListener(new ChannelFutureListener() {
 			//getChannelForRemote(channel, remoteAddress).write(ping,remoteAddress).addListener(new ChannelFutureListener() {
 				public void operationComplete(ChannelFuture future) throws Exception {
 					if(future.isSuccess()) {
@@ -120,9 +115,6 @@ public class PingRequestHandler extends AbstractAgentRequestHandler implements T
 					}
 				}
 			});
-			
-			
-			
 			break;							
 		}
 
