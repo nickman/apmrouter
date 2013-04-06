@@ -26,6 +26,7 @@ package org.helios.apmrouter.groovy;
 
 import groovy.lang.Binding;
 import groovy.lang.GroovyClassLoader;
+import groovy.lang.GroovyShell;
 import groovy.lang.GroovySystem;
 import groovy.lang.MissingPropertyException;
 import groovy.lang.Script;
@@ -361,31 +362,23 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 		if(scriptName!=null && scriptName.trim().isEmpty()) scriptName=null;
 		//else scriptName = scriptName.trim();
 		if(source==null || source.length()==0) throw new IllegalArgumentException("The passed source was null or empty", new Throwable());	
-		source = source.replace("\\n", "\n");
+		//source = source.replace("\\n", "\n");
 		Script script = null;
 		String name = scriptName!=null ? scriptName.trim() : "groovy#" + nameSerial.incrementAndGet();
-		GroovyClassLoader gcl = new GroovyClassLoader(Thread.currentThread().getContextClassLoader(), compilerConfiguration);
+//		GroovyClassLoader gcl = new GroovyClassLoader(Thread.currentThread().getContextClassLoader(), compilerConfiguration);
 		try {
-			//script = new GroovyShell(compilerConfiguration).parse(source, name);
-			Class<?> clazz = gcl.parseClass(source);
-			ScriptName sn = clazz.getAnnotation(ScriptName.class);
+			script = new GroovyShell(compilerConfiguration).parse(source, name);
+//			Class<?> clazz = gcl.parseClass(source);
+			ScriptName sn = script.getClass().getAnnotation(ScriptName.class);
 			if(sn!=null && !sn.value().trim().isEmpty()) {
 				name = sn.value().trim();
 			}
-			info("Compiled script named [" , name , "]. Class is: [", clazz.getName(), "]");
-			Class<?> p = clazz.getSuperclass();
-			while(p!=Object.class) {
-				info("Compiled Parent:", p.getName());
-				p = p.getSuperclass();
-			}
-			for(Class<?> iface: clazz.getInterfaces()) {
-				info("Compiled Iface:", iface.getName());
-			}
+			info("Compiled script named [" , name , "]. Class is: [", script.getClass().getName(), "]");
 		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
 			throw new RuntimeException(ex);
 		} finally {
-			try { gcl.close(); } catch (Exception ex) {}
+//			try { gcl.close(); } catch (Exception ex) {}
 		}
 		Binding bindings = getBindings();
 		script.setBinding(bindings);

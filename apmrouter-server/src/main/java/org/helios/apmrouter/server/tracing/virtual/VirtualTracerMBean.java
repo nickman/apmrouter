@@ -26,17 +26,21 @@ package org.helios.apmrouter.server.tracing.virtual;
 
 import java.util.Date;
 
-import org.helios.apmrouter.trace.MetricSubmitter;
-
 /**
  * <p>Title: VirtualTracerMBean</p>
- * <p>Description: </p> 
+ * <p>Description: MBean interface for {@link VirtualTracer}s</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.tracing.VirtualTracerMBean</code></p>
  */
 
 public interface VirtualTracerMBean  {
+	
+	/** The virtual tracer availability metric name */
+	public static final CharSequence AVAIL_METRIC_NAME = "Availability";
+	/** The virtual tracer namespace prefix */
+	public static final CharSequence TRACER_NAMESPACE = "virtualtracers";
+
 
 	/**
 	 * Returns the activity highwater timestamp

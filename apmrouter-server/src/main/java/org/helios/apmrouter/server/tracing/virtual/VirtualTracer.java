@@ -36,7 +36,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.helios.apmrouter.collections.delay.NotifyingDelay;
+import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.trace.MetricSubmitter;
 import org.helios.apmrouter.trace.TracerImpl;
 
@@ -64,6 +67,9 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	protected final String name;
 	/** The delegate metric submitter */
 	protected final MetricSubmitter _submitter;
+	/** the availability name space */
+	protected final CharSequence[] avns;
+	
 
 	/** The number of sent metrics */
 	protected final AtomicLong sentMetrics = new AtomicLong(0L);
@@ -77,6 +83,9 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 		VirtualState priorState = tracerState.getAndSet(state);
 		if(priorState!=state) {
 			receiver.onTracerStateChange(name, state, priorState);
+			if(state.ordinal() >= VirtualState.SOFTDOWN.ordinal()) {
+				traceAvailability(false);
+			}
 		}
 	}
 	
@@ -111,13 +120,15 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	 * @param submitter The physical metric submitter doing the submitting
 	 */
 	public VirtualTracer(String host, String agent, String tracerName, long timeoutPeriod, MetricSubmitter submitter) {
-		super(host, agent, null);		
+		super(host, agent, null);			
 		this.submitter = this;
 		_submitter = submitter;
 		serial = serialFactory.incrementAndGet();
 		name = tracerName;		
+		avns = new CharSequence[]{TRACER_NAMESPACE, name};
 		this.timeoutPeriod = timeoutPeriod;
 		touched = new AtomicLong(System.currentTimeMillis());
+		traceAvailability(true);
 	}
 	
 	
@@ -161,9 +172,13 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 			setState(VirtualState.UP);			
 		} else if(state==VirtualState.INIT) {
 			setState(VirtualState.UP);
-		}		
-		receiver.onDelayChange(this, System.currentTimeMillis());
+		}
+		
+		traceAvailability(true);
+		receiver.onDelayChange(this, System.currentTimeMillis());		
 	}
+	
+	
 	
 	/**
 	 * {@inheritDoc}
@@ -280,6 +295,14 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	public void clearDelayChangeReceiver() {
 		setState(VirtualState.SOFTDOWN);
 		receiver = null;		
+	}
+	
+	/**
+	 * Traces the virtual tracer availability, bypassing the virtual tracer's internal controls
+	 * @param up true to mark the virtual tracer up, false to mark it down
+	 */
+	protected void traceAvailability(boolean up) {
+		_submitter.submit(ICEMetric.trace(up ? 1L : 0L, host, agent, AVAIL_METRIC_NAME, MetricType.LONG_GAUGE, avns));
 	}
 	
 	/**
