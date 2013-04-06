@@ -155,7 +155,7 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	@Override
 	public void touch() {
 		VirtualState state = tracerState.get(); 
-		if(!state.canTrace()) throw new IllegalStateException("This virtual tracer [" + name + "] for VirtualAgent [" + host + ":" + agent + "] has been invalidated", new Throwable());		
+		if(!state.canTrace()) throw new InvalidatedVirtualTracerException("This virtual tracer [" + name + "] for VirtualAgent [" + host + ":" + agent + "] has been invalidated", new Throwable());		
 		//touched.set(System.currentTimeMillis());
 		if(state==VirtualState.SOFTDOWN) {
 			setState(VirtualState.UP);			
@@ -190,7 +190,7 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	 * Indicates if this virtual tracer is expired
 	 * @return true if this virtual tracer is expired, false otherwise
 	 */
-	public boolean isExpired() {
+	public boolean isInvalidated() {
 		return tracerState.get()==HARDDOWN;
 	}
 	
@@ -200,7 +200,7 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	 */
 	@Override
 	public long getTimeToExpiry() {
-		if(isExpired()) return -1L;
+		if(isInvalidated()) return -1L;
 		long d = System.currentTimeMillis()-touched.get();			
 		return timeoutPeriod - d;			
 	}

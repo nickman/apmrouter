@@ -25,45 +25,47 @@
 package org.helios.apmrouter.server.tracing.virtual;
 
 /**
- * <p>Title: VirtualState</p>
- * <p>Description: Enumerates the possible states of {@link VirtualTracer}s and {@link VirtualAgent}s </p> 
+ * <p>Title: InvalidatedVirtualTracerException</p>
+ * <p>Description: Exception thrown when an invalidated virtual tracer is used to trace.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.server.tracing.VirtualTracerState</code></p>
+ * <p><code>org.helios.apmrouter.server.tracing.virtual.InvalidatedVirtualTracerException</code></p>
  */
 
-public enum VirtualState {
-	/** The virtual instance is up but has not seen any activity yet */
-	INIT(true),
-	/** The virtual instance is up and active */
-	UP(true),
-	/** The virtual instance has timed out but is still valid  */
-	SOFTDOWN(true),
-	/** The virtual agent has timed so this instance has been invalidated */
-	HARDDOWN(false);
-	
-	private VirtualState(boolean canTrace) {
-		this.canTrace = canTrace;
-	}
-	
-	private final boolean canTrace;
-	
+public class InvalidatedVirtualTracerException extends IllegalStateException {
+
+	/**  */
+	private static final long serialVersionUID = -6909270454771295634L;
+
 	/**
-	 * Returns the VirtualState for the passed string, trimming and uppercasing the passed value
-	 * @param name The name to decode
-	 * @return the decoded VirtualState
+	 * Creates a new InvalidatedVirtualTracerException
 	 */
-	public static VirtualState value(CharSequence name) {
-		if(name==null || name.toString().trim().isEmpty()) throw new IllegalArgumentException("The passed VirtualState name was null or empty", new Throwable());
-		return valueOf(name.toString().trim().toUpperCase());
+	public InvalidatedVirtualTracerException() {		
 	}
-	
+
 	/**
-	 * Indicates if tracing is allowed when in this state
-	 * @return true if tracing is allowed when in this state, false otherwise
+	 * Creates a new InvalidatedVirtualTracerException
+	 * @param s The exception message
 	 */
-	public boolean canTrace() {
-		return canTrace;
+	public InvalidatedVirtualTracerException(String s) {
+		super(s);
 	}
+
+	/**
+	 * Creates a new InvalidatedVirtualTracerException
+	 * @param cause The underlying cause
+	 */
+	public InvalidatedVirtualTracerException(Throwable cause) {
+		super(cause);
+	}
+
+	/**
+	 * Creates a new InvalidatedVirtualTracerException
+	 * @param message The exception message
+	 * @param cause The underlying cause
+	 */
+	public InvalidatedVirtualTracerException(String message, Throwable cause) {
+		super(message, cause);
+	}
+
 }
- 

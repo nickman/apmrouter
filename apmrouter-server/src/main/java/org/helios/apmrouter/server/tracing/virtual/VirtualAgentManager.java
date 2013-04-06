@@ -167,6 +167,7 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 		if(newState==null) throw new IllegalArgumentException("The passed virtual agent new state was null", new Throwable());
 		String message = new StringBuilder("The virtual agent [").append(agent.getHost()).append("/").append(agent.getAgent()).append("] changed state from [").append(priorState==null ? null : priorState.name()).append("] to [").append(newState.name()).append("]").toString();
 		AttributeChangeNotification notif = new AttributeChangeNotification(new String[]{agent.getHost(), agent.getAgent()}, nserial.incrementAndGet(), System.currentTimeMillis(), message, "State", String.class.getName(), priorState==null ? null : priorState.name(), newState.name());
+		notif.setUserData(AGENT_STATE_CHANGE_NOTIF);
 		notificationPublisher.sendNotification(notif);
 	}
 	
@@ -182,6 +183,7 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 		if(newState==null) throw new IllegalArgumentException("The passed virtual tracer new state was null", new Throwable());
 		String message = new StringBuilder("The virtual tracer [").append(agent.getHost()).append("/").append(agent.getAgent()).append("/").append(tracerName).append("] changed state from [").append(priorState==null ? null : priorState.name()).append("] to [").append(newState.name()).append("]").toString();
 		AttributeChangeNotification notif = new AttributeChangeNotification(new String[]{agent.getHost(), agent.getAgent(), tracerName}, nserial.incrementAndGet(), System.currentTimeMillis(), message, "State", String.class.getName(), priorState==null ? null : priorState.name(), newState.name());
+		notif.setUserData(TRACER_STATE_CHANGE_NOTIF);
 		notificationPublisher.sendNotification(notif);
 	}
 	
