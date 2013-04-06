@@ -53,6 +53,8 @@ public class NewElementTriggers {
 	public static final BlockingQueue<Object[]> metricStateChangeQueue = new ArrayBlockingQueue<Object[]>(10000, true);
 	/** A queue to write new metric events into */
 	public static final BlockingQueue<Object[]> newMetricQueue = new ArrayBlockingQueue<Object[]>(10000, true);
+	/** A queue to write real time data events into */
+	public static final BlockingQueue<Object[]> realTimeDataQueue = new ArrayBlockingQueue<Object[]>(10000, false);
 
 	
 

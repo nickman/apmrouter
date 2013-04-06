@@ -63,7 +63,13 @@ public interface MetricURISubscriptionServiceMXBean {
 	 * @return the number of errors processing the metric state change queued events
 	 */
 	public long getMetricStateChangeQueueProcessingErrors();
-
+	
+	/**
+	 * Returns the number of errors processing the real-time data event queue
+	 * @return the number of errors processing the real-time data event queue
+	 */
+	public long getRealTimeDataQueueProcessingErrors();
+	
 	/**
 	 * Returns the number of pending new metric events in the queue
 	 * @return the number of pending new metric events in the queue
@@ -75,6 +81,12 @@ public interface MetricURISubscriptionServiceMXBean {
 	 * @return the number of metric state change events in the queue
 	 */
 	public long getMetricStateChangeEventQueueDepth();
+	
+	/**
+	 * Returns the number of real-time data events in the queue
+	 * @return the number of real-time data events in the queue
+	 */
+	public long getRealTimeDataEventQueueDepth();	
 	
 	
 	/**
@@ -112,6 +124,15 @@ public interface MetricURISubscriptionServiceMXBean {
 	 * @return the number of broadcast new metric events"
 	 */
 	public long getNewMetricBroadcasts();
+	
+	/**
+	 * Returns the number of broadcast real-time data events"
+	 * @return the number of broadcast real-time data events"
+	 */
+	public long getRealTimeDataEventBroadcasts();
+	
+	
+	
 
 	/**
 	 * Returns the rolling average of the last 50 new metric event processing elapsed times in ns.
@@ -136,6 +157,32 @@ public interface MetricURISubscriptionServiceMXBean {
 	 * @return the last metric event processing elapsed time in ms.
 	 */
 	public long getLastNewMetricProcessingTimeMs();
+	
+	//===============================================================
+	
+	/**
+	 * Returns the rolling average of the last 50 real-time data event processing elapsed times in ns.
+	 * @return the rolling average of the last 50 real-time data event processing elapsed times in ns.
+	 */
+	public long getAverageRealTimeDataProcessingTimeNs();
+	
+	/**
+	 * Returns the rolling average of the last 50 real-time data event processing elapsed times in ms.
+	 * @return the rolling average of the last 50 real-time data event processing elapsed times in ms.
+	 */
+	public long getAverageRealTimeDataProcessingTimeMs();
+	
+	/**
+	 * Returns the last real-time data event processing elapsed time in ns.
+	 * @return the last real-time data event processing elapsed time in ns.
+	 */
+	public long getLastRealTimeDataProcessingTimeNs();
+	
+	/**
+	 * Returns the last real-time data event processing elapsed time in ms.
+	 * @return the last real-time data event processing elapsed time in ms.
+	 */
+	public long getLastRealTimeDataProcessingTimeMs();
 	
 	//===============================================================
 
@@ -171,10 +218,18 @@ public interface MetricURISubscriptionServiceMXBean {
 	public long getNewMetricEvents();
 	
 	/**
+	 * Returns the total number of real-time data events processed
+	 * @return the total number of real-time data events processed
+	 */
+	public long getRealTimeDataEvents(); 
+	
+	/**
 	 * Returns the total number of metric state change events received
 	 * @return the total number of metric state change events received
 	 */
 	public long getMetricStateChangeEvents();	
+	
+	
 	
 	/**
 	 * Resets the service mterics.

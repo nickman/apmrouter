@@ -37,12 +37,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.MXBean;
 import javax.sql.DataSource;
 
 import org.apache.log4j.Logger;
+import org.cliffc.high_scale_lib.Counter;
+import org.cliffc.high_scale_lib.NonBlockingHashMapLong;
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.catalog.EntryStatus;
 import org.helios.apmrouter.catalog.domain.Metric;
@@ -164,6 +167,9 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	/** A list of MetricURIBitMaskContainers */
 	protected static final List<MetricURIBitMaskContainer> subscriptionsByBitMask = new CopyOnWriteArrayList<MetricURIBitMaskContainer>();
 	
+	/** A map representing the superset of subscribed-to metric ids as keys and a set of subscribers as the value */
+	protected static final NonBlockingHashMapLong<Set<MetricURISubscription>> metricIdSuperSet = new NonBlockingHashMapLong<Set<MetricURISubscription>>(false); 
+	
 
 	
 	/** Static class logger */
@@ -194,6 +200,17 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 		if(index==-1) return null;
 		MetricURIBitMaskContainer container = subscriptionsByBitMask.get(index);
 		return Collections.unmodifiableSet(container.getValue()).iterator();		
+	}
+	
+	
+	
+	/**
+	 * Returns a set of MetricURISubscriptions that are subscribed to the passed metric id 
+	 * @param id The metric id
+	 * @return a set of MetricURISubscriptions or null if there were no subscriptions for the passed id 
+	 */
+	public static Set<MetricURISubscription> getSubscriptionsForMetric(long id) {
+		return metricIdSuperSet.get(id);		
 	}
  
 	/**
@@ -267,7 +284,31 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	 */
 	public void addMetricId(long metricId) {
 		metricIds.add(metricId);
+		Set<MetricURISubscription> subs = metricIdSuperSet.get(metricId);
+		if(subs==null) {
+			synchronized(metricIdSuperSet) {
+				subs = metricIdSuperSet.get(metricId);
+				if(subs==null) {
+					subs = new CopyOnWriteArraySet<MetricURISubscription>();
+					metricIdSuperSet.put(metricId, subs);
+				}
+			}
+		}
+		subs.add(this);
 	}
+	
+	/**
+	 * Adds the metric ids of the passed metrics to this subscriptions metricId tracking
+	 * @param metrics the metrics initially determined to be associated to this subscription
+	 */
+	void addMetricIds(Collection<Metric> metrics) {
+		for(Metric metric: metrics) {
+			// FIXME: Optimize this:
+			//metricIds.add(metric.getMetricId());
+			addMetricId(metric.getMetricId());
+		}
+	}
+	
 	
 	/**
 	 * Removes the passed metric Id from the subscription's metric ID set
@@ -275,6 +316,15 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	 */
 	public void removeMetricId(long metricId) {
 		metricIds.remove(metricId);
+		Set<MetricURISubscription> subs = metricIdSuperSet.get(metricId);
+		if(subs!=null) {
+			synchronized(subs) {
+				subs.remove(this);
+				if(subs.isEmpty()) {
+					metricIdSuperSet.remove(metricId);
+				}
+			}
+		}
 	}
 	
 	/**
@@ -451,6 +501,17 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	}
 	
 	/**
+	 * Sends a metric-data update to all subscribed channels
+	 * @param event The real-time data event 
+	 */
+	protected void sendRealTimeDataEvent(Object[] event) {
+		for(Channel channel: subscribedChannels) {
+			((ChannelJsonResponsePair)channel).write(event, MetricURIEvent.DATA.getEventName(), OpCode.ON_METRIC_URI_EVENT);
+		}
+	}
+	
+	
+	/**
 	 * Sends the subscriber a metric exit when a state change causes a metric to be removed from the metric id set
 	 * @param metricId The metric id to remove
 	 */
@@ -475,15 +536,6 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 		}
 	}
 	
-	/**
-	 * Adds the metric ids of the passed metrics to this subscriptions metricId tracking
-	 * @param metrics the metrics initially determined to be associated to this subscription
-	 */
-	void addMetricIds(Collection<Metric> metrics) {
-		for(Metric metric: metrics) {
-			metricIds.add(metric.getMetricId());
-		}
-	}
 	
 	/**
 	 * Determines if this subscription would still be interested in a metric when it transitions to the passed state
