@@ -147,8 +147,12 @@ public class UDPSender extends AbstractSender  {
 							metricCatalog.setToken(fqn, token);		
 							processedTokens.incrementAndGet();
 							break;
-						case ON_METRIC_URI_EVENT:
-							onMetricURIEvent(buff);
+						case ON_METRIC_URI_EVENT:											
+							onMetricURIEvent(buff); 
+							break;						
+						case METRIC_URI_SUB_CONFIRM:
+						case METRIC_URI_UNSUB_CONFIRM:
+							onMetricURIOpResponse(buff);
 						default:
 							break;
 					}

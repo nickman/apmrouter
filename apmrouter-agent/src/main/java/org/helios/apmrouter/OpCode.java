@@ -46,29 +46,29 @@ public enum OpCode {
 	/** A synchronous send of a single metric payload */
 	SEND_METRIC_DIRECT,
 	/** A direct metric trace handshake */
-	CONFIRM_METRIC,	
+	CONFIRM_METRIC(SEND_METRIC_DIRECT),	
 	/** A synchronous send of a ping */
 	PING,		
 	/** A direct metric trace handshake */
-	PING_RESPONSE,
+	PING_RESPONSE(PING),
 	/** Inquiry as to the identity of a connecting agent */
 	WHO,
 	/** Response as to the identity of a connecting agent */
-	WHO_RESPONSE,
+	WHO_RESPONSE(WHO),
 	/** Indicates a client has started and is announcing itself */
 	HELLO,
 	/** A HELLO handshake from the server */
-	HELLO_CONFIRM,		
+	HELLO_CONFIRM(HELLO),		
 	/** Indicates a client is about to disconnect */
 	BYE,
 	/** Directive from the server to flush metric catalog because a reset has occured */
 	RESET,
 	/** Confirm from the agent that the reset is complete */
-	RESET_CONFIRM,
+	RESET_CONFIRM(RESET),
 	/** A JMX request to the agent's MBeanServer */
 	JMX_REQUEST,
 	/** A response to a JMX request */
-	JMX_RESPONSE,
+	JMX_RESPONSE(JMX_REQUEST),
 	/** A JMX notification to a server listener */
 	JMX_NOTIFICATION,
 	/** Indicator sent to the agent that the server has closed the MBeanServerConnection but not the channel */
@@ -76,17 +76,26 @@ public enum OpCode {
 	/** Inquiry from server about available MBeanServers */
 	JMX_MBS_INQUIRY,
 	/** Response from agent to inquiry from server about available MBeanServers */
-	JMX_MBS_INQUIRY_RESPONSE,
+	JMX_MBS_INQUIRY_RESPONSE(JMX_MBS_INQUIRY),
 	/** MetricURI subscription request */
 	METRIC_URI_SUBSCRIBE,
+	/** MetricURI subscription confirm */
+	METRIC_URI_SUB_CONFIRM(METRIC_URI_SUBSCRIBE),	
 	/** MetricURI subscription cancel */
 	METRIC_URI_UNSUBSCRIBE,
+	/** MetricURI subscription cancel confirm */
+	METRIC_URI_UNSUB_CONFIRM(METRIC_URI_UNSUBSCRIBE),	
 	/** MetricURI subscription event */
 	ON_METRIC_URI_EVENT,
 	/** Starts a SubDestination subscription */
 	START_SUB_DEST,
+	/** Starts a SubDestination subscription */
+	START_SUB_DEST_CONFIRM(START_SUB_DEST),	
 	/** Stops a SubDestination subscription */
-	STOP_SUB_DEST;
+	STOP_SUB_DEST,
+	/** Stops a SubDestination subscription */
+	STOP_SUB_DEST_CONFIRM(STOP_SUB_DEST);
+	
 	
 	
 	public static void main(String[] args) {
@@ -95,18 +104,56 @@ public enum OpCode {
 		}
 	}
 	
+	private OpCode() {
+		code = (byte)ordinal();
+	}
+	
+	private OpCode(OpCode req) {
+		code = (byte)(req.ordinal()*-1);
+	}
 	
 	
+	/** The byte representation of this OpCode */
+	private final byte code;
+	
+	/**
+	 * Returns the byte representation of this OpCode
+	 * @return the byte representation of this OpCode
+	 */
+	public byte getCode() {
+		return code;
+	}
+	
+	/** Map of OpCodes keyed by the byte code */
+	private static final Map<Byte, OpCode> BYTE2ENUM;
 	/** Map of OpCodes keyed by the ordinal */
-	private static final Map<Byte, OpCode> ORD2ENUM;
+	private static final Map<Integer, OpCode> ORD2ENUM;
 	
 	static {
 		Map<Byte, OpCode> tmp = new HashMap<Byte, OpCode>(OpCode.values().length);
+		Map<Integer, OpCode> itmp = new HashMap<Integer, OpCode>(OpCode.values().length);
 		for(OpCode op: OpCode.values()) {
-			tmp.put((byte)op.ordinal(), op);
+			itmp.put(op.ordinal(), op);
+			OpCode prior = tmp.put(op.code, op);			
+			if(prior!=null){ 
+				throw new RuntimeException("Duplicate Byte Code for Ops: [" + op + "] and [" + prior + "]", new Throwable());
+			}
 		}
-		ORD2ENUM = Collections.unmodifiableMap(tmp);
+		BYTE2ENUM = Collections.unmodifiableMap(tmp);
+		ORD2ENUM = Collections.unmodifiableMap(itmp);
 	}	
+	
+	/**
+	 * Decodes the passed byte code to a OpCode.
+	 * Throws a runtime exception if the byte code is invalud
+	 * @param byteCode The byte code to decode
+	 * @return the decoded OpCode
+	 */
+	public static OpCode valueOf(byte byteCode) {
+		OpCode op = BYTE2ENUM.get(byteCode);
+		if(op==null) throw new IllegalArgumentException("The passed byteCode [" + byteCode + "] is not a valid OpCode byteCode", new Throwable());
+		return op;
+	}
 	
 	/**
 	 * Decodes the passed ordinal to a OpCode.
@@ -114,11 +161,12 @@ public enum OpCode {
 	 * @param ordinal The ordinal to decode
 	 * @return the decoded OpCode
 	 */
-	public static OpCode valueOf(byte ordinal) {
+	public static OpCode ordinal(int ordinal) {
 		OpCode op = ORD2ENUM.get(ordinal);
 		if(op==null) throw new IllegalArgumentException("The passed ordinal [" + ordinal + "] is not a valid OpCode ordinal", new Throwable());
 		return op;
 	}
+	
 	
 	/**
 	 * Indicates if the passed byte represents a valid OpCode
@@ -126,7 +174,7 @@ public enum OpCode {
 	 * @return true if the passed byte represents a valid OpCode, false otherwise
 	 */ 
 	public static boolean isOpCode(byte op) {
-		return ORD2ENUM.containsKey(op);
+		return BYTE2ENUM.containsKey(op);
 	}
 	
 	/**
@@ -134,7 +182,7 @@ public enum OpCode {
 	 * @return the ordinal as a byte
 	 */
 	public byte op() {
-		return (byte)ordinal();
+		return code;
 	}
 
 	/**

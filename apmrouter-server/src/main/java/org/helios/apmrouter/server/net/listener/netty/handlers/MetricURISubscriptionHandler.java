@@ -31,6 +31,7 @@ import org.helios.apmrouter.dataservice.json.JsonResponse;
 import org.helios.apmrouter.dataservice.json.catalog.MetricURI;
 import org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionService;
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jmx.export.annotation.ManagedMetric;
@@ -105,17 +106,32 @@ public class MetricURISubscriptionHandler extends AbstractAgentRequestHandler {
 	 */
 	protected void subscribe(ChannelBuffer buff, Channel channel, boolean sub) {
 		try {
-			long rid = buff.readLong();
+			final long rid = buff.readLong();
 			int uriLength = buff.readInt();
 			byte[] uriBytes = new  byte[uriLength];
 			buff.readBytes(uriBytes);
 			String uri = new String(uriBytes);
 			JsonResponse responder = new JsonResponse(rid, "sub");
+			final ChannelBuffer response = ChannelBuffers.buffer(10); // opCode(1) + success(1) + rid(8) = 10					
 			if(sub) {
-				subService.subscribeMetricURI(MetricURI.getMetricURI(uri), responder, channel);
+				response.writeByte(OpCode.METRIC_URI_SUB_CONFIRM.op());
+				try {
+					subService.subscribeMetricURI(MetricURI.getMetricURI(uri), responder, channel);
+					response.writeByte(1);
+				} catch (Exception ex) {
+					response.writeByte(0);
+				}				
 			} else {
-				subService.cancelMetricURISubscription(MetricURI.getMetricURI(uri), responder, channel);
+				response.writeByte(OpCode.METRIC_URI_UNSUB_CONFIRM.op());
+				try {
+					subService.cancelMetricURISubscription(MetricURI.getMetricURI(uri), responder, channel);
+					response.writeByte(1);
+				} catch (Exception ex) {
+					response.writeByte(0);
+				}
 			}
+			response.writeLong(rid);
+			channel.write(response);
 		} catch (Exception ex) {
 			warn("Failed to subscribe to MetricURI from channel [", channel, "]", ex);
 		}

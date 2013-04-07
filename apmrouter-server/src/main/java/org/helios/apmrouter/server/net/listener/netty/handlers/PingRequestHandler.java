@@ -144,7 +144,7 @@ public class PingRequestHandler extends AbstractAgentRequestHandler implements T
 	 */
 	@Override
 	public void onTimeout(String key, SocketAddress value) {
-		info("Client Session Timed Out [", key, "]");		
+		debug("Client Session Timed Out [", key, "]");		
 	}
 	
 	/**
