@@ -74,7 +74,7 @@ public class WARDeployer {
 		values.put("contextPath", "/" + webAppName);
 		values.put("extractWAR", !exploded);
 		values.put("war", warFile.getAbsolutePath());		
-		values.put("server", new RuntimeBeanReference("HttpServer"));
+		//values.put("server", new RuntimeBeanReference("HttpServer"));
 		if(appCtx.containsBeanDefinition("JettyConfigs")) {
 			values.put("configurations", new RuntimeBeanReference("JettyConfigs"));
 		}
