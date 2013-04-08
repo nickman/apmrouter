@@ -111,7 +111,7 @@ public class ApplicationContextDeployer {
 				appCtx.refresh();
 				//jimmyTheJettyWebApps(appCtx, cl);
 				if(hasWars) {
-					jiggleTheHandlers(appCtx, cl);
+					//jiggleTheHandlers(appCtx, cl);
 				}
 				return appCtx;
 			} finally {

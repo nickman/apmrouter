@@ -78,7 +78,13 @@ public class WARDeployer {
 		if(appCtx.containsBeanDefinition("JettyConfigs")) {
 			values.put("configurations", new RuntimeBeanReference("JettyConfigs"));
 		}
+		if(appCtx.containsBeanDefinition("sessionHandler")) {
+			values.put("sessionHandler", new RuntimeBeanReference("sessionHandler"));
+		}
+		
 		values.put("logUrlOnStart", true);
+		
+		
 		beanDef.setPropertyValues(new MutablePropertyValues(values));
 		appCtx.registerBeanDefinition(warFile.getName().toLowerCase(), beanDef);
 		// need to add the war beanDef to the handlers list		
@@ -89,6 +95,9 @@ public class WARDeployer {
 			BeanDefinition jettyJmxEx = appCtx.getBeanDefinition("JettyJMXExporter");
 			Map<TypedStringValue,RuntimeBeanReference> map = (Map<TypedStringValue,RuntimeBeanReference>) jettyJmxEx.getPropertyValues().getPropertyValue("beans").getValue();
 			map.put(new TypedStringValue("org.helios.apmrouter.jetty:service=WebApp,name=" + webAppName), new RuntimeBeanReference(warFile.getName().toLowerCase()));
+			if(appCtx.containsBeanDefinition("sessionHandler")) {
+				map.put(new TypedStringValue("org.helios.apmrouter.jetty:service=SessionHandler,name=" + webAppName), new RuntimeBeanReference(warFile.getName().toLowerCase()));
+			}
 		}
 		
 	}
