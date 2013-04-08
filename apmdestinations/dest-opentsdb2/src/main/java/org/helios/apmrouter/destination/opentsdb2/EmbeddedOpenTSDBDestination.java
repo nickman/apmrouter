@@ -28,10 +28,11 @@ import java.util.Collection;
 
 import net.opentsdb.core.DataPointSet;
 import net.opentsdb.core.datastore.Datastore;
-import net.opentsdb.core.exception.DatastoreException;
 
 import org.helios.apmrouter.destination.BaseDestination;
 import org.helios.apmrouter.metric.IMetric;
+import org.springframework.jmx.export.annotation.ManagedMetric;
+import org.springframework.jmx.support.MetricType;
 
 /**
  * <p>Title: EmbeddedOpenTSDBDestination</p>
@@ -77,11 +78,41 @@ public class EmbeddedOpenTSDBDestination extends BaseDestination {
 		try {
 			//datastore.putDataPoints(toDataPointSet(routable));
 			if(routable!=null) {
-				datastore.queueDataPoints(toDataPointSet(routable));
+				datastore.queueDataPoints(toDataPointSet(routable));				
 			}
 		} catch (Exception ex) {
 			//ex.printStackTrace(System.err);
 		}
+	}
+	
+	/**
+	 * Returns the total number of enqueued datapoints
+	 * @return the total number of enqueued datapoints
+	 */
+	@ManagedMetric(category="EmbeddedOpenTSDB", displayName="EnqueuedPoints", metricType=MetricType.COUNTER, description="The total number of enqueued datapoints")
+	public long getEnqueuedPoints() {
+		if(datastore!=null) return datastore.getEnqueuedCount();
+		return -1L;
+	}
+	
+	/**
+	 * Returns the total number of dequeued datapoints
+	 * @return the total number of dequeued datapoints
+	 */
+	@ManagedMetric(category="EmbeddedOpenTSDB", displayName="DequeuedPoints", metricType=MetricType.COUNTER, description="The total number of dequeued datapoints")
+	public long getDequeuedPoints() {		
+		if(datastore!=null) return datastore.getDequeuedCount();
+		return -1L;
+	}
+	
+	/**
+	 * Returns the current queue size
+	 * @return the current queue size
+	 */
+	@ManagedMetric(category="EmbeddedOpenTSDB", displayName="QueueDepth", metricType=MetricType.COUNTER, description="The current queue size")
+	public int getQueueDepth() {		
+		if(datastore!=null) return datastore.getQueueSize();
+		return -1;
 	}
 	
 	/**
