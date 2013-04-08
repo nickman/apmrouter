@@ -44,6 +44,11 @@
 	<bean id="ServerTracerFactory" class="org.helios.apmrouter.server.tracing.ServerTracerFactory" factory-method="getInstance">		
 		<property name="metricCatalogService" ref="CatalogService"/>
 	</bean>
+	<bean id="VirtualAgentManager" class="org.helios.apmrouter.server.tracing.virtual.VirtualAgentManager">
+		<property name="invalidationPeriod" value="30000"/>
+		<property name="metricSubmitter" ref="ServerTracerFactory"/>
+	</bean>
+	
 	<bean id="ServerMonitor" class="org.helios.apmrouter.server.monitor.ServerMonitor" depends-on="ServerTracerFactory" />		
 
 	<bean id="HotDeployer" class="org.helios.apmrouter.deployer.SpringHotDeployer">
@@ -338,14 +343,13 @@
 	   <property name="jdbcUrl" value="jdbc:h2:file:~/.apmrouter/h2/db;JMX=TRUE;MULTI_THREADED=TRUE;DB_CLOSE_DELAY=-1" />
 	   <property name="username" value="sa"/>
 	   <property name="password" value=""/>
-	   <property name="idleConnectionTestPeriod" value="60"/>
-	   <property name="idleMaxAge" value="240"/>
+	   <property name="idleConnectionTestPeriodInMinutes" value="1"/>
+	   <property name="idleMaxAgeInMinutes" value="4"/>
 	   <property name="maxConnectionsPerPartition" value="30"/>
 	   <property name="minConnectionsPerPartition" value="5"/>
 	   <property name="partitionCount" value="3"/>
 	   <property name="acquireIncrement" value="5"/>
 	   <property name="statementsCacheSize" value="100"/>
-	   <property name="preparedStatementsCacheSize" value="100"/>
 	   <property name="releaseHelperThreads" value="3"/>
 	   <property name="statisticsEnabled" value="true"/>
 	   <property name="disableJMX" value="false"/>
@@ -358,14 +362,13 @@
 	   <property name="jdbcUrl" value="jdbc:h2:file:~/.apmrouter/h2/tsdb;JMX=TRUE;MULTI_THREADED=TRUE;DB_CLOSE_DELAY=-1" />
 	   <property name="username" value="TSDB"/>
 	   <property name="password" value=""/>
-	   <property name="idleConnectionTestPeriod" value="60"/>
-	   <property name="idleMaxAge" value="240"/>
+	   <property name="idleConnectionTestPeriodInMinutes" value="1"/>
+	   <property name="idleMaxAgeInMinutes" value="4"/>
 	   <property name="maxConnectionsPerPartition" value="30"/>
 	   <property name="minConnectionsPerPartition" value="5"/>
 	   <property name="partitionCount" value="1"/>
 	   <property name="acquireIncrement" value="5"/>
-	   <property name="statementsCacheSize" value="100"/>
-	   <property name="preparedStatementsCacheSize" value="100"/>
+	   <property name="statementsCacheSize" value="100"/>	   
 	   <property name="releaseHelperThreads" value="3"/>
 	   <property name="statisticsEnabled" value="true"/>
 	   <property name="disableJMX" value="false"/>
