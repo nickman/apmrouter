@@ -24,9 +24,12 @@
  */
 package org.helios.apmrouter.wsclient;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 
@@ -41,9 +44,17 @@ import org.json.JSONObject;
 
 public class JsonRequestBuilder {
 	/** A stack of json objects that are being push into and popped out of focus */
-	protected final Stack<JSONObject> jsonStack = new Stack<JSONObject>();	
+	protected final Stack<Object> jsonStack = new Stack<Object>();	
 	/** A request id generator */
 	protected static final AtomicLong requestIdSerial = new AtomicLong();
+	
+	/**
+	 * Returns a new JsonRequestBuilder initialized with a request id
+	 * @return a new JsonRequestBuilder
+	 */
+	public static JsonRequestBuilder newBuilder() {
+		return new JsonRequestBuilder();
+	}
 	
 	/**
 	 * Creates a new JsonRequestBuilder
@@ -52,6 +63,238 @@ public class JsonRequestBuilder {
 		JSONObject root = new JSONObject();
 		try { root.put("rid", requestIdSerial.incrementAndGet()); } catch (Exception ex) {}
 	}
+	
+	/**
+	 * Adds a keyed value to the current json node
+	 * @param key The entry key
+	 * @param value The entry value
+	 * @return this builder
+	 */
+	public JsonRequestBuilder put(String key, boolean value) {
+		if(key==null || key.trim().isEmpty()) throw new IllegalArgumentException("The passed key was null or empty", new Throwable());
+		try { ((JSONObject)jsonStack.peek()).put(key, value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		return this;
+	}
+	
+	/**
+	 * Adds a keyed value to the current json node
+	 * @param key The entry key
+	 * @param value The entry value
+	 * @return this builder
+	 */
+	public JsonRequestBuilder put(String key, Collection<?> value) {
+		if(key==null || key.trim().isEmpty()) throw new IllegalArgumentException("The passed key was null or empty", new Throwable());
+		if(value==null) throw new IllegalArgumentException("The passed value was null", new Throwable());
+		try { ((JSONObject)jsonStack.peek()).put(key, value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		return this;
+	}
+	
+	/**
+	 * Adds a keyed value to the current json node
+	 * @param key The entry key
+	 * @param value The entry value
+	 * @return this builder
+	 */
+	public JsonRequestBuilder put(String key, double value) {
+		if(key==null || key.trim().isEmpty()) throw new IllegalArgumentException("The passed key was null or empty", new Throwable());
+		try { ((JSONObject)jsonStack.peek()).put(key, value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		return this;
+	}
+
+	/**
+	 * Adds a keyed value to the current json node
+	 * @param key The entry key
+	 * @param value The entry value
+	 * @return this builder
+	 */
+	public JsonRequestBuilder put(String key, long value) {
+		if(key==null || key.trim().isEmpty()) throw new IllegalArgumentException("The passed key was null or empty", new Throwable());
+		try { ((JSONObject)jsonStack.peek()).put(key, value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		return this;
+	}
+	
+	/**
+	 * Adds a keyed value to the current json node
+	 * @param key The entry key
+	 * @param value The entry value
+	 * @return this builder
+	 */
+	public JsonRequestBuilder put(String key, int value) {
+		if(key==null || key.trim().isEmpty()) throw new IllegalArgumentException("The passed key was null or empty", new Throwable());
+		try { ((JSONObject)jsonStack.peek()).put(key, value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		return this;
+	}
+	
+	/**
+	 * Adds a keyed value to the current json node
+	 * @param key The entry key
+	 * @param value The entry value
+	 * @return this builder
+	 */
+	public JsonRequestBuilder put(String key, Object value) {
+		if(key==null || key.trim().isEmpty()) throw new IllegalArgumentException("The passed key was null or empty", new Throwable());
+		if(value==null) throw new IllegalArgumentException("The passed value was null", new Throwable());
+		try { ((JSONObject)jsonStack.peek()).put(key, value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		return this;
+	}
+	
+	/**
+	 * Adds a keyed value to the current json node
+	 * @param key The entry key
+	 * @param value The entry value
+	 * @return this builder
+	 */
+	public JsonRequestBuilder put(String key, Map<?,?> value) {
+		if(key==null || key.trim().isEmpty()) throw new IllegalArgumentException("The passed key was null or empty", new Throwable());
+		if(value==null) throw new IllegalArgumentException("The passed value was null", new Throwable());
+		try { ((JSONObject)jsonStack.peek()).put(key, value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		return this;
+	}
+	
+	/**
+	 * Adds a new JSONObject to the current content and pushes it onto the context stack
+	 * @param key The key of the new JSONObject
+	 * @return this builder
+	 */
+	public JsonRequestBuilder putJSONObject(String key) {
+		if(key==null || key.trim().isEmpty()) throw new IllegalArgumentException("The passed key was null or empty", new Throwable());
+		typeCheck(JSONObject.class);
+		JSONObject value = new JSONObject();
+		try { ((JSONObject)jsonStack.peek()).put(key, value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		jsonStack.push(value);
+		return this;
+	}
+	
+	/**
+	 * Appends the passed value to the JSONArray in current context
+	 * @param value The value to append to the array
+	 * @return this builder
+	 */
+	public JsonRequestBuilder append(boolean value) {
+		typeCheck(JSONArray.class);
+		try { ((JSONArray)jsonStack.peek()).put(value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		return this;
+	}
+	
+	/**
+	 * Appends the passed value to the JSONArray in current context
+	 * @param value The value to append to the array
+	 * @return this builder
+	 */
+	public JsonRequestBuilder append(Collection<?> value) {
+		typeCheck(JSONArray.class);
+		if(value==null) throw new IllegalArgumentException("The passed value was null", new Throwable());
+		try { ((JSONArray)jsonStack.peek()).put(value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		return this;
+	}
+	
+	/**
+	 * Appends the passed value to the JSONArray in current context
+	 * @param value The value to append to the array
+	 * @return this builder
+	 */
+	public JsonRequestBuilder append(double value) {
+		typeCheck(JSONArray.class);
+		try { ((JSONArray)jsonStack.peek()).put(value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		return this;
+	}
+
+	/**
+	 * Appends the passed value to the JSONArray in current context
+	 * @param value The value to append to the array
+	 * @return this builder
+	 */
+	public JsonRequestBuilder append(long value) {
+		typeCheck(JSONArray.class);
+		try { ((JSONArray)jsonStack.peek()).put(value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		return this;
+	}
+	
+	/**
+	 * Appends the passed value to the JSONArray in current context
+	 * @param value The value to append to the array
+	 * @return this builder
+	 */
+	public JsonRequestBuilder append(int value) {
+		typeCheck(JSONArray.class);
+		try { ((JSONArray)jsonStack.peek()).put(value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		return this;
+	}
+	
+	/**
+	 * Appends the passed value to the JSONArray in current context
+	 * @param value The value to append to the array
+	 * @return this builder
+	 */
+	public JsonRequestBuilder append(Object value) {
+		typeCheck(JSONArray.class);
+		if(value==null) throw new IllegalArgumentException("The passed value was null", new Throwable());
+		try { ((JSONArray)jsonStack.peek()).put(value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		return this;
+	}
+	
+	/**
+	 * Appends the passed value to the JSONArray in current context
+	 * @param value The value to append to the array
+	 * @return this builder
+	 */
+	public JsonRequestBuilder append(Map<?,?> value) {
+		typeCheck(JSONArray.class);
+		if(value==null) throw new IllegalArgumentException("The passed value was null", new Throwable());
+		try { ((JSONArray)jsonStack.peek()).put(value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		return this;
+	}
+	
+	
+	/**
+	 * Adds a new JSONArray to the current content and pushes it onto the context stack
+	 * @param key The key of the new JSONArray
+	 * @return this builder
+	 */
+	public JsonRequestBuilder putJSONArray(String key) {
+		if(key==null || key.trim().isEmpty()) throw new IllegalArgumentException("The passed key was null or empty", new Throwable());
+		typeCheck(JSONObject.class);
+		JSONArray value = new JSONArray();
+		try { ((JSONObject)jsonStack.peek()).put(key, value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		jsonStack.push(value);
+		return this;
+	}
+	
+	
+	
+	/**
+	 * Pops the current element off the context stack
+	 * @return this builder
+	 */
+	public JsonRequestBuilder pop() {
+		jsonStack.pop();
+		return this;
+	}
+	
+	/**
+	 * Completes the build and returns the root JSONObject
+	 * @return the root JSONObject
+	 */
+	public JSONObject build() {
+		typeCheck(JSONObject.class);
+		if(jsonStack.size()!=1) throw new RuntimeException("Incomplete pop state. Expected context size of 1  but was " + jsonStack.size(), new Throwable());
+		return (JSONObject)jsonStack.pop();
+	}
+	
+	
+	/**
+	 * Executes a type check against the current stack context
+	 * @param expectedClass The expected class of the current context
+	 */
+	protected void typeCheck(Class<?> expectedClass) {
+		if(!expectedClass.isInstance(jsonStack.peek())) throw new IllegalStateException("Unassignable Op. Expected context: [" + expectedClass.getSimpleName() + "] Actual Context: [" + jsonStack.peek().getClass().getSimpleName() + "]", new Throwable());
+	}
+	
+	
+	
+	
+	
+
 	/*
 	EXAMPLE:
 	=======
