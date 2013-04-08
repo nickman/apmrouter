@@ -41,6 +41,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.cliffc.high_scale_lib.NonBlockingHashMapLong;
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.collections.ILongSlidingWindow;
@@ -90,6 +91,9 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	protected static final IMetricEncoder metricEncoder = new IMetricEncoder();
 	/** The synchronous request timeout map */
 	protected static final TimeoutQueueMap<String, CountDownLatch> timeoutMap = new TimeoutQueueMap<String, CountDownLatch>(2000);
+	/** The synchronous request failure map */
+	protected static final Map<Long, Byte> failMap = new ConcurrentHashMap<Long, Byte>();
+	
 	/** The count of metric sends */
 	protected final AtomicLong sent = new AtomicLong(0);
 	/** The count of dropped metric sends */
@@ -123,6 +127,9 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	protected long heartbeatPingPeriod = 15000;
 	/** The heartbeat ping timeout in ms. */
 	protected long heartbeatTimeout = 1000;
+	/** The metric URI sub/unsub timeout in ms. */
+	protected long metricUriOpTimeout = 2000;
+	
 	/** The number of consecutive heartbeat ping timeouts that trigger a disconnected state */
 	protected int heartbeatTimeoutDiscTrigger = 2;
 	/** The number of consecutive heartbeat ping timeouts */
@@ -140,6 +147,9 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	protected final Executor workerPool;
 	/** The netty channel factory */
 	protected ChannelFactory channelFactory;
+	
+	/** A map of subscribed URIs keyed by the rid of the request */
+	protected final NonBlockingHashMapLong<URI> metricSubs = new NonBlockingHashMapLong<URI>(); 
 	
 	/** Final shutdown flag */
 	protected static final AtomicBoolean shutdown = new AtomicBoolean(false);
@@ -163,6 +173,7 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 		socketAddress = new InetSocketAddress(serverURI.getHost(), serverURI.getPort());
 		heartbeatPingPeriod = ConfigurationHelper.getLongSystemThenEnvProperty(HBEAT_PERIOD_PROP, DEFAULT_HBEAT_PERIOD);
 		heartbeatTimeout = ConfigurationHelper.getLongSystemThenEnvProperty(HBEAT_TO_PROP, DEFAULT_HBEAT_TO);
+		metricUriOpTimeout = ConfigurationHelper.getLongSystemThenEnvProperty(METRIC_URI_TO_PROP,DEFAULT_METRIC_URI_TO);
 		resetPingSchedule();
 		metricCatalog = ICEMetricCatalog.getInstance();
 		final String threadPrefix = "Worker/" + serverURI.getHost() + "/" + serverURI.getPort() + "#";
@@ -296,21 +307,27 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	
 	/**
 	 * Subscribes or Unsubscribes the agent to a MetricURI
+	 * @param asynch true to send asynch, false to send synch
 	 * @param uri the URI to subscribe to or unscubscribe from 
 	 * @param sub true to subscribe, false to unsubscribe
 	 * @param listeners An optional array of listeners that will be subscribed if <b>sub</b> is true or unsubscribed if it is false.
 	 * @return the request id of the request
 	 */
-	public long metricURI(CharSequence uri, boolean sub, MetricURISubscriptionEventListener...listeners) {
+	public long metricURI(boolean asynch, CharSequence uri, boolean sub, MetricURISubscriptionEventListener...listeners) {
 		if(uri==null || uri.toString().trim().isEmpty()) throw new IllegalArgumentException("The passed URI was null", new Throwable());
-		long rid = ridSerial.incrementAndGet();
+		final long rid = ridSerial.incrementAndGet();
 		byte[] bytes = uri.toString().trim().getBytes();
+		final URI metricUri;
+		try {
+			metricUri = new URI(uri.toString());
+		} catch (Exception ex) {
+			throw new RuntimeException("Invalid URI [" + uri.toString() + "]", ex);
+		}
 		ChannelBuffer cb = ChannelBuffers.buffer(1+8+4+bytes.length);
 		cb.writeByte(sub ? OpCode.METRIC_URI_SUBSCRIBE.op() : OpCode.METRIC_URI_UNSUBSCRIBE.op());
 		cb.writeLong(rid);
 		cb.writeInt(bytes.length);
 		cb.writeBytes(bytes);
-		senderChannel.write(cb, socketAddress);			
 		if(listeners!=null) {
 			for(MetricURISubscriptionEventListener listener: listeners) {				
 				if(sub) {								
@@ -320,27 +337,57 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 				}
 			}
 		}
+		if(!asynch) {
+			String key = "" + rid;
+			CountDownLatch latch = new CountDownLatch(1);
+			final long _timeout = metricUriOpTimeout;
+			SimpleLogger.debug("Sent MetricURI ", (sub ? "sub" : "unsub"),  "[" , uri , "]  rid:", rid);
+			timeoutMap.put(key, latch, _timeout );
+			final boolean complete;
+			final Byte success;
+			senderChannel.write(cb, socketAddress);
+			try {
+				complete = latch.await(_timeout , TimeUnit.MILLISECONDS);
+			} catch (InterruptedException iex) {
+				throw new RuntimeException("MetricURI Operation Interrupted", iex);
+			} finally {
+				success = failMap.remove(rid);
+			}
+			if(complete) {
+				if(success==null) {
+					throw new RuntimeException("MetricURI [" + (sub ? "sub" : "unsub") + " for URI [" + uri + "] returned a NULL fail code. WTF ?", new Throwable());
+				} 
+				if(success==0) throw new RuntimeException("MetricURI [" + (sub ? "sub" : "unsub") + " for URI [" + uri + "] returned a fail code.\nPlease see server log for failure reason", new Throwable());
+				if(sub) { metricSubs.put(rid, metricUri); }
+				return rid;
+			}
+			throw new RuntimeException("MetricURI [" + (sub ? "sub" : "unsub") + " for URI [" + uri + "] timed out after [" + _timeout  + "] ms.", new Throwable());
+		}		
+		senderChannel.write(cb, socketAddress);
+		if(sub) { metricSubs.put(rid, metricUri); }
 		return rid;
 	}
 	
 	/**
 	 * Subscribes to the passed MetricURI
+	 * @param asynch true to send asynch, false to send synch
 	 * @param uri the URI to subscribe to
 	 * @param listeners An optional array of listeners that will be subscribed 
 	 * @return the request id the subscription was issued with
 	 */
-	public long subscribeMetricURI(CharSequence uri, MetricURISubscriptionEventListener...listeners) {
-		return metricURI(uri, true, listeners);
+	public long subscribeMetricURI(boolean asynch, CharSequence uri, MetricURISubscriptionEventListener...listeners) {
+		return metricURI(asynch, uri, true, listeners);
 	}
 	
 	/**
 	 * Unsubscribes from the passed MetricURI
+	 * @param asynch true to send asynch, false to send synch
 	 * @param uri the URI to unsubscribe from
 	 * @param listeners An optional array of listeners that will be unsubscribed 
 	 * @return the request id the unsubscription was issued with
 	 */
-	public long unSubscribeMetricURI(CharSequence uri, MetricURISubscriptionEventListener...listeners) {
-		return metricURI(uri, false, listeners);
+	public long unSubscribeMetricURI(boolean asynch, CharSequence uri, MetricURISubscriptionEventListener...listeners) {
+		return metricURI(asynch, uri, false, listeners);
 	}
 	
 	/** The JMX notification type for new metric events */
@@ -350,6 +397,22 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	/** The JMX notification type for new metric events */
 	public static final String DATA_METRIC_EVENT = "metric.event.data";
 
+	/**
+	 * Handles a MetricURI Op response
+	 * @param buff The channel buffer containing the response
+	 */
+	protected void onMetricURIOpResponse(ChannelBuffer buff) {
+		// METRIC_URI_SUB_CONFIRM, METRIC_URI_UNSUB_CONFIRM: // // opCode(1) + success(1) + rid(8) = 10	
+		//		case METRIC_URI_SUB_CONFIRM:
+		//		case METRIC_URI_UNSUB_CONFIRM:
+		final byte success = buff.readByte();
+		final long rid = buff.readLong();
+		CountDownLatch latch = timeoutMap.remove("" + rid);
+		if(latch!=null) {
+			failMap.put(rid, success);
+			latch.countDown();
+		}
+	}
 	
 	/**
 	 * Callback from agent listener when a MetricURI event is received.
@@ -364,6 +427,7 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 			JSONObject jsonResponse = new JSONObject(new String(bytes));
 			MetricURIEvent event = MetricURIEvent.forEvent(jsonResponse.getString("t"));
 			switch(event) {
+				
 			case DATA:
 				for(MetricURISubscriptionEventListener listener: subListeners) {
 					listener.onMetricData(jsonResponse);
@@ -634,6 +698,25 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	public String getName() {
 		return new StringBuilder(getClass().getSimpleName()).append("[").append(socketAddress.getHostName()).append(":").append(socketAddress.getPort()).append("]").toString();
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.AbstractSenderMXBean#getMetricURITimeout()
+	 */
+	@Override
+	public long getMetricURITimeout() {
+		return metricUriOpTimeout;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.AbstractSenderMXBean#setMetricURITimeout(long)
+	 */
+	@Override
+	public void setMetricURITimeout(long timeout) {
+		metricUriOpTimeout = timeout;
+	}
+	
 
 
 	
@@ -767,6 +850,15 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 		if(listener!=null) {
 			subListeners.remove(listener);
 		}
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.sender.AbstractSenderMXBean#getMetricURIEventListenerCount()
+	 */
+	@Override
+	public int getMetricURIEventListenerCount() {
+		return subListeners.size();
 	}
 	
 

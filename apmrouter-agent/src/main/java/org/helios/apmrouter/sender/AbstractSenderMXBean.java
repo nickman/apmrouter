@@ -44,6 +44,11 @@ public interface AbstractSenderMXBean  {
 	public static final String HBEAT_TO_PROP = "org.helios.apmrouter.heartbeat.timeout";
 	/** The default heartbeat timeout */
 	public static final long DEFAULT_HBEAT_TO = 1000;
+	/** The system property name for the metric URI op timeout */
+	public static final String METRIC_URI_TO_PROP = "org.helios.apmrouter.metricuri.timeout";
+	/** The default metric URI op timeout */
+	public static final long DEFAULT_METRIC_URI_TO = 2000; 
+	
 	/** The system property name for the number of consecutive ping failures to trigger a disconnect state */
 	public static final String HBEAT_DISC_PROP = "org.helios.apmrouter.heartbeat.disconnect";
 	/** The default number of consecutive ping failures to trigger a disconnect state */
@@ -69,6 +74,12 @@ public interface AbstractSenderMXBean  {
 	 * @return a sliding window average of agent ping elapsed times to the server
 	 */
 	public abstract long getAveragePingTime();
+	
+	/**
+	 * Returns the number of metric sub listeners
+	 * @return the number of metric sub listeners
+	 */
+	public int getMetricURIEventListenerCount();
 
 	/**
 	 * Sends a ping request to the configured server
@@ -76,6 +87,18 @@ public interface AbstractSenderMXBean  {
 	 * @return true if ping was confirmed within the timeout, false otherwise
 	 */
 	public abstract boolean ping(long timeout);
+	
+	/**
+	 * Returns the metric URI op timeout in ms.
+	 * @return the metric URI op timeout in ms.
+	 */
+	public long getMetricURITimeout();
+	
+	/**
+	 * Sets the metric URI op timeout in ms.
+	 * @param timeout the metric URI op timeout in ms.
+	 */
+	public void setMetricURITimeout(long timeout);
 
 	/**
 	 * @return

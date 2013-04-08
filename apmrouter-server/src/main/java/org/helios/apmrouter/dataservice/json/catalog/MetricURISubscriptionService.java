@@ -248,20 +248,19 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 *            The {@link Channel} to subscribe
 	 */
 
-	public void subscribeMetricURI(MetricURI metricUri, JsonResponse response,
-			Channel channel) {
+	public void subscribeMetricURI(MetricURI metricUri, JsonResponse response, Channel channel) {
 		Session session = null;
 		try {
 			session = sessionFactory.openSession();
-			MetricURISubscription sub = MetricURISubscription
-					.getMetricURISubscription(session, metricUri);
+			MetricURISubscription sub = MetricURISubscription.getMetricURISubscription(session, metricUri);
 			sub.subscribeChannel(channel, response);
 		} finally {
-			if (session != null)
+			if (session != null) {
 				try {
 					session.close();
 				} catch (Exception ex) {/* No Op */
 				}
+			}
 		}
 	}
 

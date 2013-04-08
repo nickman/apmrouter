@@ -46,7 +46,10 @@ public enum MetricURIEvent {
 	/** A metric state-change removed a metric from the subscription membership */
 	STATE_CHANGE_EXIT("metric.event.statechange.exit"),	
 	/** Data for a subscribed metric has been received */
-	DATA("metric.event.data");
+	DATA("metric.event.data"),
+	/** Synchronous MetricURI Op Response  */
+	SYNCH_METRIC_URI_OP_RESP("metric.event.synch.response");	
+	
 	
 	/** A decode map from the event name to the MetricURIEvent */
 	public static final Map<String, MetricURIEvent> NAME2ENUM;
