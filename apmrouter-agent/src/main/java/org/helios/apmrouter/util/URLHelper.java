@@ -24,7 +24,14 @@
  */
 package org.helios.apmrouter.util;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 
@@ -93,6 +100,20 @@ public class URLHelper {
 			throw new RuntimeException("Failed to create URL from string [" + urlStr + "]", e);
 		}
 	}
+	
+	/**
+	 * Creates a URI from the passed string 
+	 * @param uriStr A char sequence containing a URI representation
+	 * @return a URI
+	 */
+	public static URI toURI(CharSequence uriStr) {
+		try {
+			return new URI(Methods.nvl(uriStr, "Passed string was null").toString());
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to create URL from string [" + uriStr + "]", e);
+		}
+	}
+	
 	
 	
 	/**
