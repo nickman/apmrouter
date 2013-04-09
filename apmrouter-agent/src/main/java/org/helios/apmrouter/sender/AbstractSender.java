@@ -89,10 +89,6 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	protected static final Map<URI, ISender> senders = new ConcurrentHashMap<URI, ISender>(); 
 	/** The metric encoder */
 	protected static final IMetricEncoder metricEncoder = new IMetricEncoder();
-	/** The synchronous request timeout map */
-	protected static final TimeoutQueueMap<String, CountDownLatch> timeoutMap = new TimeoutQueueMap<String, CountDownLatch>(2000);
-	/** The synchronous request failure map */
-	protected static final Map<Long, Byte> failMap = new ConcurrentHashMap<Long, Byte>();
 	
 	/** The count of metric sends */
 	protected final AtomicLong sent = new AtomicLong(0);
@@ -285,9 +281,9 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 			StringBuilder key = new StringBuilder();
 			ChannelBuffer ping = encodePing(key);
 			senderChannel.write(ping,address);
-			CountDownLatch latch = new CountDownLatch(1);
+			final CountDownLatch latch = SynchOpSupport.registerSynchOp(key.toString(), timeout);
 			SimpleLogger.debug("Sent ping [" , key , "]");
-			timeoutMap.put(key.toString(), latch, timeout);
+			
 			boolean success = latch.await(timeout, TimeUnit.MILLISECONDS);
 			if(success) {
 				SimpleLogger.debug("Ping Confirmed");
@@ -302,8 +298,6 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 		}		
 	}
 	
-	/** A serial number generator for server request Ids. */
-	protected final AtomicLong ridSerial = new AtomicLong();
 	
 	/**
 	 * Subscribes or Unsubscribes the agent to a MetricURI
@@ -315,7 +309,7 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	 */
 	public long metricURI(boolean asynch, CharSequence uri, boolean sub, MetricURISubscriptionEventListener...listeners) {
 		if(uri==null || uri.toString().trim().isEmpty()) throw new IllegalArgumentException("The passed URI was null", new Throwable());
-		final long rid = ridSerial.incrementAndGet();
+		final long rid = SynchOpSupport.nextRequestId();
 		byte[] bytes = uri.toString().trim().getBytes();
 		final URI metricUri;
 		try {
@@ -339,10 +333,9 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 		}
 		if(!asynch) {
 			String key = "" + rid;
-			CountDownLatch latch = new CountDownLatch(1);
 			final long _timeout = metricUriOpTimeout;
 			SimpleLogger.debug("Sent MetricURI ", (sub ? "sub" : "unsub"),  "[" , uri , "]  rid:", rid);
-			timeoutMap.put(key, latch, _timeout );
+			final CountDownLatch latch = SynchOpSupport.registerSynchOp(key, _timeout);
 			final boolean complete;
 			final Byte success;
 			senderChannel.write(cb, socketAddress);
@@ -351,7 +344,7 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 			} catch (InterruptedException iex) {
 				throw new RuntimeException("MetricURI Operation Interrupted", iex);
 			} finally {
-				success = failMap.remove(rid);
+				success = SynchOpSupport.cancelFail(rid);
 			}
 			if(complete) {
 				if(success==null) {
@@ -407,10 +400,8 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 		//		case METRIC_URI_UNSUB_CONFIRM:
 		final byte success = buff.readByte();
 		final long rid = buff.readLong();
-		CountDownLatch latch = timeoutMap.remove("" + rid);
-		if(latch!=null) {
-			failMap.put(rid, success);
-			latch.countDown();
+		if(SynchOpSupport.cancelLatch(rid)) {
+			SynchOpSupport.setFail(rid, success);
 		}
 	}
 	
@@ -540,8 +531,7 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 		cb.readBytes(bytes);
 		String key = new String(bytes);
 		//log("Processing ping response [" + key + "]");
-		CountDownLatch latch = timeoutMap.remove(key);
-		if(latch!=null) latch.countDown();
+		SynchOpSupport.cancelLatch(key);
 		try {
 			pingTimes.insert(System.nanoTime()-Long.parseLong(key.split("-")[2]));
 		} catch (Exception e) {}
@@ -567,10 +557,9 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	public void send(IMetric metric, long timeout) throws TimeoutException {
 		DirectMetricCollection dcm = DirectMetricCollection.newDirectMetricCollection(metric);
 		dcm.setOpCode(OpCode.SEND_METRIC_DIRECT);
-		CountDownLatch latch = new CountDownLatch(1);
 		String key = new StringBuilder(metric.getFQN()).append(metric.getTime()).toString();
 		send(dcm);
-		timeoutMap.put(key, latch, timeout);
+		final CountDownLatch latch = SynchOpSupport.registerSynchOp(key, timeout);
 		try {
 			if(!latch.await(timeout, TimeUnit.MILLISECONDS)) {
 				throw new TimeoutException("Direct Metric Trace timed out after " + timeout + " ms. "); //[" + metric + "]");
@@ -772,14 +761,13 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender, C
 	public void sendHello() {
 		scheduler.execute(new Runnable(){
 			public void run() {
-				//log("Sending HELLO");
-				CountDownLatch latch = new CountDownLatch(1);
+				//log("Sending HELLO");				
 				String key = "Hello";
 				doSendHello();
-				timeoutMap.put(key, latch, 5000);
+				final CountDownLatch latch = SynchOpSupport.registerSynchOp(key, 5000);				
 				try {
 					if(!latch.await(5000, TimeUnit.MILLISECONDS)) {
-						timeoutMap.remove("Hello");
+						SynchOpSupport.cancelLatch("Hello");						
 						scheduler.execute(new Runnable(){
 							@Override
 							public void run() {

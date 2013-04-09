@@ -28,6 +28,7 @@ import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.jmx.mbeanserver.AgentMBeanServerConnectionFactory;
 import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.sender.AbstractSender;
+import org.helios.apmrouter.sender.SynchOpSupport;
 import org.helios.apmrouter.trace.DirectMetricCollection;
 import org.helios.apmrouter.trace.DirectMetricCollection.SplitDMC;
 import org.helios.apmrouter.trace.DirectMetricCollection.SplitReader;
@@ -102,10 +103,7 @@ public class UDPSender extends AbstractSender  {
 							byte[] keyBytes = new byte[keyLength];
 							buff.readBytes(keyBytes);
 							String key = new String(keyBytes);
-							CountDownLatch latch = timeoutMap.remove(key);
-							if(latch!=null) {
-								latch.countDown();
-							}
+							SynchOpSupport.cancelLatch(key);
 							break;
 						case PING_RESPONSE:							
 							decodePing(buff);
@@ -118,11 +116,7 @@ public class UDPSender extends AbstractSender  {
 							senderChannel.write(ping,e.getRemoteAddress());							
 							break;
 						case HELLO_CONFIRM:
-							latch = timeoutMap.remove("Hello");
-							log("Confirmed HELLO");
-							if(latch!=null) {
-								latch.countDown();
-							}							
+							SynchOpSupport.cancelLatch("Hello");
 							break;
 						case WHO:
 							byte[] hostBytes = AgentIdentity.ID.getHostName().getBytes();

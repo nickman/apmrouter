@@ -31,10 +31,16 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
+import org.helios.apmrouter.sender.AbstractSender;
+import org.helios.apmrouter.sender.SynchOpSupport;
+import org.helios.apmrouter.util.SimpleLogger;
+import org.helios.apmrouter.util.TimeoutQueueMap;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
@@ -74,6 +80,12 @@ public class WebSocketClient implements ChannelPipelineFactory {
 	protected final ChannelFuture closeFuture;
 	/** The client bootstrap */
 	protected final ClientBootstrap bootstrap;
+	/** The configured synch request timeout in ms. */
+	protected long synchRequestTimeout = DEFAULT_SYNCH_TIMEOUT;
+	
+			
+	/** The default synchronous request timeout in ms. */
+	public static final long DEFAULT_SYNCH_TIMEOUT = 2000;
 	
 	
 	/** The websocket client boss pool */
@@ -244,6 +256,56 @@ public class WebSocketClient implements ChannelPipelineFactory {
 
 	}
 	
+	/**
+	 * Sends a JSON request to the server
+	 * @param asynch true for asynch, false for synch
+	 * @param request The JSONObject request
+	 */
+	void sendRequest(final boolean asynch, final JSONObject request) {
+		if(request==null) throw new IllegalArgumentException("The passed request was null", new Throwable());
+		final long rid;
+		final CountDownLatch latch;
+		try {
+			rid = request.getLong("rid");
+		} catch (Exception ex) {
+			throw new RuntimeException("No request id found in request", new Throwable());
+		}	
+		if(!asynch) {
+			latch = SynchOpSupport.registerSynchOp(rid, synchRequestTimeout);			
+		} else {
+			latch = null;
+		}
+		ChannelFuture cf = channel.write(request);
+		if(asynch) {
+			cf.addListener(new ChannelFutureListener() {
+				@Override
+				public void operationComplete(ChannelFuture future) throws Exception {
+					if(!future.isSuccess()) SimpleLogger.error("Asynch request failed [" + request.toString() + "]", future.getCause());
+				}
+			});
+		} else {
+			final boolean complete;
+			final Byte success;
+			final long _timeout = synchRequestTimeout;
+			try {
+				complete = latch.await(_timeout , TimeUnit.MILLISECONDS);
+			} catch (InterruptedException iex) {
+				throw new RuntimeException("MetricURI Operation Interrupted", iex);
+			} finally {
+				success = SynchOpSupport.cancelFail(rid);				
+			}
+			if(complete) {
+				if(success==null) {
+					throw new RuntimeException("Synch Request [" + request + "] returned a NULL fail code. WTF ?", new Throwable());
+				} 
+				if(success==0) throw new RuntimeException("Synch Request [" + request + "] returned a fail code.\nPlease see server log for failure reason", new Throwable());
+			}
+			
+		}
+		
+	}
+	
+	
 	public static void log(Object msg) {
 		System.out.println(msg);
 	}
@@ -260,6 +322,24 @@ public class WebSocketClient implements ChannelPipelineFactory {
 		pipeline.addLast("ws-handler", wsClientHandler);
 		pipeline.addLast("json-handler", jsonHandler);
 		return pipeline;
+	}
+
+
+	/**
+	 * Returns 
+	 * @return the synchRequestTimeout
+	 */
+	public long getSynchRequestTimeout() {
+		return synchRequestTimeout;
+	}
+
+
+	/**
+	 * Sets 
+	 * @param synchRequestTimeout the synchRequestTimeout to set
+	 */
+	public void setSynchRequestTimeout(long synchRequestTimeout) {
+		this.synchRequestTimeout = synchRequestTimeout;
 	}
 
 }
