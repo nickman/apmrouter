@@ -27,7 +27,6 @@ package org.helios.apmrouter.wsclient;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Stack;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -45,8 +44,6 @@ import org.json.JSONObject;
 public class JsonRequestBuilder {
 	/** A stack of json objects that are being push into and popped out of focus */
 	protected final Stack<Object> jsonStack = new Stack<Object>();	
-	/** A request id generator */
-	protected static final AtomicLong requestIdSerial = new AtomicLong();
 	
 	/**
 	 * Returns a new JsonRequestBuilder initialized with a request id
@@ -59,9 +56,8 @@ public class JsonRequestBuilder {
 	/**
 	 * Creates a new JsonRequestBuilder
 	 */
-	protected JsonRequestBuilder() {
-		JSONObject root = new JSONObject();
-		try { root.put("rid", requestIdSerial.incrementAndGet()); } catch (Exception ex) {}
+	protected JsonRequestBuilder() {		
+		jsonStack.push(new JsonRequest());
 	}
 	
 	/**
@@ -275,10 +271,10 @@ public class JsonRequestBuilder {
 	 * Completes the build and returns the root JSONObject
 	 * @return the root JSONObject
 	 */
-	public JSONObject build() {
-		typeCheck(JSONObject.class);
+	public JsonRequest build() {
+		typeCheck(JsonRequest.class);
 		if(jsonStack.size()!=1) throw new RuntimeException("Incomplete pop state. Expected context size of 1  but was " + jsonStack.size(), new Throwable());
-		return (JSONObject)jsonStack.pop();
+		return (JsonRequest)jsonStack.pop();
 	}
 	
 	

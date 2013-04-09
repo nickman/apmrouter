@@ -26,11 +26,14 @@ package org.helios.apmrouter.wsclient;
 
 import java.net.SocketAddress;
 import java.net.URI;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
+import org.helios.apmrouter.subscription.MetricURIEvent;
 import org.helios.apmrouter.subscription.MetricURISubscriptionEventListener;
-import org.json.JSONException;
+import org.helios.apmrouter.util.SimpleLogger;
 import org.json.JSONObject;
 
 /**
@@ -44,8 +47,16 @@ import org.json.JSONObject;
 public class WebSocketAgent implements WebSocketEventListener {
 	/** The WebSocketClient this agent will use to comm with the server */
 	protected final WebSocketClient wsClient;
-	/** A set of subscribed MetricURISubscriptionEventListeners */
+	/** A set of subscribed global MetricURISubscriptionEventListeners */
 	protected final Set<MetricURISubscriptionEventListener> subListeners = new CopyOnWriteArraySet<MetricURISubscriptionEventListener>();
+	/** A map of arrays of MetricURISubscriptionEventListeners keyed by the request id */
+	protected final Map<Long, MetricURISubscriptionEventListener[]> reqListeners = new ConcurrentHashMap<Long, MetricURISubscriptionEventListener[]>();
+	/** A metricURI to request id mapping */
+	protected final Map<URI, Long> metricURIRequestIds = new ConcurrentHashMap<URI, Long>(); 
+	
+	/** Empty listener array const */
+	protected static final MetricURISubscriptionEventListener[] EMPTY_LISTENER_ARR = {};
+	
 	
 	/**
 	 * Registers a {@link MetricURISubscriptionEventListener}
@@ -93,20 +104,39 @@ public class WebSocketAgent implements WebSocketEventListener {
 	 * @param listeners The listeners that will be invoked on with incoming data for this subscription. 
 	 * If empty, the responses will be routed to the agent's global event listeners
 	 */
-	public void subscribeMetricURI(boolean asynch, URI metricURI, MetricURISubscriptionEventListener...listeners) {
-		JSONObject request = JsonRequestBuilder.newBuilder()
+	public void subscribeMetricURI(final boolean asynch, URI metricURI, MetricURISubscriptionEventListener...listeners) {
+		JsonRequest request = JsonRequestBuilder.newBuilder()
 				.put("svc", "catalog")
 				.put("op", "submetricuri")
 				.put("uri", metricURI.toASCIIString())
 				.build();
-		final long rid;
-		try {
-			request.getLong("rid");
-		} catch (JSONException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		if(asynch) {
+			registerURISub(request.getRequestId(), metricURI, listeners);
 		}
-		wsClient.sendRequest(asynch, request);				
+		wsClient.sendRequest(asynch, request);
+		if(!asynch) {
+			registerURISub(request.getRequestId(), metricURI, listeners);
+		}
+	}
+	
+	/**
+	 * Cancels a MetricURI subscription
+	 * @param asynch true for an asynchronous call, false for a synchronous call
+	 * @param metricURI The MetricURI to subscribe to
+	 */
+	public void unsubscribeMetricURI(final boolean asynch, URI metricURI) {
+		JsonRequest request = JsonRequestBuilder.newBuilder()
+				.put("svc", "catalog")
+				.put("op", "unsubmetricuri")
+				.put("uri", metricURI.toASCIIString())
+				.build();
+		if(asynch) {
+			registerURISub(request.getRequestId(), metricURI);
+		}
+		wsClient.sendRequest(asynch, request);
+		if(!asynch) {
+			registerURISub(request.getRequestId(), metricURI);
+		}		
 	}
 	
 	/**
@@ -114,28 +144,28 @@ public class WebSocketAgent implements WebSocketEventListener {
 	 * @param metricURI The MetricURI to subscribe to
 	 */
 	public void unsubscribeMetricURI(URI metricURI) {
-		JSONObject request = JsonRequestBuilder.newBuilder()
-				.put("svc", "catalog")
-				.put("op", "unsubmetricuri")
-				.put("uri", metricURI.toASCIIString())
-				.build();
-		wsClient.sendRequest(true, request);				
+		unsubscribeMetricURI(true, metricURI);
 	}
+	
 	
 	
 	/**
 	 * Subscribes to the passed MetricURI asynchronously
 	 * @param metricURI The MetricURI to subscribe to
+	 * @param listeners The listeners that will be invoked on with incoming data for this subscription. 
+	 * If empty, the responses will be routed to the agent's global event listeners
 	 */
-	public void subscribeMetricURIAsynch(URI metricURI) {
+	public void subscribeMetricURIAsynch(URI metricURI, MetricURISubscriptionEventListener...listeners) {
 		subscribeMetricURI(true, metricURI);
 	}
 
 	/**
 	 * Subscribes to the passed MetricURI synchronously
 	 * @param metricURI The MetricURI to subscribe to
+	 * @param listeners The listeners that will be invoked on with incoming data for this subscription. 
+	 * If empty, the responses will be routed to the agent's global event listeners
 	 */
-	public void subscribeMetricURISynch(URI metricURI) {
+	public void subscribeMetricURISynch(URI metricURI, MetricURISubscriptionEventListener...listeners) {
 		subscribeMetricURI(true, metricURI);
 	}
 
@@ -175,9 +205,80 @@ public class WebSocketAgent implements WebSocketEventListener {
 	 */
 	@Override
 	public void onMessage(SocketAddress remoteAddress, JSONObject message) {
-		// TODO Auto-generated method stub
+		try {
+			long rerid = message.getLong("rerid");
+			MetricURISubscriptionEventListener[] listeners = getListenersForRerid(rerid);			
+			MetricURIEvent event = MetricURIEvent.forEvent(message.getString("t"));
+			switch(event) {
+				
+			case DATA:
+				for(MetricURISubscriptionEventListener listener: listeners) {
+					listener.onMetricData(message);
+				}								
+				break;
+			case NEW_METRIC:
+				for(MetricURISubscriptionEventListener listener: listeners) {
+					listener.onNewMetric(message);
+				}				
+				break;
+			case STATE_CHANGE_ENTRY:
+				for(MetricURISubscriptionEventListener listener: listeners) {
+					listener.onMetricStateChangeEntry(message);
+				}				
+				break;
+			case STATE_CHANGE_EXIT:
+				for(MetricURISubscriptionEventListener listener: listeners) {
+					listener.onMetricStateChangeExit(message);
+				}				
+				break;
+			case STATE_CHANGE:
+				for(MetricURISubscriptionEventListener listener: listeners) {
+					listener.onMetricStateChange(message);
+				}				
+				break;				
+			default:
+				break;
+				
+			}
+		} catch (Exception ex) {
+			SimpleLogger.error("Failed to process WebSocket JSON Response [", message, "]", ex);
+		}
 		
 	}
+	
+	/**
+	 * Returns the listener array for the passed rerid
+	 * @param rerid The in-reference-to request id
+	 * @return an array of listeners which will be empty if the rerid was not found
+	 */
+	protected MetricURISubscriptionEventListener[] getListenersForRerid(long rerid) {
+		MetricURISubscriptionEventListener[] listeners = reqListeners.get(rerid);
+		return listeners==null ? subListeners.toArray(new MetricURISubscriptionEventListener[0]) : listeners;
+	}
+	
+	/**
+	 * Registers a metricURI subscription
+	 * @param rid The request id
+	 * @param metricUri The metric URI subscribed to
+	 * @param listeners The listeners to be registered
+	 */
+	protected void registerURISub(long rid, URI metricUri, MetricURISubscriptionEventListener...listeners) {
+		metricURIRequestIds.put(metricUri, rid);
+		final MetricURISubscriptionEventListener[] _listeners = (listeners==null || listeners.length==0) ? EMPTY_LISTENER_ARR : listeners; 
+		reqListeners.put(rid, _listeners);
+	}
+	
+	/**
+	 * Cleans up a terminated metric URI subscription
+	 * @param metricUri The metric URI subscription to clean up
+	 */
+	protected void cleanupURISub(URI metricUri) {
+		Long rid = metricURIRequestIds.remove(metricUri);
+		if(rid!=null) {
+			reqListeners.remove(rid);
+		}
+	}
+	
 	
 	
 	/*
