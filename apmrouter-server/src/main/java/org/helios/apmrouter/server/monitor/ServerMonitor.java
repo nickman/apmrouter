@@ -31,12 +31,17 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanInfo;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
+import org.helios.apmrouter.deployer.SpringHotDeployer;
+import org.helios.apmrouter.deployer.event.HotDeployedContextClosedEvent;
+import org.helios.apmrouter.deployer.event.HotDeployedContextEvent;
+import org.helios.apmrouter.deployer.event.HotDeployedContextRefreshedEvent;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.monitor.jvm.JVMMonitor;
 import org.helios.apmrouter.monitor.nativex.NativeMonitor;
@@ -45,6 +50,8 @@ import org.helios.apmrouter.server.tracing.ServerTracerFactory;
 import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.util.SystemClock;
 import org.helios.apmrouter.util.SystemClock.ElapsedTime;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationEvent;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.support.MetricType;
@@ -64,12 +71,66 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 	/** The MBeanServer to retrieve the metric values from */
 	protected final MBeanServer server = JMXHelper.getHeliosMBeanServer();
 	/** A map of maps of GAUGE metric providing operation names for a bean keyed by the JMX ObjectName */
-	protected final Map<ObjectName, Map<String[], String[]>> gaugeMetrics = new HashMap<ObjectName, Map<String[], String[]>>();
+	protected final Map<ObjectName, Map<String[], String[]>> allGaugeMetrics = new HashMap<ObjectName, Map<String[], String[]>>();
 	/** A map of maps of COUNTER metric providing operation names for a bean keyed by the JMX ObjectName */
-	protected final Map<ObjectName, Map<String[], String[]>> counterMetrics = new HashMap<ObjectName, Map<String[], String[]>>();
+	protected final Map<ObjectName, Map<String[], String[]>> allCounterMetrics = new HashMap<ObjectName, Map<String[], String[]>>();
+	
+	/** A map of ObjectNames located from hot deployed contexts keyed by context id */
+	protected final Map<String, Set<ObjectName>> hotDeployedObjectNames = new ConcurrentHashMap<String, Set<ObjectName>>();
 	
 	private final boolean ONE_METRIC_ONLY = false;
 	
+	/**
+	 * Creates a new ServerMonitor
+	 */
+	public ServerMonitor() {
+		super();
+//		supportedEventTypes.add(HotDeployedContextEvent.class);
+//		supportedEventSourceTypes.add(ApplicationContext.class);
+		supportedEventTypes.clear();
+		supportedEventSourceTypes.clear();
+		
+	}
+	
+	public boolean supportsSourceType(Class<?> sourceType) {
+		return true;
+	}
+	public boolean supportsEventType(Class<? extends ApplicationEvent> eventType) {
+		return true;
+	}
+	/**
+	 * Handles hot deployed context events.
+	 * @param event hot deployed context event
+	 */
+	public void onApplicationEvent(ApplicationEvent event) {
+		if(HotDeployedContextRefreshedEvent.class.isInstance(event)) {
+			ApplicationContext appCtx = ((HotDeployedContextRefreshedEvent)event).getAppCtx();
+			info("Collecting instances of ServerComponentBean from [", appCtx.getDisplayName(), "]");
+			Map<ObjectName, Map<String[], String[]>> gaugeMetrics = new HashMap<ObjectName, Map<String[], String[]>>(); 
+			Map<ObjectName, Map<String[], String[]>> counterMetrics = new HashMap<ObjectName, Map<String[], String[]>>();
+			locateMonitorBeans(appCtx, gaugeMetrics, counterMetrics);
+			Set<ObjectName> hotObjects = new HashSet<ObjectName>(counterMetrics.size() + gaugeMetrics.size());
+			hotObjects.addAll(counterMetrics.keySet());
+			hotObjects.addAll(gaugeMetrics.keySet());
+			hotDeployedObjectNames.put(appCtx.getId(), hotObjects);
+			allCounterMetrics.putAll(counterMetrics);
+			allGaugeMetrics.putAll(gaugeMetrics);
+		} else if(HotDeployedContextClosedEvent.class.isInstance(event)) {
+			ApplicationContext appCtx = ((HotDeployedContextClosedEvent)event).getAppCtx();
+			info("Clearing instances of ServerComponentBean from [", appCtx.getDisplayName(), "]");
+			Set<ObjectName> hotObjects = hotDeployedObjectNames.remove(appCtx.getId());
+			if(hotObjects!=null) {
+				for(ObjectName on: hotObjects) {
+					allCounterMetrics.remove(on);
+					allGaugeMetrics.remove(on);
+				}
+			}
+			info("Cleared [", hotObjects==null ? 0 : hotObjects.size(), "] from closed app context [", appCtx.getDisplayName(), "]");
+		}
+		
+	}
+	
+
 	
 	/**
 	 * {@inheritDoc}
@@ -77,16 +138,30 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 	 */
 	@Override
 	public void onApplicationContextRefresh(ContextRefreshedEvent event) {
+		
 		if(!ONE_METRIC_ONLY) {
 			new JVMMonitor().startMonitor();
 			new NativeMonitor().startMonitor();
 		}		
-		info("Collecting instances of ServerComponentBean....");
+		info("Collecting instances of ServerComponentBean from [", event.getApplicationContext().getDisplayName(), "]");
+		Map<ObjectName, Map<String[], String[]>> gaugeMetrics = new HashMap<ObjectName, Map<String[], String[]>>(); 
+		Map<ObjectName, Map<String[], String[]>> counterMetrics = new HashMap<ObjectName, Map<String[], String[]>>();
+		locateMonitorBeans(event.getApplicationContext(), gaugeMetrics, counterMetrics);
+		allCounterMetrics.putAll(counterMetrics);
+		allGaugeMetrics.putAll(gaugeMetrics);
+		Thread t = new Thread(this, "ServerMonitorThread");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/**
+	 * Scans an application context for {link ServerComponentBean}s and extracts their {@link ManagedMetric} meta-data
+	 * @param appCtx The application context to scan
+	 */
+	private void locateMonitorBeans(ApplicationContext appCtx, final Map<ObjectName, Map<String[], String[]>> gaugeMetrics,  final Map<ObjectName, Map<String[], String[]>> counterMetrics) {
 		final Set<String> invalids = new HashSet<String>();
-		Map<String, ServerComponentBean> beans = event.getApplicationContext().getBeansOfType(ServerComponentBean.class, false, false);
+		Map<String, ServerComponentBean> beans = appCtx.getBeansOfType(ServerComponentBean.class, false, false);
 		info("Located [", beans.size(), "] instances of ServerComponentBean....");
-		int counterHits = 0;
-		int gaugeHits = 0;
 		for(Map.Entry<String, ServerComponentBean> bean: beans.entrySet()) {
 			ObjectName on = bean.getValue().getComponentObjectName();
 			final Set<String> attrNames = getMBeanAttributeNames(on);
@@ -141,16 +216,14 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 			}
 		}
 		if(!invalids.isEmpty()) {
-			StringBuilder b = new StringBuilder("\n\tInvalid ManagedMetrics for Server Monitor");
+			StringBuilder b = new StringBuilder("\n\tInvalid ManagedMetrics for Server Monitor from app ctx [" + appCtx.getDisplayName() + "]");
 			for(String s: invalids) {
 				b.append("\n\t").append(s);
 			}
 			warn(b);
 		}
-		info("Created [", gaugeMetrics.size(), "] GAUGE metrics and [", counterMetrics.size(), "] COUNTER metrics");
-		Thread t = new Thread(this, "ServerMonitorThread");
-		t.setDaemon(true);
-		t.start();
+		info("Completed scan of app context [", appCtx.getDisplayName(), "] \n\tCreated [", gaugeMetrics.size(), "] GAUGE metrics and [", counterMetrics.size(), "] COUNTER metrics");
+		
 	}
 	
 	/**
@@ -198,7 +271,7 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 	 */
 	protected void trace() {
 		MBeanServer server = JMXHelper.getHeliosMBeanServer();
-		for(Map.Entry<ObjectName, Map<String[], String[]>> metrics: counterMetrics.entrySet()) {
+		for(Map.Entry<ObjectName, Map<String[], String[]>> metrics: allCounterMetrics.entrySet()) {
 			final ObjectName on = metrics.getKey();
 			for(Map.Entry<String[], String[]> ops: metrics.getValue().entrySet()) {
 				String[] namespace = ops.getKey();
@@ -212,7 +285,7 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 				}				
 			}
 		}
-		for(Map.Entry<ObjectName, Map<String[], String[]>> metrics: gaugeMetrics.entrySet()) {
+		for(Map.Entry<ObjectName, Map<String[], String[]>> metrics: allGaugeMetrics.entrySet()) {
 			final ObjectName on = metrics.getKey();
 			for(Map.Entry<String[], String[]> ops: metrics.getValue().entrySet()) {
 				String[] namespace = ops.getKey();

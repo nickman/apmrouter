@@ -27,8 +27,11 @@ package org.helios.apmrouter.jmx.threadinfo;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -41,6 +44,7 @@ import javax.management.NotificationBroadcasterSupport;
 import javax.management.ObjectName;
 
 import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.util.SimpleLogger;
 import org.helios.apmrouter.util.SystemClock;
 
 /**
@@ -309,6 +313,40 @@ Thread[Thread-10,6,main]
 		};		
 	}
 	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.jmx.threadinfo.ExtendedThreadManagerMXBean#getBusyThreads(long)
+	 */
+	@Override
+	public String[] getBusyThreads(long sampleTime) {
+		SimpleLogger.info("Starting BusyThreads");
+		ThreadInfo[] infos = delegate.getThreadInfo(delegate.getAllThreadIds());
+		Map<String, Long> init = new HashMap<String, Long>(infos.length);		
+		for(ThreadInfo ti: infos) {
+			init.put(ti.getThreadName() + ":" + ti.getThreadId(), delegate.getThreadCpuTime(ti.getThreadId()));
+		}
+		SimpleLogger.info("BusyThreads Sampling Time [", sampleTime, "] ms.");
+		SystemClock.sleep(sampleTime);
+		SimpleLogger.info("Completed BusyThreads Sampling");
+		infos = delegate.getThreadInfo(delegate.getAllThreadIds());
+		Set<BusyThread> bthreads = new TreeSet<BusyThread>();
+		for(ThreadInfo ti: infos) {
+			String key = ti.getThreadName() + ":" + ti.getThreadId();
+			if(!init.containsKey(key)) continue;
+			long elapsedCpu = delegate.getThreadCpuTime(ti.getThreadId())-init.get(key);
+			bthreads.add(new BusyThread(elapsedCpu, key));			
+		}
+		String[] out = new String[bthreads.size()];
+		int cnt = 0;
+		for(BusyThread bt: bthreads) {
+			out[cnt] = bt.toString();
+			cnt++;
+		}
+		return out;
+		
+		
+	}
 	
 
 	/**

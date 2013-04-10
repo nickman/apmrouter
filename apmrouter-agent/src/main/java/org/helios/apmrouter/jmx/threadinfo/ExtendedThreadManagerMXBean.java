@@ -64,5 +64,12 @@ public interface ExtendedThreadManagerMXBean extends ThreadMXBean {
 	 * @return the names of the non-daemon threads
 	 */
 	public String[] getNonDaemonThreadNames();
+	
+	/**
+	 * Generates a list of thread names ordered in cpu utilization descending
+	 * @param sampleTime The time to sample for
+	 * @return a list of thread names with the cpu time appended
+	 */
+	public String[] getBusyThreads(long sampleTime);
 
 }

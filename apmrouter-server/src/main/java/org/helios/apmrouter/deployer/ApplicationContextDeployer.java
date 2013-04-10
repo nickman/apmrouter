@@ -30,6 +30,7 @@ import java.net.URL;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.ObjectName;
 
@@ -55,6 +56,9 @@ public class ApplicationContextDeployer {
 	protected final Logger log = Logger.getLogger(getClass());
 	/** Indicates if the default module hot deploy lib directory class loading should be disabled. By default it is enabled */
 	protected final boolean disableHotDirLibs;
+	
+	/** Hot Deployed Context ID serial */
+	private static final AtomicLong CTX_SERIAL = new AtomicLong();
 	
 	
 	
@@ -91,6 +95,7 @@ public class ApplicationContextDeployer {
 				GenericXmlApplicationContext appCtx = new GenericXmlApplicationContext();
 				//appCtx.setClassLoader(findClassLoader(f));
 				appCtx.setDisplayName(f.getAbsolutePath());	
+				appCtx.setId("HotDeployedContext#" + CTX_SERIAL.incrementAndGet());
 				appCtx.setParent(parent);
 				appCtx.load(new UrlResource(f.toURI().toURL()));
 				for(String beanName: appCtx.getBeanDefinitionNames()) {

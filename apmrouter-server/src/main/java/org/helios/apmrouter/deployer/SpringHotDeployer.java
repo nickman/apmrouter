@@ -51,6 +51,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 
+import org.helios.apmrouter.deployer.event.HotDeployedContextClosedEvent;
+import org.helios.apmrouter.deployer.event.HotDeployedContextRefreshedEvent;
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.springframework.context.ApplicationEvent;
@@ -362,6 +364,28 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	 */
 	@Override
 	public void onApplicationEvent(ApplicationEvent event) {
+		info("AppEvent [", new Date(event.getTimestamp()), "]:[", event.getClass().getName(),  "] source: [", event.getSource(), "]");
+		if(event instanceof ContextRefreshedEvent) {
+			ContextRefreshedEvent cre = (ContextRefreshedEvent)event;
+			String id = cre.getApplicationContext().getId();
+			if(id!=null && id.startsWith("HotDeployedContext#")) {
+				applicationContext.publishEvent(new HotDeployedContextRefreshedEvent(cre.getApplicationContext()));
+			}
+		} else if(event instanceof ContextClosedEvent) {
+			ContextClosedEvent cre = (ContextClosedEvent)event;
+			String id = cre.getApplicationContext().getId();
+			if(id!=null && id.startsWith("HotDeployedContext#")) {
+				applicationContext.publishEvent(new HotDeployedContextClosedEvent(cre.getApplicationContext()));
+			}			
+		}
+		/*
+			11:58:41,467 INFO  [deployer.SpringHotDeployer.HotDeployer] 
+			AppEvent 
+			[Wed Apr 10 11:58:13 EDT 2013]:
+			[org.springframework.context.event.ContextRefreshedEvent] 
+			source: [C:\Users\nwhitehe\.apmrouter\hotdir\jmxmp.app\jmxmp.apmrouter.xml: startup date [Wed Apr 10 11:58:13 EDT 2013]; parent: APMRouterRootAppCtx]
+		 */
+		
 //		ContextRefreshedEvent cse = (ContextRefreshedEvent)event;
 //		if(applicationContext==cse.getApplicationContext()) {
 //			info("Root AppCtx Started [", new Date(cse.getTimestamp()), "]:[", cse.getApplicationContext().getDisplayName(), "]");
