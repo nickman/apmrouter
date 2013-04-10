@@ -36,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
+import org.helios.apmrouter.jmx.threadinfo.ExtendedThreadManager;
 import org.helios.apmrouter.sender.SynchOpSupport;
 import org.helios.apmrouter.util.SimpleLogger;
 import org.jboss.netty.bootstrap.ClientBootstrap;
@@ -116,7 +117,9 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 	
 	static {
 		InternalLoggerFactory.setDefaultFactory(new SimpleLoggerFactory());
-		
+		if(!ExtendedThreadManager.isInstalled()) {
+			ExtendedThreadManager.install();
+		}
 	}
 
 	/**
