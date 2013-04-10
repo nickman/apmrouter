@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.helios.apmrouter.subscription.EmptyMetricURISubscriptionEventListener;
 import org.helios.apmrouter.subscription.MetricURIEvent;
@@ -69,10 +70,13 @@ public class WebSocketAgent implements WebSocketEventListener {
 		WebSocketAgent agent = WebSocketAgent.newInstance("ws://localhost:8087/ws");
 		log("Connected to [" + agent.getWebSocketURI() + "]");
 		agent.subscribeMetricURIAsynch(URLHelper.toURI("DefaultDomain/njw810/APMRouterServer/platform=JVM/category=cpu"), new EmptyMetricURISubscriptionEventListener(){
+			final AtomicLong dataCount = new AtomicLong();
 			@Override
 			public void onMetricData(Object metricData) {
-				log("Metric:\n" + metricData);
-				
+				long cnt = dataCount.incrementAndGet();
+				if(cnt%10==0) {
+					log("Metrics Received:\n" + cnt);
+				}				
 			}});
 		SystemClock.sleep(60000);
 		agent.close();

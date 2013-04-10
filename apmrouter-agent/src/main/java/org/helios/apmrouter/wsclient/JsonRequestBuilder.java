@@ -102,6 +102,7 @@ public class JsonRequestBuilder {
 		Map<String, Object> map = null;
 		if(!ctx.has(mapKey)) {
 			map = new HashMap<String, Object>();
+			try { ctx.put(mapKey, map); } catch (Exception ex) {}
 		} else {
 			Object m = null;
 			try { m = ctx.get(mapKey); } catch (Exception ex) {};
