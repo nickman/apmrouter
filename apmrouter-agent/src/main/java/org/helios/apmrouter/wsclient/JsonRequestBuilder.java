@@ -25,6 +25,7 @@
 package org.helios.apmrouter.wsclient;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Stack;
 
@@ -56,8 +57,10 @@ public class JsonRequestBuilder {
 	/**
 	 * Creates a new JsonRequestBuilder
 	 */
-	protected JsonRequestBuilder() {		
-		jsonStack.push(new JsonRequest());
+	protected JsonRequestBuilder() {	
+		JsonRequest jr = new JsonRequest();
+		try { jr.put("t", "req");} catch (Exception ex) { throw new RuntimeException(ex); }
+		jsonStack.push(jr);
 	}
 	
 	/**
@@ -82,6 +85,29 @@ public class JsonRequestBuilder {
 		if(key==null || key.trim().isEmpty()) throw new IllegalArgumentException("The passed key was null or empty", new Throwable());
 		if(value==null) throw new IllegalArgumentException("The passed value was null", new Throwable());
 		try { ((JSONObject)jsonStack.peek()).put(key, value); } catch (Exception ex) { throw new RuntimeException(ex); }
+		return this;
+	}
+	
+	/**
+	 * Adds a key value pair to a map bound at the map key 
+	 * @param mapKey The binding name of the map
+	 * @param key The pair key
+	 * @param value The pair value
+	 * @return this builder
+	 */
+	public JsonRequestBuilder putMapPair(String mapKey, String key, Object value) {
+		if(mapKey==null || mapKey.trim().isEmpty()) throw new IllegalArgumentException("The passed mapKey was null or empty", new Throwable());
+		if(key==null || key.trim().isEmpty()) throw new IllegalArgumentException("The passed key was null or empty", new Throwable());
+		JSONObject ctx = (JSONObject)jsonStack.peek();
+		Map<String, Object> map = null;
+		if(!ctx.has(mapKey)) {
+			map = new HashMap<String, Object>();
+		} else {
+			Object m = null;
+			try { m = ctx.get(mapKey); } catch (Exception ex) {};
+			map = (Map<String, Object>)m;
+		}
+		map.put(key, value);
 		return this;
 	}
 	

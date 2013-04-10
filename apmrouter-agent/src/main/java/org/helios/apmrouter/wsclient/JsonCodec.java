@@ -42,6 +42,7 @@ import org.jboss.netty.channel.DownstreamMessageEvent;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelHandler;
+import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.jboss.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import org.json.JSONObject;
 
@@ -60,6 +61,9 @@ public class JsonCodec extends SimpleChannelHandler {
 	protected final Set<WebSocketEventListener> eventListeners = new CopyOnWriteArraySet<WebSocketEventListener>();
 	/** A thread pool to execute listener notifications in */
 	protected final Executor threadPool = ThreadPoolFactory.newCachedThreadPool("org.helios.apmrouter.client.websocket", "ListenerPool");
+	
+	/** The elading string in the response containing the sessionId returned by the server */
+	public static final String SESSION_SIGNATURE = "{\"sessionid\":";
 	
 	/**
 	 * Registers the passed WebSocketEventListener to be notified of events on any websocket
@@ -152,10 +156,14 @@ public class JsonCodec extends SimpleChannelHandler {
 		SimpleLogger.debug("JsonCodec: Received from [", e.getRemoteAddress() , "]-->[", e.getMessage(), "]" );
 		Object event = e.getMessage();
 		if(event instanceof TextWebSocketFrame) {
-			TextWebSocketFrame textFrame = (TextWebSocketFrame)event;			
-			fireJsonEvent(e.getRemoteAddress(), new JSONObject(textFrame.getText()));
-		}
-		super.messageReceived(ctx, e);
+			TextWebSocketFrame textFrame = (TextWebSocketFrame)event;
+			String message = textFrame.getText();
+			if(message!=null && message.indexOf(SESSION_SIGNATURE)!=-1) {
+				super.messageReceived(ctx, new UpstreamMessageEvent(e.getChannel(), "" + new JSONObject(message).get("sessionid"), e.getRemoteAddress()));
+			} else {
+				fireJsonEvent(e.getRemoteAddress(), new JSONObject(textFrame.getText()));
+			}
+		}		
 	}
 	
 	

@@ -31,9 +31,12 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
+import org.helios.apmrouter.subscription.EmptyMetricURISubscriptionEventListener;
 import org.helios.apmrouter.subscription.MetricURIEvent;
 import org.helios.apmrouter.subscription.MetricURISubscriptionEventListener;
 import org.helios.apmrouter.util.SimpleLogger;
+import org.helios.apmrouter.util.SystemClock;
+import org.helios.apmrouter.util.URLHelper;
 import org.json.JSONObject;
 
 /**
@@ -47,15 +50,52 @@ import org.json.JSONObject;
 public class WebSocketAgent implements WebSocketEventListener {
 	/** The WebSocketClient this agent will use to comm with the server */
 	protected final WebSocketClient wsClient;
+	/** The web sock listeners registered by this agent */
+	protected final Set<WebSocketEventListener> webSockListeners = new CopyOnWriteArraySet<WebSocketEventListener>();
+	
 	/** A set of subscribed global MetricURISubscriptionEventListeners */
 	protected final Set<MetricURISubscriptionEventListener> subListeners = new CopyOnWriteArraySet<MetricURISubscriptionEventListener>();
 	/** A map of arrays of MetricURISubscriptionEventListeners keyed by the request id */
 	protected final Map<Long, MetricURISubscriptionEventListener[]> reqListeners = new ConcurrentHashMap<Long, MetricURISubscriptionEventListener[]>();
 	/** A metricURI to request id mapping */
-	protected final Map<URI, Long> metricURIRequestIds = new ConcurrentHashMap<URI, Long>(); 
+	protected final Map<URI, Long> metricURIRequestIds = new ConcurrentHashMap<URI, Long>();
 	
 	/** Empty listener array const */
 	protected static final MetricURISubscriptionEventListener[] EMPTY_LISTENER_ARR = {};
+	
+	
+	public static void main(String[] args) {
+		log("WebSocketAgent Test");
+		WebSocketAgent agent = WebSocketAgent.newInstance("ws://localhost:8087/ws");
+		log("Connected to [" + agent.getWebSocketURI() + "]");
+		agent.subscribeMetricURIAsynch(URLHelper.toURI("DefaultDomain/njw810/APMRouterServer/platform=JVM/category=cpu"), new EmptyMetricURISubscriptionEventListener(){
+			@Override
+			public void onMetricData(Object metricData) {
+				log("Metric:\n" + metricData);
+				
+			}});
+		SystemClock.sleep(60000);
+		agent.close();
+	}
+	
+	public static void log(Object msg) {
+		System.out.println(msg);
+	}
+	
+	/**
+	 * Closes this agent's WebSocket connection
+	 */
+	public void close() {
+		wsClient.close();
+	}
+	
+	/**
+	 * Returns the agent's WebSocket URI
+	 * @return the agent's WebSocket URI
+	 */
+	public URI getWebSocketURI() {
+		return wsClient.getWebSocketURI();
+	}
 	
 	
 	/**
@@ -87,6 +127,51 @@ public class WebSocketAgent implements WebSocketEventListener {
 	public static WebSocketAgent newInstance(URI wsUri) {
 		return new WebSocketAgent(WebSocketClient.getInstance(wsUri));
 	}
+	
+	/**
+	 * Returns a WebSocketAgent for the passed web socket URI
+	 * @param wsUri the web socket URI to connect to
+	 * @return a WebSocketAgent connected to the passed web socket URI
+	 */
+	public static WebSocketAgent newInstance(CharSequence wsUri) {
+		return new WebSocketAgent(WebSocketClient.getInstance(URLHelper.toURI(wsUri)));
+	}
+	
+	
+	/**
+	 * Adds a web socket event listener
+	 * @param listener the listener to add
+	 */
+	public void addWebSocketEventListener(WebSocketEventListener listener) {
+		if(listener!=null) {
+			wsClient.addWebSocketEventListener(listener);
+			webSockListeners.add(listener);
+		}
+	}
+	
+	/**
+	 * Removes a web socket event listener
+	 * @param listener the listener to remove
+	 */
+	public void removeWebSocketEventListener(WebSocketEventListener listener) {
+		if(listener!=null) {
+			wsClient.removeWebSocketEventListener(listener);
+			webSockListeners.remove(listener);
+		}
+	}
+	
+	/**
+	 * Removes all the web sock listeners registered from this agent
+	 */
+	protected void removeAllWebSocketEventListeners() {
+		for(WebSocketEventListener listener: webSockListeners) {
+			wsClient.removeWebSocketEventListener(listener);
+		}
+		webSockListeners.clear();
+	}
+	
+	
+	//212 748 4138
 
 	/**
 	 * Creates a new WebSocketAgent
@@ -95,7 +180,17 @@ public class WebSocketAgent implements WebSocketEventListener {
 	protected WebSocketAgent(WebSocketClient wsClient) {
 		super();
 		this.wsClient = wsClient;
+		this.wsClient.addWebSocketEventListener(this);
 	}
+	
+	/**
+	 * Returns the session id assigned to a web-sock connection by the server
+	 * @return the session id assigned to a web-sock connection by the server
+	 */
+	public String getSessionId() {
+		return wsClient.getSessionId();
+	}
+	
 	
 	/**
 	 * Sends a MetricURI subscription request
@@ -108,7 +203,7 @@ public class WebSocketAgent implements WebSocketEventListener {
 		JsonRequest request = JsonRequestBuilder.newBuilder()
 				.put("svc", "catalog")
 				.put("op", "submetricuri")
-				.put("uri", metricURI.toASCIIString())
+				.putMapPair("args", "uri", metricURI.toASCIIString())
 				.build();
 		if(asynch) {
 			registerURISub(request.getRequestId(), metricURI, listeners);
@@ -128,7 +223,7 @@ public class WebSocketAgent implements WebSocketEventListener {
 		JsonRequest request = JsonRequestBuilder.newBuilder()
 				.put("svc", "catalog")
 				.put("op", "unsubmetricuri")
-				.put("uri", metricURI.toASCIIString())
+				.putMapPair("args", "uri", metricURI.toASCIIString())
 				.build();
 		if(asynch) {
 			registerURISub(request.getRequestId(), metricURI);
@@ -175,7 +270,7 @@ public class WebSocketAgent implements WebSocketEventListener {
 	 */
 	@Override
 	public void onConnect(SocketAddress remoteAddress) {
-		// TODO Auto-generated method stub
+		SimpleLogger.info("Connected to [", remoteAddress, "]");
 		
 	}
 
@@ -185,7 +280,7 @@ public class WebSocketAgent implements WebSocketEventListener {
 	 */
 	@Override
 	public void onClose(SocketAddress remoteAddress) {
-		// TODO Auto-generated method stub
+		SimpleLogger.info("Closed [", remoteAddress, "]");
 		
 	}
 
@@ -195,7 +290,7 @@ public class WebSocketAgent implements WebSocketEventListener {
 	 */
 	@Override
 	public void onError(SocketAddress remoteAddress, Throwable t) {
-		// TODO Auto-generated method stub
+		SimpleLogger.error("WS error from [", remoteAddress, "]", t);
 		
 	}
 
@@ -206,6 +301,7 @@ public class WebSocketAgent implements WebSocketEventListener {
 	@Override
 	public void onMessage(SocketAddress remoteAddress, JSONObject message) {
 		try {
+			SimpleLogger.info(message.toString(2));
 			long rerid = message.getLong("rerid");
 			MetricURISubscriptionEventListener[] listeners = getListenersForRerid(rerid);			
 			MetricURIEvent event = MetricURIEvent.forEvent(message.getString("t"));

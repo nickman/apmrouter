@@ -28,7 +28,6 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -37,14 +36,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
-import org.helios.apmrouter.sender.AbstractSender;
 import org.helios.apmrouter.sender.SynchOpSupport;
 import org.helios.apmrouter.util.SimpleLogger;
-import org.helios.apmrouter.util.TimeoutQueueMap;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
+import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
@@ -56,6 +54,7 @@ import org.jboss.netty.handler.codec.http.HttpResponseDecoder;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketClientHandshaker;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketClientHandshakerFactory;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketVersion;
+import org.jboss.netty.handler.codec.oneone.OneToOneDecoder;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.json.JSONObject;
 
@@ -67,7 +66,7 @@ import org.json.JSONObject;
  * <p><code>org.helios.apmrouter.wsclient.WebSocketClient</code></p>
  */
 
-public class WebSocketClient implements ChannelPipelineFactory {
+public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineFactory {
 	/** The URI of the APMRouter server to connect to */
 	protected final URI wsuri;
 	/** The client websocket handshaker */
@@ -76,6 +75,8 @@ public class WebSocketClient implements ChannelPipelineFactory {
 	protected final WebSocketClientHandler wsClientHandler;
 	/** The client instance channel */
 	protected final Channel channel;
+	/** The session id assigned to a web-sock connection by the server */
+	protected String sessionId=null;
 	/** The client close future */
 	protected final ChannelFuture closeFuture;
 	/** The client bootstrap */
@@ -107,7 +108,10 @@ public class WebSocketClient implements ChannelPipelineFactory {
 	/** Shared HttpRequest encoder handler */
 	protected static final HttpRequestEncoder httpRequestEncoder= new HttpRequestEncoder();
 	/** Shared json codec */
-	protected static final JsonCodec jsonHandler = new JsonCodec(); 
+	protected static final JsonCodec jsonHandler = new JsonCodec();
+	
+	/** The leading string in the session id message by the server when the agent first connects */
+	public static final String SESSION_SIGNATURE = "{\"sessionid\":";
 
 	
 	static {
@@ -198,7 +202,7 @@ public class WebSocketClient implements ChannelPipelineFactory {
 			}
 		};
 		try {
-			jsonHandler.addWebSocketEventListener(listener);
+			//jsonHandler.addWebSocketEventListener(listener);
 			WebSocketClient client = new WebSocketClient(new URI("ws://localhost:8087/ws"));
 			log("Client Connected:" + client.channel.getRemoteAddress());
 			JSONObject request = new JSONObject();
@@ -255,6 +259,23 @@ public class WebSocketClient implements ChannelPipelineFactory {
 		}
 
 	}
+	
+	/**
+	 * Adds a web socket event listener
+	 * @param listener the listener to add
+	 */
+	public void addWebSocketEventListener(WebSocketEventListener listener) {
+		jsonHandler.addWebSocketEventListener(listener);
+	}
+	
+	/**
+	 * Removes a web socket event listener
+	 * @param listener the listener to remove
+	 */
+	public void removeWebSocketEventListener(WebSocketEventListener listener) {
+		jsonHandler.removeWebSocketEventListener(listener);
+	}
+	
 	
 	/**
 	 * Sends a JSON request to the server
@@ -321,8 +342,22 @@ public class WebSocketClient implements ChannelPipelineFactory {
 		pipeline.addLast("encoder", httpRequestEncoder);
 		pipeline.addLast("ws-handler", wsClientHandler);
 		pipeline.addLast("json-handler", jsonHandler);
+		pipeline.addLast("session-handler", this);
 		return pipeline;
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.jboss.netty.handler.codec.oneone.OneToOneDecoder#decode(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.Channel, java.lang.Object)
+	 */
+	@Override
+	protected Object decode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
+		SimpleLogger.info("Processing SessionID handshake [", msg, "]");
+		ctx.getPipeline().remove(this);
+		sessionId = (String)msg;		
+		return null;
+	}
+	
 
 
 	/**
@@ -341,5 +376,31 @@ public class WebSocketClient implements ChannelPipelineFactory {
 	public void setSynchRequestTimeout(long synchRequestTimeout) {
 		this.synchRequestTimeout = synchRequestTimeout;
 	}
+
+	/**
+	 * Closes this client
+	 */
+	protected void close() {
+		this.channel.close().awaitUninterruptibly(500);
+	}
+
+	/**
+	 * Returns the websocket client's WS URI
+	 * @return the websocket client's WS URI
+	 */
+	public URI getWebSocketURI() {
+		return wsuri;
+	}
+
+
+	/**
+	 * Returns the session id assigned to a web-sock connection by the server
+	 * @return the session id assigned to a web-sock connection by the server
+	 */
+	public String getSessionId() {
+		return sessionId;
+	}
+
+
 
 }
