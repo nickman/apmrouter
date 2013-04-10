@@ -210,7 +210,9 @@ public class HttpStaticFileServerHandler extends AbstractHttpRequestHandler {
 			}
 			b.insert(0, "www/");
 			String resourcePath = b.toString();
-			LOG.info("HTTP File Server Request [" + resourcePath + "]");
+			int index = resourcePath.indexOf('?');
+			resourcePath = resourcePath.substring(0, index==-1 ? resourcePath.length() : index);
+			if(LOG.isDebugEnabled()) LOG.debug("HTTP File Server Request [" + resourcePath + "]");
 			HttpResponse response = contentCache.get(resourcePath);
 			if(response==null) {
 				synchronized(contentCache) {

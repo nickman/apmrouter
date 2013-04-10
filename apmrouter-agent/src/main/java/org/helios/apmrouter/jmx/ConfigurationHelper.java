@@ -44,7 +44,10 @@ public class ConfigurationHelper {
 	public static Properties mergeProperties(Properties...properties) {
 		Properties allProps = new Properties();
 		if(properties==null || properties.length==0) {
-			allProps.putAll(System.getProperties());
+			Properties sys = System.getProperties();
+			for(String key: sys.stringPropertyNames()) {
+				allProps.put(key, sys.getProperty(key));
+			}			
 		} else {
 			for(int i = properties.length-1; i>=0; i--) {
 				if(properties[i] != null && properties[i].size() >0) {

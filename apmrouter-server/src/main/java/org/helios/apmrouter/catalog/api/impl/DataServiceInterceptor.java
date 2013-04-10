@@ -49,7 +49,7 @@ public class DataServiceInterceptor extends EmptyInterceptor {
 	 */
 	@Override
 	public String onPrepareStatement(String sql) { 
-		log.info(sql);
+		if(log.isDebugEnabled()) log.debug(sql);
 		return super.onPrepareStatement(sql);
 	}
 

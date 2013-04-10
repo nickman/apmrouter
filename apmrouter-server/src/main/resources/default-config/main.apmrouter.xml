@@ -215,7 +215,7 @@
  		<property name="workerPool" ref="DataServiceWorkers" />
  		<property name="bossPool" ref="DataServiceBoss" />
  	 		<property name="bindHost" value="0.0.0.0" />
- 		<property name="bindPort" value="8087" />
+ 		<property name="bindPort" value="${org.helios.apmrouter.http.port:8087}" />
  	
 		 <property name="channelOptions">
 		 	<map>

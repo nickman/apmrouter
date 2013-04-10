@@ -46,6 +46,7 @@
 		<script type="text/javascript" src="js/chart-model.js"></script>
 		<script type="text/javascript" src="js/pubsub/pubsub.js"></script>		
 		<script type="text/javascript" src="js/apmr-tree-support.js"></script>
+		<script type="text/javascript" src="js/jmxBrowser.js"></script>
 		<script type="text/javascript" src="js/main.js"></script>
 		<script type="text/javascript" src="js/growl/jquery.jgrowl_minimized.js"></script>
 
@@ -64,6 +65,7 @@
 		
 		<script type="text/javascript">
 			initMain(); // in layouttest.js 
+			$('#jmxBrowserTree').livequery(initJmxTree);
         	Highcharts.setOptions({
                 global: {
                     useUTC: false
@@ -149,8 +151,10 @@
 		</div><!-- TAB #0 / #tabLayout -->
 
 		<!-- TAB #1  (JMX) -->
-		<div id="tab1" class="tabPanel hidden">
-			<div class="ui-widget-content">
+		<div id="jmxBrowserTab" class="tabPanel ui-widget-content hidden" style="height: 90%;">
+			<div id="jmxBrowserContent" class="ui-widget-content">
+				<div id="jmxBrowserTree">
+				</div> 
 			</div>
 		</div>
 

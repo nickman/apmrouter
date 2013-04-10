@@ -26,6 +26,10 @@ function initMain() {
     	//addTreeTooltipListener();
     	$('#top-toolbar').children().css('vertical-align', 'middle');
     	$('#maintabs').tabs({
+    		load: function( event, ui ) {
+        		console.info("Loaded tab event [%o]", event);
+        		console.info("Loaded tab ui [%o]", ui);
+        	}, 
     		show: function() {
     			topLayouts.metricLayout = $('#metricLayout').layout();
     			topLayouts.metricDisplayLayout = $('#metricDisplayLayout').layout({    				
