@@ -365,34 +365,36 @@ public class SpringHotDeployer extends ServerComponentBean  {
 		return true;
 	}
 	
-	/**
-	 * {@inheritDoc}
-	 * @see org.springframework.context.ApplicationListener#onApplicationEvent(org.springframework.context.ApplicationEvent)
-	 */
-	@Override
-	public void onApplicationEvent(ApplicationEvent event) {
-		if(event.getSource()==this) return;
-		info("AppEvent [", new Date(event.getTimestamp()), "]:[", event.getClass().getName(),  "] source: [", event.getSource(), "]");
-		if(event instanceof ContextRefreshedEvent) {
-			ContextRefreshedEvent cre = (ContextRefreshedEvent)event;
-			String id = cre.getApplicationContext().getId();
-			if(id!=null && id.startsWith("HotDeployedContext#")) {
-				applicationContext.publishEvent(new HotDeployedContextRefreshedEvent(cre.getApplicationContext()));
-				info("Propagated HotDeployedContextRefreshedEvent for [", id, "]");
+	
+	
+	protected ApplicationListener innerListener = new ApplicationListener() {
+		public void onApplicationEvent(ApplicationEvent event) {
+			if(event.getSource()==this || event.getSource()==applicationContext) {
+				info("Dropping event. Came from [", event.getSource(), "]");
 			}
-		} else if(event instanceof ContextClosedEvent) {
-			ContextClosedEvent cre = (ContextClosedEvent)event;
-			String id = cre.getApplicationContext().getId();
-			if(id!=null && id.startsWith("HotDeployedContext#")) {
-				applicationContext.publishEvent(new HotDeployedContextClosedEvent(cre.getApplicationContext()));
-				info("Propagated HotDeployedContextClosedEvent for [", id, "]");
-			}			
-		}
-//		else if(shouldPropagate(event.getClass())) {
-//			applicationContext.publishEvent(event);
-//			info("Propagated Accepted Event of Type [", event.getClass().getName(), "]");
-//		}
-	}
+			info("AppEvent [", new Date(event.getTimestamp()), "]:[", event.getClass().getName(),  "] source: [", event.getSource(), "]");
+			if(event instanceof ContextRefreshedEvent) {
+				ContextRefreshedEvent cre = (ContextRefreshedEvent)event;
+				String id = cre.getApplicationContext().getId();
+				if(id!=null && id.startsWith("HotDeployedContext#")) {
+					applicationContext.publishEvent(new HotDeployedContextRefreshedEvent(cre.getApplicationContext()));
+					info("Propagated HotDeployedContextRefreshedEvent for [", id, "]");
+				}
+			} else if(event instanceof ContextClosedEvent) {
+				ContextClosedEvent cre = (ContextClosedEvent)event;
+				String id = cre.getApplicationContext().getId();
+				if(id!=null && id.startsWith("HotDeployedContext#")) {
+					applicationContext.publishEvent(new HotDeployedContextClosedEvent(cre.getApplicationContext()));
+					info("Propagated HotDeployedContextClosedEvent for [", id, "]");
+				}			
+			}
+			else if(shouldPropagate(event.getClass())) {
+				info("Propagated Accepted Event of Type [", event.getClass().getName(), "] from [", event.getSource(), "]");
+				applicationContext.publishEvent(event);
+				
+			}
+		}		
+	};
 	
 	/**
 	 * @param ctx
@@ -594,7 +596,7 @@ public class SpringHotDeployer extends ServerComponentBean  {
 			killAppCtx(fe);
 		}
 		GenericApplicationContext appCtx = deployer.deploy(applicationContext, fe);
-		appCtx.addApplicationListener(this);
+		appCtx.addApplicationListener(innerListener);
 		appCtx.addApplicationListener(new ApplicationListener(){
 			@Override
 			public void onApplicationEvent(ApplicationEvent event) {
