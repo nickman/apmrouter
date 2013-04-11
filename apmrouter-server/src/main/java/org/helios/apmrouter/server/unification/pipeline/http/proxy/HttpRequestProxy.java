@@ -29,6 +29,7 @@ import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.helios.apmrouter.server.services.session.ChannelType;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
@@ -46,6 +47,9 @@ import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.jboss.netty.util.CharsetUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedMetric;
+import org.springframework.jmx.support.MetricType;
 
 /**
  * <p>Title: HttpRequestProxy</p>
@@ -67,6 +71,9 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
 	protected ProxyChannelFactory channelFactory = null;
 	/** A cache of proxied connections */
 	protected static final Map<String, Channel> proxyConnections = new ConcurrentHashMap<String, Channel>();
+	
+	/** A counter to track the number of in-flight requests */
+	protected static final AtomicInteger inFlightRequests = new AtomicInteger();
 	
 	/**
 	 * Creates a new HttpRequestProxy
@@ -91,6 +98,7 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
 	 */
 	@Override
 	public void handle(final ChannelHandlerContext ctx, MessageEvent e, final HttpRequest request, String path) throws Exception {
+		incr("OutgoingResponses");  
 		final HttpRequest newRequest = new DefaultHttpRequest(request.getProtocolVersion(), request.getMethod(), request.getUri());
 		newRequest.setContent(request.getContent());
 		for(String hdr: request.getHeaderNames()) {
@@ -165,6 +173,7 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
 	 * @param request The modified Http request
 	 */
 	protected void processProxyRequest(final ChannelHandlerContext originalCtx, final Channel originalChannel, final Channel proxyChannel, final HttpRequest request) {
+		incr("IncomingRequests");  
 		proxyChannel.getPipeline().getContext("responseHandler").setAttachment(originalCtx);
 		ProxyResponseHandler.httpRequestChannelLocal.set(proxyChannel, request);
 		ProxyResponseHandler.ctxChannelLocal.set(proxyChannel, originalCtx);
@@ -178,6 +187,7 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
      * @param status The HTTP Status to send
      */
     private void sendError(ChannelHandlerContext ctx, HttpResponseStatus status) {
+    	incr("ProxyError");
         HttpResponse response = new DefaultHttpResponse(HTTP_1_1, status);
         response.setHeader(CONTENT_TYPE, "text/plain; charset=UTF-8");
         response.setContent(ChannelBuffers.copiedBuffer(
@@ -187,18 +197,68 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
         // Close the connection as soon as the error message is sent.
         ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
     }
+    
+
+    
+    /**
+     * Returns the cummulative number of outgoing responses
+     * @return the cummulative number of outgoing responses
+     */
+    @ManagedMetric(category="HttpProxy", displayName="OutgoingResponseCount", metricType=MetricType.COUNTER, description="The cummulative number of outgoing responses")
+    public long getOutgoingResponseCount() {
+    	return getMetricValue("OutgoingResponses");
+    }
+    
+    
+    /**
+     * Returns the cummulative number of incoming requests
+     * @return the cummulative number of incoming requests
+     */
+    @ManagedMetric(category="HttpProxy", displayName="IncomingRequestCount", metricType=MetricType.COUNTER, description="The cummulative number of incoming requests")
+    public long getIncomingRequestCount() {
+    	return getMetricValue("IncomingRequests");
+    }
+    
+    
+    /**
+     * Returns the number of in-flight requests
+     * @return the number of in-flight requests
+     */
+    @ManagedMetric(category="HttpProxy", displayName="InFlightRequests", metricType=MetricType.GAUGE, description="The number of in-flight requests")
+    public int getInFlightRequests() {
+    	return inFlightRequests.get(); 
+    }
+    
+    /**
+     * Returns the cummulative number of proxy errors
+     * @return the cummulative number of proxy errors
+     */
+    @ManagedMetric(category="HttpProxy", displayName="ProxyErrorCount", metricType=MetricType.COUNTER, description="The cummulative number of proxy errors")
+    public long getProxyErrorCount() {
+    	return getMetricValue("ProxyError");
+    }
 	
 
 	/**
-	 * Returns 
+	 * Returns the target host
 	 * @return the targetHost
 	 */
+    @ManagedAttribute(description="The target host for this proxy")
 	public String getTargetHost() {
 		return targetHost;
 	}
+    
+    /**
+     * Returns the number of proxy connections
+     * @return the number of proxy connections
+     */
+    @ManagedMetric(category="HttpProxy", displayName="ProxyConnectionCount", metricType=MetricType.GAUGE, description="The current number of proxy connections")
+    public int getProxyConnectionCount() {
+    	return proxyConnections.size();
+    }
 
 	/**
-	 * Sets 
+	 * Sets the target host
 	 * @param targetHost the targetHost to set
 	 */
 	public void setTargetHost(String targetHost) {
@@ -206,15 +266,16 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
 	}
 
 	/**
-	 * Returns 
+	 * Returns the target port 
 	 * @return the targetPort
 	 */
+	@ManagedAttribute(description="The target port for this proxy")
 	public int getTargetPort() {
 		return targetPort;
 	}
 
 	/**
-	 * Sets 
+	 * Sets the target port
 	 * @param targetPort the targetPort to set
 	 */
 	public void setTargetPort(int targetPort) {
