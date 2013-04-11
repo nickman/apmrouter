@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
  * <p>Company: Helios Development Group</p>
  * @author Sandeep Malhotra (smalhotra@heliosdev.org)
  */
-@ManagedResource
+
 public class JMXServiceURLConnectionFactory extends AbstractMBeanServerConnectionFactory {
 	
 	private static final long serialVersionUID = -5166257255134636487L;

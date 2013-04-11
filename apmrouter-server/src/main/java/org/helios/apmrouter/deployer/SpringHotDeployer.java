@@ -55,6 +55,8 @@ import org.helios.apmrouter.deployer.event.HotDeployedContextClosedEvent;
 import org.helios.apmrouter.deployer.event.HotDeployedContextRefreshedEvent;
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.server.unification.pipeline.http.HttpRequestHandlerStarted;
+import org.helios.apmrouter.server.unification.pipeline.http.HttpRequestHandlerStopped;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ApplicationContextEvent;
@@ -84,6 +86,9 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	protected Thread watchThread = null;
 	/** The processingQueue handling thread */
 	protected Thread processingThread = null;
+	
+	/** A set of application event types that should be propagated */
+	protected final Set<Class<? extends ApplicationEvent>> propagates = new CopyOnWriteArraySet<Class<? extends ApplicationEvent>>();
 
 	/** The watch service */
 	protected WatchService watcher = null;
@@ -148,6 +153,8 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	 * Creates a new SpringHotDeployer
 	 */
 	public SpringHotDeployer() {
+		propagates.add(HttpRequestHandlerStopped.class);
+		propagates.add(HttpRequestHandlerStarted.class);
 	}
 	
 	/**
@@ -345,7 +352,7 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	 */
 	@Override
 	public boolean supportsEventType(Class<? extends ApplicationEvent> eventType) {
-		return (ContextRefreshedEvent.class.isAssignableFrom(eventType));
+		return true;
 	}
 	
 	/**
@@ -364,33 +371,26 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	 */
 	@Override
 	public void onApplicationEvent(ApplicationEvent event) {
+		if(event.getSource()==this) return;
 		info("AppEvent [", new Date(event.getTimestamp()), "]:[", event.getClass().getName(),  "] source: [", event.getSource(), "]");
 		if(event instanceof ContextRefreshedEvent) {
 			ContextRefreshedEvent cre = (ContextRefreshedEvent)event;
 			String id = cre.getApplicationContext().getId();
 			if(id!=null && id.startsWith("HotDeployedContext#")) {
 				applicationContext.publishEvent(new HotDeployedContextRefreshedEvent(cre.getApplicationContext()));
+				info("Propagated HotDeployedContextRefreshedEvent for [", id, "]");
 			}
 		} else if(event instanceof ContextClosedEvent) {
 			ContextClosedEvent cre = (ContextClosedEvent)event;
 			String id = cre.getApplicationContext().getId();
 			if(id!=null && id.startsWith("HotDeployedContext#")) {
 				applicationContext.publishEvent(new HotDeployedContextClosedEvent(cre.getApplicationContext()));
+				info("Propagated HotDeployedContextClosedEvent for [", id, "]");
 			}			
 		}
-		/*
-			11:58:41,467 INFO  [deployer.SpringHotDeployer.HotDeployer] 
-			AppEvent 
-			[Wed Apr 10 11:58:13 EDT 2013]:
-			[org.springframework.context.event.ContextRefreshedEvent] 
-			source: [C:\Users\nwhitehe\.apmrouter\hotdir\jmxmp.app\jmxmp.apmrouter.xml: startup date [Wed Apr 10 11:58:13 EDT 2013]; parent: APMRouterRootAppCtx]
-		 */
-		
-//		ContextRefreshedEvent cse = (ContextRefreshedEvent)event;
-//		if(applicationContext==cse.getApplicationContext()) {
-//			info("Root AppCtx Started [", new Date(cse.getTimestamp()), "]:[", cse.getApplicationContext().getDisplayName(), "]");
-//			keepRunning.set(true);
-//			startFileEventListener();
+//		else if(shouldPropagate(event.getClass())) {
+//			applicationContext.publishEvent(event);
+//			info("Propagated Accepted Event of Type [", event.getClass().getName(), "]");
 //		}
 	}
 	
@@ -594,6 +594,7 @@ public class SpringHotDeployer extends ServerComponentBean  {
 			killAppCtx(fe);
 		}
 		GenericApplicationContext appCtx = deployer.deploy(applicationContext, fe);
+		appCtx.addApplicationListener(this);
 		appCtx.addApplicationListener(new ApplicationListener(){
 			@Override
 			public void onApplicationEvent(ApplicationEvent event) {
@@ -725,6 +726,63 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	@ManagedAttribute(description="The hot directory application subdirectory extension")
 	public void setHotDeployAppDirectoryExt(String hotDeployAppDirectoryExt) {
 		this.hotDeployAppDirectoryExt = hotDeployAppDirectoryExt;
+	}
+	
+	/**
+	 * Tests the passed class to see if it is an ApplicationEvent type that should be propagated
+	 * @param clazz The class to test
+	 * @return true to propagate, false otherwise
+	 */
+	protected boolean shouldPropagate(Class<?> clazz) {
+		if(clazz==null) return false;
+		if(!ApplicationEvent.class.isAssignableFrom(clazz)) return false;
+		if(propagates.contains(clazz)) return true;
+		Class<? extends ApplicationEvent> addClass = null;
+		try {
+			for(Class<? extends ApplicationEvent> pclass : propagates) {
+				if(pclass.isAssignableFrom(clazz)) {
+					addClass = (Class<? extends ApplicationEvent>) clazz;
+					return true;
+				}
+			}
+			return false;
+		} finally {
+			if(addClass!=null) {
+				propagates.add(addClass);
+			}
+		}
+	}
+
+	/**
+	 * Adds a set of the class names of application events that should be propagated when emitted from a hot deployed context 
+	 * @param clazzNames set of class names 
+	 */
+	public void setPropagates(Set<String> clazzNames) {
+		if(clazzNames!=null) {
+			for(String clazzName: clazzNames) {
+				try {
+					Class<?> clazz = Class.forName(clazzName);
+					if(ApplicationEvent.class.isAssignableFrom(clazz)) {
+						propagates.add((Class<? extends ApplicationEvent>) clazz);
+						info("Added [", clazz.getName(), "] to propagates set");
+					}
+				} catch (Exception ex) {
+					warn("Failed to resolved propagation class name [", clazzName, "]:", ex.toString());
+				}
+			}
+		}
+	}
+	
+	/**
+	 * Returns a set of the class names of application events that should be propagated when emitted from a hot deployed context 
+	 * @return a set of class names 
+	 */
+	public Set<String> getPropagates() {
+		Set<String> names = new HashSet<String>(propagates.size());
+		for(Class<? extends ApplicationEvent> clazz : propagates) {
+			names.add(clazz.getName());
+		}
+		return names;
 	}
 	
 	

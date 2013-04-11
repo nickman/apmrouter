@@ -34,6 +34,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.helios.apmrouter.server.services.session.ChannelType;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.helios.apmrouter.server.unification.pipeline.http.AbstractHttpRequestHandler;
+import org.helios.apmrouter.server.unification.pipeline.http.HttpRequestHandlerStarted;
+import org.helios.apmrouter.server.unification.pipeline.http.HttpRequestHandlerStopped;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
@@ -79,7 +81,7 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
 	 * Creates a new HttpRequestProxy
 	 */
 	public HttpRequestProxy() {
-		super();
+		super();		
 	}
 	
 	/**
@@ -89,8 +91,18 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
 	@Override
 	protected void doStart() throws Exception {
 		remoteKey = targetHost + ":" + targetPort;
+		applicationContext.publishEvent(new HttpRequestHandlerStarted(this, beanName));
 	}
 	
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStop()
+	 */
+	@Override
+	protected void doStop() {
+		applicationContext.publishEvent(new HttpRequestHandlerStopped(this, beanName));
+	}
 
 	/**
 	 * {@inheritDoc}
@@ -98,7 +110,7 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
 	 */
 	@Override
 	public void handle(final ChannelHandlerContext ctx, MessageEvent e, final HttpRequest request, String path) throws Exception {
-		incr("OutgoingResponses");  
+		incr("OutgoingResponses");  inFlightRequests.incrementAndGet();
 		final HttpRequest newRequest = new DefaultHttpRequest(request.getProtocolVersion(), request.getMethod(), request.getUri());
 		newRequest.setContent(request.getContent());
 		for(String hdr: request.getHeaderNames()) {
@@ -177,7 +189,15 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
 		proxyChannel.getPipeline().getContext("responseHandler").setAttachment(originalCtx);
 		ProxyResponseHandler.httpRequestChannelLocal.set(proxyChannel, request);
 		ProxyResponseHandler.ctxChannelLocal.set(proxyChannel, originalCtx);
-		proxyChannel.write(request);
+		proxyChannel.write(request).addListener(new ChannelFutureListener() {
+			@Override
+			public void operationComplete(ChannelFuture future) throws Exception {
+				inFlightRequests.decrementAndGet();
+				if(!future.isSuccess()) {
+					incr("ProxyError");
+				}
+			}
+		});
 	}
 	
 	
@@ -194,8 +214,8 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
                 "Failure: " + status.toString() + "\r\n",
                 CharsetUtil.UTF_8));
 
-        // Close the connection as soon as the error message is sent.
-        ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
+        // Close the connection as soon as the error message is sent, or maybe not.....
+        ctx.getChannel().write(response); //.addListener(ChannelFutureListener.CLOSE);
     }
     
 
