@@ -218,8 +218,9 @@ public class HttpStaticFileServerHandler extends AbstractHttpRequestHandler {
 				synchronized(contentCache) {
 					response = contentCache.get(resourcePath);
 					if(response==null) {
-						is = classLoader.getResourceAsStream(b.toString());
-						if(is.available()==0) {
+						is = classLoader.getResourceAsStream(resourcePath);						
+						if(is==null || is.available()==0) {
+							LOG.warn("Request for resource not found [" + resourcePath + "]");
 				            sendError(ctx, NOT_FOUND);
 				            return null;				
 						}
