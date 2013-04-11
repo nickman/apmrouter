@@ -119,4 +119,10 @@ public interface VirtualAgentMXBean  {
 	 */
 	public Map<String, VirtualTracerMBean> getVirtualTracers();
 	
+	/**
+	 * Touches all the agent's tracers
+	 */
+	public void touch();
+
+	
 }

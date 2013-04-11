@@ -550,6 +550,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 			try {
 				Thread.currentThread().setName("Collector[" + this.getBeanName() + "]");				
 				info("[", threadName, "] Starting collect for bean: ", this.getBeanName());
+				long start = System.currentTimeMillis();
 				setState(CollectorState.COLLECTING);
 				//numberOfCollectorsRunning.incrementAndGet();
 				preCollect();
@@ -567,7 +568,8 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 					actualSkipped=0;
 					info("*** Frequency for collector: " + this.getBeanName() +" is switched back to normal now.");
 				}
-				debug("Completed collect for bean: ", this.getBeanName());
+				//debug("Completed collect for bean: ", this.getBeanName());
+				info("[", threadName, "] Completed collect for bean [", this.getBeanName(), "] in [", (System.currentTimeMillis()-start), "] ms.");
 			} catch (Exception ex){
 				lastTimeCollectionFailed=System.currentTimeMillis();
 				errors=true;

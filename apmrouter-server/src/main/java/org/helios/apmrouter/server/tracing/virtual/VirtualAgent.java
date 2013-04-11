@@ -45,6 +45,7 @@ import org.apache.log4j.Logger;
 import org.helios.apmrouter.collections.delay.DelayChangeReceiver;
 import org.helios.apmrouter.collections.delay.NotifyingDelay;
 import org.helios.apmrouter.jmx.JMXHelper;
+import org.springframework.jmx.export.annotation.ManagedOperation;
 
 /**
  * <p>Title: VirtualAgent</p>
@@ -339,6 +340,16 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 		if(priorState==VirtualState.SOFTDOWN) {
 			vaManager.markCatalogAgentState(true, this);
 			tracerExpiryQueue.add(virtualTracer);
+		}
+	}
+	
+	/**
+	 * Touches all the agent's tracers
+	 */
+	@Override
+	public void touch() {
+		for(VirtualTracer vt: tracers.values()) {
+			vt.touch();
 		}
 	}
 

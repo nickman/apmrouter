@@ -87,6 +87,8 @@ public class JMXCollector extends AbstractCollector {
     protected ObjectName availabilityMBean = null;
     /** The availability MBean Attribute */
     protected String availabilityAttribute = null;
+    /** Indicates if mapped metrics should be used for mxbeans */
+    protected boolean mappedMetrics = true;
     /** The availability segments */
     protected String[] availabilitySegment = null;
     /** List that stores all JMXObjects fed from the config file */
@@ -210,7 +212,7 @@ public class JMXCollector extends AbstractCollector {
             }
             if(virtualHost!=null && virtualAgent!=null) {
                 //this.tracer = this.tracer.getVirtualTracer(virtualHost, virtualAgent);
-                this.tracer = TracerFactory.getTracer(virtualHost, virtualAgent, "JMXCollector", (int)(getCollectionPeriod()*1.1));
+                this.tracer = TracerFactory.getTracer(virtualHost, virtualAgent, "JMXCollector", (int)(getCollectionPeriod()*2));
             }
         }catch(MBeanServerConnectionFactoryException mex){
             throw new Exception("Unable to get MBeanServerConnection for JMXCollector",mex);
@@ -655,7 +657,7 @@ public class JMXCollector extends AbstractCollector {
         try {
             threadMXBean = mxBeanObjectNames.get(ManagementFactory.THREAD_MXBEAN_NAME);
             if(threadMXBean==null) {
-                threadMXBean = new ObjectName(ManagementFactory.THREAD_MXBEAN_NAME+",*");
+                threadMXBean = new ObjectName(ManagementFactory.THREAD_MXBEAN_NAME);
                 Set<ObjectName> beanSet = mBeanServerConnection.queryNames(threadMXBean, null);
                 if(beanSet.size()==1)
                     mxBeanObjectNames.put(ManagementFactory.THREAD_MXBEAN_NAME, new ObjectName(beanSet.iterator().next().getCanonicalName()));
@@ -667,8 +669,14 @@ public class JMXCollector extends AbstractCollector {
             totalStartedThreads = (Long)getValue(attrs, THREAD_STATS[2]);
             nonDaemonThreads = activeThreads - daemonThreads;
             peakThreadCount = (Integer)(getValue(attrs, THREAD_STATS[3]));
+            
+            String[] rootSegment = null;
+            if(mappedMetrics) {
+            	rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=Threads"};
+            } else {
+            	rootSegment = StringHelper.append(false,tracingNameSpace,mxBeanSegment,"Threads");
+            }
 
-            String[] rootSegment = StringHelper.append(false,tracingNameSpace,mxBeanSegment,"Threads");
 //            tracer.traceStickyDelta(totalStartedThreads, "Threads Started (Delta)", rootSegment);
 //            tracer.traceSticky(activeThreads, "Active Threads", rootSegment);
 //            tracer.traceSticky(daemonThreads, "Daemon Threads", rootSegment);
@@ -793,7 +801,7 @@ public class JMXCollector extends AbstractCollector {
             if(memoryPoolObjectNames==null) {
                 memoryPoolObjectNames = new HashMap<String, ObjectName>();
                 try {
-                    memoryPoolMXBean = new ObjectName(ManagementFactory.MEMORY_POOL_MXBEAN_DOMAIN_TYPE+",*");
+                    memoryPoolMXBean = new ObjectName(ManagementFactory.MEMORY_POOL_MXBEAN_DOMAIN_TYPE+",name=*");
                     if(!shouldBeCollected(memoryPoolMXBean)) return;
                     Set<ObjectName> memoryPools = mBeanServerConnection.queryNames(memoryPoolMXBean, null);
                     if(memoryPools.size()==0) {
@@ -821,7 +829,11 @@ public class JMXCollector extends AbstractCollector {
             for(Entry<String, ObjectName> entry: memoryPoolObjectNames.entrySet()) {
                 poolType = (String)mBeanServerConnection.getAttribute(entry.getValue(), "Type");
                 usage = (CompositeDataSupport)mBeanServerConnection.getAttribute(entry.getValue(), "Usage");
-                rootSegment = StringHelper.append(false,tracingNameSpace,mxBeanSegment,"Memory Pools", poolType, entry.getKey());
+                if(mappedMetrics) {
+                	rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=MemoryPools", "type=" + poolType, "pool=" + entry.getKey()};
+                } else {
+                	rootSegment = StringHelper.append(false,tracingNameSpace,mxBeanSegment,"Memory Pools", poolType, entry.getKey());
+                }
                 for(String key: usage.getCompositeType().keySet()) {
                     tracer.traceGauge((Long)usage.get(key),key,rootSegment);
                 }
@@ -858,7 +870,7 @@ public class JMXCollector extends AbstractCollector {
             if(gcObjectNames==null) {
                 gcObjectNames = new HashMap<String, ObjectName>();
                 try {
-                    gcMXBean = new ObjectName(ManagementFactory.GARBAGE_COLLECTOR_MXBEAN_DOMAIN_TYPE+",*");
+                    gcMXBean = new ObjectName(ManagementFactory.GARBAGE_COLLECTOR_MXBEAN_DOMAIN_TYPE+",name=*");
                     if(!shouldBeCollected(gcMXBean)) return;
                     Set<ObjectName> gcs = mBeanServerConnection.queryNames(gcMXBean, null);
                     if(gcs.size()==0) {
@@ -890,7 +902,11 @@ public class JMXCollector extends AbstractCollector {
                 pollGCPercent=false;
             }
             for(Entry<String, ObjectName> entry: gcObjectNames.entrySet()) {
-                rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Garbage Collectors", entry.getKey());
+                if(mappedMetrics) {
+                	rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=GarbageCollection", "collector=" + entry.getKey()};
+                } else {
+                	rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Garbage Collectors", entry.getKey());
+                }
                 collectionCount = (Long)mBeanServerConnection.getAttribute(entry.getValue(), "CollectionCount");
                 collectionTime = (Long)mBeanServerConnection.getAttribute(entry.getValue(), "CollectionTime");
                 currentTime = System.currentTimeMillis();
@@ -904,7 +920,7 @@ public class JMXCollector extends AbstractCollector {
                         elapsedGCTime = times[1] - collectionTime;
                         try {
                             percentGCTime = percent(elapsedGCTime, elapsedTime);
-                            tracer.traceGauge(percentGCTime, "%TimeSpentinGC",rootSegment);
+                            tracer.traceGauge(percentGCTime, "%TimeSpentInGC",rootSegment);
                         } catch (Exception e) {}
                     }
                     gcTimes.put(entry.getKey(), new long[]{currentTime, collectionTime});
@@ -931,13 +947,18 @@ public class JMXCollector extends AbstractCollector {
         try {
             clMXBean = mxBeanObjectNames.get(ManagementFactory.CLASS_LOADING_MXBEAN_NAME);
             if(clMXBean==null) {
-                clMXBean = new ObjectName(ManagementFactory.CLASS_LOADING_MXBEAN_NAME+",*");
+                clMXBean = new ObjectName(ManagementFactory.CLASS_LOADING_MXBEAN_NAME);
                 Set<ObjectName> beanSet = mBeanServerConnection.queryNames(clMXBean, null);
                 if(beanSet.size()==1)
                     mxBeanObjectNames.put(ManagementFactory.CLASS_LOADING_MXBEAN_NAME, new ObjectName(beanSet.iterator().next().getCanonicalName()));
             }
             if(!shouldBeCollected(clMXBean)) return;
-            String rootSegment[] = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Class Loading");
+            String rootSegment[] = null;
+            if(mappedMetrics) {
+            	rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=ClassLoading"};
+            } else {
+            	rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Class Loading");
+            }
             stats = mBeanServerConnection.getAttributes(clMXBean, CLASS_LOADING_STATS);
             for (int i=0;i<stats.size();i++){
                 Attribute attr = (Attribute)stats.get(i);
@@ -968,7 +989,7 @@ public class JMXCollector extends AbstractCollector {
             if(supportsCompilerTime != null && !supportsCompilerTime) return;
             jitMXBean = mxBeanObjectNames.get(ManagementFactory.COMPILATION_MXBEAN_NAME);
             if(jitMXBean==null) {
-                jitMXBean = new ObjectName(ManagementFactory.COMPILATION_MXBEAN_NAME+",*");
+                jitMXBean = new ObjectName(ManagementFactory.COMPILATION_MXBEAN_NAME);
                 Set<ObjectName> beanSet = mBeanServerConnection.queryNames(jitMXBean, null);
                 if(beanSet.size()==1)
                     mxBeanObjectNames.put(ManagementFactory.COMPILATION_MXBEAN_NAME, new ObjectName(beanSet.iterator().next().getCanonicalName()));
@@ -978,7 +999,12 @@ public class JMXCollector extends AbstractCollector {
                 supportsCompilerTime = (Boolean)mBeanServerConnection.getAttribute(jitMXBean, "CompilationTimeMonitoringSupported");
             }
             if(!supportsCompilerTime) return;
-            String rootSegment[] = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"JIT Compiler");
+            String rootSegment[] = null;
+            if(mappedMetrics) {
+            	rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=Compilation"};
+            } else {
+            	rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"JIT Compiler");
+            }
             long totalComplilationTime = (Long)mBeanServerConnection.getAttribute(jitMXBean, "TotalCompilationTime");
             //tracer.traceStickyDelta(totalComplilationTime, "CompileTime(Delta)", rootSegment);
             tracer.trace(totalComplilationTime, "TotalCompileTime", MetricType.DELTA_GAUGE, rootSegment);
@@ -1003,7 +1029,7 @@ public class JMXCollector extends AbstractCollector {
             if(runtimeCollected) return;
             runTimeMXBean = mxBeanObjectNames.get(ManagementFactory.RUNTIME_MXBEAN_NAME);
             if(runTimeMXBean==null) {
-                runTimeMXBean = new ObjectName(ManagementFactory.RUNTIME_MXBEAN_NAME+",*");
+                runTimeMXBean = new ObjectName(ManagementFactory.RUNTIME_MXBEAN_NAME);
                 Set<ObjectName> beanSet = mBeanServerConnection.queryNames(runTimeMXBean, null);
                 if(beanSet.size()==1)
                     mxBeanObjectNames.put(ManagementFactory.RUNTIME_MXBEAN_NAME, new ObjectName(beanSet.iterator().next().getCanonicalName()));
@@ -1036,6 +1062,9 @@ public class JMXCollector extends AbstractCollector {
         }
     }
 
+    /** The root segment name for mxbean mapped metrics */
+    public static String ROOT_MXBEAN_SEGMENT = "platform=JVM";
+    
     /**
      * Collects memory stats
      */
@@ -1045,7 +1074,7 @@ public class JMXCollector extends AbstractCollector {
             String rootSegment[] = null;
             memoryMXBean = mxBeanObjectNames.get(ManagementFactory.MEMORY_MXBEAN_NAME);
             if(memoryMXBean==null) {
-                memoryMXBean = new ObjectName(ManagementFactory.MEMORY_MXBEAN_NAME+",*");
+                memoryMXBean = new ObjectName(ManagementFactory.MEMORY_MXBEAN_NAME);
                 Set<ObjectName> beanSet = mBeanServerConnection.queryNames(memoryMXBean, null);
                 if(beanSet.size()==1)
                     mxBeanObjectNames.put(ManagementFactory.MEMORY_MXBEAN_NAME, new ObjectName(beanSet.iterator().next().getCanonicalName()));
@@ -1053,7 +1082,12 @@ public class JMXCollector extends AbstractCollector {
             if(!shouldBeCollected(memoryMXBean)) return;
 
             CompositeDataSupport heap = (CompositeDataSupport) mBeanServerConnection.getAttribute(memoryMXBean, "HeapMemoryUsage");
-            rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Memory", "Heap Memory Usage");
+            if(mappedMetrics) {
+            	rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=Memory", "type=Heap"};            			
+            } else {
+            	rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Memory", "Heap Memory Usage");
+            }
+            
             for(String key: heap.getCompositeType().keySet()) {
                 tracer.trace(heap.get(key),key,rootSegment);
             }
@@ -1061,14 +1095,23 @@ public class JMXCollector extends AbstractCollector {
             getPercentUsedOfCapacity(heap, rootSegment);
 
             CompositeDataSupport nonHeap = (CompositeDataSupport) mBeanServerConnection.getAttribute(memoryMXBean, "NonHeapMemoryUsage");
-            rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment, "Memory", "Non Heap Memory Usage");
+            if(mappedMetrics) {
+            	rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=Memory", "type=NonHeap"};            			
+            } else {           
+            	rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment, "Memory", "Non Heap Memory Usage");
+            }
             for(String key: nonHeap.getCompositeType().keySet()) {
                 tracer.trace(heap.get(key),key,rootSegment);
             }
             getPercentUsedOfCommited(nonHeap, rootSegment);
             getPercentUsedOfCapacity(nonHeap, rootSegment);
+            if(mappedMetrics) {
+            	rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=Memory"};            			
+            } else {           
+            	rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment, "Memory");
+            }
 
-            rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment, "Memory");
+            
             tracer.trace(mBeanServerConnection.getAttribute(memoryMXBean, "ObjectPendingFinalizationCount"), "Objects Pending Finalization",rootSegment);
         } catch (InstanceNotFoundException ine) {
             if(logErrors) { warn("MXBean Collector for bean collector " + this.getBeanName() + " could Not Locate MBean " + memoryMXBean); }
@@ -1378,6 +1421,7 @@ public class JMXCollector extends AbstractCollector {
      * Sets the virtual host for the Target MBeanServer
      * @param virtualHost
      */
+    @ManagedAttribute
     public void setVirtualHost(String virtualHost){
          this.virtualHost = virtualHost;
     }
@@ -1396,8 +1440,29 @@ public class JMXCollector extends AbstractCollector {
      * Sets the virtual agent for the Target MBeanServer
      * @param virtualAgent
      */
+    @ManagedAttribute
     public void setVirtualAgent(String virtualAgent){
         this.virtualAgent = virtualAgent;
     }
+
+
+	/**
+	 * Indicates if mapped metrics should be used for mxbean tracing
+	 * @return true to use mapped metrics, false for flat
+	 */
+    @ManagedAttribute(description="Indicates if mapped metrics should be used for mxbean tracing")
+	public boolean isMappedMetrics() {
+		return mappedMetrics;
+	}
+
+
+	/**
+	 * Sets the mapped metrics indicator for mxbean tracing
+	 * @param mappedMetrics true to use mapped metrics, false for flat
+	 */
+    @ManagedAttribute(description="Indicates if mapped metrics should be used for mxbean tracing")
+	public void setMappedMetrics(boolean mappedMetrics) {
+		this.mappedMetrics = mappedMetrics;
+	}
 
 }

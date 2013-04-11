@@ -60,7 +60,10 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	/** the assigned virtual agent serial */
 	protected final long serial;
 	/** The last touch timestamp */
-	protected final AtomicLong touched; 
+	protected final AtomicLong touched;
+	/** The last tracer tick */
+	protected final AtomicLong lastTick = new AtomicLong(System.currentTimeMillis()); 
+	
 	/** The timeout period in ms. */
 	protected final long timeoutPeriod;
 	/** The virtual tracer name */
@@ -302,7 +305,7 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	 * @param up true to mark the virtual tracer up, false to mark it down
 	 */
 	protected void traceAvailabilityX(boolean up) {
-		System.out.println("Tracing [" + (up ? 1 : 0) + "] for [" + host + "/" + agent + "/" + name);
+		//System.out.println("Tracing [" + (up ? 1 : 0) + "] for [" + host + "/" + agent + "/" + name);
 		_submitter.submit(ICEMetric.trace(up ? 1L : 0L, host, agent, AVAIL_METRIC_NAME, MetricType.LONG_GAUGE, avns));
 	}
 	
@@ -310,6 +313,9 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	 * Traces the tracers availability
 	 */
 	void traceAvailability() {
+		if(System.currentTimeMillis()-lastTick.get() < timeoutPeriod) {
+			touch();
+		}
 		traceAvailabilityX(getState().ordinal() < VirtualState.SOFTDOWN.ordinal());
 	}
 	
@@ -320,7 +326,8 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	 */
 	@Override
 	public void submitDirect(IMetric metric, long timeout) throws TimeoutException {
-		touch();
+		//touch();
+		lastTick.set(System.currentTimeMillis());
 		if(metric!=null) {
 			_submitter.submit(metric);
 			sentMetrics.incrementAndGet();
@@ -334,7 +341,9 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	 */
 	@Override
 	public void submit(Collection<IMetric> metrics) {
-		touch();
+		//touch();
+		
+		lastTick.set(System.currentTimeMillis());
 		if(metrics!=null) {
 			_submitter.submit(metrics);
 			sentMetrics.addAndGet(metrics.size());
@@ -348,7 +357,9 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	 */
 	@Override
 	public void submit(IMetric... metrics) {
-		touch();
+		//touch();
+		
+		lastTick.set(System.currentTimeMillis());
 		if(metrics!=null) {
 			_submitter.submit(metrics);
 			sentMetrics.addAndGet(metrics.length);

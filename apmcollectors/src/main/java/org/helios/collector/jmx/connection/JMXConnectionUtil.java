@@ -79,8 +79,10 @@ public class JMXConnectionUtil {
     	    throw new SocketTimeoutException("Connect timed out while acquiring an MBean Server Connection for url: " + url);
     	if (result instanceof MBeanServerConnection)
     	    return (MBeanServerConnection) result;
-    	else
-    	    throw new IOException("Unable to get an MBean Server connection");
+		if(result instanceof Throwable) {
+			throw new IOException("Unable to get an MBean Server connection.", (Throwable)result);
+		}
+		throw new IOException("Unable to get an MBean Server connection. Returned value was [" + result.getClass().getName() + "]");
     }
 
     public static MBeanServerConnection connectWithTimeout(
