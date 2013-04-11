@@ -484,7 +484,8 @@ public class SpringHotDeployer extends ServerComponentBean  {
 							    }
 							}
 						}
-						boolean valid = watchKey.reset();						
+						boolean valid = watchKey.reset();
+						// FIXME:  This stops polling completely.
 					    if (!valid) {
 					    	warn("Watch Key for [" , watchKey , "] is no longer valid. Polling will stop");
 					        break;

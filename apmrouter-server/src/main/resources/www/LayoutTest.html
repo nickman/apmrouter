@@ -46,7 +46,7 @@
 		<script type="text/javascript" src="js/chart-model.js"></script>
 		<script type="text/javascript" src="js/pubsub/pubsub.js"></script>		
 		<script type="text/javascript" src="js/apmr-tree-support.js"></script>
-		<script type="text/javascript" src="js/jmxBrowser.js"></script>
+		
 		<script type="text/javascript" src="js/main.js"></script>
 		<script type="text/javascript" src="js/growl/jquery.jgrowl_minimized.js"></script>
 
@@ -64,8 +64,7 @@
 		 -->
 		
 		<script type="text/javascript">
-			initMain(); // in layouttest.js 
-			$('#jmxBrowserTree').livequery(initJmxTree);
+			initMain(); // in layouttest.js 			
         	Highcharts.setOptions({
                 global: {
                     useUTC: false
@@ -113,7 +112,7 @@
 		<div id="maintabs" class="container tabs" style="height: 100%;">
 			<ul id="tabButtons" class="container">
 				<li><a href="#metricBrowserTab">Metric Browser</a></li>
-				<li><a href="#tab1">JMX</a></li>
+				<li><a href="#jmxBrowserTab">JMX</a></li>
 				<li><a href="#tab2">Server Status</a></li>
 				<li><a href="#tab3">Destinations</a></li>
 				<li><a href="#tab4">Collectors</a></li>
@@ -152,10 +151,19 @@
 
 		<!-- TAB #1  (JMX) -->
 		<div id="jmxBrowserTab" class="tabPanel ui-widget-content hidden" style="height: 90%;">
-			<div id="jmxBrowserContent" class="ui-widget-content">
-				<div id="jmxBrowserTree">
-				</div> 
-			</div>
+			<table id="jmxBrowserTable" border="0">
+				<tr>
+					<td>
+						<div id="jmxBrowserContent" class="ui-widget-content">
+							<div id="jmxBrowserTree">
+							</div> 
+						</div>
+					</td>
+					<td>
+						<div id="jmxBrowserDisplay" class="ui-widget-content"></div>					
+					</td>
+				</tr>
+			</table>
 		</div>
 
 		<!-- TAB #2 -->

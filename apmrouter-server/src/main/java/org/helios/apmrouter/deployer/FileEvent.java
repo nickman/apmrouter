@@ -89,7 +89,7 @@ public class FileEvent implements Delayed {
 	@Override
 	public long getDelay(TimeUnit unit) {		
 		long delay = unit.convert(timestamp-SystemClock.time(), TimeUnit.MILLISECONDS);
-		System.err.println("DELAY FOR [" + this + "]:" + delay + " [" + unit.name().toLowerCase() + "]");
+		//System.err.println("DELAY FOR [" + this + "]:" + delay + " [" + unit.name().toLowerCase() + "]");
 		return delay;
 		
 	}

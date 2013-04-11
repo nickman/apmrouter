@@ -12,7 +12,11 @@ function initJmxTree() {
 			console.info("Handlebars Loaded");
 			$.getScript("js/jquery.tablesorter.min.js", function(data, textStatus, jqxhr) {
 				console.info("Table sorter Loaded");
-				jmxTree();
+				$.getScript("tabs/jmx/jmxtabs.js", function(data, textStatus, jqxhr) {
+					console.info("JMX tabs Loaded");
+					jmxTree();
+				});
+				
 			});
 		});
 	});
@@ -20,3 +24,4 @@ function initJmxTree() {
 }
 
 
+//tabs/jmx/jmxtabs.js
