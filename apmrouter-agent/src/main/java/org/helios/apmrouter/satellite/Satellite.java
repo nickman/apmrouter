@@ -24,12 +24,19 @@
  */
 package org.helios.apmrouter.satellite;
 
+import static org.helios.apmrouter.sender.SenderFactory.DEFAULT_SENDER_URI;
+import static org.helios.apmrouter.sender.SenderFactory.SENDER_URI_PROP;
+
+import javax.management.ObjectName;
+import javax.management.remote.JMXServiceURL;
+import javax.management.remote.jmxmp.JMXMPConnectorServer;
+
 import org.helios.apmrouter.jmx.ConfigurationHelper;
+import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.monitor.DefaultMonitorBoot;
 import org.helios.apmrouter.util.SimpleLogger;
 
-import static org.helios.apmrouter.sender.SenderFactory.DEFAULT_SENDER_URI;
-import static org.helios.apmrouter.sender.SenderFactory.SENDER_URI_PROP;
+
 
 /**
  * <p>Title: Satellite</p>
@@ -40,12 +47,25 @@ import static org.helios.apmrouter.sender.SenderFactory.SENDER_URI_PROP;
  */
 
 public class Satellite {
-
+	/** The system prop name to override the default JMXMP listening port */
+	public static final String JMXMP_LISTEN_PORT_PROP = "org.helios.jmxmp.port";
+	/** The default JMXMP listening port */
+	public static final int DEFAULT_JMXMP_LISTEN_PORT = 8006;
+	
+	/** The system prop name to override the default JMXMP listening iface */
+	public static final String JMXMP_LISTEN_IFACE_PROP = "org.helios.jmxmp.iface";
+	/** The default JMXMP listening port */
+	public static final String DEFAULT_JMXMP_LISTEN_IFACE = "0.0.0.0";
+	
+	private static JMXServiceURL serviceURL = null;
+	private static JMXMPConnectorServer jmxMpServer = null;
+	
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) {
 		String uri = ConfigurationHelper.getSystemThenEnvProperty(SENDER_URI_PROP, DEFAULT_SENDER_URI);
+		
 		String agent = ConfigurationHelper.getSystemThenEnvProperty("org.helios.agent", "satellite");
 		System.setProperty("org.helios.agent", agent);
 		StringBuilder b = new StringBuilder("\n\t========================================================================");
@@ -59,7 +79,44 @@ public class Satellite {
 		//SystemClock.sleep(2000);
 		SimpleLogger.info("Starting Satellite Monitors");
 		DefaultMonitorBoot.satellite();
+		initJmxMpServer();
+		initCascade();
 		try { Thread.currentThread().join(); } catch (Exception ex) {/* No Op */}
+	}
+	
+	/**
+	 * Initializes the JMXMP server
+	 */
+	protected static void initJmxMpServer() {
+		int jmxmpPort = ConfigurationHelper.getIntSystemThenEnvProperty(JMXMP_LISTEN_PORT_PROP, DEFAULT_JMXMP_LISTEN_PORT);
+		String jmxmpIface = ConfigurationHelper.getSystemThenEnvProperty(JMXMP_LISTEN_IFACE_PROP, DEFAULT_JMXMP_LISTEN_IFACE);
+		try {
+			serviceURL = new JMXServiceURL(String.format("service:jmx:jmxmp://%s:%s", jmxmpIface, jmxmpPort));
+			jmxMpServer = new JMXMPConnectorServer(serviceURL, null, JMXHelper.getHeliosMBeanServer());
+			JMXHelper.getHeliosMBeanServer().registerMBean(jmxMpServer, JMXHelper.objectName("javax.management.remote.jmxmp:service=JMXMPConnectorServer"));
+			jmxMpServer.start();
+			SimpleLogger.info("Started JMXMPConnectorServer. Listening on [", serviceURL, "]");
+			final JMXMPConnectorServer f = jmxMpServer; 
+			Runtime.getRuntime().addShutdownHook(new Thread() {
+				public void run() {
+					try { f.stop(); } catch (Exception ex) {/* No Op */}
+				}
+			});
+		} catch (Exception ex) {
+			System.err.println("Failed to start JMXMP Server. Stack trace follows:");
+			ex.printStackTrace(System.err);
+		}
+	}
+	
+	/**
+	 * Attempts to load the Cascader
+	 */
+	protected static void initCascade() {
+		try {
+			Class<?> clazz = Class.forName("org.helios.apmrouter.satellite.Cascader", true, Satellite.class.getClassLoader());
+		} catch (Exception ex) {
+			System.err.println("Failed to load Cascader:" + ex.toString());			
+		}
 	}
 
 }
