@@ -24,6 +24,9 @@
  */
 package org.helios.apmrouter.server.unification.pipeline.http.proxy;
 
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
 import org.apache.log4j.Logger;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelEvent;
@@ -31,13 +34,17 @@ import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelLocal;
+import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.ChannelUpstreamHandler;
 import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.DownstreamMessageEvent;
 import org.jboss.netty.channel.MessageEvent;
+import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
+
+
 
 /**
  * <p>Title: ProxyResponseHandler</p>
@@ -64,6 +71,14 @@ public class ProxyResponseHandler implements ChannelUpstreamHandler {
 	public static final ChannelLocal<HttpRequest> httpRequestChannelLocal = new ChannelLocal<HttpRequest>(true);
 	/** A channel local for holding the original channel handler context */
 	public static final ChannelLocal<ChannelHandlerContext> ctxChannelLocal = new ChannelLocal<ChannelHandlerContext>(true);
+	/** A counter to track the number of in-flight requests */
+	protected final AtomicInteger inFlightRequests;
+    /** A counter for outgoing responses */
+    protected final AtomicLong outgoingResponses;
+    /** Traffic lock */
+    protected final Object trafficLock;
+    
+	
 
 	
 	
@@ -73,13 +88,27 @@ public class ProxyResponseHandler implements ChannelUpstreamHandler {
 	 * Creates a new ProxyResponseHandler
 	 * @param targetHost The target host
 	 * @param targetPort The target port
+	 * @param inFlightRequests Counter to decrement on task completion
+	 * @param outgoingResponses Cummulative counter for outgoing responses
+	 * @param trafficLock Synchronizer for channel state setting
 	 */
-	public ProxyResponseHandler(String targetHost, int targetPort) {
+	public ProxyResponseHandler(String targetHost, int targetPort, AtomicInteger inFlightRequests, AtomicLong outgoingResponses, Object trafficLock) {
 		this.targetHost = targetHost;
 		this.targetPort = targetPort;
+		this.inFlightRequests = inFlightRequests;
+		this.outgoingResponses = outgoingResponses;
 		remoteKey = targetHost + ":" + targetPort;
+		this.trafficLock = trafficLock;
 		portKey = ":" + targetPort;
 		portKeyLength = portKey.length();
+	}
+	
+	public void channelInterestChanged(ChannelHandlerContext ctx, ChannelStateEvent cse) {
+		synchronized(trafficLock) {
+			if(cse.getChannel().isWritable()) {
+				log.info("PROXY CHANNEL OK !!");
+			}
+		}
 	}
 
 
@@ -101,14 +130,22 @@ public class ProxyResponseHandler implements ChannelUpstreamHandler {
 			MessageEvent me = (MessageEvent)proxyChannelEvent;
 			Object message = me.getMessage();
 			if(message instanceof HttpResponse) {
-				if(log.isDebugEnabled()) log.debug("Received response from remote [" + message + "]");
-				HttpResponse resp = (HttpResponse)message;
+//				if(log.isDebugEnabled()) log.debug("Received response from remote [" + message + "]");												
+				final HttpResponse resp = (HttpResponse)message;
+				log.info("Received response from remote [" + resp.getHeader("Content-Type") + "]:" + HttpHeaders.getContentLength(resp, 0) + "  [" + resp.getStatus() + "]");
 				if(resp.getStatus().equals(HttpResponseStatus.FOUND)) {
 					String reUri = resp.getHeader("Location");
 					reUri = reUri.substring(reUri.indexOf(portKey)+portKeyLength);
 					
 					newRequest.setUri(reUri);
-					proxyChannel.write(newRequest);
+					proxyChannel.write(newRequest).addListener(new ChannelFutureListener() {
+						@Override
+						public void operationComplete(ChannelFuture future) throws Exception {
+							if(!future.isSuccess())  {//inFlightRequests.decrementAndGet();
+								log.error("ProxyChannel Write Failed", future.getCause());
+							}
+						}
+					});
 					httpRequestChannelLocal.remove(originalChannel);
 				} else {
 					// Send the response back to the caller
@@ -117,7 +154,12 @@ public class ProxyResponseHandler implements ChannelUpstreamHandler {
 					cf.addListener(new ChannelFutureListener() {
 						@Override
 						public void operationComplete(ChannelFuture f) throws Exception {
-							if(f.isSuccess()) {
+							inFlightRequests.decrementAndGet();
+							if(f.isSuccess()) {								
+								if(f.isSuccess()) {
+									outgoingResponses.incrementAndGet();
+									log.info("Completed response write back to caller [" + resp.getHeader("Content-Type") + "]:" + HttpHeaders.getContentLength(resp, 0) + "  [" + resp.getStatus() + "]");
+								}
 								if(log.isDebugEnabled()) log.debug("Completed response write back to caller");
 							} else {
 								log.error("Failed to write response back to caller", f.getCause());

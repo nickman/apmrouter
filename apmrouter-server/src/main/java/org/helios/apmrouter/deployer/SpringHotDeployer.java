@@ -63,6 +63,7 @@ import org.springframework.context.event.ApplicationContextEvent;
 import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.ContextStoppedEvent;
+import org.springframework.context.event.SmartApplicationListener;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedOperation;
@@ -155,6 +156,7 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	public SpringHotDeployer() {
 		propagates.add(HttpRequestHandlerStopped.class);
 		propagates.add(HttpRequestHandlerStarted.class);
+		propagates.add(ApplicationContextEvent.class);
 	}
 	
 	/**
@@ -367,7 +369,7 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	
 	
 	
-	protected ApplicationListener innerListener = new ApplicationListener() {
+	protected SmartApplicationListener innerListener = new SmartApplicationListener() {
 		public void onApplicationEvent(ApplicationEvent event) {
 			if(event.getSource()==this || event.getSource()==applicationContext) {
 				info("Dropping event. Came from [", event.getSource(), "]");
@@ -383,16 +385,45 @@ public class SpringHotDeployer extends ServerComponentBean  {
 			} else if(event instanceof ContextClosedEvent) {
 				ContextClosedEvent cre = (ContextClosedEvent)event;
 				String id = cre.getApplicationContext().getId();
+				String name = cre.getApplicationContext().getDisplayName();
+				debug("Received [", event.getClass().getSimpleName(), "] from child context [", name, "]. Removing inert context");
+				deployedContexts.remove(name);				
 				if(id!=null && id.startsWith("HotDeployedContext#")) {
 					applicationContext.publishEvent(new HotDeployedContextClosedEvent(cre.getApplicationContext()));
 					info("Propagated HotDeployedContextClosedEvent for [", id, "]");
 				}			
 			}
 			else if(shouldPropagate(event.getClass())) {
-				info("Propagated Accepted Event of Type [", event.getClass().getName(), "] from [", event.getSource(), "]");
+				if(event instanceof ApplicationContextEvent) return;
+				info("Propagating Accepted Event of Type [", event.getClass().getName(), "] from [", event.getSource(), "] with listeners:",  listAppListeners());
+				//eventMulticaster.multicastEvent(event);
 				applicationContext.publishEvent(event);
 				
 			}
+		}
+		
+		protected String listAppListeners() {
+			StringBuilder b = new StringBuilder();
+			for(ApplicationListener app : applicationContext.getApplicationListeners()) {
+				b.append("\n\tAppListener:").append(app).append("  (").append(app.getClass().getSimpleName()).append(")");
+			}
+			return b.toString();
+		}
+
+		@Override
+		public int getOrder() {
+			// TODO Auto-generated method stub
+			return 1;
+		}
+
+		@Override
+		public boolean supportsEventType(Class<? extends ApplicationEvent> eventType) {
+			return shouldPropagate(eventType);
+		}
+
+		@Override
+		public boolean supportsSourceType(Class<?> sourceType) {
+			return true;
 		}		
 	};
 	
@@ -595,26 +626,7 @@ public class SpringHotDeployer extends ServerComponentBean  {
 		if(deployedContexts.containsKey(fe.getFileName())) {
 			killAppCtx(fe);
 		}
-		GenericApplicationContext appCtx = deployer.deploy(applicationContext, fe);
-		appCtx.addApplicationListener(innerListener);
-		appCtx.addApplicationListener(new ApplicationListener(){
-			@Override
-			public void onApplicationEvent(ApplicationEvent event) {
-				if(!(event instanceof ApplicationContextEvent)) {
-					//applicationContext.publishEvent(event);
-				} else {
-					// If the event indicates a child app ctx has stopped or closed
-					// remove the appCtx from the deployed context map
-					ApplicationContextEvent appCtxEvent = (ApplicationContextEvent)event;
-					if((appCtxEvent instanceof ContextStoppedEvent) || (appCtxEvent instanceof ContextClosedEvent)) {
-						String name = appCtxEvent.getApplicationContext().getDisplayName();
-						debug("Received [", event.getClass().getSimpleName(), "] from child context [", name, "]. Removing inert context");
-						deployedContexts.remove(name);
-					}
-					
-				}
-			}
-		});
+		GenericApplicationContext appCtx = deployer.deploy(applicationContext, eventExecutor, innerListener, fe);		
 		deployedContexts.put(fe.getFileName(), appCtx);
 		info("\n\t***********************************************\n\tHot Deployed Context [", fe.getFileName(), "]\n\t***********************************************\n");
 	}

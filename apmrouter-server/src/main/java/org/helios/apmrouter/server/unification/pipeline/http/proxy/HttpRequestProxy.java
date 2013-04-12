@@ -27,9 +27,11 @@ package org.helios.apmrouter.server.unification.pipeline.http.proxy;
 import static org.jboss.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.helios.apmrouter.server.services.session.ChannelType;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
@@ -51,6 +53,9 @@ import org.jboss.netty.util.CharsetUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
+import org.springframework.jmx.export.annotation.ManagedOperation;
+import org.springframework.jmx.export.annotation.ManagedOperationParameter;
+import org.springframework.jmx.export.annotation.ManagedOperationParameters;
 import org.springframework.jmx.support.MetricType;
 
 /**
@@ -59,7 +64,6 @@ import org.springframework.jmx.support.MetricType;
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.unification.pipeline.http.HttpRequestProxy</code></p>
- * TODO: Remap URIs if required. e.g. "/jolokia" --> "/jmx"
  */
 
 public class HttpRequestProxy extends AbstractHttpRequestHandler {
@@ -74,9 +78,17 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
 	/** A cache of proxied connections */
 	protected static final Map<String, Channel> proxyConnections = new ConcurrentHashMap<String, Channel>();
 	
-	/** A counter to track the number of in-flight requests */
-	protected static final AtomicInteger inFlightRequests = new AtomicInteger();
+	/** A map of URI remappings */
+	protected final Map<String, String> remaps = new ConcurrentHashMap<String, String>();
 	
+	/** A counter to track the number of in-flight requests */
+	protected final AtomicInteger inFlightRequests = new AtomicInteger();
+    /** A counter for outgoing responses */
+    protected final AtomicLong outgoingResponses = new AtomicLong();
+	
+    /** Traffic lock */
+    protected final Object trafficLock = new Object();
+    
 	/**
 	 * Creates a new HttpRequestProxy
 	 */
@@ -94,6 +106,69 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
 		applicationContext.publishEvent(new HttpRequestHandlerStarted(this, beanName));
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponent#resetMetrics()
+	 */
+	@Override
+	@ManagedOperation
+	public void resetMetrics() {
+		outgoingResponses.set(0);
+		inFlightRequests.set(0);
+		super.resetMetrics();
+	}
+	
+	/**
+	 * Adds the passed remaps to the proxy's remappers
+	 * @param remaps A map of remapping directives where the string in the key will be replaced by the string in the value.
+	 */
+	public void setRemaps(Map<String, String> remaps) {
+		if(remaps!=null) {
+			this.remaps.putAll(remaps);
+		}
+	}
+	
+	/**
+	 * Returns an unmodifiable map of the proxu URI remap directives
+	 * @return an unmodifiable map of the proxu URI remap directives
+	 */
+	@ManagedAttribute(description="A map of the proxu URI remap directives")
+	public Map<String, String> getRemaps() {
+		return Collections.unmodifiableMap(remaps);
+	}
+	
+	/**
+	 * Adds a remap
+	 * @param from The value in the URI to replace
+	 * @param to The value to replace with
+	 */
+	@ManagedOperation(description="Adds or replaces a proxy URI remap")
+	@ManagedOperationParameters({
+		@ManagedOperationParameter(name="from", description="The value in the URI to replace"),
+		@ManagedOperationParameter(name="to", description="The value to replace with")
+	})
+	public void addRemap(String from, String to) {
+		if(from==null) throw new IllegalArgumentException("The passed from value was null", new Throwable());
+		if(to==null) to="";
+		remaps.put(from, to);
+	}
+	
+	/**
+	 * Removes a remap directive
+	 * @param from The key of the remap to remove
+	 */
+	@ManagedOperation(description="Removes a proxy URI remap")
+	@ManagedOperationParameters({
+		@ManagedOperationParameter(name="from", description="The key of the proxy URI remap")		
+	})	
+	public void removeRemap(String from) {
+		if(from!=null) {
+			remaps.remove(from);
+		}
+	}
+	
+	
+	
 	
 	/**
 	 * {@inheritDoc}
@@ -109,9 +184,9 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
 	 * @see org.helios.apmrouter.server.unification.pipeline.http.HttpRequestHandler#handle(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.MessageEvent, org.jboss.netty.handler.codec.http.HttpRequest, java.lang.String)
 	 */
 	@Override
-	public void handle(final ChannelHandlerContext ctx, MessageEvent e, final HttpRequest request, String path) throws Exception {
-		incr("OutgoingResponses");  inFlightRequests.incrementAndGet();
-		final HttpRequest newRequest = new DefaultHttpRequest(request.getProtocolVersion(), request.getMethod(), request.getUri());
+	public void handle(final ChannelHandlerContext ctx, MessageEvent e, HttpRequest request, String path) throws Exception {
+		incr("IncomingRequests");  inFlightRequests.incrementAndGet();
+		final HttpRequest newRequest = new DefaultHttpRequest(request.getProtocolVersion(), request.getMethod(), remapUri(request));
 		newRequest.setContent(request.getContent());
 		for(String hdr: request.getHeaderNames()) {
 			if("Host".equalsIgnoreCase(hdr)) continue;
@@ -141,6 +216,21 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
 	}
 	
 	/**
+	 * Determines if the passed request has an applicable remap and returns the remaped URI if one is found. Otherwise returns the un-modified uri.
+	 * @param request The Http request to remap
+	 * @return the remaped uri if a remap was found, otherwise the un-modified uri.
+	 */
+	protected String remapUri(HttpRequest request) {
+		String uri = request.getUri();
+		for(Map.Entry<String, String> remap: remaps.entrySet()) {
+			if(uri.startsWith(remap.getKey())) {
+				return uri.replace(remap.getKey(), remap.getValue());
+			}
+		}
+		return uri;
+	}
+	
+	/**
 	 * Asynchronously acquires a connection to the proxied server
 	 * @param originalCtx The channel handler context of the original request
 	 * @param onConnectRunnable A task to run once the connection has been acquired
@@ -155,7 +245,7 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
 				} else {
 					debug("Connected proxy to remote at [", remoteKey, "]");
 					final Channel proxyChannel = f1.getChannel();
-					proxyChannel.getPipeline().addLast("responseHandler", new ProxyResponseHandler(targetHost, targetPort));
+					proxyChannel.getPipeline().addLast("responseHandler", new ProxyResponseHandler(targetHost, targetPort, inFlightRequests, outgoingResponses, trafficLock));
 					Channel priorChannel = proxyConnections.put(remoteKey, proxyChannel);
 					if(priorChannel!=null) priorChannel.close();
 					SharedChannelGroup.getInstance().add(proxyChannel, ChannelType.LOCAL_CLIENT, "ProxyTo[" + remoteKey + "]", "", "");
@@ -184,21 +274,26 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
 	 * @param proxyChannel The connection to the proxied server
 	 * @param request The modified Http request
 	 */
-	protected void processProxyRequest(final ChannelHandlerContext originalCtx, final Channel originalChannel, final Channel proxyChannel, final HttpRequest request) {
-		incr("IncomingRequests");  
+	protected void processProxyRequest(final ChannelHandlerContext originalCtx, final Channel originalChannel, final Channel proxyChannel, final HttpRequest request) {		
 		proxyChannel.getPipeline().getContext("responseHandler").setAttachment(originalCtx);
 		ProxyResponseHandler.httpRequestChannelLocal.set(proxyChannel, request);
 		ProxyResponseHandler.ctxChannelLocal.set(proxyChannel, originalCtx);
-		proxyChannel.write(request).addListener(new ChannelFutureListener() {
-			@Override
-			public void operationComplete(ChannelFuture future) throws Exception {
-				inFlightRequests.decrementAndGet();
-				if(!future.isSuccess()) {
-					incr("ProxyError");
+		synchronized(trafficLock) {
+			proxyChannel.write(request).addListener(new ChannelFutureListener() {
+				@Override
+				public void operationComplete(ChannelFuture future) throws Exception {				
+					if(!future.isSuccess()) {
+						incr("ProxyError");
+					}
 				}
+			});
+			if (!proxyChannel.isWritable()) {
+				info("PROXY CHANNEL SATURATED !!");
+				originalChannel.setReadable(false);
 			}
-		});
+		}
 	}
+	
 	
 	
     /**
@@ -218,7 +313,6 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
         ctx.getChannel().write(response); //.addListener(ChannelFutureListener.CLOSE);
     }
     
-
     
     /**
      * Returns the cummulative number of outgoing responses
@@ -226,7 +320,7 @@ public class HttpRequestProxy extends AbstractHttpRequestHandler {
      */
     @ManagedMetric(category="HttpProxy", displayName="OutgoingResponseCount", metricType=MetricType.COUNTER, description="The cummulative number of outgoing responses")
     public long getOutgoingResponseCount() {
-    	return getMetricValue("OutgoingResponses");
+    	return outgoingResponses.get();
     }
     
     

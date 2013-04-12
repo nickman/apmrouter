@@ -69,6 +69,11 @@
 		<property name="metricCatalogService" ref="CatalogService"/>
 	</bean>
 	
+	<bean id="applicationEventMulticaster" class="org.springframework.context.event.SimpleApplicationEventMulticaster">
+		<property name="taskExecutor" ref="SpringEventPool" />
+	</bean>
+	
+	
 	<bean id="SpringEventPool" class="org.helios.apmrouter.util.thread.ManagedThreadPool">
 		<qualifier value="SpringEvent"/>
 		<constructor-arg>

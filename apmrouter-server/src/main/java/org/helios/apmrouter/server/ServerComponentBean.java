@@ -293,7 +293,7 @@ public abstract class ServerComponentBean extends ServerComponent implements
 	@Override
 	public void removeApplicationListener(@SuppressWarnings("rawtypes") ApplicationListener listener) {
 		if(eventMulticaster==null) throw new IllegalStateException("This component's eventMulticaster has not been initialized yet", new Throwable());
-		eventMulticaster.removeApplicationListener(listener);
+		eventMulticaster.removeApplicationListener(listener);		
 	}
 
 	/**

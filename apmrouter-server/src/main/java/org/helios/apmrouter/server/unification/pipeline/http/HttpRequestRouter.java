@@ -51,6 +51,7 @@ import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketFrame;
 import org.jboss.netty.util.CharsetUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEvent;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 
@@ -67,6 +68,9 @@ public class HttpRequestRouter extends ServerComponentBean  implements ChannelUp
 	protected Map<String, HttpRequestHandler> handlers = new ConcurrentHashMap<String, HttpRequestHandler>();
 	/** A map of {@link HttpRequestHandler}s keyed by the URI pattern they respond to */
 	protected ConcurrentHashMap<String, HttpRequestHandler> uriRoutes = new ConcurrentHashMap<String, HttpRequestHandler>();
+	/** A map of {@link HttpRequestHandler}s keyed by the wildcarded URI pattern they respond to */
+	protected ConcurrentHashMap<String, HttpRequestHandler> uriWildcardRoutes = new ConcurrentHashMap<String, HttpRequestHandler>();
+	
 	/** The websocket handler to be inserted into the pipeline if a request comes in with a URI suffix of {@link #WS_URI_SUFFIX} */
 	protected WebSocketServiceHandler webSocketHandler = null;
     /** Default page URI */
@@ -85,6 +89,15 @@ public class HttpRequestRouter extends ServerComponentBean  implements ChannelUp
 		super();
 		supportedEventTypes.add(HttpRequestHandlerStarted.class);
 		supportedEventTypes.add(HttpRequestHandlerStopped.class);
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
+	 */
+	@Override
+	protected void doStart() {
+		applicationContext.addApplicationListener(this);
 	}
 	
 	/**
@@ -122,33 +135,79 @@ public class HttpRequestRouter extends ServerComponentBean  implements ChannelUp
 		if(!handlers.containsKey(rh.getBeanName())) {
 			handlers.put(rh.getBeanName(), rh);
 			int added = 0;
+			int wadded = 0;
 			for(String key: rh.getUriPatterns()) {
 				key = key.trim().toLowerCase();
-				if(uriRoutes.putIfAbsent(key, rh)==null) {
-					added++;
+				if(key.endsWith("*")) {
+					if(uriWildcardRoutes.putIfAbsent(key.substring(0, key.length()-1), rh)==null) {
+						wadded++;
+					} else {
+						warn("HttpRequestHandler [", rh.getBeanName() , "] attempted to register with wildcard URI [", key, "] which was already registered");
+					}					
 				} else {
-					warn("HttpRequestHandler [", rh.getBeanName() , "] attempted to register with URI [", key, "] which was already registered");
+					if(uriRoutes.putIfAbsent(key, rh)==null) {
+						added++;
+					} else {
+						warn("HttpRequestHandler [", rh.getBeanName() , "] attempted to register with URI [", key, "] which was already registered");
+					}					
 				}
 			}
-			info("Adding Discovered HttpRequestHandler [", rh.getBeanName(), "] with [", added, "] URI keys" );
+			info("Adding Discovered HttpRequestHandler [", rh.getBeanName(), "] with [", added, "] URI keys and [", wadded, "] wildcard keys" );
+		}
+	}
+	
+	/**
+	 * <p>Delegates to the typed application event handler. 
+	 * Required since the origination of events from hot-deployed contexts does not trigger the typed handlers.</p>
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#onApplicationEvent(org.springframework.context.ApplicationEvent)
+	 */
+	@Override
+	public void onApplicationEvent(ApplicationEvent appEvent) {
+		if(appEvent instanceof HttpRequestHandlerStopped) {
+			onApplicationEvent((HttpRequestHandlerStopped)appEvent);
+		} else if(appEvent instanceof HttpRequestHandlerStarted) {
+			onApplicationEvent((HttpRequestHandlerStarted)appEvent);
 		}
 	}
 	
 	/**
 	 * Called when a {@link HttpRequestHandler} stops
-	 * @param handlerStarted The {@link HttpRequestHandler} stop event
+	 * @param handlerStopped The {@link HttpRequestHandler} stop event
 	 */
-	public void onApplicationEvent(HttpRequestHandlerStopped handlerStarted) {
-		HttpRequestHandler rh = handlerStarted.getHandler();
+	public void onApplicationEvent(HttpRequestHandlerStopped handlerStopped) {
+		HttpRequestHandler rh = handlerStopped.getHandler();
 		if(handlers.remove(rh.getBeanName())!=null) {
 			int removed = 0;
+			int wremoved = 0;
 			for(String key: rh.getUriPatterns()) {
 				key = key.trim().toLowerCase();
 				if(uriRoutes.remove(key)!=null) removed++;
+				if(uriWildcardRoutes.remove(key)!=null) wremoved++;
 			}
-			info("Removed Stopped HttpRequestHandler [", rh.getBeanName(), "] with [", removed, "] URI keys" );
+			info("Removed Stopped HttpRequestHandler [", rh.getBeanName(), "] with [", removed, "] URI keys and [", wremoved, "] wildcard keys" );
 		}
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#supportsEventType(java.lang.Class)
+	 */
+	@Override
+	public boolean supportsEventType(Class<? extends ApplicationEvent> eventType) {
+		boolean supports = super.supportsEventType(eventType);		
+		return supports;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#supportsSourceType(java.lang.Class)
+	 */
+	@Override
+	public boolean supportsSourceType(Class<?> sourceType) {
+		return true;
+	}		
+	
 	
 
 	/**
@@ -163,6 +222,20 @@ public class HttpRequestRouter extends ServerComponentBean  implements ChannelUp
 		}
 		return map;
 	}
+	
+	/**
+	 * Returns an unmodifiable set of wildcard URI patterns that this modifier is activated for 
+	 * @return an unmodifiable set of wildcard URI patterns that this modifier is activated for
+	 */
+	@ManagedAttribute(description="Wildcard URI patterns that this modifier is activated for")
+	public Map<String, String> getWildcardUriMappings() {
+		Map<String, String> map = new HashMap<String, String>(handlers.size());
+		for(Map.Entry<String, HttpRequestHandler> entry: uriWildcardRoutes.entrySet()) {
+			map.put(entry.getKey(), entry.getValue().getClass().getName());
+		}
+		return map;
+	}
+	
 	
 	/**
 	 * {@inheritDoc}
@@ -206,10 +279,21 @@ public class HttpRequestRouter extends ServerComponentBean  implements ChannelUp
         }
 		
 		debug("Processing HTTP Request for URI [", uri, "]");
+		// ======================================================================
+		// ======================================================================
+		//		The handler lookup
+		// ======================================================================
+		// ======================================================================
+		
 		HttpRequestHandler handler = uriRoutes.get(uri);
+		if(handler==null) {
+			handler = findWildcardMatch(uri);
+		}
 		if(handler==null) {
 			handler = uriRoutes.get("");  // the default handler is the file server
 		}
+		// ======================================================================
+		
 		if(handler==null) {
 			sendError(ctx, NOT_FOUND);
 		} else {
@@ -230,7 +314,19 @@ public class HttpRequestRouter extends ServerComponentBean  implements ChannelUp
 		}
 	}
 	
-    
+    /**
+     * Attempts to match the passed URI to a wildcarded handler
+     * @param uri The uri to match
+     * @return the matched handler or null if one was not found
+     */
+    protected HttpRequestHandler findWildcardMatch(String uri) {
+    	for(Map.Entry<String, HttpRequestHandler> wc : uriWildcardRoutes.entrySet()) {
+    		if(uri.startsWith(wc.getKey())) {
+    			return wc.getValue();
+    		}
+    	}
+    	return null;
+    }
     /**
      * Handles uncaught exceptions
      * @param ctx The channel handler context

@@ -30,6 +30,7 @@ import java.net.URL;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.ObjectName;
@@ -39,6 +40,7 @@ import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.spring.ctx.ApplicationContextService;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.event.SmartApplicationListener;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.context.support.GenericXmlApplicationContext;
 import org.springframework.core.io.UrlResource;
@@ -73,10 +75,12 @@ public class ApplicationContextDeployer {
 	/**
 	 * Hot deploys the application context defined in the passed file
 	 * @param parent The parent context
+	 * @param taskExecutor The application event multicaster task executor
+	 * @param innerListener The application listener that listens exclusively on hot deployed contexts
 	 * @param fe The file event referencing a new or modified file
 	 * @return the deployed application context
 	 */
-	protected GenericApplicationContext deploy(ApplicationContext parent, FileEvent fe) {
+	protected GenericApplicationContext deploy(ApplicationContext parent, Executor taskExecutor, SmartApplicationListener innerListener, FileEvent fe) {
 		try {
 			log.info("Deploying AppCtx [" + fe.getFileName() + "]");
 			File f = new File(fe.getFileName());
@@ -92,10 +96,11 @@ public class ApplicationContextDeployer {
 			final ClassLoader current = Thread.currentThread().getContextClassLoader();
 			try {
 				Thread.currentThread().setContextClassLoader(cl);
-				GenericXmlApplicationContext appCtx = new GenericXmlApplicationContext();
+				String id = "HotDeployedContext#" + CTX_SERIAL.incrementAndGet() + "(" + f.getAbsolutePath() + ")";
+				HotDeployedApplicationContext appCtx = new HotDeployedApplicationContext(taskExecutor, id);
+				appCtx.addApplicationListener(innerListener);
 				//appCtx.setClassLoader(findClassLoader(f));
-				appCtx.setDisplayName(f.getAbsolutePath());	
-				appCtx.setId("HotDeployedContext#" + CTX_SERIAL.incrementAndGet());
+				appCtx.setDisplayName(f.getAbsolutePath());					
 				appCtx.setParent(parent);
 				appCtx.load(new UrlResource(f.toURI().toURL()));
 				for(String beanName: appCtx.getBeanDefinitionNames()) {
