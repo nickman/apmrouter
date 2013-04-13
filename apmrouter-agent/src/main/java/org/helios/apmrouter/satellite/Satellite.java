@@ -83,6 +83,7 @@ public class Satellite {
 		DefaultMonitorBoot.satellite();
 		initJmxMpServer();
 		AttachService.initAttachService();
+		AttachService.registerAll();
 		Cascader.initCascade();
 		try { Thread.currentThread().join(); } catch (Exception ex) {/* No Op */}
 	}

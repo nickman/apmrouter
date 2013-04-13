@@ -207,10 +207,10 @@ public class VirtualMachine extends BaseWrappedClass {
 	/**
 	 * Detach from the virtual machine. 
 	 */
-	public String detach() {
+	public void detach() {
 		try {			
 			pushCl();
-			return (String)invoke(delegate, null, "detach");
+			invoke(delegate, null, "detach");
 		} finally {
 			popCl();
 		}				

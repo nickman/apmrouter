@@ -79,7 +79,6 @@ public class Cascader {
 	 */
 	public static void initCascade() {
 		try {
-			JMXServiceURL cascadeURL = new JMXServiceURL("service:jmx:rmi:///jndi/rmi://localhost:7199/jmxrmi");
 			Class<?> cascadingClass = Class.forName("com.sun.jdmk.remote.cascading.CascadingService");
 			//CascadingService cs = new CascadingService(JMXHelper.getHeliosMBeanServer());
 			Constructor<?> ctor = cascadingClass.getDeclaredConstructor(MBeanServer.class);
@@ -88,9 +87,9 @@ public class Cascader {
 				JMXHelper.getHeliosMBeanServer().registerMBean(cs, CASCADE_SERVICE_OBJECT_NAME);
 			}
 			SimpleLogger.info("Started CascadeServer.");
-			Method mountMethod = cascadingClass.getDeclaredMethod("mount", JMXServiceURL.class, Map.class, ObjectName.class, String.class);
-			final String mountPointID  = (String)mountMethod.invoke(cs, cascadeURL, null, null, "hserval/Cassandra");			
-			SimpleLogger.info("Mounted [", cascadeURL, "] at [", mountPointID, "]");
+//			Method mountMethod = cascadingClass.getDeclaredMethod("mount", JMXServiceURL.class, Map.class, ObjectName.class, String.class);
+//			final String mountPointID  = (String)mountMethod.invoke(cs, cascadeURL, null, null, "hserval/Cassandra");			
+//			SimpleLogger.info("Mounted [", cascadeURL, "] at [", mountPointID, "]");
 		} catch (Exception ex) {
 			System.err.println("Failed to start Cascade Server. Stack trace follows:");
 			ex.printStackTrace(System.err);			
@@ -100,6 +99,27 @@ public class Cascader {
 	protected static void initTargets() {
 		SimpleLogger.info("Starting JVM Discovery....");
 		
+	}
+	
+	/** The JMX invocation signature for mounting JVMs */
+	private static final String[] MOUNT_SIG = {JMXServiceURL.class.getName(), Map.class.getName(), ObjectName.class.getName(), String.class.getName()};
+	
+	/**
+	 * @param serviceURL
+	 * @param env
+	 * @param filter
+	 * @param mountPoint
+	 * @return
+	 */
+	public static String mount(JMXServiceURL serviceURL, Map<?,?> env, ObjectName filter, String mountPoint) {
+		return (String)JMXHelper.invoke(CASCADE_SERVICE_OBJECT_NAME, JMXHelper.getHeliosMBeanServer(), "mount", new Object[]{serviceURL, env, filter, mountPoint}, MOUNT_SIG);
+	}
+	
+	/**
+	 * @param mountId
+	 */
+	public static void unmount(String mountId) {
+		JMXHelper.invoke(CASCADE_SERVICE_OBJECT_NAME, JMXHelper.getHeliosMBeanServer(), "unmount", new Object[]{mountId}, new String[]{String.class.getName()}); 
 	}
 
 }
