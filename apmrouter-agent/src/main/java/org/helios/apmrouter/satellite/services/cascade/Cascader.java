@@ -22,7 +22,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.satellite;
+package org.helios.apmrouter.satellite.services.cascade;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -42,30 +42,54 @@ import org.helios.apmrouter.util.SimpleLogger;
  * <p>Description: Service to load the JDMK CascadeService and mount any recognized JVMs on the platform</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.satellite.Cascader</code></p>
+ * <p><code>org.helios.apmrouter.satellite.services.cascade.Cascader</code></p>
  */
-
 public class Cascader {
+	/** Indicates if this VM was able to load the cascade service */
+	public static final boolean available;
+	/** The cascade service class */
+	protected static final Class<?> cascadingClass;
+	
+	/** The cascade service object name */
+	public static final ObjectName CASCADE_SERVICE_OBJECT_NAME = JMXHelper.objectName("org.helios.jmx:service=CascadingService");
+	/** The cascade manager object name */
+	public static final ObjectName CASCADE_MANAGER_OBJECT_NAME = JMXHelper.objectName("org.helios.jmx:service=CascadingManager");
+
 	
 	static {
-		initCascade();
-		
+		Class<?> _cascadingClass = null;
+		boolean _available = false;
+		try {
+			_cascadingClass = Class.forName("com.sun.jdmk.remote.cascading.CascadingService");
+			_available = true;
+			SimpleLogger.info("CascadingService Loaded");			
+		} catch (Exception ex) {
+			_available = false;
+			_cascadingClass = null;
+			SimpleLogger.info("CascadingService Not Available");
+		}
+		available = _available;
+		cascadingClass = _cascadingClass;
 	}
+
+	
 	
 	/**
 	 * Initializes the cascade service
 	 */
-	protected static void initCascade() {
+	public static void initCascade() {
 		try {
 			JMXServiceURL cascadeURL = new JMXServiceURL("service:jmx:rmi:///jndi/rmi://localhost:7199/jmxrmi");
 			Class<?> cascadingClass = Class.forName("com.sun.jdmk.remote.cascading.CascadingService");
 			//CascadingService cs = new CascadingService(JMXHelper.getHeliosMBeanServer());
 			Constructor<?> ctor = cascadingClass.getDeclaredConstructor(MBeanServer.class);
-			Object cs = ctor.newInstance(JMXHelper.getHeliosMBeanServer());
-			JMXHelper.getHeliosMBeanServer().registerMBean(cs, JMXHelper.objectName("com.sun.jdmk:type=CascadingService"));
+			Object cs = ctor.newInstance(JMXHelper.getHeliosMBeanServer());			
+			if(!JMXHelper.getHeliosMBeanServer().isRegistered(CASCADE_SERVICE_OBJECT_NAME)) {
+				JMXHelper.getHeliosMBeanServer().registerMBean(cs, CASCADE_SERVICE_OBJECT_NAME);
+			}
 			SimpleLogger.info("Started CascadeServer.");
 			Method mountMethod = cascadingClass.getDeclaredMethod("mount", JMXServiceURL.class, Map.class, ObjectName.class, String.class);
-			final String mountPointID  = (String)mountMethod.invoke(cs, cascadeURL, null, null, "pdk-pt-cupas-01/Cassandra");			
+			final String mountPointID  = (String)mountMethod.invoke(cs, cascadeURL, null, null, "hserval/Cassandra");			
 			SimpleLogger.info("Mounted [", cascadeURL, "] at [", mountPointID, "]");
 		} catch (Exception ex) {
 			System.err.println("Failed to start Cascade Server. Stack trace follows:");

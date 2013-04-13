@@ -34,6 +34,8 @@ import javax.management.remote.jmxmp.JMXMPConnectorServer;
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.monitor.DefaultMonitorBoot;
+import org.helios.apmrouter.satellite.services.attach.AttachService;
+import org.helios.apmrouter.satellite.services.cascade.Cascader;
 import org.helios.apmrouter.util.SimpleLogger;
 
 
@@ -80,7 +82,8 @@ public class Satellite {
 		SimpleLogger.info("Starting Satellite Monitors");
 		DefaultMonitorBoot.satellite();
 		initJmxMpServer();
-		initCascade();
+		AttachService.initAttachService();
+		Cascader.initCascade();
 		try { Thread.currentThread().join(); } catch (Exception ex) {/* No Op */}
 	}
 	
@@ -108,15 +111,5 @@ public class Satellite {
 		}
 	}
 	
-	/**
-	 * Attempts to load the Cascader
-	 */
-	protected static void initCascade() {
-		try {
-			Class<?> clazz = Class.forName("org.helios.apmrouter.satellite.Cascader", true, Satellite.class.getClassLoader());
-		} catch (Exception ex) {
-			System.err.println("Failed to load Cascader:" + ex.toString());			
-		}
-	}
 
 }
