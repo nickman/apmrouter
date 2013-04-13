@@ -46,6 +46,7 @@ public class JMXObject {
 	protected List<JMXAttributeTrace> resolvedAttributes = new ArrayList<JMXAttributeTrace>();
 	protected boolean isProcessed = false;
 	protected static Logger log = Logger.getLogger(JMXObject.class);
+    protected String[] targetAttributes = null;
 	
 	public JMXObject(){
 		
@@ -91,7 +92,7 @@ public class JMXObject {
 	}
 
 	/**
-	 * @param attributeTraces the attributeTraces to set
+	 * @param targetAttributes the attributeTraces to set
 	 */
 	public void setTargetAttributeTraces(List<JMXAttributeTrace> targetAttributes) {
 		this.targetAttributeTraces = targetAttributes;
@@ -144,7 +145,17 @@ public class JMXObject {
 	public void setProcessed(boolean isProcessed) {
 		this.isProcessed = isProcessed;
 	}
-	/**
+
+    public String[] getTargetAttributes() {
+        return targetAttributes;
+    }
+
+    public void setTargetAttributes(String[] targetAttributes) {
+        this.targetAttributes = targetAttributes;
+    }
+
+
+    /**
 	 * Constructs a <code>StringBuilder</code> with all attributes
 	 * in name = value format.
 	 *

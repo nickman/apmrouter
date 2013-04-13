@@ -36,8 +36,8 @@ import org.helios.collector.jmx.connection.IMBeanServerConnectionFactory;
 import org.helios.collector.jmx.connection.MBeanServerConnectionFactoryException;
 import org.helios.collector.jmx.tracers.IObjectFormatter;
 import org.helios.collector.jmx.tracers.IObjectTracer;
-import org.helios.collector.jmx.tracers.JMXAttributeTrace;
-import org.helios.collector.jmx.tracers.JMXObject;
+import org.helios.collector.jmx.tracers.JMXAttributeTrace2;
+import org.helios.collector.jmx.tracers.JMXObject2;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedResource;
 
@@ -56,7 +56,7 @@ import java.util.Map.Entry;
 
 
 /**
- * <p>Title: JMXCollector</p>
+ * <p>Title: JMXCollector2</p>
  * <p>Description: Collect and Trace JMX Attributes</p> 
  * <p>Company: Helios Development Group</p>
  * @author Sandeep Malhotra (smalhotra@heliosdev.org)
@@ -66,7 +66,7 @@ import java.util.Map.Entry;
 //TODO
 // Support VirtualTracers
 @ManagedResource
-public class JMXCollector extends AbstractCollector {
+public class JMXCollector2 extends AbstractCollector {
 
     /**    The properties to make the MBean Server Connection */
     protected Properties properties = new Properties();
@@ -92,9 +92,9 @@ public class JMXCollector extends AbstractCollector {
     /** The availability segments */
     protected String[] availabilitySegment = null;
     /** List that stores all JMXObjects fed from the config file */
-    protected List<JMXObject> jmxObjects = new ArrayList<JMXObject>();
+    protected List<JMXObject2> jmxObjects = new ArrayList<JMXObject2>();
     /** List that stores all processed JMXObjects with resolved segment names  */
-    protected Map<String, JMXObject> resolvedJMXObjects = new HashMap<String, JMXObject>();
+    protected Map<String, JMXObject2> resolvedJMXObjects = new HashMap<String, JMXObject2>();
     /** Flag to indicate whether MXBeans should be traced */
     protected boolean traceMXBeans = false;
     /** The MXBean compiled segment */
@@ -172,7 +172,7 @@ public class JMXCollector extends AbstractCollector {
      *
      * @param connectionFactory
      */
-    public JMXCollector(IMBeanServerConnectionFactory connectionFactory) {
+    public JMXCollector2(IMBeanServerConnectionFactory connectionFactory) {
         this.connectionFactory=connectionFactory;
     }
 
@@ -247,9 +247,9 @@ public class JMXCollector extends AbstractCollector {
 
         boolean anySuccess = false;
         boolean anyFailure = false;
-        for(JMXObject tr: jmxObjects) {
+        for(JMXObject2 tr: jmxObjects) {
             try {
-                List<JMXAttributeTrace> jmxAttributeTraces = tr.getTargetAttributeTraces();
+                List<JMXAttributeTrace2> jmxAttributeTraces = tr.getTargetAttributeTraces();
                 if(anyAttributesToProcess(tr, jmxAttributeTraces)==false){
                     // There are no attribute defined to query for this target objectName
                     // Skip the processing for this object and continue to next JMXObject
@@ -267,7 +267,7 @@ public class JMXCollector extends AbstractCollector {
                     mBeanServerConnection = null;
                     if(logErrors)
                         error("Failed to read results from MBeanServer", ioex);
-                    traceDefaultsForOffline();
+                    //traceDefaultsForOffline();
                     collectionResult.setAnyException(ioex);
                     return determineStatus(anySuccess, anyFailure, collectionResult);
                 }
@@ -287,12 +287,12 @@ public class JMXCollector extends AbstractCollector {
                         // metric/segment/segmentPrefixElements instead of resolving tokens again
                         if(resolvedJMXObjects.containsKey(on.getCanonicalName())){
                             trace("Already have the key in cache: "+on.getCanonicalName());
-                            JMXObject cachedObject = resolvedJMXObjects.get(on.getCanonicalName());
+                            JMXObject2 cachedObject = resolvedJMXObjects.get(on.getCanonicalName());
                             if(cachedObject!=null){
                                 processCachedObject(on, cachedObject, explodedResults);
                                 anySuccess=true;
                                 cachedObject.setProcessed(true);
-                                JMXObject tempObject = new JMXObject(cachedObject);
+                                JMXObject2 tempObject = new JMXObject2(cachedObject);
                                 resolvedJMXObjects.put(on.getCanonicalName(),tempObject);
                             }
                         } else {
@@ -304,7 +304,7 @@ public class JMXCollector extends AbstractCollector {
                             // Mark Processing status to true - If this key already exist in the list, its status will be changed to true, if not
                             // it will be added to this list with status true.                        
                             tr.setProcessed(true);
-                            JMXObject tempObject = new JMXObject(tr);
+                            JMXObject2 tempObject = new JMXObject2(tr);
                             resolvedJMXObjects.put(on.getCanonicalName(),tempObject);
                             tr.clearResolvedAttributes();
                         }
@@ -320,7 +320,7 @@ public class JMXCollector extends AbstractCollector {
 
         // Done with processing of all online MBeans that were returned by this query. Now check whether
         // there are any MBean(s) that were online during the last collection but are offline this time
-        traceDefaultsForOffline();
+        //traceDefaultsForOffline();
         try {
             if(traceMXBeans){
                 long startMX = System.currentTimeMillis();
@@ -337,29 +337,29 @@ public class JMXCollector extends AbstractCollector {
         return determineStatus(anySuccess, anyFailure, collectionResult);
     }
 
-    /**
-     * Iterates through all registered attributes and traces the default, if defined. 
-     */
-    protected void traceDefaultsForOffline() {
-        // Check if it is the first run for this JMXCollector.  If yes, skip tracing 
-        // defaults as we never got an MBeanServerConnection.  Otherwise proceed with tracing defaults. 
-        if(resolvedJMXObjects!=null && !resolvedJMXObjects.isEmpty()){
-            Iterator<String> keys = resolvedJMXObjects.keySet().iterator();
-            while(keys.hasNext()){
-                String tempKey = keys.next();
-                JMXObject cachedObject = resolvedJMXObjects.get(tempKey);
-                if(! cachedObject.isProcessed()){
-                    for(int b=0; b<cachedObject.getResolvedAttributes().size();b++){
-                        JMXAttributeTrace cachedTrace = cachedObject.getResolvedAttributes().get(b);
-                        if(cachedTrace!=null && cachedTrace.getDefaultValue()!=null){
-                            //- tracer.smartTrace(cachedTrace.getTraceType(),cachedTrace.getDefaultValue(),cachedTrace.getMetricName(), StringHelper.append(tracingNameSpace,true,cachedTrace.getResolvedPrefix()), "");
-                            tracer.trace(cachedTrace.getDefaultValue(), cachedTrace.getMetricName(), cachedTrace.getResolvedTraceMetricType(), StringHelper.append(false, tracingNameSpace,cachedTrace.getResolvedPrefix()));
-                        }
-                    }
-                }
-            }
-        }
-    }
+//    /**
+//     * Iterates through all registered attributes and traces the default, if defined.
+//     */
+//    protected void traceDefaultsForOffline() {
+//        // Check if it is the first run for this JMXCollector.  If yes, skip tracing
+//        // defaults as we never got an MBeanServerConnection.  Otherwise proceed with tracing defaults.
+//        if(resolvedJMXObjects!=null && !resolvedJMXObjects.isEmpty()){
+//            Iterator<String> keys = resolvedJMXObjects.keySet().iterator();
+//            while(keys.hasNext()){
+//                String tempKey = keys.next();
+//                JMXObject2 cachedObject = resolvedJMXObjects.get(tempKey);
+//                if(! cachedObject.isProcessed()){
+//                    for(int b=0; b<cachedObject.getResolvedAttributes().size();b++){
+//                        JMXAttributeTrace2 cachedTrace = cachedObject.getResolvedAttributes().get(b);
+//                        if(cachedTrace!=null && cachedTrace.getDefaultValue()!=null){
+//                            //- tracer.smartTrace(cachedTrace.getTraceType(),cachedTrace.getDefaultValue(),cachedTrace.getMetricName(), StringHelper.append(tracingNameSpace,true,cachedTrace.getResolvedPrefix()), "");
+//                            tracer.trace(cachedTrace.getDefaultValue(), cachedTrace.getMetricName(), cachedTrace.getResolvedTraceMetricType(), StringHelper.append(false, tracingNameSpace,cachedTrace.getResolvedPrefix()));
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
 
     /**
      *
@@ -432,7 +432,7 @@ public class JMXCollector extends AbstractCollector {
      * @param tr JMXObject
      * @return
      */
-    protected HashMap<String,Object> queryAttributes(ObjectName on, JMXObject tr) {
+    protected HashMap<String,Object> queryAttributes(ObjectName on, JMXObject2 tr) {
         HashMap<String,Object> explodedResults=null;
         try{
             AttributeList attributeResults = new AttributeList();
@@ -461,7 +461,7 @@ public class JMXCollector extends AbstractCollector {
     /**
      * Determine whether there are any Attributes to process
      */
-    protected boolean anyAttributesToProcess(JMXObject tr, List<JMXAttributeTrace> jmxAttributeTraces) {
+    protected boolean anyAttributesToProcess(JMXObject2 tr, List<JMXAttributeTrace2> jmxAttributeTraces) {
         if(tr.getAttributeNames()==null){
             // First run - so prepare and cache the list of attributes that needs to be traced for the MBean(s)
             // returned by the querying targetObjectName property
@@ -479,7 +479,7 @@ public class JMXCollector extends AbstractCollector {
         return true;
     }
 
-    protected void process(ObjectName on, JMXAttributeTrace trace,
+    protected void process(ObjectName on, JMXAttributeTrace2 trace,
                            Map<String, Object> explodedResults) {
 
         if ( trace.getObjectTracers().size()<1 && trace.getObjectFormatters().size()<1){
@@ -510,11 +510,11 @@ public class JMXCollector extends AbstractCollector {
         }
     }
 
-    protected void processNonCachedObject(ObjectName on, JMXObject tr, Map<String, Object> explodedResults,
-                                          List<JMXAttributeTrace> jmxAttributeTraces) {
+    protected void processNonCachedObject(ObjectName on, JMXObject2 tr, Map<String, Object> explodedResults,
+                                          List<JMXAttributeTrace2> jmxAttributeTraces) {
         for(int k=0;k<jmxAttributeTraces.size();k++){
-            JMXAttributeTrace trace = new JMXAttributeTrace(jmxAttributeTraces.get(k));
-            trace.setSegmentPrefixElements(resolveSegmentPrefix(trace.getSegmentPrefixElements(),on));
+            JMXAttributeTrace2 trace = new JMXAttributeTrace2(jmxAttributeTraces.get(k));
+            tr.setSegmentPrefixElements(resolveSegmentPrefix(tr.getSegmentPrefixElements(),on));
             // Metric name is optional so set it to AttributeName if it's not provided in config file
             if(trace.getMetricName() == null){
                 trace.setMetricName(trace.getTargetAttributeName());
@@ -523,9 +523,9 @@ public class JMXCollector extends AbstractCollector {
             }
             if(trace.getSegment()!=null && trace.getSegment().contains("{TARGET")){
                 trace.setSegment(formatName(trace.getSegment(),on));
-                trace.setResolvedPrefix(StringHelper.append(trace.getSegmentPrefixElements(),trace.getSegment()));
+                trace.setResolvedPrefix(StringHelper.append(tr.getSegmentPrefixElements(),trace.getSegment()));
             } else {
-                trace.setResolvedPrefix(trace.getSegmentPrefixElements());
+                trace.setResolvedPrefix(tr.getSegmentPrefixElements());
             }
 
             process(on, trace, explodedResults);
@@ -534,9 +534,9 @@ public class JMXCollector extends AbstractCollector {
         }
     }
 
-    protected void processCachedObject(ObjectName on, JMXObject cachedObject, Map<String,Object> explodedResults) {
+    protected void processCachedObject(ObjectName on, JMXObject2 cachedObject, Map<String,Object> explodedResults) {
         for(int b=0; b<cachedObject.getResolvedAttributes().size();b++){
-            JMXAttributeTrace cachedTrace = cachedObject.getResolvedAttributes().get(b);
+            JMXAttributeTrace2 cachedTrace = cachedObject.getResolvedAttributes().get(b);
             if(cachedTrace!=null){
                 process(on, cachedTrace, explodedResults);
             }
@@ -554,7 +554,7 @@ public class JMXCollector extends AbstractCollector {
         } catch (Exception e) {
             if(logErrors) error("Failed to get an MBean Server Connection for bean: " + this.getBeanName() + e);
             traceAvailability(0);
-            traceDefaultsForOffline();
+            //traceDefaultsForOffline();
             result.setResultForLastCollection(CollectionResult.Result.FAILURE);
             result.setAnyException(e);
             return false;
@@ -669,12 +669,12 @@ public class JMXCollector extends AbstractCollector {
             totalStartedThreads = (Long)getValue(attrs, THREAD_STATS[2]);
             nonDaemonThreads = activeThreads - daemonThreads;
             peakThreadCount = (Integer)(getValue(attrs, THREAD_STATS[3]));
-            
+
             String[] rootSegment = null;
             if(mappedMetrics) {
-            	rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=Threads"};
+                rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=Threads"};
             } else {
-            	rootSegment = StringHelper.append(false,tracingNameSpace,mxBeanSegment,"Threads");
+                rootSegment = StringHelper.append(false,tracingNameSpace,mxBeanSegment,"Threads");
             }
 
 //            tracer.traceStickyDelta(totalStartedThreads, "Threads Started (Delta)", rootSegment);
@@ -830,9 +830,9 @@ public class JMXCollector extends AbstractCollector {
                 poolType = (String)mBeanServerConnection.getAttribute(entry.getValue(), "Type");
                 usage = (CompositeDataSupport)mBeanServerConnection.getAttribute(entry.getValue(), "Usage");
                 if(mappedMetrics) {
-                	rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=MemoryPools", "type=" + poolType, "pool=" + entry.getKey()};
+                    rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=MemoryPools", "type=" + poolType, "pool=" + entry.getKey()};
                 } else {
-                	rootSegment = StringHelper.append(false,tracingNameSpace,mxBeanSegment,"Memory Pools", poolType, entry.getKey());
+                    rootSegment = StringHelper.append(false,tracingNameSpace,mxBeanSegment,"Memory Pools", poolType, entry.getKey());
                 }
                 for(String key: usage.getCompositeType().keySet()) {
                     tracer.traceGauge((Long)usage.get(key),key,rootSegment);
@@ -903,9 +903,9 @@ public class JMXCollector extends AbstractCollector {
             }
             for(Entry<String, ObjectName> entry: gcObjectNames.entrySet()) {
                 if(mappedMetrics) {
-                	rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=GarbageCollection", "collector=" + entry.getKey()};
+                    rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=GarbageCollection", "collector=" + entry.getKey()};
                 } else {
-                	rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Garbage Collectors", entry.getKey());
+                    rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Garbage Collectors", entry.getKey());
                 }
                 collectionCount = (Long)mBeanServerConnection.getAttribute(entry.getValue(), "CollectionCount");
                 collectionTime = (Long)mBeanServerConnection.getAttribute(entry.getValue(), "CollectionTime");
@@ -955,9 +955,9 @@ public class JMXCollector extends AbstractCollector {
             if(!shouldBeCollected(clMXBean)) return;
             String rootSegment[] = null;
             if(mappedMetrics) {
-            	rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=ClassLoading"};
+                rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=ClassLoading"};
             } else {
-            	rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Class Loading");
+                rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Class Loading");
             }
             stats = mBeanServerConnection.getAttributes(clMXBean, CLASS_LOADING_STATS);
             for (int i=0;i<stats.size();i++){
@@ -1001,9 +1001,9 @@ public class JMXCollector extends AbstractCollector {
             if(!supportsCompilerTime) return;
             String rootSegment[] = null;
             if(mappedMetrics) {
-            	rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=Compilation"};
+                rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=Compilation"};
             } else {
-            	rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"JIT Compiler");
+                rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"JIT Compiler");
             }
             long totalComplilationTime = (Long)mBeanServerConnection.getAttribute(jitMXBean, "TotalCompilationTime");
             //tracer.traceStickyDelta(totalComplilationTime, "CompileTime(Delta)", rootSegment);
@@ -1064,7 +1064,7 @@ public class JMXCollector extends AbstractCollector {
 
     /** The root segment name for mxbean mapped metrics */
     public static String ROOT_MXBEAN_SEGMENT = "platform=JVM";
-    
+
     /**
      * Collects memory stats
      */
@@ -1083,11 +1083,11 @@ public class JMXCollector extends AbstractCollector {
 
             CompositeDataSupport heap = (CompositeDataSupport) mBeanServerConnection.getAttribute(memoryMXBean, "HeapMemoryUsage");
             if(mappedMetrics) {
-            	rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=Memory", "type=Heap"};            			
+                rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=Memory", "type=Heap"};
             } else {
-            	rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Memory", "Heap Memory Usage");
+                rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment,"Memory", "Heap Memory Usage");
             }
-            
+
             for(String key: heap.getCompositeType().keySet()) {
                 tracer.trace(heap.get(key),key,rootSegment);
             }
@@ -1096,9 +1096,9 @@ public class JMXCollector extends AbstractCollector {
 
             CompositeDataSupport nonHeap = (CompositeDataSupport) mBeanServerConnection.getAttribute(memoryMXBean, "NonHeapMemoryUsage");
             if(mappedMetrics) {
-            	rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=Memory", "type=NonHeap"};            			
-            } else {           
-            	rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment, "Memory", "Non Heap Memory Usage");
+                rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=Memory", "type=NonHeap"};
+            } else {
+                rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment, "Memory", "Non Heap Memory Usage");
             }
             for(String key: nonHeap.getCompositeType().keySet()) {
                 tracer.trace(heap.get(key),key,rootSegment);
@@ -1106,12 +1106,12 @@ public class JMXCollector extends AbstractCollector {
             getPercentUsedOfCommited(nonHeap, rootSegment);
             getPercentUsedOfCapacity(nonHeap, rootSegment);
             if(mappedMetrics) {
-            	rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=Memory"};            			
-            } else {           
-            	rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment, "Memory");
+                rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=Memory"};
+            } else {
+                rootSegment = StringHelper.append(false, tracingNameSpace,mxBeanSegment, "Memory");
             }
 
-            
+
             tracer.trace(mBeanServerConnection.getAttribute(memoryMXBean, "ObjectPendingFinalizationCount"), "Objects Pending Finalization",rootSegment);
         } catch (InstanceNotFoundException ine) {
             if(logErrors) { warn("MXBean Collector for bean collector " + this.getBeanName() + " could Not Locate MBean " + memoryMXBean); }
@@ -1200,7 +1200,7 @@ public class JMXCollector extends AbstractCollector {
             Iterator<String> keys = resolvedJMXObjects.keySet().iterator();
             while(keys.hasNext()){
                 String tempKey = keys.next();
-                JMXObject tempObject = resolvedJMXObjects.get(tempKey);
+                JMXObject2 tempObject = resolvedJMXObjects.get(tempKey);
                 tempObject.setProcessed(false);
                 resolvedJMXObjects.put(tempKey,tempObject);
             }
@@ -1299,7 +1299,7 @@ public class JMXCollector extends AbstractCollector {
      * @return the availabilitySegment
      */
     @SuppressWarnings("cast")
-	@ManagedAttribute
+    @ManagedAttribute
     public String[] getAvailabilitySegment() {
         return (String[])availabilitySegment.clone();
     }
@@ -1314,14 +1314,14 @@ public class JMXCollector extends AbstractCollector {
     /**
      * @return the jmxObjects
      */
-    public List<JMXObject> getJmxObjects() {
+    public List<JMXObject2> getJmxObjects() {
         return jmxObjects;
     }
 
     /**
      * @param jmxObjects the jmxObjects to set
      */
-    public void setJmxObjects(List<JMXObject> jmxObjects) {
+    public void setJmxObjects(List<JMXObject2> jmxObjects) {
         this.jmxObjects = jmxObjects;
     }
 
@@ -1423,7 +1423,7 @@ public class JMXCollector extends AbstractCollector {
      */
     @ManagedAttribute
     public void setVirtualHost(String virtualHost){
-         this.virtualHost = virtualHost;
+        this.virtualHost = virtualHost;
     }
 
 
@@ -1446,23 +1446,23 @@ public class JMXCollector extends AbstractCollector {
     }
 
 
-	/**
-	 * Indicates if mapped metrics should be used for mxbean tracing
-	 * @return true to use mapped metrics, false for flat
-	 */
+    /**
+     * Indicates if mapped metrics should be used for mxbean tracing
+     * @return true to use mapped metrics, false for flat
+     */
     @ManagedAttribute(description="Indicates if mapped metrics should be used for mxbean tracing")
-	public boolean isMappedMetrics() {
-		return mappedMetrics;
-	}
+    public boolean isMappedMetrics() {
+        return mappedMetrics;
+    }
 
 
-	/**
-	 * Sets the mapped metrics indicator for mxbean tracing
-	 * @param mappedMetrics true to use mapped metrics, false for flat
-	 */
+    /**
+     * Sets the mapped metrics indicator for mxbean tracing
+     * @param mappedMetrics true to use mapped metrics, false for flat
+     */
     @ManagedAttribute(description="Indicates if mapped metrics should be used for mxbean tracing")
-	public void setMappedMetrics(boolean mappedMetrics) {
-		this.mappedMetrics = mappedMetrics;
-	}
+    public void setMappedMetrics(boolean mappedMetrics) {
+        this.mappedMetrics = mappedMetrics;
+    }
 
 }
