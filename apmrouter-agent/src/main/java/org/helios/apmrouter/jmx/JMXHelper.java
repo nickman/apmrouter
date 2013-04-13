@@ -414,6 +414,32 @@ public class JMXHelper {
 	}
 	
 	/**
+	 * Registers the named MBean in the passed MBeanServer
+	 * @param server The MBeanServer to register with
+	 * @param mbean The object to register
+	 * @param objectName The ObjectName of the MBean to register
+	 */
+	public static void registerMBean(MBeanServer server, Object mbean, ObjectName objectName) {
+		try {
+			server.registerMBean(mbean, objectName);
+		} catch(Exception e) {
+			//throw new RuntimeException("Failed to register MBean [" + objectName + "]", e);
+			System.err.println("Failed to register MBean [" + objectName + "]:" + e);
+		}		
+	}
+	
+	/**
+	 * Registers the named MBean in the helios MBeanServer
+	 * @param mbean The object to register
+	 * @param objectName The ObjectName of the MBean to register
+	 */
+	public static void registerMBean(Object mbean, ObjectName objectName) {
+		registerMBean(getHeliosMBeanServer(), mbean, objectName);
+	}
+	
+	
+	
+	/**
 	 * Unregisters the named MBean from the Helios MBeanServer
 	 * @param objectName The ObjectName of the MBean to unregister
 	 */
