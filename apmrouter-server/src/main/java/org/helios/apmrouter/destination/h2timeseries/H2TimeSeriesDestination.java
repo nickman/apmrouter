@@ -24,10 +24,6 @@
  */
 package org.helios.apmrouter.destination.h2timeseries;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Statement;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
