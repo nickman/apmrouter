@@ -29,6 +29,7 @@ import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorProvider;
 import javax.management.remote.JMXServiceURL;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.util.Map;
 
 /**
@@ -36,7 +37,7 @@ import java.util.Map;
  * <p>Description: JMX remoting client provider for acquiring {@link MBeanServerConnection}s to agents from external JVMs.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.jmx.connector.mxl.ClientProvider</code></p>
+ * <p><code>org.helios.apmrouter.jmx.connector.mxr.ClientProvider</code></p>
  */
 
 public class ClientProvider implements JMXConnectorProvider {
@@ -48,7 +49,10 @@ public class ClientProvider implements JMXConnectorProvider {
 	@Override
 	public JMXConnector newJMXConnector(JMXServiceURL serviceURL,
 			Map<String, ?> environment) throws IOException {
-		// TODO Auto-generated method stub
+		if (!serviceURL.getProtocol().equals("mxr")) {
+            throw new MalformedURLException("Protocol not mxr: " +
+                                            serviceURL.getProtocol());
+        }		
 		return null;
 	}
 

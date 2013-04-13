@@ -29,6 +29,7 @@ import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorProvider;
 import javax.management.remote.JMXServiceURL;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.util.Map;
 
 /**
@@ -49,7 +50,10 @@ public class ClientProvider implements JMXConnectorProvider {
 	@Override
 	public JMXConnector newJMXConnector(JMXServiceURL serviceURL,
 			Map<String, ?> environment) throws IOException {
-		// TODO Auto-generated method stub
+		if (!serviceURL.getProtocol().equals("mxrp")) {
+            throw new MalformedURLException("Protocol not mxrp: " +
+                                            serviceURL.getProtocol());
+        }
 		return null;
 	}
 

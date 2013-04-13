@@ -29,6 +29,7 @@ import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorProvider;
 import javax.management.remote.JMXServiceURL;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -55,6 +56,10 @@ public class ClientProvider implements JMXConnectorProvider {
 	@Override
 	public JMXConnector newJMXConnector(JMXServiceURL serviceURL, Map<String, ?> environment) throws IOException {
 		if(serviceURL==null) throw new IllegalArgumentException("The passed serviceURL was null", new Throwable());
+		if (!serviceURL.getProtocol().equals("mxl")) {
+            throw new MalformedURLException("Protocol not mxl: " +
+                                            serviceURL.getProtocol());
+        }		
 		try {
 			String urlPath = serviceURL.getURLPath();
 			Matcher m = MXL_PATTERN.matcher(urlPath);

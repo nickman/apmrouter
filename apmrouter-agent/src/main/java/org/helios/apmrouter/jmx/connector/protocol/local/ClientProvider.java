@@ -28,6 +28,7 @@ import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorProvider;
 import javax.management.remote.JMXServiceURL;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.util.Map;
 
 /**
@@ -48,6 +49,10 @@ public class ClientProvider implements JMXConnectorProvider {
 	@Override
 	public JMXConnector newJMXConnector(JMXServiceURL serviceURL, Map<String, ?> environment) throws IOException {
 		if(serviceURL==null) throw new IllegalArgumentException("The passed JMXServiceURL was null", new Throwable());
+		if (!serviceURL.getProtocol().equals("local")) {
+            throw new MalformedURLException("Protocol not local: " +
+                                            serviceURL.getProtocol());
+        }		
 		LocalJMXConnector connector = new LocalJMXConnector();
 		connector.localURL = serviceURL;
 		return connector;
