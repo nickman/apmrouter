@@ -29,7 +29,6 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executor;
 
-import org.helios.apmrouter.jmx.ThreadPoolFactory;
 import org.helios.apmrouter.util.SimpleLogger;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
@@ -60,10 +59,18 @@ public class JsonCodec extends SimpleChannelHandler {
 	/** A set of web socket event listeners */
 	protected final Set<WebSocketEventListener> eventListeners = new CopyOnWriteArraySet<WebSocketEventListener>();
 	/** A thread pool to execute listener notifications in */
-	protected final Executor threadPool = ThreadPoolFactory.newCachedThreadPool("org.helios.apmrouter.client.websocket", "ListenerPool");
+	protected final Executor threadPool;
 	
 	/** The elading string in the response containing the sessionId returned by the server */
 	public static final String SESSION_SIGNATURE = "{\"sessionid\":";
+	
+	/**
+	 * Creates a new JsonCodec
+	 * @param threadPool The application thread pool
+	 */
+	public JsonCodec(Executor threadPool) {
+		this.threadPool = threadPool;
+	}
 	
 	/**
 	 * Registers the passed WebSocketEventListener to be notified of events on any websocket
@@ -161,7 +168,12 @@ public class JsonCodec extends SimpleChannelHandler {
 			if(message!=null && message.indexOf(SESSION_SIGNATURE)!=-1) {
 				super.messageReceived(ctx, new UpstreamMessageEvent(e.getChannel(), "" + new JSONObject(message).get("sessionid"), e.getRemoteAddress()));
 			} else {
-				fireJsonEvent(e.getRemoteAddress(), new JSONObject(textFrame.getText()));
+				ChannelHandlerContext synchContext = ctx.getPipeline().getContext("Synch" + ctx.getChannel().getId()); 
+				if(synchContext!=null && synchContext.canHandleUpstream()) {
+					ctx.getPipeline().getContext(this).sendUpstream(new UpstreamMessageEvent(e.getChannel(), new JSONObject(textFrame.getText()), e.getRemoteAddress()));
+				} else {
+					fireJsonEvent(e.getRemoteAddress(), new JSONObject(textFrame.getText()));
+				}
 			}
 		}		
 	}
@@ -211,7 +223,7 @@ public class JsonCodec extends SimpleChannelHandler {
 	public void writeRequested(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
 		Object msg = e.getMessage();
 		if(msg instanceof JSONObject) {
-			SimpleLogger.info("Writing Request:\n" + msg.toString());
+			//SimpleLogger.info("Writing Request:\n" + msg.toString());
 			byte[] payload = msg.toString().getBytes();
 			Channel channel = e.getChannel();			 
 			super.writeRequested(ctx, new DownstreamMessageEvent(channel, Channels.future(channel), new TextWebSocketFrame(ChannelBuffers.wrappedBuffer(payload)), channel.getRemoteAddress()));

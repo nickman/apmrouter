@@ -30,13 +30,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.atomic.AtomicLong;
 
-import org.helios.apmrouter.subscription.EmptyMetricURISubscriptionEventListener;
 import org.helios.apmrouter.subscription.MetricURIEvent;
 import org.helios.apmrouter.subscription.MetricURISubscriptionEventListener;
 import org.helios.apmrouter.util.SimpleLogger;
 import org.helios.apmrouter.util.SystemClock;
+import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.helios.apmrouter.util.URLHelper;
 import org.json.JSONObject;
 
@@ -67,19 +66,48 @@ public class WebSocketAgent implements WebSocketEventListener {
 	
 	public static void main(String[] args) {
 		log("WebSocketAgent Test");
-		WebSocketAgent agent = WebSocketAgent.newInstance("ws://localhost:8087/ws");
-		log("Connected to [" + agent.getWebSocketURI() + "]");
-		agent.subscribeMetricURIAsynch(URLHelper.toURI("DefaultDomain/njw810/APMRouterServer/platform=JVM/category=cpu"), new EmptyMetricURISubscriptionEventListener(){
-			final AtomicLong dataCount = new AtomicLong();
-			@Override
-			public void onMetricData(Object metricData) {
-				long cnt = dataCount.incrementAndGet();
-				if(cnt%10==0) {
-					log("Metrics Received:\n" + cnt);
-				}				
-			}});
-		SystemClock.sleep(60000);
-		agent.close();
+		WebSocketAgent agent = null;
+		try {
+			agent = WebSocketAgent.newInstance("ws://localhost:8087/ws");
+			log("Connected to [" + agent.getWebSocketURI() + "]");
+			//agent.wsClient.setSynchRequestTimeout(10000);
+			int loop = 10000;
+			for(int i = 0; i < loop; i++) {
+				agent.getMetrics("DefaultDomain/njw810/APMRouterServer/platform=JVM/category=cpu");
+			}
+			log("Warmup Complete");
+			SystemClock.startTimer();
+			for(int i = 0; i < loop; i++) {
+				agent.getMetrics("DefaultDomain/njw810/APMRouterServer/platform=JVM/category=cpu");
+			}
+			ElapsedTime et = SystemClock.endTimer();
+			log(et + "  Avg " + et.avgMs(loop) + " ms. ") ;
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+		} finally {
+			if(agent!=null) {
+				try { agent.wsClient.shutdown(); } catch (Exception ex) {}
+			}
+		}
+//		agent.subscribeMetricURIAsynch(URLHelper.toURI("DefaultDomain/njw810/APMRouterServer/platform=JVM/category=cpu"), new EmptyMetricURISubscriptionEventListener(){
+//			final AtomicLong dataCount = new AtomicLong();
+//			@Override
+//			public void onMetricData(Object metricData) {
+//				long cnt = dataCount.incrementAndGet();
+//				if(cnt%5==0) {
+//					log("Metrics Received:" + cnt);
+//				}				
+//			}});
+//		final Thread t = Thread.currentThread();
+//		agent.wsClient.channel.getCloseFuture().addListener(new ChannelFutureListener() {
+//			@Override
+//			public void operationComplete(ChannelFuture future) throws Exception {
+//				t.interrupt();
+//			}
+//		});
+//		try { Thread.currentThread().join(); } catch (Exception ex) {}
+//		log("Exiting.....");
+//		//agent.close();
 	}
 	
 	public static void log(Object msg) {
@@ -255,7 +283,34 @@ public class WebSocketAgent implements WebSocketEventListener {
 	 * If empty, the responses will be routed to the agent's global event listeners
 	 */
 	public void subscribeMetricURIAsynch(URI metricURI, MetricURISubscriptionEventListener...listeners) {
-		subscribeMetricURI(true, metricURI);
+		subscribeMetricURI(true, metricURI, listeners);
+	}
+	
+	/**
+	 * Returns the metrics for the passed URI
+	 * @param metricURI The metric uri
+	 * @return A json object containing the metrics
+	 */
+	public JSONObject getMetrics(CharSequence metricURI) {
+		if(metricURI==null) throw new IllegalArgumentException("The passed metricURI was null", new Throwable());
+		return getMetrics(URLHelper.toURI(metricURI));
+	}
+	
+	
+	/**
+	 * Returns the metrics for the passed URI
+	 * @param metricURI The metric uri
+	 * @return A json object containing the metrics
+	 */
+	public JSONObject getMetrics(URI metricURI) {
+		if(metricURI==null) throw new IllegalArgumentException("The passed metricURI was null", new Throwable());
+		JsonRequest request = JsonRequestBuilder.newBuilder()
+				.put("svc", "catalog")
+				.put("op", "resolvemetricuri")
+				.putMapPair("args", "uri", metricURI.toASCIIString())
+				.build();
+		return wsClient.sendRequest(false, request);
+
 	}
 
 	/**
@@ -265,7 +320,7 @@ public class WebSocketAgent implements WebSocketEventListener {
 	 * If empty, the responses will be routed to the agent's global event listeners
 	 */
 	public void subscribeMetricURISynch(URI metricURI, MetricURISubscriptionEventListener...listeners) {
-		subscribeMetricURI(true, metricURI);
+		subscribeMetricURI(true, metricURI, listeners);
 	}
 
 	/**

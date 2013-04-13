@@ -41,7 +41,7 @@ import org.helios.apmrouter.dataservice.json.JsonRequest;
 import org.helios.apmrouter.dataservice.json.JsonResponse;
 import org.helios.apmrouter.dataservice.json.marshalling.JSONMarshaller;
 import org.helios.apmrouter.server.ServerComponentBean;
-import org.helios.apmrouter.util.SystemClock;
+import org.helios.apmrouter.util.URLHelper;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -252,6 +252,18 @@ public class CatalogJSONDataService extends ServerComponentBean {
 			error("Failed to subscribe to MetricURI [" , request , "]", ex);
 			throw new RuntimeException("Failed to subscribe to MetricURI [" + request + "]", ex);
 		}
+	}
+	
+	/**
+	 * Writes the metric definitions that are the current members of the passed metric uri back to the calling client
+	 * @param request The request [hopefully] containing a metric uri
+	 * @param channel the channel to write the response to
+	 */
+	@JSONRequestHandler(name="resolvemetricuri")
+	public void resolveURI(JsonRequest request, Channel channel) {
+		String muri = request.getArgument("uri");
+		List<Metric> resp = metricUriSubService.getMetricsForURI(MetricURI.getMetricURI(URLHelper.toURI(muri)));		
+		channel.write(request.response().setContent(resp));
 	}
 	
 	

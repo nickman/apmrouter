@@ -93,7 +93,7 @@ public class WebSocketClientHandler extends SimpleChannelUpstreamHandler {
         WebSocketFrame frame = (WebSocketFrame) e.getMessage();
         if (frame instanceof TextWebSocketFrame) {
             TextWebSocketFrame textFrame = (TextWebSocketFrame) frame;
-            SimpleLogger.debug("WebSocket Client received message: [" ,textFrame.getText(), "]");
+            //SimpleLogger.debug("WebSocket Client received message: [" ,textFrame.getText(), "]");
             ctx.sendUpstream(e);
         } else if (frame instanceof PongWebSocketFrame) {
         	SimpleLogger.debug("WebSocket Client received pong from [", e.getRemoteAddress() , "]");

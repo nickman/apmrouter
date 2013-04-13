@@ -74,6 +74,10 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 	protected final WebSocketClientHandshaker handshaker;
 	/** The client websocket channel handler */
 	protected final WebSocketClientHandler wsClientHandler;
+	/** The client synchronous invocation response handler */
+	protected final SynchInvocationHandler synchHandler = new SynchInvocationHandler();
+	/** The synchronous invocation handler pipeline key */
+	protected final String synchHandlerKey;
 	/** The client instance channel */
 	protected final Channel channel;
 	/** The session id assigned to a web-sock connection by the server */
@@ -82,6 +86,7 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 	protected final ChannelFuture closeFuture;
 	/** The client bootstrap */
 	protected final ClientBootstrap bootstrap;
+	
 	/** The configured synch request timeout in ms. */
 	protected long synchRequestTimeout = DEFAULT_SYNCH_TIMEOUT;
 	
@@ -94,6 +99,9 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 	protected static final Executor bossPool = ThreadPoolFactory.newCachedThreadPool("org.helios.apmrouter.client.websocket", "BossPool");
 	/** The websocket client worker pool */
 	protected static final Executor workerPool = ThreadPoolFactory.newCachedThreadPool("org.helios.apmrouter.client.websocket", "WokerPool");
+	/** The websocket client application thread pool */
+	protected static final Executor applicationPool = ThreadPoolFactory.newCachedThreadPool("org.helios.apmrouter.client.websocket", "ApplicationPool");
+	
 	/** The client channel factory */
 	protected static final NioClientSocketChannelFactory channelFactory  = new NioClientSocketChannelFactory(bossPool, workerPool);
 	/** The client channel channel group */
@@ -109,7 +117,7 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 	/** Shared HttpRequest encoder handler */
 	protected static final HttpRequestEncoder httpRequestEncoder= new HttpRequestEncoder();
 	/** Shared json codec */
-	protected static final JsonCodec jsonHandler = new JsonCodec();
+	protected static final JsonCodec jsonHandler = new JsonCodec(applicationPool);
 	
 	/** The leading string in the session id message by the server when the agent first connects */
 	public static final String SESSION_SIGNATURE = "{\"sessionid\":";
@@ -163,6 +171,7 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 		ChannelFuture connectFuture = bootstrap.connect(new InetSocketAddress(wsuri.getHost(), wsuri.getPort()));
 		connectFuture.syncUninterruptibly();
 		channel = connectFuture.getChannel();
+		synchHandlerKey = "Synch" + channel.getId();
 		closeFuture = channel.getCloseFuture();
 		channelGroup.add(channel);
 		try {
@@ -279,55 +288,67 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 		jsonHandler.removeWebSocketEventListener(listener);
 	}
 	
+	/**
+	 * Adds the synchronous handler to the pipeline if not already installed
+	 * @param rid The request of the pending response
+	 * @param latch  The latch to countdown on response receipt
+	 */
+	protected void addSynchHandler(long rid, CountDownLatch latch) {
+		if(channel.getPipeline().get(synchHandlerKey)==null) {
+			channel.getPipeline().addLast(synchHandlerKey, synchHandler);
+			synchHandler.prepSynchRequest(rid, latch);
+		} else {
+			throw new RuntimeException("Cannot wait on multiple synch requests. (rid=" + rid + ")", new Throwable());
+		}
+		
+	}
+	
+	/**
+	 * Removes the synchronous handler from the pipeline
+	 */
+	protected void clearSynchHandler() {
+		channel.getPipeline().remove(synchHandlerKey);
+	}
+	
 	
 	/**
 	 * Sends a JSON request to the server
 	 * @param asynch true for asynch, false for synch
 	 * @param request The JSONObject request
 	 */
-	void sendRequest(final boolean asynch, final JSONObject request) {
-		if(request==null) throw new IllegalArgumentException("The passed request was null", new Throwable());
-		final long rid;
-		final CountDownLatch latch;
+	JSONObject sendRequest(final boolean asynch, final JSONObject request) {
 		try {
-			rid = request.getLong("rid");
-		} catch (Exception ex) {
-			throw new RuntimeException("No request id found in request", new Throwable());
-		}	
-		if(!asynch) {
-			latch = SynchOpSupport.registerSynchOp(rid, synchRequestTimeout);			
-		} else {
-			latch = null;
-		}
-		ChannelFuture cf = channel.write(request);
-		if(asynch) {
-			cf.addListener(new ChannelFutureListener() {
-				@Override
-				public void operationComplete(ChannelFuture future) throws Exception {
-					if(!future.isSuccess()) SimpleLogger.error("Asynch request failed [" + request.toString() + "]", future.getCause());
-				}
-			});
-		} else {
-			final boolean complete;
-			final Byte success;
-			final long _timeout = synchRequestTimeout;
+			if(request==null) throw new IllegalArgumentException("The passed request was null", new Throwable());
+			final long rid;
+			final CountDownLatch latch;
 			try {
-				complete = latch.await(_timeout , TimeUnit.MILLISECONDS);
-			} catch (InterruptedException iex) {
-				throw new RuntimeException("MetricURI Operation Interrupted", iex);
-			} finally {
-				success = SynchOpSupport.cancelFail(rid);				
+				rid = request.getLong("rid");
+			} catch (Exception ex) {
+				throw new RuntimeException("No request id found in request", new Throwable());
+			}	
+			if(!asynch) {
+				latch = SynchOpSupport.registerSynchOp(rid, synchRequestTimeout);
+				addSynchHandler(rid, latch);									
+			} else {
+				latch = null;
 			}
-			if(complete) {
-				if(success==null) {
-					throw new RuntimeException("Synch Request [" + request + "] returned a NULL fail code. WTF ?", new Throwable());
-				} 
-				if(success==0) throw new RuntimeException("Synch Request [" + request + "] returned a fail code.\nPlease see server log for failure reason", new Throwable());
+			ChannelFuture cf = channel.write(request);
+			if(asynch) {
+				cf.addListener(new ChannelFutureListener() {
+					@Override
+					public void operationComplete(ChannelFuture future) throws Exception {
+						if(!future.isSuccess()) SimpleLogger.error("Asynch request failed [" + request.toString() + "]", future.getCause());
+					}
+				});
+				return null;
 			}
-			
+			return synchHandler.getSynchResponse(rid, synchRequestTimeout);
+		} finally {
+			clearSynchHandler();
 		}
-		
 	}
+
+
 	
 	
 	public static void log(Object msg) {
@@ -385,6 +406,14 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 	 */
 	protected void close() {
 		this.channel.close().awaitUninterruptibly(500);
+	}
+	
+	/**
+	 * Stops the websocket client closing all connections and releasing the channel factory
+	 */
+	protected void shutdown() {
+		channelGroup.close().awaitUninterruptibly(500);
+		channelFactory.releaseExternalResources();
 	}
 
 	/**

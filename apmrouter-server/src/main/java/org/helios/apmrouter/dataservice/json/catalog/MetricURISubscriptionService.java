@@ -284,6 +284,21 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 			sub.unSubscribeChannel(channel);
 		}
 	}
+	
+	/**
+	 * Returns the current metrics that are members of the the passed MetricURI 
+	 * @param metricUri The MetricURI to get the members of
+	 * @return a list of metrics
+	 */
+	public List<Metric> getMetricsForURI(MetricURI metricUri) {
+		Session session = null;
+		try {
+			session = sessionFactory.openSession();
+			return metricUri.execute(session);
+		} finally {
+			try { session.close(); } catch (Exception ex) {}
+		}
+	}
 
 	/**
 	 * Processes the resolution of a client supplied {@link MetricURI} into a
@@ -300,28 +315,13 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	 *            If true, also subscribes the session to the metric URI,
 	 *            otherwise only retrieves the data
 	 */
-	public void resolveMetricURI(MetricURI metricUri, JsonResponse response,
-			Channel channel, boolean subscribe) {
-		Session session = null;
-		try {
-			SystemClock.startTimer();
-			// session = sessionFactory.openSession(new
-			// org.helios.apmrouter.catalog.api.impl.DataServiceInterceptor());
-			session = sessionFactory.openSession();
-			// Object obj = metricUri.execute(session).toArray(new
-			// DomainObject[0]);
-			List<Metric> metrics = metricUri.execute(session);
-			channel.write(response.setContent(metrics));
-			if (subscribe)
-				subscribeMetricURI(metricUri, response, channel);
-			info("Metric URI Query ", SystemClock.endTimer());
-		} finally {
-			if (session != null && session.isOpen())
-				try {
-					session.close();
-				} catch (Exception e) {/* No Op */
-				}
-		}
+	public void resolveMetricURI(MetricURI metricUri, JsonResponse response, Channel channel, boolean subscribe) {		
+		SystemClock.startTimer();
+		List<Metric> metrics = getMetricsForURI(metricUri);
+		channel.write(response.setContent(metrics));
+		if (subscribe)
+			subscribeMetricURI(metricUri, response, channel);
+		info("Metric URI Query ", SystemClock.endTimer());
 	}
 
 	/**
