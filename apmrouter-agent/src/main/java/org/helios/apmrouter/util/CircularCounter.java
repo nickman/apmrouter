@@ -60,6 +60,21 @@ public class CircularCounter {
 		return new CircularCounter(startAt, 0L, 0L);
 	}
 	
+	/**
+	 * Resets the counter to the reset value
+	 */
+	public synchronized void reset() {
+		counter = resetTo;
+	}
+	
+	/**
+	 * Returns the current value of the counter
+	 * @return the current value of the counter
+	 */
+	public synchronized long get() {
+		return counter;
+	}
+	
 	
 
 	/**
