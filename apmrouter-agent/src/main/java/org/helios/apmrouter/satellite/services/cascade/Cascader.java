@@ -78,27 +78,18 @@ public class Cascader {
 	 * Initializes the cascade service
 	 */
 	public static void initCascade() {
+		if(!available) return;
 		try {
-			Class<?> cascadingClass = Class.forName("com.sun.jdmk.remote.cascading.CascadingService");
-			//CascadingService cs = new CascadingService(JMXHelper.getHeliosMBeanServer());
 			Constructor<?> ctor = cascadingClass.getDeclaredConstructor(MBeanServer.class);
 			Object cs = ctor.newInstance(JMXHelper.getHeliosMBeanServer());			
 			if(!JMXHelper.getHeliosMBeanServer().isRegistered(CASCADE_SERVICE_OBJECT_NAME)) {
 				JMXHelper.getHeliosMBeanServer().registerMBean(cs, CASCADE_SERVICE_OBJECT_NAME);
 			}
 			SimpleLogger.info("Started CascadeServer.");
-//			Method mountMethod = cascadingClass.getDeclaredMethod("mount", JMXServiceURL.class, Map.class, ObjectName.class, String.class);
-//			final String mountPointID  = (String)mountMethod.invoke(cs, cascadeURL, null, null, "hserval/Cassandra");			
-//			SimpleLogger.info("Mounted [", cascadeURL, "] at [", mountPointID, "]");
 		} catch (Exception ex) {
 			System.err.println("Failed to start Cascade Server. Stack trace follows:");
 			ex.printStackTrace(System.err);			
 		}
-	}
-	
-	protected static void initTargets() {
-		SimpleLogger.info("Starting JVM Discovery....");
-		
 	}
 	
 	/** The JMX invocation signature for mounting JVMs */

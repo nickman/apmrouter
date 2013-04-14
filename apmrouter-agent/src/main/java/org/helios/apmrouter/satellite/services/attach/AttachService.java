@@ -25,14 +25,17 @@
 package org.helios.apmrouter.satellite.services.attach;
 
 import java.lang.management.ManagementFactory;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.management.MBeanServerDelegate;
-import javax.management.MBeanServerDelegateMBean;
 import javax.management.MBeanServerNotification;
 import javax.management.Notification;
 import javax.management.NotificationFilter;
@@ -57,6 +60,8 @@ import org.helios.vm.VirtualMachineDescriptor;
  */
 
 public class AttachService implements AttachServiceMBean, NotificationListener, NotificationFilter {
+	/**  */
+	private static final long serialVersionUID = -2338420252724673586L;
 	/** Indicates if this VM was able to load the attach service */
 	public static final boolean available;
 	/** The Attach service bootstrap */
@@ -70,13 +75,25 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 	public static final String JVM_ID = "" + ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
 	
 	/** The ObjectName template for AttachService MBean instances */
-	public static final String OBJECT_NAME_TEMPLATE = "org.helios.vm:service=JVM,id=%s";
+	public static final String OBJECT_NAME_TEMPLATE = "org.helios.vm:service=JVM,name=%s,id=%s";
 	/** The cascade mountpoint template */
 	public static final String MOUNT_TEMPLATE = "//%s/%s";
 	
 	/** The regex to extract the mount point from an expired ObjectName */
 	public static final Pattern MOUNT_POINT_REGEX = Pattern.compile("(//.*?/.*?)/.*");
-	
+	/** A white space splitter regex */
+	public static final Pattern WHITE_SPACE_EXPR = Pattern.compile("\\s+");
+	/** A display name splitter for main class names */
+	public static final Pattern SLASH_AND_DOT_EXPR = Pattern.compile("\\\\|/|\\.|\\s+");
+	/** A display name splitter for main jars */
+	public static final Pattern SLASH_EXPR = Pattern.compile("\\\\|/|\\s+");
+	/** The assigned cleaned name if one cannot be determined */
+	public static final String UNKNOWN = "Unknown";
+
+	/** Known extensions that might be used as a JVM launch main class directive */
+	public static final Set<String> ARCHIVE_NAMES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
+			"jar", "zip", "war", "ear", "sar"
+	)));	
 	
 	/** The agent property name for the jmx connector address */
 	public static final String JMX_CONN_ADDR = "com.sun.management.jmxremote.localConnectorAddress";
@@ -94,6 +111,8 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 	protected final VirtualMachine virtualMachine;
 	/** The virtual machine descriptor for this JVM */
 	protected final VirtualMachineDescriptor descriptor;
+	/** The cleaned display name */
+	protected final String cleanDisplayName;
 	/** The ObjectName that this instance will be registered with */
 	protected final ObjectName objectName;
 	
@@ -181,12 +200,13 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 		}
 		this.descriptor = descriptor;
 		this.virtualMachine = virtualMachine;
-		objectName = JMXHelper.objectName(String.format(OBJECT_NAME_TEMPLATE, this.virtualMachine.id()));
+		cleanDisplayName = cleanDisplayName(this.descriptor);
+		objectName = JMXHelper.objectName(String.format(OBJECT_NAME_TEMPLATE, cleanDisplayName, this.virtualMachine.id()));
 		if(!JMXHelper.getHeliosMBeanServer().isRegistered(objectName)) {
 			JMXHelper.registerMBean(this, objectName);
 		}
 		try { JMXHelper.getHeliosMBeanServer().addNotificationListener(MBeanServerDelegate.DELEGATE_NAME, this, this, null); } catch (Exception ex) {}
-		mount();
+		if(Cascader.available) mount();
 	}
 	
 	/**
@@ -429,6 +449,15 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 		return mountPoint;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.satellite.services.attach.AttachServiceMBean#getCleanDisplayName()
+	 */
+	@Override
+	public String getCleanDisplayName() {
+		return cleanDisplayName;
+	}
+
 
 	/**
 	 * Returns the mount id for this jvm's cascade
@@ -439,6 +468,46 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 		return mountId;
 	}
 
+
+	
+	/**
+	 * Determines if the passed display name has a recognized archive as the first argument in the display name
+	 * @param displayName The display name to test
+	 * @return true if the first arg of the display name is a recognized archive, false otherwise
+	 */
+	public static boolean hasArchiveMain(String displayName) {
+		if(displayName==null || displayName.trim().isEmpty()) return false;
+		String[] frags = SLASH_AND_DOT_EXPR.split(displayName);
+		if(frags!=null && frags.length>0) {
+			String ext = frags[frags.length-1];
+			if(ext!=null && !ext.trim().isEmpty()) {
+				return ARCHIVE_NAMES.contains(ext.trim().toLowerCase());
+			}
+		} 
+		return false;
+	}
+
+	/**
+	 * Examines the VM display name (command line main class) and attempts to clean it up for use as a key
+	 * @param vmd The VirtualMachineDescriptor of the target JVM
+	 * @return The cleaned name, or <b><code>"Unknown"</code></b> if the display name did not conform to a recognized pattern
+	 */
+	public static String cleanDisplayName(VirtualMachineDescriptor vmd) {
+		if(vmd==null) return UNKNOWN;
+		String display = vmd.displayName();
+		String[] dfragments = WHITE_SPACE_EXPR.split(display);
+		if(dfragments.length>0 && dfragments[0]!=null && !dfragments[0].trim().isEmpty()) {
+			String name = UNKNOWN;
+			if(hasArchiveMain(dfragments[0])) {
+				dfragments = SLASH_EXPR.split(dfragments[0]);				
+			} else {
+				dfragments = SLASH_AND_DOT_EXPR.split(dfragments[0]);								
+			}
+			name = dfragments[dfragments.length-1];			
+			return name;
+		}
+		return UNKNOWN;
+	}
 
 
 

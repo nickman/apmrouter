@@ -58,6 +58,8 @@ public interface AttachServiceMBean {
 	 */
 	public String getDisplayName();
 	
+	public String getCleanDisplayName();
+	
 	/**
 	 * Returns the identifier for this Java virtual machine.
 	 * @return The identifier for this Java virtual machine.
