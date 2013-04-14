@@ -126,6 +126,12 @@ public interface AttachServiceMBean {
 	public void installManagementAgent();
 	
 	/**
+	 * Installs the Alternate Domain JMX management agent on this JVM
+	 * so that non-platform mbeanservers can be accessed through their own connector.
+	 */
+	public void installAltDomainManagementAgent();	
+	
+	/**
 	 * Returns the mount point name for this jvm's cascade
 	 * @return the mount point name for this jvm's cascade or null if it is not mounted
 	 */

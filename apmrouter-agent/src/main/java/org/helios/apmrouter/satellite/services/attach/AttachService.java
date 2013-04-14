@@ -215,7 +215,7 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 	 */
 	@Override
 	public boolean isNotificationEnabled(Notification notification) {
-		if(!(notification instanceof MBeanServerNotification) || notification.getType().equals(MBeanServerNotification.UNREGISTRATION_NOTIFICATION)) return false;
+		if(!(notification instanceof MBeanServerNotification) || !notification.getType().equals(MBeanServerNotification.UNREGISTRATION_NOTIFICATION)) return false;
 		return mountPoint!=null && ((MBeanServerNotification)notification).getMBeanName().toString().startsWith(mountPoint);
 	}
 
@@ -254,6 +254,27 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 	
 	/**
 	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.satellite.services.attach.AttachServiceMBean#installAltDomainManagementAgent()
+	 */
+	@Override
+	public synchronized void installAltDomainManagementAgent() {
+		String agentFile = null;
+		try {
+			agentFile = AlternateDomainAgent.writeAgentJar();
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to create AlternateDomainAgent jar", e);
+		}
+		// FIXME: Should only do this once
+		try {
+			virtualMachine.loadAgent(agentFile, "");
+		} catch (Exception ex) {
+			ex.printStackTrace(System.err);
+		}
+	}
+	
+	
+	/**
+	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.satellite.services.attach.AttachServiceMBean#mount(java.lang.String, java.lang.String)
 	 */
 	@Override
@@ -269,7 +290,7 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 							agent = getId();
 						}			
 					}
-					mountPoint = String.format(MOUNT_TEMPLATE, host, agent);
+					mountPoint = String.format(MOUNT_TEMPLATE, host, cleanDisplayName);
 					String connectorAddress = getLocalConnectorAddress();
 					try {
 						if(connectorAddress==null || connectorAddress.trim().isEmpty()) {

@@ -82,9 +82,10 @@ public class Satellite {
 		SimpleLogger.info("Starting Satellite Monitors");
 		DefaultMonitorBoot.satellite();
 		initJmxMpServer();
+		Cascader.initCascade();
 		AttachService.initAttachService();
 		AttachService.registerAll();
-		Cascader.initCascade();
+		
 		try { Thread.currentThread().join(); } catch (Exception ex) {/* No Op */}
 	}
 	
