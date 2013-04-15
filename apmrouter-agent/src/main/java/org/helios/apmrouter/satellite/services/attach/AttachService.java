@@ -89,6 +89,12 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 	public static final Pattern SLASH_EXPR = Pattern.compile("\\\\|/|\\s+");
 	/** The assigned cleaned name if one cannot be determined */
 	public static final String UNKNOWN = "Unknown";
+	/** The MBeanServer builder override system property */
+	public static final String MBEANSERVER_BUILDER_PROP = "javax.management.builder.initial";
+	/** The agent property name where we store an exception message on an agent deploy failure */
+	public static final String AGENT_DEPLOY_ERR_PROP = "javax.management.agent.deploy.error";
+	/** The agent deploy failure message delimiter */
+	public static final String AGENT_DEPLOY_ERR_DELIM = "\t~";
 
 	/** Known extensions that might be used as a JVM launch main class directive */
 	public static final Set<String> ARCHIVE_NAMES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
@@ -206,7 +212,7 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 			JMXHelper.registerMBean(this, objectName);
 		}
 		try { JMXHelper.getHeliosMBeanServer().addNotificationListener(MBeanServerDelegate.DELEGATE_NAME, this, this, null); } catch (Exception ex) {}
-		if(Cascader.available) mount();
+		//if(Cascader.available) mount();
 	}
 	
 	/**
