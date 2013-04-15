@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:jee="http://www.springframework.org/schema/jee" xmlns:p="http://www.springframework.org/schema/p" xmlns:c="http://www.springframework.org/schema/c" xmlns:context="http://www.springframework.org/schema/context" xsi:schemaLocation="http://www.springframework.org/schema/beans
+   	  http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+   	  http://www.springframework.org/schema/jee
+  http://www.springframework.org/schema/jee/spring-jee-3.1.xsd
+  http://www.springframework.org/schema/util
+  http://www.springframework.org/schema/util/spring-util-3.1.xsd
+  http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+	<context:annotation-config/>
+	<context:mbean-export registration="ignoreExisting"/>
+	<bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<description>Property to be used as class identifier for org.helios.collector.jmx.tracers.JMXAttributeTrace2</description>
+		<property name="properties">
+			<props>
+				<prop key="class_Trace">org.helios.collector.jmx.tracers.JMXAttributeTrace2</prop>
+			</props>
+		</property>
+	</bean>
+	<bean id="JNDI_Connector" class="org.helios.collector.jmx.connection.JNDIMBeanServerConnectionFactory">
+		<constructor-arg type="java.util.Properties">
+			<props>
+				<prop key="java.naming.factory.initial">org.jnp.interfaces.NamingContextFactory</prop>
+				<!--prop key="java.naming.factory.initial">org.jboss.security.jndi.JndiLoginInitialContextFactory</prop>
+				<prop key="java.naming.security.principal">admin</prop>
+				<prop key="java.naming.security.credentials">admin</prop-->
+				<prop key="java.naming.provider.url">localhost:1099</prop>
+				<prop key="jndi.name">jmx/invoker/RMIAdaptor</prop>
+			</props>
+		</constructor-arg>
+	</bean>
+	<!--bean id="JMXServiceURLConnector" class="org.helios.collector.jmx.connection.JMXServiceURLConnectionFactory"
+		c:jmxServiceURL="service:jmx:rmi://localhost:3000/jndi/rmi://localhost:9000/server"/-->
+	<bean id="JBoss4Collector" class="org.helios.collector.jmx.JMXCollector2" c:_0-ref="JNDI_Connector" p:tracingNameSpace="host=JBoss4" p:virtualHost="System76" p:virtualAgent="APMRouter" p:logErrors="true" p:logCollectionResult="true">
+		<property name="jmxObjects">
+			<list>
+				<!--ref bean="QueueActivity"/>
+				<ref bean="TopicActivity"/>
+				<ref bean="DataSources"/>
+				<ref bean="TransactionManagerActivity"/>
+				<ref bean="ThreadNMemoryActivity"/>
+				<ref bean="TomcatClusterActivity" /-->
+				<ref bean="DestinationManagerAvailability" />
+			</list>
+		</property>
+	</bean>
+	<bean name="QueueActivity" class="org.helios.collector.jmx.tracers.JMXObject2">
+		<property name="targetObjectName" value="jboss.mq.destination:service=Queue,*"/>
+		<property name="segmentPrefixElements" value="type=Queue"/>
+		<property name="targetAttributes">
+			<value><![CDATA[
+			   SubscribersCount|{TARGET-PROPERTY:name},
+			   QueueDepth|{TARGET-PROPERTY:name},
+			   MaxDepth|{TARGET-PROPERTY:name}
+ 			]]></value>
+		</property>
+	</bean>
+	<bean name="TopicActivity" class="org.helios.collector.jmx.tracers.JMXObject2">
+		<property name="targetObjectName" value="jboss.mq.destination:service=Topic,*"/>
+		<property name="segmentPrefixElements" value="type=Topic"/>
+		<property name="targetAttributes">
+			<value><![CDATA[
+			   AllMessageCount|{TARGET-PROPERTY:name},
+			   MaxDepth|{TARGET-PROPERTY:name},
+			   AllSubscriptionsCount|{TARGET-PROPERTY:name}
+ 			]]></value>
+		</property>
+	</bean>
+	<bean name="TransactionManagerActivity" class="org.helios.collector.jmx.tracers.JMXObject2">
+		<property name="targetObjectName" value="jboss:service=TransactionManager"/>
+		<property name="segmentPrefixElements" value="{TARGET-PROPERTY:service}"/>
+		<property name="targetAttributes">
+			<value><![CDATA[
+			   CommitCount,TransactionCount
+ 			]]></value>
+		</property>
+	</bean>
+	<bean name="ThreadNMemoryActivity" class="org.helios.collector.jmx.tracers.JMXObject2">
+		<property name="targetObjectName" value="jboss.system:type=ServerInfo"/>
+		<property name="segmentPrefixElements" value="ThreadsNMemory"/>
+		<property name="targetAttributes">
+			<value><![CDATA[
+			   ActiveThreadCount,ActiveThreadGroupCount,MaxMemory,TotalMemory,FreeMemory
+ 			]]></value>
+		</property>
+	</bean>
+	<bean id="DataSources" class="org.helios.collector.jmx.tracers.JMXObject2">
+		<property name="targetObjectName" value="jboss.jca:service=ManagedConnectionPool,*"/>
+		<property name="segmentPrefixElements" value="DataSources"/>
+		<property name="targetAttributes">
+			<value><![CDATA[
+			   ConnectionCount|{TARGET-PROPERTY:name},
+			   InUseConnectionCount|{TARGET-PROPERTY:name},
+			   ConnectionCreatedCount|{TARGET-PROPERTY:name},
+			   ConnectionDestroyedCount|{TARGET-PROPERTY:name},
+			   MaxSize|{TARGET-PROPERTY:name}
+ 			]]></value>
+		</property>
+	</bean>
+
+
+    <bean name="DestinationManagerAvailability" class="org.helios.collector.jmx.tracers.JMXObject2">
+        <property name="targetObjectName" value="jboss.mq:service=DestinationManager"/>
+        <property name="targetAttributes">
+			<value><![CDATA[
+			   State|{TARGET-PROPERTY:service}||State2Availability
+ 			]]></value>
+        </property>
+    </bean>
+
+    <bean name="State2Availability" class="org.helios.collector.jmx.tracers.script.ScriptObjectFormatter">
+        <property name="scriptBean">
+            <bean class="org.helios.collector.jmx.tracers.script.ScriptBean">
+                <constructor-arg type="java.lang.String" value="groovy"/>
+                <constructor-arg type="java.lang.String">
+                    <value>
+                        <![CDATA[
+                            public format(obj){
+                                if(obj==3)
+                                    return "1"
+                                else
+                                    return "0"
+                            }
+                        ]]>
+                    </value>
+                </constructor-arg>
+                <constructor-arg type="java.lang.Class" value="org.helios.collector.jmx.tracers.IObjectFormatter"/>
+            </bean>
+        </property>
+        <property name="metricName" value="CustomAvailability"/>
+    </bean>
+
+</beans>

@@ -25,6 +25,8 @@
 package org.helios.collector.jmx.tracers;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
@@ -39,7 +41,7 @@ import java.util.Set;
  * <p>Company: Helios Development Group</p>
  * @author Sandeep Malhotra (smalhotra@heliosdev.org)
  */
-public class JMXObject2 {
+public class JMXObject2{
     public ObjectName targetObjectName = null;
     protected List<JMXAttributeTrace2> targetAttributeTraces = new ArrayList<JMXAttributeTrace2>();
     protected Set<String> attributeNames = new HashSet<String>();
@@ -48,11 +50,16 @@ public class JMXObject2 {
     protected static Logger log = Logger.getLogger(JMXObject.class);
     protected String[] segmentPrefixElements = null;
     protected String[] targetAttributes = null;
+    @Autowired
+    private ApplicationContext context;
 
     public JMXObject2(){
 
     }
 
+    public void setApplicationContext(ApplicationContext context) {
+        this.context = context;
+    }
     /**
      * Copy Constructor
      *
@@ -65,6 +72,7 @@ public class JMXObject2 {
         this.attributeNames = jMXObject.attributeNames;
         this.resolvedAttributes = jMXObject.resolvedAttributes;
         this.isProcessed = jMXObject.isProcessed;
+        this.context = jMXObject.context;
     }
     /**
      * @return the objectName
@@ -91,20 +99,6 @@ public class JMXObject2 {
     public List<JMXAttributeTrace2> getTargetAttributeTraces() {
         return targetAttributeTraces;
     }
-//
-//    /**
-//     * @param targetAttributes the attributeTraces to set
-//     */
-//    public void setTargetAttributeTraces(List<JMXAttributeTrace2> targetAttributes) {
-//        this.targetAttributeTraces = targetAttributes;
-//        for(JMXAttributeTrace2 trace : this.targetAttributeTraces) {
-//            attributeNames.add(trace.getTargetAttributeName());
-//        }
-//		/*Iterator<JMXAttributeTrace> iter = targetAttributes.iterator();
-//		while(iter.hasNext()){
-//			log.debug(  iter.next().toString()   );
-//		}*/
-//    }
     /**
      * @return the lastReturnedObjects
      */
@@ -165,24 +159,36 @@ public class JMXObject2 {
            JMXAttributeTrace2 trace = null;
            for(String attributeRecord: targetAttributes){
                String[] columns = attributeRecord.split("\\|",-1);
+               if(columns!=null && columns.length <1)
+                   return;
                for(int i=0;i<columns.length;i++){
                     if(i==0){
                         trace = new JMXAttributeTrace2();
                         trace.setTargetAttributeName(columns[i]);
                         attributeNames.add(trace.getTargetAttributeName());
                     }else if(i==1){
-                        trace.setSegment(columns[i]);
+                        if(columns[i]!=null && columns[i].trim().length()>1)
+                            trace.setSegment(columns[i]);
                     }else if(i==2){
-                        trace.setTraceType(columns[i]);
+                        if(columns[i]!=null && columns[i].trim().length()>1)
+                            trace.setTraceType(columns[i]);
+                    }else if(i==3){
+                        if(columns[i]!=null && columns[i].trim().length()>1)
+                        {
+                            if(context.containsBean(columns[i]))  {
+                                trace.setObjectFormatter((IObjectFormatter)context.getBean(columns[i]));
+                            }
+                        }
+                    }else if(i==4){
+                        if(columns[i]!=null && columns[i].trim().length()>1)
+                        {
+                            if(context.containsBean(columns[i]))  {
+                                trace.setObjectTracer((IObjectTracer)context.getBean(columns[i]));
+                            }
+                        }
                     }
 
                }
-//               if(columns[3]!=null){
-//                   trace.setSegment(columns[3]);
-//               }
-//               if(columns[1]!=null){
-//                   trace.setSegment(columns[1]);
-//               }
                targetAttributeTraces.add(trace);
            }
         }

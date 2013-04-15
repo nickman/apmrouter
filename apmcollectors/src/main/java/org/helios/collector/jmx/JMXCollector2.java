@@ -482,7 +482,7 @@ public class JMXCollector2 extends AbstractCollector {
     protected void process(ObjectName on, JMXAttributeTrace2 trace,
                            Map<String, Object> explodedResults) {
 
-        if ( trace.getObjectTracers().size()<1 && trace.getObjectFormatters().size()<1){
+        if ( trace.getObjectTracer()==null && trace.getObjectFormatter()==null){
             Object attrValue = explodedResults.get(trace.getTargetAttributeName());
             if(attrValue!=null) {
                 //- tracer.smartTrace(trace.getTraceType(),attrValue.toString(),trace.getMetricName(), StringHelper.append(tracingNameSpace,true,trace.getResolvedPrefix()), "");
@@ -490,12 +490,14 @@ public class JMXCollector2 extends AbstractCollector {
             }
         }
 
-        for(IObjectFormatter oFormatter: trace.getObjectFormatters()){
+        if(trace.getObjectFormatter()!=null){
+            IObjectFormatter oFormatter = trace.getObjectFormatter();
             //- tracer.smartTrace(trace.getTraceType(),oFormatter.format(explodedResults.get(trace.getTargetAttributeName())),oFormatter.getMetricName().equals("")?trace.getMetricName():oFormatter.getMetricName(), StringHelper.append(tracingNameSpace,true,trace.getResolvedPrefix()), "");
             tracer.trace(oFormatter.format(explodedResults.get(trace.getTargetAttributeName())), oFormatter.getMetricName().equals("")?trace.getMetricName():oFormatter.getMetricName(), trace.getResolvedTraceMetricType(), StringHelper.append(false,tracingNameSpace,trace.getResolvedPrefix()));
         }
 
-        for(IObjectTracer oTracer: trace.getObjectTracers()){
+        if(trace.getObjectTracer()!=null){
+            IObjectTracer oTracer = trace.getObjectTracer();
             try{
                 long start = System.currentTimeMillis();
                 oTracer.prepareBindings("remoteMBeanServer", mBeanServerConnection, "remoteObjectName", on, "localObjectName", objectName, "tracer", tracer, "tracingNameSpace",tracingNameSpace, "jndi", ctx);
