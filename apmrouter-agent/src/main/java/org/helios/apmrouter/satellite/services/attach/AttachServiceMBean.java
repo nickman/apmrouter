@@ -58,6 +58,10 @@ public interface AttachServiceMBean {
 	 */
 	public String getDisplayName();
 	
+	/**
+	 * Returns the cleaned display name for the vm
+	 * @return the cleaned display name for the vm
+	 */
 	public String getCleanDisplayName();
 	
 	/**
@@ -130,6 +134,12 @@ public interface AttachServiceMBean {
 	 * so that non-platform mbeanservers can be accessed through their own connector.
 	 */
 	public void installAltDomainManagementAgent();	
+	
+	/**
+	 * Installs the alt domain management agent with a set of directives
+	 * @param directives directives to the remote agent installer
+	 */
+	public void installAltDomainManagementAgent(String...directives);	
 	
 	/**
 	 * Returns the mount point name for this jvm's cascade

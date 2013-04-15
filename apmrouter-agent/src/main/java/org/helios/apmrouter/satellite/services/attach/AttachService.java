@@ -41,6 +41,9 @@ import javax.management.Notification;
 import javax.management.NotificationFilter;
 import javax.management.NotificationListener;
 import javax.management.ObjectName;
+import javax.management.remote.JMXConnectionNotification;
+import javax.management.remote.JMXConnector;
+import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
 
 import org.helios.apmrouter.jmx.JMXHelper;
@@ -77,7 +80,7 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 	/** The ObjectName template for AttachService MBean instances */
 	public static final String OBJECT_NAME_TEMPLATE = "org.helios.vm:service=JVM,name=%s,id=%s";
 	/** The cascade mountpoint template */
-	public static final String MOUNT_TEMPLATE = "//%s/%s";
+	public static final String MOUNT_TEMPLATE = "//%s/%s/%s";
 	
 	/** The regex to extract the mount point from an expired ObjectName */
 	public static final Pattern MOUNT_POINT_REGEX = Pattern.compile("(//.*?/.*?)/.*");
@@ -110,7 +113,8 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 	/** The system property name for the JVM's helios agent name */
 	public static final String JVM_HELIOS_NAME = "org.helios.agent";
 	
-	
+	/** All the attached virtual machines */
+	protected static final Map<AttachService, JMXConnector> VMS = new ConcurrentHashMap<AttachService, JMXConnector>();
 	
 	
 	/** The virtual machine instance for this JVM */
@@ -149,12 +153,33 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 		for(VirtualMachineDescriptor vmd : VirtualMachineDescriptor.getVirtualMachineDescriptors()) {
 			if(JVM_ID.equals(vmd.id())) continue;
 			try {
-				VirtualMachine vm = vmd.provider().attachVirtualMachine(vmd);
-				new AttachService(vm, vmd);
+				final VirtualMachine vm = vmd.provider().attachVirtualMachine(vmd);
+				final AttachService as = new AttachService(vm, vmd);
+				if(as.getLocalConnectorAddress()==null) {
+					try { as.installManagementAgent(); } catch (Exception ex) {/* No Op */}
+				}
+				if(as.getLocalConnectorAddress()!=null) {
+					try {
+						JMXServiceURL surl = new JMXServiceURL(as.getLocalConnectorAddress());
+						final JMXConnector connector = JMXConnectorFactory.connect(surl);
+						connector.addConnectionNotificationListener(as, null, null );
+						VMS.put(as, connector);
+					} catch (Throwable ex) {/* No Op */}					
+				}
 			} catch (Exception ex) {
-				SimpleLogger.error("Failed to register JVM [", vmd.id(), "]", ex);
+				SimpleLogger.error("Failed to register JVM [", vmd.id(), "]", ex.toString());
 			}
 			
+		}
+	}
+	
+	/**
+	 * Mounts all the attached vms 
+	 */
+	public static void mountAll() {
+		if(!Cascader.available) return;
+		for(AttachService as: VMS.keySet()) {
+			try { as.mount(); } catch (Throwable ex) {/* No Op */}
 		}
 	}
 	
@@ -221,6 +246,12 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 	 */
 	@Override
 	public boolean isNotificationEnabled(Notification notification) {
+		if(notification!=null && (notification instanceof JMXConnectionNotification)) {
+			String type = notification.getType();
+			if(JMXConnectionNotification.CLOSED.equals(type) || JMXConnectionNotification.FAILED.equals(type)) {
+				return true;
+			}
+		}								
 		if(!(notification instanceof MBeanServerNotification) || !notification.getType().equals(MBeanServerNotification.UNREGISTRATION_NOTIFICATION)) return false;
 		return mountPoint!=null && ((MBeanServerNotification)notification).getMBeanName().toString().startsWith(mountPoint);
 	}
@@ -232,6 +263,15 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 	 */
 	@Override
 	public void handleNotification(Notification notification, Object handback) {
+		if(notification==null) return;
+		if(notification instanceof JMXConnectionNotification) {
+			String type = notification.getType();
+			if(JMXConnectionNotification.CLOSED.equals(type) || JMXConnectionNotification.FAILED.equals(type)) {				
+				detach();
+				VMS.remove(this);
+			}
+			return;
+		}
 		Matcher matcher = MOUNT_POINT_REGEX.matcher(((MBeanServerNotification)notification).getMBeanName().toString());
 		if(matcher.matches() && mountPoint!=null) {
 			String _mountPoint = matcher.group(1);
@@ -250,11 +290,19 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 	 */
 	@Override
 	public synchronized void installManagementAgent() {
-		String connectorAddress = getLocalConnectorAddress();
-		if(connectorAddress==null || connectorAddress.trim().isEmpty()) {
-			String javaHome = getSystemProperties().getProperty("java.home");
-		    String managementAgent = javaHome + "/lib/management-agent.jar";
-		    virtualMachine.loadAgent(managementAgent, "com.sun.management.jmxremote");
+		if(!getSystemProperties().getProperty(MBEANSERVER_BUILDER_PROP, "").isEmpty()) {
+			// this means an alternate mbeanserver-builder is probably in place.
+			// in some cases (like jboss4) this may mean that:
+				// the platform agent has a null default domain
+				// the platform agent may not have been created yet
+			installAltDomainManagementAgent("install-platform");
+		} else {
+			String connectorAddress = getLocalConnectorAddress();
+			if(connectorAddress==null || connectorAddress.trim().isEmpty()) {
+				String javaHome = getSystemProperties().getProperty("java.home");
+			    String managementAgent = javaHome + "/lib/management-agent.jar";
+			    virtualMachine.loadAgent(managementAgent, "com.sun.management.jmxremote");
+			}
 		}
 	}
 	
@@ -264,19 +312,36 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 	 */
 	@Override
 	public synchronized void installAltDomainManagementAgent() {
+		installAltDomainManagementAgent((String[])null);
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.satellite.services.attach.AttachServiceMBean#installAltDomainManagementAgent(java.lang.String[])
+	 */
+	@Override
+	public synchronized void installAltDomainManagementAgent(String...directives) {
 		String agentFile = null;
 		try {
 			agentFile = AlternateDomainAgent.writeAgentJar();
 		} catch (Exception e) {
+			SimpleLogger.error("Failed to create AlternateDomainAgent jar", e);
 			throw new RuntimeException("Failed to create AlternateDomainAgent jar", e);
 		}
 		// FIXME: Should only do this once
 		try {
-			virtualMachine.loadAgent(agentFile, "");
+			StringBuilder b = new StringBuilder("");
+			for(String s: directives) {
+				if(s==null || s.trim().isEmpty()) continue;
+				b.append(s.trim()).append("\n");
+			}
+			if(b.length()>0) b.deleteCharAt(b.length()-1);
+			virtualMachine.loadAgent(agentFile, b.toString());
 		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
 		}
 	}
+	
 	
 	
 	/**
@@ -296,14 +361,32 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 							agent = getId();
 						}			
 					}
-					mountPoint = String.format(MOUNT_TEMPLATE, host, cleanDisplayName);
+					
 					String connectorAddress = getLocalConnectorAddress();
+					JMXServiceURL serviceURL = null;
 					try {
 						if(connectorAddress==null || connectorAddress.trim().isEmpty()) {
 							installManagementAgent();
 							connectorAddress = getLocalConnectorAddress();
 						}
-						JMXServiceURL serviceURL = new JMXServiceURL(connectorAddress);
+						if(connectorAddress==null || connectorAddress.trim().isEmpty()) {
+							return;
+						}
+						serviceURL = new JMXServiceURL(connectorAddress);
+						JMXConnector connector = VMS.get(this);
+						if(connector==null) {
+							synchronized(VMS) {
+								connector = VMS.get(this);
+								if(connector==null) {
+									connector = JMXConnectorFactory.connect(serviceURL);
+									VMS.put(this, connector);
+								}
+							}
+						}
+						mountPoint = String.format(MOUNT_TEMPLATE, host, cleanDisplayName, connector.getMBeanServerConnection().getDefaultDomain());
+						if(!JMXHelper.getHeliosMBeanServer().queryMBeans(JMXHelper.objectName(mountPoint + "*:*"), null).isEmpty()) {
+							mountPoint = String.format(MOUNT_TEMPLATE, host, (cleanDisplayName + "#" + virtualMachine.id()), connector.getMBeanServerConnection().getDefaultDomain());
+						}
 						mountId = Cascader.mount(serviceURL, null, null, mountPoint);
 						jvmMountPoints.put(virtualMachine, mountPoint);
 					} catch (Exception ex) {

@@ -27,6 +27,9 @@ package org.helios.apmrouter.satellite;
 import static org.helios.apmrouter.sender.SenderFactory.DEFAULT_SENDER_URI;
 import static org.helios.apmrouter.sender.SenderFactory.SENDER_URI_PROP;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import javax.management.ObjectName;
 import javax.management.remote.JMXServiceURL;
 import javax.management.remote.jmxmp.JMXMPConnectorServer;
@@ -52,7 +55,7 @@ public class Satellite {
 	/** The system prop name to override the default JMXMP listening port */
 	public static final String JMXMP_LISTEN_PORT_PROP = "org.helios.jmxmp.port";
 	/** The default JMXMP listening port */
-	public static final int DEFAULT_JMXMP_LISTEN_PORT = 8006;
+	public static final int DEFAULT_JMXMP_LISTEN_PORT = 8009;
 	
 	/** The system prop name to override the default JMXMP listening iface */
 	public static final String JMXMP_LISTEN_IFACE_PROP = "org.helios.jmxmp.iface";
@@ -66,6 +69,16 @@ public class Satellite {
 	 * @param args
 	 */
 	public static void main(String[] args) {
+		final Set<String> directives = new HashSet<String>();
+		if(args!=null) {
+			if(args!=null) {
+				for(String s: args) {
+					if(s==null || s.trim().isEmpty()) continue;
+					directives.add(s.trim().toLowerCase());
+				}
+			}
+		}
+		
 		String uri = ConfigurationHelper.getSystemThenEnvProperty(SENDER_URI_PROP, DEFAULT_SENDER_URI);
 		
 		String agent = ConfigurationHelper.getSystemThenEnvProperty("org.helios.agent", "satellite");
@@ -74,6 +87,7 @@ public class Satellite {
 		b.append("\n\tStarting Helios APMRouter Satellite Agent v ").append(Satellite.class.getPackage().getImplementationVersion());
 		b.append("\n\tHelios APMRouter Server:").append(uri);
 		b.append("\n\tHelios Agent Name:").append(agent);
+		b.append("\n\tSatellite Directives:").append(directives);
 		b.append("\n\t========================================================================\n");
 		SimpleLogger.info(b.toString());
 		//System.setProperty(SENDER_URI_PROP, uri);
@@ -85,7 +99,9 @@ public class Satellite {
 		Cascader.initCascade();
 		AttachService.initAttachService();
 		AttachService.registerAll();
-		
+		if(directives.contains("mountall")) {
+			AttachService.mountAll();
+		}
 		try { Thread.currentThread().join(); } catch (Exception ex) {/* No Op */}
 	}
 	

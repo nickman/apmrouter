@@ -29,6 +29,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.rmi.NoSuchObjectException;
@@ -37,12 +38,15 @@ import java.rmi.RemoteException;
 import java.rmi.server.RMIClientSocketFactory;
 import java.rmi.server.RMIServerSocketFactory;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
 
@@ -76,8 +80,11 @@ import com.sun.jmx.remote.internal.RMIExporter;
 public class AlternateDomainAgent {
 	/** Platform EOL */
 	public static final String EOL = System.getProperty("line.separator", "\n");
+	/** Platform TMP Dir */
+	public static final String TMP;
+	
 	/** The agent property prefix for the connector addresses */
-	public static final String LOCAL_CONNECTOR_ADDRESS_PROP = "com.sun.management.jmxremote.localConnectorAddress.";
+	public static final String LOCAL_CONNECTOR_ADDRESS_PROP = "com.sun.management.jmxremote.localConnectorAddress";
 	/** The agent property into which the comma separated MBeanServer default domain names are written */
 	public static final String JMX_DOMAINS_PROP = "javax.management.agent.domains";
 	
@@ -87,7 +94,7 @@ public class AlternateDomainAgent {
 	public static final String AGENT_DEPLOY_ERR_DELIM = "\t~";
 	
 	/** The agent version */
-	public static final int VERSION = 1;
+	public static final double VERSION = 1;
 	/**
 	 * Command line agent startup entry point
 	 * @param args The agent arguments
@@ -97,12 +104,20 @@ public class AlternateDomainAgent {
 		agentmain(args);		
 	}
 	
+	static {
+		String tmpDir = System.getProperty("java.io.tmpdir");
+		if(!tmpDir.endsWith(File.separator)) {
+			tmpDir = tmpDir + File.separator;
+		}
+		TMP = tmpDir;
+	}
+	
 	/**
 	 * Entry point for the attach API
 	 * @param args The agent arguments
 	 */
 	public static void agentmain(String args)  {
-		log("Starting AlternateDomainAgent, Directives: \n[" + args + "]");
+		
 		final Set<String> directives = new HashSet<String>();
 		if(args!=null) {
 			String[] directiveArgs = args.split("\n");
@@ -113,21 +128,50 @@ public class AlternateDomainAgent {
 				}
 			}
 		}
+		log("Starting AlternateDomainAgent, Directives: " + directives);
+		// Clear the agent deploy error messages
 		if(directives.contains("clear.errors")) {
 			clearAgentProperty(AGENT_DEPLOY_ERR_PROP);
 			return;
 		}
+		// Install the platform mbeanserver
+		if(directives.contains("install-platform")) {			
+			log("Installing Platform MBeanServer Management Agent");
+			final String mbeanBuilder = System.getProperty("javax.management.builder.initial", null);
+			final ClassLoader cl = Thread.currentThread().getContextClassLoader();
+			try {
+				Thread.currentThread().setContextClassLoader(ClassLoader.getSystemClassLoader());
+				System.clearProperty("javax.management.builder.initial");
+				MBeanServer server = ManagementFactory.getPlatformMBeanServer();
+				log("Acquired Platform MBeanServer [" + server.getDefaultDomain() + "]");
+				startAgent(server);
+			} catch (Exception ex) {
+				ex.printStackTrace(System.err);
+				appendAgentException("DefaultDomain", ex);
+			} finally {
+				Thread.currentThread().setContextClassLoader(cl);
+				if(mbeanBuilder!=null) {
+					System.setProperty("javax.management.builder.initial", mbeanBuilder); 
+				}
+			}
+			System.clearProperty("javax.management.builder.initial");			
+			return;
+		}
+		
+		//"install-platform"
 		//final String mbeanBuilder = System.getProperty("javax.management.builder.initial", null);
 		//System.clearProperty("javax.management.builder.initial");
 		//try {
 		for(MBeanServer server : MBeanServerFactory.findMBeanServer(null)) {
 			String dd = server.getDefaultDomain();
+			if(agentPropertyArrayContains(JMX_DOMAINS_PROP, ",", dd)) continue;
 			// Don't load the platform mbean server unless there is a directive override
 			// (sometimes the default domain for the platform mbeanserver is null)
 			if(dd==null || dd.trim().isEmpty() || dd.equals("DefaultDomain")) {
 				if(!directives.contains("include-platform")) {
 					continue;
 				}
+				dd = "DefaultDomain";
 			}
 			try {
 				log("Starting connector server for [" + dd + "]");
@@ -164,7 +208,7 @@ public class AlternateDomainAgent {
 	 * @param defaultValue The default value to return if the property is not set
 	 * @return the parsed array or the default value
 	 */
-	protected static String[] getAgentPropertyArray(String propertyName, String delimiter, String...defaultValue) {
+	protected static synchronized String[] getAgentPropertyArray(String propertyName, String delimiter, String...defaultValue) {
 		String arr = getAgentProperty(propertyName, null);
 		if(arr==null || arr.trim().isEmpty()) return defaultValue;
 		String[] array = arr.trim().split(delimiter);
@@ -172,6 +216,20 @@ public class AlternateDomainAgent {
 			if(array[i]!=null) array[i] = array[i].trim();
 		}
 		return array;
+	}
+	
+	/**
+	 * Determines if the passed value is present in the array in the named agent property
+	 * @param propertyName The agent property name
+	 * @param delimiter The array delimiter
+	 * @param value The value to search for
+	 * @return true if the value is found, false otherwise
+	 */
+	protected static synchronized boolean agentPropertyArrayContains(String propertyName, String delimiter, String value) {
+		if(value==null || value.trim().isEmpty()) return false;
+		String[] arr = getAgentPropertyArray(propertyName, delimiter, new String[]{});
+		if(arr.length==0) return false;
+		return Arrays.binarySearch(arr, value)>=0;
 	}
 	
 	/**
@@ -193,18 +251,46 @@ public class AlternateDomainAgent {
 	 * Sets or appends the passed agent property 
 	 * @param propertyName The agent property name
 	 * @param delimiter The value delimiter
-	 * @param value The value to set or append
+	 * @param values The values to set or append
 	 */
-	protected static synchronized void appendAgentProperty(String propertyName, String delimiter, String value) {
+	protected static synchronized void appendAgentProperty(String propertyName, String delimiter, String...values) {
+		if(values==null || values.length==0) return;
 		Properties agentProps = VMSupport.getAgentProperties();
 		String currentValue = agentProps.getProperty(propertyName, "");
 		StringBuilder exmessage = new StringBuilder(currentValue);
-		if(!currentValue.isEmpty()) {
-			exmessage.append(delimiter);
+		boolean atLeastOne = false;
+		for(String v: values) {
+			if(v==null || v.trim().isEmpty()) continue;
+			if(exmessage.length()!=0) {
+				exmessage.append(delimiter);
+			}						
+			exmessage.append(v.trim()).append(delimiter);
+			atLeastOne = true;
 		}
-		exmessage.append(value);
+		if(atLeastOne) {
+			for(int i = 0; i < delimiter.length(); i++) {
+				exmessage.deleteCharAt(exmessage.length()-1);
+			}
+		}
 		agentProps.put(propertyName, exmessage.toString());		
 	}
+	
+	/**
+	 * Removes the passed values from the implied array in the passed agent property  
+	 * @param propertyName The agent property name
+	 * @param delimiter The value delimiter
+	 * @param values The values to remove
+	 */
+	protected static synchronized void removeAgentArrProperty(String propertyName, String delimiter, String...values) {
+		String[] arr = getAgentPropertyArray(propertyName, delimiter, new String[]{});
+		if(values==null || values.length==0 || arr==null || arr.length==0) return;
+		Set<String> arrValues = new HashSet<String>(Arrays.asList(arr));
+		for(String v: values) {
+			arrValues.remove(v);
+		}
+		
+	}
+	
 	
 	/**
 	 * Clears the agent property identified by the passed property name
@@ -222,7 +308,7 @@ public class AlternateDomainAgent {
 	 * @throws Exception thrown on any error
 	 */
 	public static String writeAgentJar() throws Exception {
-		String fileName = System.getProperty("java.io.tmpdir") + File.separator + "altdomain-management-agent.jar";
+		String fileName = TMP + "altdomain-management-agent.jar";
 		File file = new File(fileName);
 		if(!file.exists())  {
 			JarOutputStream jos = null;
@@ -249,13 +335,38 @@ public class AlternateDomainAgent {
 	}
 	
 	public static void main(String[] args) {
-		log("AgentClassBytes test");
-		new File(System.getProperty("java.io.tmpdir") + File.separator + "altdomain-management-agent.jar").delete();
+		log("AgentClassBytes test [" + TMP + "]");
+		new File(TMP  + "altdomain-management-agent.jar").delete();
 		
 		try {
 			String agentJar = writeAgentJar();
 			log("AgentJar:" + agentJar);
-			new File(System.getProperty("java.io.tmpdir") + File.separator + "altdomain-management-agent.jar").delete();
+			JarFile jarFile = new JarFile(agentJar);
+			Manifest mf = jarFile.getManifest();
+			if(mf!=null) {
+				StringBuilder b = new StringBuilder("Manifest Listing:");
+				b.append("\n\t").append("Main");
+				for(Map.Entry<Object, Object> antry : mf.getMainAttributes().entrySet()) {
+					b.append("\n\t\t").append(antry.getKey()).append(":").append(antry.getValue());
+				}
+
+				for(Map.Entry<String, Attributes> entry : mf.getEntries().entrySet()) {
+					b.append("\n\t").append(entry.getKey());					
+					for(Map.Entry<Object, Object> antry : entry.getValue().entrySet()) {
+						b.append("\n\t\t").append(antry.getKey()).append(":").append(antry.getValue());
+					}
+				}
+
+				log(b);
+			} else {
+				log("Manifest was null");
+			}
+			
+			String ver = jarFile.getManifest().getMainAttributes().getValue("Implementation-Version");
+			double version = Double.parseDouble(ver.trim());
+			log("Version:" + version);
+//			boolean deleted = new File(TMP + "altdomain-management-agent.jar").delete();
+//			log("AgentJar Deleted:" + deleted);
 		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
 		}
@@ -297,10 +408,17 @@ public class AlternateDomainAgent {
 			Thread.currentThread().setContextClassLoader(server.getClass().getClassLoader());
 			Properties agentProps = VMSupport.getAgentProperties();
 			String dd = server.getDefaultDomain();
+			if(dd==null || dd.trim().isEmpty()) {
+				dd = "DefaultDomain";
+			}
 			JMXConnectorServer cs = startLocalConnectorServer(server);
 	        String address = cs.getAddress().toString();
 	        // Add the local connector address to the agent properties
-	        agentProps.put(LOCAL_CONNECTOR_ADDRESS_PROP + dd, address);
+	        if("DefaultDomain".equals(dd)) {
+	        	agentProps.put(LOCAL_CONNECTOR_ADDRESS_PROP, address);
+	        } else {
+	        	agentProps.put(LOCAL_CONNECTOR_ADDRESS_PROP + "." + dd, address);
+	        }
 	        log("Started management connector server for [" + dd + "]");
 		} finally {
 			Thread.currentThread().setContextClassLoader(cl);
@@ -378,7 +496,7 @@ public class AlternateDomainAgent {
 	 */
 	public static String manifest() {
 		return "Manifest-Version: 1.0" + EOL +
-				"Agent-Version:" + VERSION + EOL +
+				"Implementation-Version: " + VERSION +  EOL +
 				"Agent-Class: " + AlternateDomainAgent.class.getName() + EOL + 
 				"Premain-Class: " + AlternateDomainAgent.class.getName() + EOL;
 	}
