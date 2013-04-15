@@ -43,8 +43,8 @@ public class JMXAttributeTrace2 {
     protected String traceType = "LONG_GAUGE";
     protected MetricType resolvedTraceMetricType = MetricType.LONG_GAUGE;
     protected String[] resolvedPrefix = null;
-    protected List<IObjectFormatter> objectFormatters = new ArrayList<IObjectFormatter>();
-    protected List<IObjectTracer> objectTracers = new ArrayList<IObjectTracer>();
+    protected IObjectFormatter objectFormatter;
+    protected IObjectTracer objectTracer ;
     //protected boolean mandatory = false;
     //protected String defaultValue = "0";
 
@@ -61,8 +61,8 @@ public class JMXAttributeTrace2 {
         //this.metricName = jMXAttributeTrace.metricName;
         this.traceType = jMXAttributeTrace.traceType;
         this.resolvedPrefix = jMXAttributeTrace.resolvedPrefix;
-        this.objectFormatters = jMXAttributeTrace.objectFormatters;
-        this.objectTracers = jMXAttributeTrace.objectTracers;
+        this.objectFormatter = jMXAttributeTrace.objectFormatter;
+        this.objectTracer = jMXAttributeTrace.objectTracer;
         //this.mandatory = jMXAttributeTrace.mandatory;
         //this.defaultValue = jMXAttributeTrace.defaultValue;
         this.resolvedTraceMetricType = jMXAttributeTrace.resolvedTraceMetricType;
@@ -153,28 +153,28 @@ public class JMXAttributeTrace2 {
     }
 
     /**
-     * @return the objectFormatters
+     * @return the objectFormatter
      */
-    public List<IObjectFormatter> getObjectFormatters() {
-        return objectFormatters;
+    public IObjectFormatter getObjectFormatter() {
+        return objectFormatter;
     }
     /**
-     * @param objectFormatters the objectFormatters to set
+     * @param objectFormatter the objectFormatter to set
      */
-    public void setObjectFormatters(List<IObjectFormatter> objectFormatters) {
-        this.objectFormatters = objectFormatters;
+    public void setObjectFormatter(IObjectFormatter objectFormatter) {
+        this.objectFormatter = objectFormatter;
     }
     /**
-     * @return the objectTracers
+     * @return the objectTracer
      */
-    public List<IObjectTracer> getObjectTracers() {
-        return objectTracers;
+    public IObjectTracer getObjectTracer() {
+        return objectTracer;
     }
     /**
-     * @param objectTracers the objectTracers to set
+     * @param objectTracer the objectTracer to set
      */
-    public void setObjectTracers(List<IObjectTracer> objectTracers) {
-        this.objectTracers = objectTracers;
+    public void setObjectTracer(IObjectTracer objectTracer) {
+        this.objectTracer = objectTracer;
     }
     /**
      * Constructs a <code>StringBuilder</code> with all attributes
@@ -192,8 +192,8 @@ public class JMXAttributeTrace2 {
         retValue.append("segment = " + this.segment + TAB);
         //retValue.append("metricName = " + this.metricName + TAB);
         retValue.append("traceType = " + this.traceType + TAB);
-        retValue.append("simpleObjectTracer = " + this.objectFormatters + TAB);
-        retValue.append("objectTracers = " + this.objectTracers + TAB);
+        retValue.append("simpleObjectTracer = " + this.objectFormatter + TAB);
+        retValue.append("objectTracer = " + this.objectTracer + TAB);
         //retValue.append("defaultValue = " + this.defaultValue + TAB);
         //retValue.append("groovyTracers = " + this.groovyTracers + TAB);
         retValue.append(" )");
