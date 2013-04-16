@@ -55,7 +55,7 @@ public class Satellite {
 	/** The system prop name to override the default JMXMP listening port */
 	public static final String JMXMP_LISTEN_PORT_PROP = "org.helios.jmxmp.port";
 	/** The default JMXMP listening port */
-	public static final int DEFAULT_JMXMP_LISTEN_PORT = 8009;
+	public static final int DEFAULT_JMXMP_LISTEN_PORT = 8006;
 	
 	/** The system prop name to override the default JMXMP listening iface */
 	public static final String JMXMP_LISTEN_IFACE_PROP = "org.helios.jmxmp.iface";
@@ -99,9 +99,9 @@ public class Satellite {
 		Cascader.initCascade();
 		AttachService.initAttachService();
 		AttachService.registerAll();
-		if(directives.contains("mountall")) {
-			AttachService.mountAll();
-		}
+//		if(directives.contains("mountall")) {
+//			AttachService.mountAll();
+//		}
 		try { Thread.currentThread().join(); } catch (Exception ex) {/* No Op */}
 	}
 	

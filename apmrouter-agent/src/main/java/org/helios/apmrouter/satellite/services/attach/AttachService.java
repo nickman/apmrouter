@@ -153,21 +153,20 @@ public class AttachService implements AttachServiceMBean, NotificationListener, 
 		for(VirtualMachineDescriptor vmd : VirtualMachineDescriptor.getVirtualMachineDescriptors()) {
 			if(JVM_ID.equals(vmd.id())) continue;
 			try {
-				final VirtualMachine vm = vmd.provider().attachVirtualMachine(vmd);
-				final AttachService as = new AttachService(vm, vmd);
-				if(as.getLocalConnectorAddress()==null) {
-					try { as.installManagementAgent(); } catch (Exception ex) {/* No Op */}
-				}
-				if(as.getLocalConnectorAddress()!=null) {
-					try {
-						JMXServiceURL surl = new JMXServiceURL(as.getLocalConnectorAddress());
-						final JMXConnector connector = JMXConnectorFactory.connect(surl);
-						connector.addConnectionNotificationListener(as, null, null );
-						VMS.put(as, connector);
-					} catch (Throwable ex) {/* No Op */}					
-				}
+				final JVM jvm = new JVM(vmd);
+//				if(as.getLocalConnectorAddress()==null) {
+//					try { as.installManagementAgent(); } catch (Exception ex) {/* No Op */}
+//				}
+//				if(as.getLocalConnectorAddress()!=null) {
+//					try {
+//						JMXServiceURL surl = new JMXServiceURL(as.getLocalConnectorAddress());
+//						final JMXConnector connector = JMXConnectorFactory.connect(surl);
+//						connector.addConnectionNotificationListener(as, null, null );
+//						VMS.put(as, connector);
+//					} catch (Throwable ex) {/* No Op */}					
+//				}
 			} catch (Exception ex) {
-				SimpleLogger.error("Failed to register JVM [", vmd.id(), "]", ex.toString());
+				SimpleLogger.error("Failed to register JVM [", vmd.id(), "]", ex);
 			}
 			
 		}

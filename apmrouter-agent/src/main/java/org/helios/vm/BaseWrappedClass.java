@@ -80,29 +80,30 @@ public abstract class BaseWrappedClass {
 	/**
 	 * Reflective invocation
 	 * @param delegate The target object to invoke against. Ignored if method is static.
-	 * @param type The class of the delegate . Ignored if the actual delegate is passed.
+	 * @param delegateType The class of the delegate . Ignored if the actual delegate is passed.
 	 * @param methodEncode The method encode key
 	 * @param args The arguments to pass to the method invocation
 	 * @return The return value of the method invocation
 	 */
 	protected static Object invoke(Object delegate, String delegateType, String methodEncode, Object...args) {
-		if(delegate==null && delegateType==null) throw new IllegalArgumentException("The passed delegate and delegate type was null. One must be provided", new Throwable());
-		if(methodEncode==null) throw new IllegalArgumentException("The passed methodEncode was null", new Throwable());
-		Class<?> delegateClass = null;
-
-		if(delegate!=null) {
-			delegateClass = delegate.getClass();
-		} else {
-			delegateClass = VirtualMachineBootstrap.getInstance().classCache.get(delegateType);
-		}
-		if(delegateClass==null) throw new IllegalArgumentException("Could not determine delegate class", new Throwable());
-		Map<String, Method> mMap = getMethodMap(delegateClass);		
-		Method m = mMap.get(methodEncode);
-		if(m==null) throw new IllegalArgumentException("The passed methodEncode [" + methodEncode + "] does not map to a delegate method", new Throwable());
+		Method m = null;
 		try {
+			if(delegate==null && delegateType==null) throw new IllegalArgumentException("The passed delegate and delegate type was null. One must be provided", new Throwable());
+			if(methodEncode==null) throw new IllegalArgumentException("The passed methodEncode was null", new Throwable());
+			Class<?> delegateClass = null;
+	
+			if(delegate!=null) {
+				delegateClass = delegate.getClass();
+			} else {
+				delegateClass = VirtualMachineBootstrap.getInstance().classCache.get(delegateType);
+			}
+			if(delegateClass==null) throw new IllegalArgumentException("Could not determine delegate class", new Throwable());
+			Map<String, Method> mMap = getMethodMap(delegateClass);		
+			m = mMap.get(methodEncode);
+			if(m==null) throw new IllegalArgumentException("The passed methodEncode [" + methodEncode + "] does not map to a delegate method", new Throwable());	
 			return m.invoke(java.lang.reflect.Modifier.isStatic(m.getModifiers()) ? null : delegate, args);
 		} catch (Exception e) {
-			throw new RuntimeException("Failed to invoke [" + (m==null ? methodEncode : m.toGenericString()) + "]", e);
+			throw new VirtualMachineInvocationException("Failed to invoke [" + (m==null ? methodEncode : m.toGenericString()) + "]", e);
 		}
 	}
 	
