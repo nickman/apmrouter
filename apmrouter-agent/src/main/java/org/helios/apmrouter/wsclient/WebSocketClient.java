@@ -393,10 +393,12 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 	/**
 	 * Sends a string request to the server asynchronously
 	 * @param request The string request
+	 * @return A ChannelFuture for the completion of this send operation.
 	 */
-	public void sendRequest(final CharSequence request) {
+	public ChannelFuture sendRequest(final CharSequence request) {
 		if(request==null) throw new IllegalArgumentException("The passed request was null", new Throwable());
-		channel.write(request).addListener(new ChannelFutureListener() {
+		ChannelFuture cf = channel.write(request);
+		cf.addListener(new ChannelFutureListener() {
 			@Override
 			public void operationComplete(ChannelFuture future) throws Exception {
 				if(!future.isSuccess()) {
@@ -404,6 +406,7 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 				}
 			}
 		});
+		return cf;
 	}
 	
 
