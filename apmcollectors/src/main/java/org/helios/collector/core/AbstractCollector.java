@@ -45,6 +45,8 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+//import org.springframework.jmx.support.MetricType;
+
 /**
  * <p>Title: AbstractCollector</p>
  * <p>Description: Base class for all collectors</p> 
@@ -229,6 +231,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	/**
 	 * Returns collection period for this collector
 	 */
+    //@ManagedMetric(category="MetricCatalogService",displayName="AverageCallTimeNs",metricType=MetricType.LONG_GAUGE, description="Frequency (ms) at which the collect will happen")
 	@ManagedAttribute (description = "Frequency (ms) at which the collect will happen")
 	public long getCollectionPeriod() {
 		if(collectionPeriod==-1L) {
@@ -240,8 +243,11 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	/**
 	 * Set/override collection period for this collector
 	 */
+    @ManagedAttribute (description = "Frequency (ms) at which the collect will happen")
 	public void setCollectionPeriod(long period) {
-		collectionPeriod = period;		
+		collectionPeriod = period;
+        unscheduleCollect();
+        scheduleCollect();
 	}
 	
 	/**
