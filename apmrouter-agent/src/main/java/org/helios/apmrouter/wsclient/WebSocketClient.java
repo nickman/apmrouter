@@ -86,6 +86,8 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 	protected final ChannelFuture closeFuture;
 	/** The client bootstrap */
 	protected final ClientBootstrap bootstrap;
+	/** Indicates if this is a shared client, or an exclusive one */
+	protected final boolean shared;
 	
 	/** The configured synch request timeout in ms. */
 	protected long synchRequestTimeout = DEFAULT_SYNCH_TIMEOUT;
@@ -131,7 +133,7 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 	}
 
 	/**
-	 * Synchronously acquires a WebSocketClient instance for the passed URI
+	 * Synchronously acquires a shared WebSocketClient instance for the passed URI
 	 * @param wsuri The URI of the APMRouter server to connect to
 	 * @return a WebSocketClient instance
 	 */
@@ -143,7 +145,7 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 			synchronized(clients) {
 				client = clients.get(wsuri);
 				if(client==null) {
-					client = new WebSocketClient(wsuri);
+					client = new WebSocketClient(true, wsuri);
 					client.closeFuture.addListener(new ChannelFutureListener() {
 						@Override
 						public void operationComplete(ChannelFuture future) throws Exception {
@@ -157,15 +159,38 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 		return client;
 	}
 	
+	/**
+	 * Synchronously acquires an exclusive WebSocketClient instance for the passed URI
+	 * @param wsuri The URI of the APMRouter server to connect to
+	 * @param listeners Optional listeners to register
+	 * @return a WebSocketClient instance
+	 */
+	public static WebSocketClient getNewInstance(final URI wsuri, WebSocketEventListener...listeners) {
+		if(wsuri==null) throw new IllegalArgumentException("The passed URI was null", new Throwable());
+		if(!"ws".equals(wsuri.getScheme().toLowerCase())) throw new IllegalArgumentException("The passed URI had an invalid scheme [" + wsuri.getScheme() + "]", new Throwable());
+		return new WebSocketClient(false, wsuri, listeners);
+	}
+	
+	
 	
 	/**
 	 * Creates a new WebSocketClient
+	 * @param shared true for a shared client, false for an exclusive one
 	 * @param wsuri The URI of the APMRouter server to connect to
+	 * @param listeners Optional listeners to register
 	 */
-	protected WebSocketClient(URI wsuri) {
+	protected WebSocketClient(boolean shared, URI wsuri, WebSocketEventListener...listeners) {
 		this.wsuri = wsuri;
+		this.shared = shared;
 		bootstrap = new ClientBootstrap(channelFactory);
 		bootstrap.setPipelineFactory(this);
+		if(listeners!=null && listeners.length>0) {
+			for(WebSocketEventListener listener: listeners) {
+				if(listener!=null) {
+					addWebSocketEventListener(listener);
+				}
+			}
+		}
 		handshaker = handshakerFactory.newHandshaker(wsuri, WebSocketVersion.V13, null, false, WS_HEADER_MAP);
 		wsClientHandler = new WebSocketClientHandler(handshaker);
 		ChannelFuture connectFuture = bootstrap.connect(new InetSocketAddress(wsuri.getHost(), wsuri.getPort()));
@@ -215,7 +240,7 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 		};
 		try {
 			//jsonHandler.addWebSocketEventListener(listener);
-			WebSocketClient client = new WebSocketClient(new URI("ws://localhost:8087/ws"));
+			WebSocketClient client = new WebSocketClient(false, new URI("ws://localhost:8087/ws"));
 			log("Client Connected:" + client.channel.getRemoteAddress());
 			JSONObject request = new JSONObject();
 			int reqId = client.requestSerial.incrementAndGet();
@@ -300,7 +325,23 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 		} else {
 			throw new RuntimeException("Cannot wait on multiple synch requests. (rid=" + rid + ")", new Throwable());
 		}
-		
+	}
+	
+	/**
+	 * Indicates if this client is connected
+	 * @return true if connected, false otherwise
+	 */
+	public boolean isConnected() {
+		return (channel!=null && channel.isConnected());
+	}
+	
+	/**
+	 * Closes the client if it is exclusive
+	 */
+	public void close() {
+		if(!shared) {
+			channel.close();
+		}
 	}
 	
 	/**
@@ -315,8 +356,9 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 	 * Sends a JSON request to the server
 	 * @param asynch true for asynch, false for synch
 	 * @param request The JSONObject request
+	 * @return The response to the send if synchronous, otherwise null
 	 */
-	JSONObject sendRequest(final boolean asynch, final JSONObject request) {
+	public JSONObject sendRequest(final boolean asynch, final JSONObject request) {
 		try {
 			if(request==null) throw new IllegalArgumentException("The passed request was null", new Throwable());
 			final long rid;
@@ -347,6 +389,23 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 			clearSynchHandler();
 		}
 	}
+	
+	/**
+	 * Sends a string request to the server asynchronously
+	 * @param request The string request
+	 */
+	public void sendRequest(final CharSequence request) {
+		if(request==null) throw new IllegalArgumentException("The passed request was null", new Throwable());
+		channel.write(request).addListener(new ChannelFutureListener() {
+			@Override
+			public void operationComplete(ChannelFuture future) throws Exception {
+				if(!future.isSuccess()) {
+					SimpleLogger.error("Failed to send request to [", wsuri, "] ", future.getCause());
+				}
+			}
+		});
+	}
+	
 
 
 	
@@ -404,7 +463,7 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 	/**
 	 * Closes this client
 	 */
-	protected void close() {
+	protected void _close() {
 		this.channel.close().awaitUninterruptibly(500);
 	}
 	

@@ -222,11 +222,13 @@ public class JsonCodec extends SimpleChannelHandler {
 	@Override
 	public void writeRequested(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
 		Object msg = e.getMessage();
-		if(msg instanceof JSONObject) {
-			//SimpleLogger.info("Writing Request:\n" + msg.toString());
-			byte[] payload = msg.toString().getBytes();
-			Channel channel = e.getChannel();			 
+		final Channel channel = e.getChannel();
+		if(msg instanceof JSONObject) {			
+			byte[] payload = msg.toString().getBytes();						 
 			super.writeRequested(ctx, new DownstreamMessageEvent(channel, Channels.future(channel), new TextWebSocketFrame(ChannelBuffers.wrappedBuffer(payload)), channel.getRemoteAddress()));
+			return;
+		} else if(msg instanceof CharSequence) {
+			super.writeRequested(ctx, new DownstreamMessageEvent(channel, Channels.future(channel), new TextWebSocketFrame(msg.toString()), channel.getRemoteAddress()));
 			return;
 		}
 		super.writeRequested(ctx, e);

@@ -53,6 +53,7 @@ import java.util.regex.Pattern;
 
 import org.helios.apmrouter.deployer.event.HotDeployedContextClosedEvent;
 import org.helios.apmrouter.deployer.event.HotDeployedContextRefreshedEvent;
+import org.helios.apmrouter.destination.event.DestinationEvent;
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.server.unification.pipeline.http.HttpRequestHandlerStarted;
@@ -62,7 +63,6 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ApplicationContextEvent;
 import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.context.event.ContextRefreshedEvent;
-import org.springframework.context.event.ContextStoppedEvent;
 import org.springframework.context.event.SmartApplicationListener;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
@@ -157,6 +157,7 @@ public class SpringHotDeployer extends ServerComponentBean  {
 		propagates.add(HttpRequestHandlerStopped.class);
 		propagates.add(HttpRequestHandlerStarted.class);
 		propagates.add(ApplicationContextEvent.class);
+		propagates.add(DestinationEvent.class);		
 	}
 	
 	/**

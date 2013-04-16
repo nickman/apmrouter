@@ -16,7 +16,7 @@
 		<module>dest-core</module>
 		<module>dest-opentsdb</module>
 		<module>dest-mongodb</module>
-		<module>dest-snmp</module>
+		<module>dest-snmp</module>		
 		<!-- <module>dest-opentsdb2</module-->
 
 	</modules>
