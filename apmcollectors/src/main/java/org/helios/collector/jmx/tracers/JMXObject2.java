@@ -173,15 +173,13 @@ public class JMXObject2{
                         if(columns[i]!=null && columns[i].trim().length()>1)
                             trace.setTraceType(columns[i]);
                     }else if(i==3){
-                        if(columns[i]!=null && columns[i].trim().length()>1)
-                        {
+                        if(columns[i]!=null && columns[i].trim().length()>1){
                             if(context.containsBean(columns[i]))  {
                                 trace.setObjectFormatter((IObjectFormatter)context.getBean(columns[i]));
                             }
                         }
                     }else if(i==4){
-                        if(columns[i]!=null && columns[i].trim().length()>1)
-                        {
+                        if(columns[i]!=null && columns[i].trim().length()>1) {
                             if(context.containsBean(columns[i]))  {
                                 trace.setObjectTracer((IObjectTracer)context.getBean(columns[i]));
                             }
