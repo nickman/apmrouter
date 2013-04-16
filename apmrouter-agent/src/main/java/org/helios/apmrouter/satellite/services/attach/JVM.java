@@ -49,6 +49,7 @@ import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.vm.VirtualMachine;
 import org.helios.vm.VirtualMachineDescriptor;
+import org.helios.vm.VirtualMachineInvocationException;
 
 /**
  * <p>Title: JVM</p>
@@ -237,6 +238,8 @@ public class JVM extends NotificationBroadcasterSupport implements JVMMBean {
 				attached.set(false);
 				lastDetachTime.set(System.currentTimeMillis());
 				jvmNotification(JVM_DETACHED_NOTIF, "JVM Detached [" + descriptor.displayName() + "/" + virtualMachine.id() + "]");
+				// use static descriptor to detect if JVM still exists.
+				// if NOT, dipose this instance and unregister the MBean.
 			}
 		}						
 	}
@@ -265,8 +268,13 @@ public class JVM extends NotificationBroadcasterSupport implements JVMMBean {
 	 */
 	@Override
 	public Properties getAgentProperties() {
-		if(!attached.get()) return null;		
-		return virtualMachine.getAgentProperties();
+		if(!attached.get()) return null;
+		try {
+			return virtualMachine.getAgentProperties();
+		} catch (VirtualMachineInvocationException vex) {
+			detach();
+			return null;
+		}
 	}
 
 
