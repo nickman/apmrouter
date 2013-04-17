@@ -80,7 +80,7 @@ public class WebSocketClientHandler extends SimpleChannelUpstreamHandler {
         Channel ch = ctx.getChannel();
         if (!handshaker.isHandshakeComplete()) {
             handshaker.finishHandshake(ch, (HttpResponse) e.getMessage());
-            SimpleLogger.info("WebSocketClient connected [" , e.getRemoteAddress() , "]");
+            SimpleLogger.debug("WebSocketClient connected [" , e.getRemoteAddress() , "]");
             return;
         }
 
@@ -98,7 +98,7 @@ public class WebSocketClientHandler extends SimpleChannelUpstreamHandler {
         } else if (frame instanceof PongWebSocketFrame) {
         	SimpleLogger.debug("WebSocket Client received pong from [", e.getRemoteAddress() , "]");
         } else if (frame instanceof CloseWebSocketFrame) {
-        	SimpleLogger.info("WebSocket Client Closing Connection To [", e.getRemoteAddress() , "]");
+        	SimpleLogger.debug("WebSocket Client Closing Connection To [", e.getRemoteAddress() , "]");
             ch.close();
         }
     }	

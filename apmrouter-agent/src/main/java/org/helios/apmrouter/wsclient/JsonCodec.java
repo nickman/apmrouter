@@ -209,7 +209,7 @@ public class JsonCodec extends SimpleChannelHandler {
 	 */
 	@Override
 	public void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
-		if(e.getState().equals(ChannelState.OPEN) && e.getValue().equals(true)) {
+		if(e.getState().equals(ChannelState.CONNECTED)) {
 			fireConnectedEvent(e.getChannel().getRemoteAddress());
 		}
 		super.channelConnected(ctx, e);

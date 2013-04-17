@@ -226,7 +226,7 @@ public class CubeDestination extends BaseDestination implements WebSocketEventLi
 	 */
 	@Override
 	public void onConnect(SocketAddress remoteAddress) {
-		info("Cube WebSocketClient Connected to [", cubeUri, "/", remoteAddress, "]");
+		info("Cube WebSocketClient Connected to [", cubeUri, "]");
 		connected.set(true);
 		expectClose.set(false);
 		ScheduledFuture<?> sf = reconnectSchedule.getAndSet(null);
@@ -284,8 +284,15 @@ public class CubeDestination extends BaseDestination implements WebSocketEventLi
 			warn("Cube destination to [", cubeUri, "] was null so destination will not execute re-connect loop");
 			return;
 		}
-		reconnectSchedule.set(scheduler.getScheduledExecutor().scheduleWithFixedDelay(this, 15, 15, TimeUnit.SECONDS));
-		info("Started cube reconnect loop for [", cubeUri, "]");
+		synchronized(reconnectSchedule) {
+			ScheduledFuture<?> sf = reconnectSchedule.get();
+			if(sf!=null && !sf.isCancelled()) {
+				warn("cube reconnect loop already running");
+				return;
+			}
+			reconnectSchedule.set(scheduler.getScheduledExecutor().scheduleWithFixedDelay(this, 15, 15, TimeUnit.SECONDS));
+			info("Started cube reconnect loop for [", cubeUri, "]");
+		}
 	}
 
 	

@@ -32,7 +32,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.helios.apmrouter.jmx.ThreadPoolFactory;
@@ -50,6 +49,7 @@ import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
+import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpRequestEncoder;
 import org.jboss.netty.handler.codec.http.HttpResponseDecoder;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketClientHandshaker;
@@ -120,6 +120,9 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 	protected static final HttpRequestEncoder httpRequestEncoder= new HttpRequestEncoder();
 	/** Shared json codec */
 	protected static final JsonCodec jsonHandler = new JsonCodec(applicationPool);
+	/** Shared http chunk aggregator */
+	protected static final HttpChunkAggregator chunkAggregator = new HttpChunkAggregator(1048576);
+	
 	
 	/** The leading string in the session id message by the server when the agent first connects */
 	public static final String SESSION_SIGNATURE = "{\"sessionid\":";
@@ -191,7 +194,7 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 				}
 			}
 		}
-		handshaker = handshakerFactory.newHandshaker(wsuri, WebSocketVersion.V13, null, false, WS_HEADER_MAP);
+		handshaker = handshakerFactory.newHandshaker(wsuri, WebSocketVersion.V13, null, true, WS_HEADER_MAP);
 		wsClientHandler = new WebSocketClientHandler(handshaker);
 		ChannelFuture connectFuture = bootstrap.connect(new InetSocketAddress(wsuri.getHost(), wsuri.getPort()));
 		connectFuture.syncUninterruptibly();
@@ -240,8 +243,7 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 		};
 		try {
 			//jsonHandler.addWebSocketEventListener(listener);
-			WebSocketClient client = new WebSocketClient(false, new URI("ws://localhost:8087/ws"));
-			log("Client Connected:" + client.channel.getRemoteAddress());
+			WebSocketClient client = new WebSocketClient(false, new URI("ws://10.230.13.15:1081/1.0/types"), listener);			
 			JSONObject request = new JSONObject();
 			int reqId = client.requestSerial.incrementAndGet();
 			request.put("rid", reqId);
@@ -253,8 +255,8 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 			ags.put("esn", "service:jmx:local://DefaultDomain");
 			ags.put("f", "org.helios.apmrouter.session:service=SharedChannelGroup");
 			request.put("args", ags);
-			client.channel.write(request);
-			Thread.currentThread().join(60000);
+			//client.channel.write(request);
+			//Thread.currentThread().join(60000);
 			
 			// function(callback, op, type, esn, filter, ex) {
 			//"start", "jmx", "service:jmx:local://DefaultDomain", 
@@ -425,6 +427,8 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 	public ChannelPipeline getPipeline() throws Exception {
 		ChannelPipeline pipeline = Channels.pipeline();
 		pipeline.addLast("decoder", httpResponseDecoder);
+		pipeline.addLast("aggregator", chunkAggregator);
+		
 		pipeline.addLast("encoder", httpRequestEncoder);
 		pipeline.addLast("ws-handler", wsClientHandler);
 		pipeline.addLast("json-handler", jsonHandler);
