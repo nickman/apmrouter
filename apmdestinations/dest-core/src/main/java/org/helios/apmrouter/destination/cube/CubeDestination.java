@@ -264,7 +264,7 @@ public class CubeDestination extends BaseDestination implements WebSocketEventLi
 	 */
 	@Override
 	public void onMessage(SocketAddress remoteAddress, JSONObject message) {
-		/* No Op */
+		System.out.println(message);
 	}
 	
 	/**
