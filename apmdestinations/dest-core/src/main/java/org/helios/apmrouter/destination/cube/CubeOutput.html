@@ -1,0 +1,51 @@
+
+<html><head><title>Cube Destination Test Page</title></head>
+<body>
+<script src="/jquery.js"></script>
+<script type="text/javascript">
+var socket;
+var messageCounts = {'Total' : 0};
+if (!window.WebSocket) {
+  window.WebSocket = window.MozWebSocket;
+}
+if (window.WebSocket) {
+  socket = new WebSocket("ws://localhost:8003/websocket");
+  	
+  
+  	socket.onmessage = function(event) { 
+		var t = messageCounts['Total']++;
+		$('#Total').html(t);
+	};
+  
+	socket.onopen = function(event) { $('#messages').append("<p>Web Socket opened!</p>"); };
+  socket.onclose = function(event) { $('#messages').append("<p>Web Socket closed</p>"); };
+} else {
+  alert("Your browser does not support Web Socket.");
+}
+
+function send(message) {
+  if (!window.WebSocket) { return; }
+  if (socket.readyState == WebSocket.OPEN) {
+    socket.send(message);
+  } else {
+    alert("The socket is not open.");
+  }
+}
+</script>
+	<table border='1'>
+		<tr><th>Message Type</th><th>Count</th></tr>
+		<tr><td>Total</td><td><span id='Total'></span></td></tr>
+	</table>
+	<div id='messages'></div>
+</body>
+</html>
+
+
+<!-- 
+<form onsubmit="return false;">
+<input type="text" name="message" value="Hello, World!"/><input type="button" value="Send Web Socket Data" onclick="send(this.form.message.value)" />
+<h3>Output</h3>
+<textarea id="responseText" style="width: 500px; height:300px;"></textarea>
+</form>
+
+ -->

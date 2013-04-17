@@ -43,6 +43,9 @@ public class ChannelStateListener implements ChannelUpstreamHandler , ChannelDow
 	/** A map of sets of registered listeners keyed by the channel state they are interested in */
 	protected final Map<ChannelState, Set<ChannelStateAware>> listeners = new EnumMap<ChannelState, Set<ChannelStateAware>>(ChannelState.class);
 	
+	
+	
+	
 	/**
 	 * Creates a new ChannelStateListener
 	 */
