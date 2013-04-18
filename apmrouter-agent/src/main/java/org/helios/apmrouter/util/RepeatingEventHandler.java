@@ -38,19 +38,20 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class RepeatingEventHandler<T> {
 	/** A map of tracked exception types */
-	protected final ConcurrentHashMap<T, CounterTimer> exceptionCounters = new ConcurrentHashMap<T, CounterTimer>();
+	protected final ConcurrentHashMap<T, CounterTimer> eventCounters = new ConcurrentHashMap<T, CounterTimer>();
 	
 	
 	/**
-	 * Registers a repeating exception handler 
+	 * Registers a repeating event handler 
 	 * @param t The event to track
 	 * @param initialPasses The initial number of events to report
 	 * @param countThreshold The maximum number of events without reporting
 	 * @param timeThreshold The maximum elapsed time without reporting
+	 * @param supressMessage The message generated when event supression starts
 	 */
-	public void register(T t, int initialPasses, int countThreshold, long timeThreshold) {
-		CounterTimer ct = new CounterTimer(initialPasses, countThreshold, timeThreshold);
-		exceptionCounters.putIfAbsent(t, ct);
+	public void register(T t, int initialPasses, int countThreshold, long timeThreshold, CharSequence supressMessage) {
+		CounterTimer ct = new CounterTimer(initialPasses, countThreshold, timeThreshold, supressMessage);
+		eventCounters.putIfAbsent(t, ct);
 	}
 	
 	/**
@@ -60,10 +61,47 @@ public class RepeatingEventHandler<T> {
 	 */
 	public long getCount(T t) {
 		if(t==null) return -1;
-		CounterTimer ct = exceptionCounters.get(t);
+		CounterTimer ct = eventCounters.get(t);
 		if(ct==null) return -1;
 		return ct.getCount();		
 	}
+	
+	/**
+	 * Returns the configured initial for the passed event
+	 * @param t The event to get the initial for
+	 * @return the event initial
+	 */
+	public long getInitial(T t) {
+		if(t==null) return -1;
+		CounterTimer ct = eventCounters.get(t);
+		if(ct==null) return -1;
+		return ct.initialPasses;				
+	}
+	
+	/**
+	 * Returns the remaining number of initial passes for the passed event
+	 * @param t The event to get the remaining for
+	 * @return the remaining initial passes or zero
+	 */
+	public long getRemaining(T t) {
+		if(t==null) return -1;
+		CounterTimer ct = eventCounters.get(t);
+		if(ct==null) return -1;
+		return ct.getRemaining();				
+	}
+	/**
+	 * Returns the supression message formated with the remaining number of initial passes
+	 * @param t The event to get the remaining for
+	 * @return the supression message formated with the remaining number of initial passes
+	 */
+	public String getRemainingMessage(T t) {
+		if(t==null) return "No Repeating Handler for ["+ t + "]";
+		CounterTimer ct = eventCounters.get(t);
+		if(ct==null) return "No Repeating Handler for ["+ t + "]";
+		return ct.getRemainingMessage();				
+		
+	}
+
 	
 	/**
 	 * Returns the count threshold
@@ -72,7 +110,7 @@ public class RepeatingEventHandler<T> {
 	 */
 	public long getCountThreshold(T t) {
 		if(t==null) return -1;
-		CounterTimer ct = exceptionCounters.get(t);
+		CounterTimer ct = eventCounters.get(t);
 		if(ct==null) return -1;
 		return ct.countThreshold;		
 	}
@@ -82,7 +120,7 @@ public class RepeatingEventHandler<T> {
 	 * @param t The event to reset the counter timer
 	 */
 	public void reset(T t) {		
-		CounterTimer ct = exceptionCounters.get(t);
+		CounterTimer ct = eventCounters.get(t);
 		if(ct!=null) ct.reset();		
 	}
 	
@@ -95,7 +133,7 @@ public class RepeatingEventHandler<T> {
 	 */
 	public boolean report(T t) {
 		if(t==null) return false;
-		CounterTimer ct = exceptionCounters.get(t);
+		CounterTimer ct = eventCounters.get(t);
 		if(ct==null) return true;
 		return ct.event();
 	}
@@ -109,20 +147,46 @@ public class RepeatingEventHandler<T> {
 		final int countThreshold;
 		/** The initial number of exceptions that should be logged without a reset */
 		final int initialPasses;
+		/** The message generated when event supression starts */
+		final String supressMessage;
 
 		/** The time of the last reported event */
 		final AtomicLong timer = new AtomicLong(0);
 		
+		/**
+		 * Returns the number of remaining initial passes
+		 * @return the number of remaining initial passes
+		 */
+		long getRemaining() {
+			long r = initialPasses - counter.get();
+			return r<0 ? 0 : r;
+		}
+		
+		/**
+		 * Returns the supression message formated with the remaining number of initial passes
+		 * @return the supression message formated with the remaining number of initial passes
+		 */
+		String getRemainingMessage() {
+			String msg = null;
+			try {
+				msg = String.format(supressMessage, getRemaining());
+			} catch (Exception ex) {
+				msg = "(Bad format:)" + supressMessage;
+			}
+			return msg;
+		}
 		
 		/**
 		 * Creates a new CounterTimer
 		 * @param countThreshold The maximum number of exceptions to suppress before reporting
 		 * @param timeThreshold The maximum elapsed time before reporting
+		 * @param supressMessage The message generated when event supression starts
 		 */
-		CounterTimer(int initialPasses, int countThreshold, long timeThreshold) {			
+		CounterTimer(int initialPasses, int countThreshold, long timeThreshold, CharSequence message) {			
 			this.timeThreshold = timeThreshold;
 			this.initialPasses = initialPasses;
 			this.countThreshold = countThreshold;
+			this.supressMessage = message.toString();
 		}
 		
 		/**

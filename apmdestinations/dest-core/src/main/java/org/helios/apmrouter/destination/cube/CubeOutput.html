@@ -1,40 +1,74 @@
 
-<html><head><title>Cube Destination Test Page</title></head>
-<body>
-<script src="/jquery.js"></script>
-<script type="text/javascript">
-var socket;
-var messageCounts = {'Total' : 0};
-if (!window.WebSocket) {
-  window.WebSocket = window.MozWebSocket;
-}
-if (window.WebSocket) {
-  socket = new WebSocket("ws://localhost:8003/websocket");
-  	
-  
-  	socket.onmessage = function(event) { 
-		var t = messageCounts['Total']++;
-		$('#Total').html(t);
-	};
-  
-	socket.onopen = function(event) { $('#messages').append("<p>Web Socket opened!</p>"); };
-  socket.onclose = function(event) { $('#messages').append("<p>Web Socket closed</p>"); };
-} else {
-  alert("Your browser does not support Web Socket.");
-}
+<html>
+	<head>
+		<title>Cube Destination Test Page</title>
+		<!-- <script src="/jquery.js"></script> -->
+		<script src="http://code.jquery.com/jquery-1.9.1.js"></script>
+		<script type="text/javascript">
+		var socket;
+		var messageCounts = {'Total' : 0, 'Channels' : 0};
+		
+		$(function(){
+			console.info("Test Page Loaded");
+			initWebSock();
+			for(key in messageCounts) {				
+				$('#countTable').append($("<tr><td>" + key + "</td><td><span id='" + key + "'>0</span></td></tr>"));
+				$('#' + key).data('on' + key + 'Event', function(event, data){
+					console.info("=========  Event By Implied Method. event:[%o], data:[%o], this:[%o]", event, data, this);
+				});
+				$('#' + key).bind('on' + key + 'Event');
+				/*
+				$('#' + key).bind('on' + key + 'Event', function(event, data){
+					console.info("On Event:  event:[%o], data:[%o], this:[%o]", event, data, this);
+					$(this).html(data);
+				});
+				*/
+			}
+		});
 
-function send(message) {
-  if (!window.WebSocket) { return; }
-  if (socket.readyState == WebSocket.OPEN) {
-    socket.send(message);
-  } else {
-    alert("The socket is not open.");
-  }
-}
-</script>
-	<table border='1'>
+		function initWebSock() {
+			if (!window.WebSocket) {
+			  window.WebSocket = window.MozWebSocket;
+			}
+			if (window.WebSocket) {
+			  socket = new WebSocket("ws://localhost:8003/websocket");
+			  	socket.onmessage = function(event) { 
+			  		console.info("SockMessage:[%s]", event.data);
+			  		if(event.data.indexOf('ChannelID:')==0) {
+			  			
+			  			$('#messages').append("<p>" + event.data + "</p>");
+			  			return;
+			  		} else if(event.data.indexOf('ChannelCount:')==0) {
+			  			$.event.trigger('onChannelsEvent', parseInt(event.data.substring(event.data.indexOf(":")+1)));
+			  			//$(window).trigger('ChannelsEvent', parseInt(event.data.substring(event.data.indexOf(":")+1)));
+			  			//var t = messageCounts['Channels'] = parseInt(event.data.substring(event.data.indexOf(":")+1));
+			  			//$('#Channels').html(t);
+			  		}
+					var t = messageCounts['Total']++;
+					$('#Total').html(t);
+				};
+				socket.onopen = function(event) { $('#messages').append("<p>Web Socket opened!</p>"); console.info("Opened WebSocket:%o", event);};
+			  	socket.onclose = function(event) { $('#messages').append("<p>Web Socket closed</p>"); };
+			} else {
+			  alert("Your browser does not support Web Socket.");
+			}
+		}
+		
+		function send(message) {
+		  if (!window.WebSocket) { return; }
+		  if (socket.readyState == WebSocket.OPEN) {
+		    socket.send(message);
+		  } else {
+		    alert("The socket is not open.");
+		  }
+		}
+		</script>
+	
+	</head>
+<body>
+	<table border='1' id='countTable'>
 		<tr><th>Message Type</th><th>Count</th></tr>
-		<tr><td>Total</td><td><span id='Total'></span></td></tr>
+		
 	</table>
 	<div id='messages'></div>
 </body>

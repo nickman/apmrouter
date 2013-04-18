@@ -51,6 +51,8 @@ import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.Channels;
+import org.jboss.netty.channel.ChildChannelStateEvent;
+import org.jboss.netty.channel.DownstreamMessageEvent;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.ServerChannel;
@@ -90,6 +92,7 @@ public class CubeTestServer implements ChannelPipelineFactory, ServerChannelFact
 	private static final int PORT = 8003;
 	
 	static final ChannelGroup CG = new DefaultChannelGroup();
+	static final ChannelGroup WCG = new DefaultChannelGroup();
 	
 	private ChannelFactory cf = null;
 	
@@ -204,6 +207,28 @@ public class CubeTestServer implements ChannelPipelineFactory, ServerChannelFact
 	            wsFactory.sendUnsupportedWebSocketVersionResponse(ctx.getChannel());
 	        } else {
 	            this.handshaker.handshake(ctx.getChannel(), req).addListener(WebSocketServerHandshaker.HANDSHAKE_LISTENER);
+	            Channel channel = ctx.getChannel();
+	            ctx.sendDownstream(new DownstreamMessageEvent(channel, Channels.future(channel), new TextWebSocketFrame("ChannelID:" + channel.getId()), channel.getRemoteAddress()));
+	            WCG.add(channel);
+		        for(Channel ch: WCG) {		  
+		        	if(ch.isWritable()) {
+		        		ch.write(new TextWebSocketFrame("ChannelCount:" + WCG.size()));
+		        	}
+		        }
+	        }
+	    }
+	    
+	    /**
+	     * {@inheritDoc}
+	     * @see org.jboss.netty.channel.SimpleChannelUpstreamHandler#channelClosed(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.ChannelStateEvent)
+	     */
+	    @Override
+	    public void channelClosed(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {	    	
+	    	super.channelClosed(ctx, e);
+	        for(Channel ch: WCG) {		  
+	        	if(ch.isWritable()) {
+	        		ch.write(new TextWebSocketFrame("ChannelCount:" + WCG.size()));
+	        	}
 	        }
 	    }
 
@@ -227,9 +252,9 @@ public class CubeTestServer implements ChannelPipelineFactory, ServerChannelFact
 	            logger.debug(String.format("Channel %s received %s", ctx.getChannel().getId(), request));
 	        }
 	        final Integer channelId = ctx.getChannel().getId();
-	        for(Channel channel: CG) {
+	        for(Channel channel: WCG) {
 	        	if(channel.getId().equals(channelId)) continue;
-	        	channel.write(new TextWebSocketFrame(request.toUpperCase()));
+	        	channel.write(new TextWebSocketFrame(request));
 	        }
 	        
 	    }
@@ -254,6 +279,8 @@ public class CubeTestServer implements ChannelPipelineFactory, ServerChannelFact
 	        e.getChannel().close();
 	    }
 	    
+
+	    
 	    /**
 	     * {@inheritDoc}
 	     * @see org.jboss.netty.channel.SimpleChannelUpstreamHandler#channelConnected(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.ChannelStateEvent)
@@ -261,8 +288,10 @@ public class CubeTestServer implements ChannelPipelineFactory, ServerChannelFact
 	    @Override
 	    public void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
 	    	Channel channel = e.getChannel();
-			CG.add(channel);
-			SimpleLogger.info("Channel Connected \n\tLocal:[", channel.getLocalAddress(), "]\n\tRemote:[", channel.getRemoteAddress(), "]\n\tID:[", channel.getId(), "]\n\tConnected Channels:", CG.size());
+	    	if(!(channel instanceof ServerChannel)) {
+	    		CG.add(channel);
+	    		SimpleLogger.info("Channel Connected \n\tLocal:[", channel.getLocalAddress(), "]\n\tRemote:[", channel.getRemoteAddress(), "]\n\tState:[", e.getState().name() , "/", e.getValue(),  "]\n\tID:[", channel.getId(), "]\n\tConnected Channels:", CG.size());
+	    	} 
 	    	super.channelConnected(ctx, e);
 	    }
 

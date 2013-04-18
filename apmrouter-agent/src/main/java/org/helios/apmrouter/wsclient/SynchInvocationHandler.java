@@ -67,10 +67,13 @@ public class SynchInvocationHandler extends SimpleChannelUpstreamHandler {
 	 */
 	@Override
 	public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
-		JSONObject _response = (JSONObject)e.getMessage();	
-		if(getResponseReId(_response)==currentRequestId) {			
+		JSONObject _response = (JSONObject)e.getMessage();
+		long rerid = getResponseReId(_response);
+		if(rerid==currentRequestId) {			
 			this.response = _response;
 			latch.countDown();
+		} else {
+			SimpleLogger.warn("Failed to match rerid [", rerid, "] when expecting [", currentRequestId, "]");
 		}
 	}
 	

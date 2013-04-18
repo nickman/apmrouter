@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.helios.apmrouter.destination.BaseDestination;
 import org.helios.apmrouter.metric.IMetric;
+import org.helios.apmrouter.util.RepeatingEventHandler;
 import org.helios.apmrouter.wsclient.WebSocketClient;
 import org.helios.apmrouter.wsclient.WebSocketEventListener;
 import org.json.JSONObject;
@@ -65,7 +66,13 @@ public class CubeDestination extends BaseDestination implements WebSocketEventLi
 	/** The task scheduler */
 	@Autowired(required=false)
 	protected ThreadPoolTaskScheduler scheduler = null;
+	/** Repeating connection exception handler */
+	protected final RepeatingEventHandler<String> connectExceptionCounter = new RepeatingEventHandler<String>();
+	
+	/** The error handler for repeating websocket connection failures */
+	public static final String WEB_SOCK_CONNECT_ERR = "WebSocketConnectException";
 
+	
 	/**
 	 * Starts this listener
 	 * {@inheritDoc}
@@ -90,18 +97,27 @@ public class CubeDestination extends BaseDestination implements WebSocketEventLi
 		super.doStop();
 	}	
 	
+	 
+	
 	/**
 	 * Initiates an asynch connect to the graphite server
 	 */
 	protected void doConnect() {
-		webSockClient = WebSocketClient.getNewInstance(cubeUri, this);		
-		connected.set(true);
+		try {
+			webSockClient = WebSocketClient.getNewInstance(cubeUri, this);		
+			connected.set(true);
+		} catch (Exception ex) {
+			if(connectExceptionCounter.report(WEB_SOCK_CONNECT_ERR)) {
+				error(connectExceptionCounter.getRemainingMessage(WEB_SOCK_CONNECT_ERR).replace("##cubeUri##", cubeUri.toString()), ex  );
+			}
+		}
 	}
 	
 	/**
 	 * Accept Route additive for BaseDestination extensions
 	 * @param routable The metric to route
 	 */
+	@Override
 	protected void doAcceptRoute(IMetric routable) {
 		if(connected.get()) {
 			writeToCube(routable.getUnmapped());
@@ -147,6 +163,7 @@ public class CubeDestination extends BaseDestination implements WebSocketEventLi
 	 */
 	public CubeDestination(String... patterns) {
 		super(patterns);
+		connectExceptionCounter.register(WEB_SOCK_CONNECT_ERR, 3, 20, 120000, "Failed to connect to [##cubeUri##]. This message will log %s more times and then periodically\n");
 	}
 
 	/**
@@ -155,13 +172,15 @@ public class CubeDestination extends BaseDestination implements WebSocketEventLi
 	 */
 	public CubeDestination(Collection<String> patterns) {
 		super(patterns);
+		connectExceptionCounter.register(WEB_SOCK_CONNECT_ERR, 3, 20, 120000, "Failed to connect to [##cubeUri##]. This message will log %s more times and then periodically\n");
 	}
+	
 
 	/**
 	 * Creates a new CubeDestination
 	 */
-	public CubeDestination() {
-		
+	public CubeDestination() {		
+		connectExceptionCounter.register(WEB_SOCK_CONNECT_ERR, 3, 20, 120000, "Failed to connect to [##cubeUri##]. This message will log %s more times and then periodically\n");
 	}
 	
 	/**
@@ -229,6 +248,7 @@ public class CubeDestination extends BaseDestination implements WebSocketEventLi
 		info("Cube WebSocketClient Connected to [", cubeUri, "]");
 		connected.set(true);
 		expectClose.set(false);
+		connectExceptionCounter.reset(WEB_SOCK_CONNECT_ERR);
 		ScheduledFuture<?> sf = reconnectSchedule.getAndSet(null);
 		if(sf!=null) {
 			sf.cancel(true);
@@ -243,7 +263,7 @@ public class CubeDestination extends BaseDestination implements WebSocketEventLi
 	@Override
 	public void onClose(SocketAddress remoteAddress) {
 		connected.set(false);
-		if(!expectClose.get()) {
+		if(!expectClose.get() && this.reconnectSchedule.get()== null) {
 			startReconnectLoop();
 		}
 	}
@@ -272,6 +292,7 @@ public class CubeDestination extends BaseDestination implements WebSocketEventLi
 	 * {@inheritDoc}
 	 * @see java.lang.Runnable#run()
 	 */
+	@Override
 	public void run() {
 		doConnect();
 	}
@@ -287,7 +308,7 @@ public class CubeDestination extends BaseDestination implements WebSocketEventLi
 		synchronized(reconnectSchedule) {
 			ScheduledFuture<?> sf = reconnectSchedule.get();
 			if(sf!=null && !sf.isCancelled()) {
-				warn("cube reconnect loop already running");
+				//warn("cube reconnect loop already running");
 				return;
 			}
 			reconnectSchedule.set(scheduler.getScheduledExecutor().scheduleWithFixedDelay(this, 15, 15, TimeUnit.SECONDS));

@@ -183,7 +183,7 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender,
 	 *            The URI of the apmrouter server to connect to
 	 */
 	protected AbstractSender(URI serverURI) {
-		exceptionCountingHandler.register("PingFailed", 5, 50, 60000*5);
+		exceptionCountingHandler.register("PingFailed", 5, 50, 60000*5, "Ping to server failed. This message will log %s more times and then periodically\n");
 		this.serverURI = serverURI;
 		socketAddress = new InetSocketAddress(serverURI.getHost(),
 				serverURI.getPort());
@@ -330,7 +330,7 @@ public abstract class AbstractSender implements AbstractSenderMXBean, ISender,
 				resetConsecutiveTimeouts();
 			} else {
 				if(exceptionCountingHandler.report("PingFailed")) {
-					SimpleLogger.warn("Ping Timed Out (event# ", exceptionCountingHandler.getCount("PingFailed"), ")");
+					SimpleLogger.warn(exceptionCountingHandler.getRemainingMessage("PingFailed"));
 				}
 				incrConsecutiveTimeouts();
 			}

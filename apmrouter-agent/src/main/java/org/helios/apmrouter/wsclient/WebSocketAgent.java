@@ -70,15 +70,20 @@ public class WebSocketAgent implements WebSocketEventListener {
 		try {
 			agent = WebSocketAgent.newInstance("ws://localhost:8087/ws");
 			log("Connected to [" + agent.getWebSocketURI() + "]");
-			//agent.wsClient.setSynchRequestTimeout(10000);
+			agent.wsClient.setSynchRequestTimeout(5000);
 			int loop = 10000;
+			int dot = loop/100;
 			for(int i = 0; i < loop; i++) {
 				agent.getMetrics("DefaultDomain/njw810/APMRouterServer/platform=JVM/category=cpu");
+				System.out.print(".");
+				if(i%dot==0) System.out.println("--[ " + i);
 			}
 			log("Warmup Complete");
 			SystemClock.startTimer();
 			for(int i = 0; i < loop; i++) {
 				agent.getMetrics("DefaultDomain/njw810/APMRouterServer/platform=JVM/category=cpu");
+				System.out.print(".");
+				if(i%dot==0) System.out.println("--[ " + i);				
 			}
 			ElapsedTime et = SystemClock.endTimer();
 			log(et + "  Avg " + et.avgMs(loop) + " ms. ") ;

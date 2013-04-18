@@ -110,7 +110,7 @@ public class WebSocketClientHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
         final Throwable t = e.getCause();
-        t.printStackTrace();
+        //t.printStackTrace();
         e.getChannel().close();
     }
 	
