@@ -26,8 +26,6 @@ package org.helios.collector.jmx;
 
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.MetricType;
-import org.helios.apmrouter.trace.ITracer;
-import org.helios.apmrouter.trace.TracerFactory;
 import org.helios.apmrouter.util.StringHelper;
 import org.helios.collector.core.AbstractCollector;
 import org.helios.collector.core.CollectionResult;
@@ -83,10 +81,6 @@ public class JMXCollector2 extends AbstractCollector {
     /** JMXCollector Version*/
     private static final String JMX_COLLECTOR_VERSION="0.1";
 
-    /** The availability MBean Object Name */
-    protected ObjectName availabilityMBean = null;
-    /** The availability MBean Attribute */
-    protected String availabilityAttribute = null;
     /** Indicates if mapped metrics should be used for mxbeans */
     protected boolean mappedMetrics = true;
     /** The availability segments */
@@ -138,10 +132,6 @@ public class JMXCollector2 extends AbstractCollector {
     protected String virtualHostLocator = null;
     /** An objectName / Attribute name for a virtual tracer agent name */
     protected String virtualAgentLocator = null;
-    /** The virtual tracer host */
-    protected String virtualHost = null;
-    /** The virtual tracer agent */
-    protected String virtualAgent = null;
 
     /** A map of MemoryPool ObjectNames keyed by the memory pool name */
     protected Map<String, ObjectName> memoryPoolObjectNames = null;
@@ -197,23 +187,23 @@ public class JMXCollector2 extends AbstractCollector {
                 ctx = new InitialContext();
             }
 
-            if(this.virtualHostLocator!=null) {
-                virtualHost = (String)JMXHelper.getAttribute(mBeanServerConnection, virtualHostLocator);
-                if(virtualHost==null) {
-                    warn("A virtual host locator [" + virtualHostLocator + "] was supplied but could not be resolved. A virtual tracer will not be used." );
-                }
-            }
-
-            if(this.virtualAgentLocator!=null && this.virtualHostLocator!=null) {
-                virtualAgent = (String)JMXHelper.getAttribute(mBeanServerConnection, virtualAgentLocator);
-                if(virtualHost==null) {
-                    warn("A virtual agent locator [" + virtualAgentLocator + "] was supplied but could not be resolved. A virtual tracer will not be used." );
-                }
-            }
-            if(virtualHost!=null && virtualAgent!=null) {
-                //this.tracer = this.tracer.getVirtualTracer(virtualHost, virtualAgent);
-                this.tracer = TracerFactory.getTracer(virtualHost, virtualAgent, "JMXCollector", (int)(getCollectionPeriod()*2));
-            }
+//            if(this.virtualHostLocator!=null) {
+//                virtualHost = (String)JMXHelper.getAttribute(mBeanServerConnection, virtualHostLocator);
+//                if(virtualHost==null) {
+//                    warn("A virtual host locator [" + virtualHostLocator + "] was supplied but could not be resolved. A virtual tracer will not be used." );
+//                }
+//            }
+//
+//            if(this.virtualAgentLocator!=null && this.virtualHostLocator!=null) {
+//                virtualAgent = (String)JMXHelper.getAttribute(mBeanServerConnection, virtualAgentLocator);
+//                if(virtualHost==null) {
+//                    warn("A virtual agent locator [" + virtualAgentLocator + "] was supplied but could not be resolved. A virtual tracer will not be used." );
+//                }
+//            }
+//            if(virtualHost!=null && virtualAgent!=null) {
+//                //this.tracer = this.tracer.getVirtualTracer(virtualHost, virtualAgent);
+//                this.tracer = TracerFactory.getTracer(virtualHost, virtualAgent, "JMXCollector", (int)(getCollectionPeriod()*2));
+//            }
         }catch(MBeanServerConnectionFactoryException mex){
             throw new Exception("Unable to get MBeanServerConnection for JMXCollector",mex);
         }catch(NamingException nex){
@@ -234,15 +224,6 @@ public class JMXCollector2 extends AbstractCollector {
             // Error getting MBean Server connection so no reason to proceed further
             // Return the CollectionResult object back 
             return collectionResult;
-        }
-
-        // Run an additional availability check (if provided)
-        if(availabilityMBean != null && availabilityAttribute != null) {
-            if(availibilityCheck(collectionResult)==false){
-                // User MBean Server availability check failed so no reason to proceed further
-                // Return the CollectionResult object back 
-                return collectionResult;
-            }
         }
 
         boolean anySuccess = false;
@@ -335,51 +316,6 @@ public class JMXCollector2 extends AbstractCollector {
             }
         }
         return determineStatus(anySuccess, anyFailure, collectionResult);
-    }
-
-//    /**
-//     * Iterates through all registered attributes and traces the default, if defined.
-//     */
-//    protected void traceDefaultsForOffline() {
-//        // Check if it is the first run for this JMXCollector.  If yes, skip tracing
-//        // defaults as we never got an MBeanServerConnection.  Otherwise proceed with tracing defaults.
-//        if(resolvedJMXObjects!=null && !resolvedJMXObjects.isEmpty()){
-//            Iterator<String> keys = resolvedJMXObjects.keySet().iterator();
-//            while(keys.hasNext()){
-//                String tempKey = keys.next();
-//                JMXObject2 cachedObject = resolvedJMXObjects.get(tempKey);
-//                if(! cachedObject.isProcessed()){
-//                    for(int b=0; b<cachedObject.getResolvedAttributes().size();b++){
-//                        JMXAttributeTrace2 cachedTrace = cachedObject.getResolvedAttributes().get(b);
-//                        if(cachedTrace!=null && cachedTrace.getDefaultValue()!=null){
-//                            //- tracer.smartTrace(cachedTrace.getTraceType(),cachedTrace.getDefaultValue(),cachedTrace.getMetricName(), StringHelper.append(tracingNameSpace,true,cachedTrace.getResolvedPrefix()), "");
-//                            tracer.trace(cachedTrace.getDefaultValue(), cachedTrace.getMetricName(), cachedTrace.getResolvedTraceMetricType(), StringHelper.append(false, tracingNameSpace,cachedTrace.getResolvedPrefix()));
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//    }
-
-    /**
-     *
-     */
-    protected boolean availibilityCheck(CollectionResult result) {
-        try {
-            mBeanServerConnection.getAttribute(availabilityMBean, availabilityAttribute);
-            //tracer.traceSticky(1, defaultAvailabilityLabel, availabilitySegment);
-            tracer.traceGauge(1, defaultAvailabilityLabel, availabilitySegment);
-            return true;
-        } catch (Exception e) {
-            mBeanServerConnection=null;
-            traceAvailability(0);
-            if(logErrors) {
-                error("Exception Running Availability Check for [" + availabilityMBean + "/" + availabilityAttribute, e);
-            }
-            result.setResultForLastCollection(CollectionResult.Result.FAILURE);
-            result.setAnyException(e);
-            return false;
-        }
     }
 
 //    /**
@@ -1257,46 +1193,6 @@ public class JMXCollector2 extends AbstractCollector {
         this.connectionFactory = connectionFactory;
     }
 
-
-    /**
-     * @return the availabilityMBean
-     */
-    @ManagedAttribute
-    public String getAvailabilityMBean() {
-        if(availabilityMBean!=null)
-            return availabilityMBean.toString();
-        else
-            return "";
-    }
-
-    /**
-     * @param availabilityMBean the availabilityMBean to set
-     */
-    public void setAvailabilityMBean(String availabilityMBean) {
-        try {
-            this.availabilityMBean = ObjectName.getInstance(availabilityMBean);
-        } catch (MalformedObjectNameException e) {
-            e.printStackTrace();
-        } catch (NullPointerException e) {
-            e.printStackTrace();
-        }
-    }
-
-    /**
-     * @return the availabilityAttribute
-     */
-    @ManagedAttribute
-    public String getAvailabilityAttribute() {
-        return availabilityAttribute;
-    }
-
-    /**
-     * @param availabilityAttribute the availabilityAttribute to set
-     */
-    public void setAvailabilityAttribute(String availabilityAttribute) {
-        this.availabilityAttribute = availabilityAttribute;
-    }
-
     /**
      * @return the availabilitySegment
      */
@@ -1409,44 +1305,6 @@ public class JMXCollector2 extends AbstractCollector {
     public void setVirtualAgentLocator(String virtualAgentLocator) {
         this.virtualAgentLocator = virtualAgentLocator;
     }
-
-    /**
-     * Returns the virtual host for this target MBeanServer
-     * @return the virtual host for this target MBeanServer
-     */
-    @ManagedAttribute
-    public String getVirtualHost() {
-        return virtualHost;
-    }
-
-    /**
-     * Sets the virtual host for the Target MBeanServer
-     * @param virtualHost
-     */
-    @ManagedAttribute
-    public void setVirtualHost(String virtualHost){
-        this.virtualHost = virtualHost;
-    }
-
-
-    /**
-     * Returns the virtual agent for this target MBeanServer
-     * @return the virtual agent for this target MBeanServer
-     */
-    @ManagedAttribute
-    public String getVirtualAgent() {
-        return virtualAgent;
-    }
-
-    /**
-     * Sets the virtual agent for the Target MBeanServer
-     * @param virtualAgent
-     */
-    @ManagedAttribute
-    public void setVirtualAgent(String virtualAgent){
-        this.virtualAgent = virtualAgent;
-    }
-
 
     /**
      * Indicates if mapped metrics should be used for mxbean tracing
