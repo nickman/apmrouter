@@ -25,6 +25,7 @@
 package org.helios.apmrouter.metric;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -41,31 +42,58 @@ import java.util.regex.Pattern;
 public class MetricURIBuilder {
 	
 	//  <Domain>/<Host>/<Agent>/<Namespace>[:<MetricName>][?<OptionKey1>=<OptionValue1>[...<OptionKeyn>=<OptionValuen>]]
-	
+	/** The subscription's domain */
 	private String domain = null;
+	/** The subscription's host */
 	private String host = null;
+	/** The subscription's agent */
 	private String agent = null;
 	private int state = 0;
+	/** The subscription's metric name spaces, defaulting to none */
 	private List<String> namespaces = new ArrayList<String>();
-	private Set<MetricType> types = EnumSet.noneOf(MetricType.class);
 	
-	//  SubTypes
-//	/** Subscribes to metric state change events */
-//	STATE_CHANGE(1),
-//	/** Subscribes to new metric events */
-//	NEW_METRIC(2),
-//	/** Subscribes to a data feed for the metrics */
-//	DATA(4);
-//
+	/** The subscription's metric types, defaulting to all long types */
+	private Set<MetricType> metricTypes = EnumSet.of(MetricType.DELTA_COUNTER, MetricType.getLongMetricTypes()) ;
+	/** The subscription's sub event types, defaulting to all */
+	private Set<SubscriptionType> subTypes = EnumSet.allOf(SubscriptionType.class);
+	/** The subscription's event statuses, defaulting to all */
+	private Set<MetricStatus> statuses = EnumSet.allOf(MetricStatus.class);
+	
+	
+	/**
+	 * <p>Title: SubscriptionType</p>
+	 * <p>Description: Defines the MetricURI events that a MetricURI subscription is interested in.</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.metric.MetricURIBuilder.SubscriptionType</code></p>
+	 */
+	public static enum SubscriptionType {
+		/** Subscribes to metric state change events */
+		STATE_CHANGE,
+		/** Subscribes to new metric events */
+		NEW_METRIC,
+		/** Subscribes to a data feed for the metrics */
+		DATA;		
+	}
+	
+	/**
+	 * <p>Title: MetricStatus</p>
+	 * <p>Description: Defines the possibles statuses of a metric that a subscriber might be interested to know about</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.metric.MetricURIBuilder.MetricStatus</code></p>
+	 */
+	public static enum MetricStatus {
+		/** The entry is active and has had recent inserts */
+		ACTIVE,
+		/** The entry is stale and has not seen inserts within the stale window */
+		STALE,
+		/** The entry is offline and has not seen inserts within one time series tier */
+		OFFLINE;		
+	}
+	
 	
 
-	//  Metric Status
-//	/** The entry is active and has had recent inserts */
-//	ACTIVE((byte)1),
-//	/** The entry is stale and has not seen inserts within the stale window */
-//	STALE((byte)2),
-//	/** The entry is offline and has not seen inserts within one time series tier */
-//	OFFLINE((byte)4);
 
 	
 	/** Option key for a recursive query */
