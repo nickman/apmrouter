@@ -859,6 +859,20 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 		
 	}
 
+    /**
+     * Reverses the order of the passed array
+     * @param arr The array to reverse
+     * @return The reversed order array
+     */
+    protected String[] reverseArr(String[] arr) {
+        String[] ret = new String[arr.length];
+
+        for(int ri = arr.length-1, i = 0; i < arr.length; i++, ri--) {
+            ret[ri] = arr[i];
+        }
+        return ret;
+    }
+
 //	public void handleNotification(Notification notification, Object handback) {}
 	
 }

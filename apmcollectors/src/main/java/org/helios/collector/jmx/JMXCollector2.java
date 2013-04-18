@@ -1425,7 +1425,14 @@ public class JMXCollector2 extends AbstractCollector {
      */
     @ManagedAttribute
     public void setVirtualHost(String virtualHost){
-        this.virtualHost = virtualHost;
+        virtualHost = virtualHost.trim();
+        if(virtualHost.contains(".")) {
+            String[] frags = virtualHost.replace(" ", "").split("\\.");
+            frags = reverseArr(frags);
+            this.virtualHost = org.helios.apmrouter.jmx.StringHelper.fastConcatAndDelim(".", frags);
+        }else{
+            this.virtualHost = virtualHost;
+        }
     }
 
 
