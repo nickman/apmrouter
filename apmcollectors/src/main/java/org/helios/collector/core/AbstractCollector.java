@@ -90,7 +90,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	*/ 
 		
 	/** The tracer instance */
-	protected ITracer tracer = TracerFactory.getTracer();
+	protected ITracer tracer = null;
 	/** The scheduler handle for this collector */
 	protected ScheduledFuture<?> scheduleHandle = null;
 	/** The collection period in ms. */
@@ -157,7 +157,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	protected static AtomicInteger numberOfActiveCollectors = new AtomicInteger();	
 	private static AtomicLong notificationSerialNumber = new AtomicLong(0);	
 	/** A label to be displayed on Helios dashboard for Availability of this collector */
-	protected String defaultAvailabilityLabel="Availability";
+	protected String defaultAvailabilityLabel="TargetAvailability";
 	/** Number of failures during collect before Helios switches to a alternate (slower) frequency for this collector */
 	protected int failureThreshold = 5;
 	/** Number of consecutive errors produced by this collector so far */
@@ -217,6 +217,13 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	protected static final Pattern targetPattern = Pattern.compile("\\{TARGET-PROPERTY:([a-zA-Z\\(\\)\\s-]+)}");
 	/** The root tracing namespace where all collected metrics will be traced to */
 	protected String[] tracingNameSpace;
+    /** The virtual tracer host */
+    protected String virtualHost = null;
+    /** The virtual tracer agent */
+    protected String virtualAgent = null;
+    protected String defaultVirtualHost = "APMRouter";
+    protected String defaultVirtualAgent = "Collectors";
+
 
 	
 	static {
@@ -358,15 +365,54 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 
 	public void setTracingNameSpace(String[] tracingNameSpace) {
 		this.tracingNameSpace = tracingNameSpace;
-	}	
-	
+	}
+
+    /**
+     * Returns the virtual host for this target MBeanServer
+     * @return the virtual host for this target MBeanServer
+     */
+    @ManagedAttribute
+    public String getVirtualHost() {
+        return virtualHost;
+    }
+
+    /**
+     * Sets the virtual host for the Target MBeanServer
+     * @param virtualHost
+     */
+    @ManagedAttribute
+    public void setVirtualHost(String virtualHost){
+        virtualHost = virtualHost.trim();
+        if(virtualHost.contains(".")) {
+            String[] frags = virtualHost.replace(" ", "").split("\\.");
+            frags = reverseArr(frags);
+            this.virtualHost = org.helios.apmrouter.jmx.StringHelper.fastConcatAndDelim(".", frags);
+        }else{
+            this.virtualHost = virtualHost;
+        }
+    }
+
+
+    /**
+     * Returns the virtual agent for this target MBeanServer
+     * @return the virtual agent for this target MBeanServer
+     */
+    @ManagedAttribute
+    public String getVirtualAgent() {
+        return virtualAgent;
+    }
+
+    /**
+     * Sets the virtual agent for the Target MBeanServer
+     * @param virtualAgent
+     */
+    @ManagedAttribute
+    public void setVirtualAgent(String virtualAgent){
+        this.virtualAgent = virtualAgent;
+    }
+
+
 	/*  ==================  CUSTOM LIFECYCLE METHODS =============================*/
-	
-//	/**
-//	 * This method can be overridden by concrete implementation classes 
-//	 * for any custom pre initialization tasks that needs to be done.
-//	 */
-//	public void preInit() {}	
 	
 	/**
 	 * Initializes basic resources that are critical for any collector to work properly.
@@ -376,10 +422,14 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	public final void init() {
 		setState(CollectorState.INITIALIZING);
 		try{
-			//preInit();
+            if(virtualHost!=null && virtualAgent!=null) {
+                this.tracer = TracerFactory.getTracer(virtualHost, virtualAgent, getClass().getSimpleName()+"-"+getBeanName(), (int)(getCollectionPeriod()*1.2));
+            }else{
+                // virtualAgent and/or virtualHost property is not provided so switching back to default naming convention
+                this.tracer = TracerFactory.getTracer(defaultVirtualHost, defaultVirtualAgent, getClass().getSimpleName()+"-"+getBeanName(), (int)(getCollectionPeriod()*1.2));
+                //this.tracer = TracerFactory.getTracer();
+            }
 			initCollector();
-			//postInit();
-			//processBlackoutInfo();
 			setState(CollectorState.INITIALIZED);
 		} catch(Exception ex){
 			setState(CollectorState.INIT_FAILED);
@@ -405,13 +455,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	 * An additional convenience method provided for implementing task that needs to be 
 	 * performed for initialization of this collector
 	 */
-	public void initCollector(){}		
-	
-//	/**
-//	 * This method can be overridden by concrete implementation classes 
-//	 * for any custom post initialization tasks that needs to be done.
-//	 */
-//	public void postInit(){}
+	public void initCollector(){}
 
 	/**
 	 * This method can be overridden by concrete implementation classes 
