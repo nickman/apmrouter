@@ -136,7 +136,7 @@ public class MetricURIBuilder {
 					continue;
 				}
 				try {
-					t = enumValues[0].valueOf(type, evalue);
+					t = (T) enumValues[0].valueOf(enumValues[0].getClass(), evalue);
 				} catch (Exception ex) {
 					
 				}
@@ -147,6 +147,10 @@ public class MetricURIBuilder {
 	}
 
 
+	static {
+		extractEnums(MetricType.class, "");
+		
+	}
 	
 	/** Option key for the max depth of the query */
 	public static final String OPT_MAX_DEPTH = "maxd";
