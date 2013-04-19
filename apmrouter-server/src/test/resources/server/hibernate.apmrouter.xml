@@ -32,6 +32,11 @@
             </props>
         </property>
     </bean>
+    
+    <bean id="hibernateJmxStats" class="org.hibernate.jmx.StatisticsService">
+    	<property name="statisticsEnabled" value="true"/>
+    	<property name="sessionFactory" ref="sessionFactory"/>
+    </bean>
  
     <tx:annotation-driven />
     

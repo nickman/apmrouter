@@ -30,12 +30,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
+
+import javax.management.Attribute;
+import javax.management.AttributeList;
 
 import org.helios.apmrouter.util.URLHelper;
 
@@ -72,6 +74,62 @@ public class MetricURIBuilder {
 	private Set<MetricStatus> statuses = EnumSet.allOf(MetricStatus.class);
 	
 	
+	/**
+	 * Builds the metric URI from the current state of this builder
+	 * @param useOrdinals If true, enum constants will be rendered using their ordinals, otherwise they will be rendered using their names.
+	 * @return the metric URI
+	 */
+	public URI build(boolean useOrdinals) {
+		StringBuilder b = new StringBuilder();
+		b.append(domain).append("/").append(host).append("/").append(agent);
+		for(String s: namespaces) {
+			b.append("/").append(s);
+		}
+		if(metricName != null) {
+			b.append(":").append(metricName);
+		}
+		b.append("?");
+		boolean ao = false;
+		if(!metricTypes.isEmpty()) {
+			b.append("&").append(OPT_METRIC_TYPE).append("=");
+			for(MetricType t: metricTypes) {
+				b.append(useOrdinals ? t.ordinal() : t.name()).append(",");
+				ao = true;
+			}
+			if(ao) b.deleteCharAt(b.length()-1);		
+		}
+		ao = false;
+		if(!subTypes.isEmpty()) {
+			b.append("&").append(OPT_SUB_TYPE).append("=");
+			for(SubscriptionType t: subTypes) {
+				b.append(useOrdinals ? t.ordinal() : t.name()).append(",");
+				ao = true;
+			}
+			if(ao) b.deleteCharAt(b.length()-1);		
+		}
+		ao = false;
+		if(!statuses.isEmpty()) {
+			b.append("&").append(OPT_METRIC_STATUS).append("=");
+			for(MetricStatus t: statuses) {
+				b.append(useOrdinals ? t.ordinal() : t.name()).append(",");
+				ao = true;
+			}
+			if(ao) b.deleteCharAt(b.length()-1);		
+		}		
+		if(maxd>0) {
+			b.append("&").append(OPT_MAX_DEPTH).append("=").append(maxd);
+		}
+		
+		return URLHelper.toURI(b);
+	}
+	
+	/**
+	 * Builds the metric URI from the current state of this builder, rendering enum constants using ordinals
+	 * @return the metric URI
+	 */
+	public URI build() {
+		return build(true);
+	}
 	
 	
 	/**
@@ -107,7 +165,7 @@ public class MetricURIBuilder {
 	}
 	
 	/** A map of enum constants indexed by the ordinal externally indexed by the enum class */
-	private static final Map<Class<? extends Enum<?>>, Map<Integer, ? extends Enum<?>>> ORDMAPS = new HashMap<Class<? extends Enum<?>>, Map<Integer, ? extends Enum<?>>>();
+	private static final Map<Class<? extends Enum<?>>, Map<String, ? extends Enum<?>>> ORDMAPS = new HashMap<Class<? extends Enum<?>>, Map<String, ? extends Enum<?>>>();
 	
 	/** The metric namespace delimiter splitter */
 	public static final Pattern SLASH_SPLITTER = Pattern.compile("/");
@@ -118,14 +176,19 @@ public class MetricURIBuilder {
 	
 	
 	
-	public static <T extends Enum<?>> Set<T> extractEnums(Class<T> type, CharSequence value) {
-		
+	/**
+	 * Parses the passed string value for comma separated values representing enum constants in the passed type.
+	 * Enum constants may be specified as the name, or as the oridinal.
+	 * @param type The enum type representing the MetricURI option
+	 * @param value The comma separated string value to parse
+	 * @return a set of select enum options
+	 */
+	@SuppressWarnings("unchecked")
+	public static <T extends Enum<?>> Set<T> extractEnums(Class<T> type, CharSequence value) {		
 		T[] enumValues = type.getEnumConstants();
+		if(enumValues.length==0) return Collections.emptySet();
+		Map<String, T> ORD2ENUM = getEnumCache(type);
 		Set<T> set = EnumSet.noneOf(enumValues[0].getClass());
-		Map<String, T> ORD2ENUM = new HashMap<String, T>(enumValues.length);
-		for(T t : enumValues) {
-			ORD2ENUM.put("" + t.ordinal(), t);
-		}
 		String[] evalues = COMMA_SPLITTER.split(value);
 		if(evalues.length>0) {
 			for(String evalue : evalues) {
@@ -136,21 +199,57 @@ public class MetricURIBuilder {
 					continue;
 				}
 				try {
-					t = (T) enumValues[0].valueOf(enumValues[0].getClass(), evalue);
-				} catch (Exception ex) {
-					
+					t = (T) Enum.valueOf(enumValues[0].getClass(), evalue);
+					set.add(t);
+					continue;					
+				} catch (Exception ex) { /* No Op */ }
+				throw new RuntimeException("Unrecognized option value [" + evalue + "] for option type [" + type.getSimpleName() + "]", new Throwable());
+			}
+		}		
+		return set;
+	}
+		
+	/**
+	 * Creates an enum lookup cache for the passed enum type
+	 * @param type The enum type to prep a cache for
+	 */
+	private static <T extends Enum<?>> Map<String, T> getEnumCache(Class<T> type) {
+		Map<String, T> ORD2ENUM = (Map<String, T>) ORDMAPS.get(type); 
+		if(ORD2ENUM==null) {
+			synchronized(ORDMAPS) {
+				ORD2ENUM = (Map<String, T>) ORDMAPS.get(type);
+				if(ORD2ENUM==null) {
+					T[] enumValues = type.getEnumConstants();
+					ORD2ENUM = new HashMap<String, T>(enumValues.length);
+					for(T t : enumValues) {
+						ORD2ENUM.put("" + t.ordinal(), t);
+					}
+					ORDMAPS.put(type, Collections.unmodifiableMap(ORD2ENUM));					
 				}
 			}
 		}
-		
-		return set;
+		return ORD2ENUM;
 	}
 
 
-	static {
-		extractEnums(MetricType.class, "");
-		
-	}
+//	static {
+//		getEnumCache(MetricType.class);
+//		getEnumCache(SubscriptionType.class);
+//		getEnumCache(MetricStatus.class);
+//		log("ORD MAP DUMP:");
+//		for(Map.Entry<Class<? extends Enum<?>>, Map<String, ? extends Enum<?>>> entry: ORDMAPS.entrySet()) {
+//			StringBuilder b = new StringBuilder("\n\t").append(entry.getKey().getSimpleName());
+//			for(Map.Entry<String, ? extends Enum<?>> en: entry.getValue().entrySet()) {
+//				b.append("\n\t\t[").append(en.getValue().name()).append(":").append(en.getValue().ordinal()).append("/").append(en.getKey()).append("]");
+//			}
+//			log(b);
+//		}
+//		
+//	}
+	
+//	private static void log(Object msg) {
+//		System.out.println(msg);
+//	}
 	
 	/** Option key for the max depth of the query */
 	public static final String OPT_MAX_DEPTH = "maxd";
@@ -203,7 +302,7 @@ public class MetricURIBuilder {
 	}
 	
 	/**
-	 * Creates a new MetricURIBuilder
+	 * Creates a new MetricURIBuilder from a minimal or full uri string which is fully validated for MetricURI rules
 	 * @param metricUriPath The metric URI that must contain at least the domain, host and agent.
 	 */
 	private MetricURIBuilder(CharSequence metricUriPath) {
@@ -249,12 +348,107 @@ public class MetricURIBuilder {
 			String key = frag.substring(0, index).trim();
 			String value = frag.substring(index+1).trim();
 			if(!QUERY_KEYS.contains(key)) throw new RuntimeException("Invalid MetricURI Option Key [" + key + "] was not a valid option key", new Throwable());
-			
-			
-		}
-		
-		
+			// One of OPT_MAX_DEPTH, OPT_METRIC_TYPE, OPT_METRIC_STATUS, OPT_SUB_TYPE
+			if(OPT_MAX_DEPTH.equals(key)) {
+				try {
+					maxd = Integer.parseInt(value);
+					if(maxd<0) throw new Exception();
+				} catch (Exception ex) {
+					throw new RuntimeException("Invalid MaxDepth option [" + value + "]", new Throwable());
+				}
+			} else if(OPT_METRIC_TYPE.equals(key)) {
+				metricTypes.clear();
+				metricTypes.addAll(extractEnums(MetricType.class, value));
+			} else if(OPT_METRIC_STATUS.equals(key)) {
+				statuses.clear();
+				statuses.addAll(extractEnums(MetricStatus.class, value));				
+			} else if(OPT_SUB_TYPE.equals(key)) {
+				subTypes.clear();
+				subTypes.addAll(extractEnums(SubscriptionType.class, value));				
+			}			
+		}				
 	}
+	
+	/**
+	 * Sets the metric name
+	 * @param metricName The metric name to set
+	 * @return this builder
+	 */
+	public MetricURIBuilder metricName(String metricName) {
+		if(metricName==null || metricName.trim().isEmpty()) throw new IllegalArgumentException("The passed metric name was null or empty", new Throwable());
+		this.metricName = metricName.trim();
+		return this;
+	}
+	
+	/**
+	 * Set the MetricURI namespace to the passed namespaces, clearing the prior set (even if the passed array is empty !).
+	 * @param namespaces The namespaces to set.
+	 * @return this builder
+	 */
+	public MetricURIBuilder namespace(String...namespaces) {
+		return namespace(false, namespaces);
+	}
+	
+	/**
+	 * Set the MetricURI namespace to the passed namespaces
+	 * @param append true to add to the existing, false to replace
+	 * @param namespaces The namsepaces to add
+	 * @return this builder
+	 */
+	public MetricURIBuilder namespace(boolean append, String...namespaces) {
+		if(!append) this.namespaces.clear();
+		if(namespaces!=null) {
+			for(String s: namespaces) {
+				if(s==null || s.trim().isEmpty()) continue;
+				this.namespaces.add(s.trim());
+			}
+		}
+		return this;
+	}
+	
+	/**
+	 * Adds metric types to the subscription URI
+	 * @param append true to add, false to replace
+	 * @param metricTypes An array of metric type enum constants to add
+	 * @return this builder
+	 */
+	public MetricURIBuilder metricType(boolean append, MetricType...metricTypes) {
+		if(!append) this.metricTypes.clear();
+		if(metricTypes!=null) {
+			for(MetricType t: metricTypes) {
+				if(t!=null) this.metricTypes.add(t);
+			}
+		}
+		return this;
+	}
+	
+	/**
+	 * Appends metric types to the subscription URI
+	 * @param metricTypes An array of metric type enum constants to add
+	 * @return this builder
+	 */
+	public MetricURIBuilder appendMetricType(MetricType...metricTypes) {
+		return metricType(true, metricTypes);
+	}
+	
+	/**
+	 * Replaces the metric types in the subscription URI
+	 * @param metricTypes An array of metric type enum constants to replace the existing ones
+	 * @return this builder
+	 */
+	public MetricURIBuilder metricType(MetricType...metricTypes) {
+		return metricType(false, metricTypes);
+	}
+	
+	/**
+	 * Sets the metric types to long values only
+	 * @return this builder
+	 */
+	public MetricURIBuilder longMetricTypes() {
+		return metricType(false, MetricType.getLongMetricTypes());
+	}
+	
+	
 	
 	
 	/**
@@ -274,13 +468,140 @@ public class MetricURIBuilder {
 		}
 		return null;
 	}
+	
+	/**
+	 * Adds metric statuses to the subscription URI
+	 * @param append true to add, false to replace
+	 * @param metricStatuses An array of metric status enum constants to add
+	 * @return this builder
+	 */
+	public MetricURIBuilder metricStatus(boolean append, MetricStatus...metricStatuses) {
+		if(!append) this.statuses.clear();
+		if(metricStatuses!=null) {
+			for(MetricStatus t: metricStatuses) {
+				if(t!=null) this.statuses.add(t);
+			}
+		}
+		return this;
+	}
+	
+	/**
+	 * Sets the maximum recursion depth for the metric URI
+	 * @param maxDepth The maximum recursion depth
+	 * @return this builder
+	 */
+	public MetricURIBuilder maxDepth(int maxDepth) {
+		if(maxDepth<0) throw new IllegalArgumentException("Invalid max depth [" + maxDepth + "]", new Throwable());
+		maxd = maxDepth;
+		return this;
+	}
+	
+	/**
+	 * Appends metric statuses to the subscription URI
+	 * @param metricStatuses An array of metric status enum constants to append
+	 * @return this builder
+	 */
+	public MetricURIBuilder appendMetricStatus(MetricStatus...metricStatuses) {
+		return metricStatus(true, metricStatuses);
+	}
+	
+	/**
+	 * Replaces the metric statuses in the subscription URI
+	 * @param metricStatuses An array of metric status enum constants to replace the current ones with
+	 * @return this builder
+	 */
+	public MetricURIBuilder metricStatus(MetricStatus...metricStatuses) {
+		return metricStatus(false, metricStatuses);
+	}
+	
+	/**
+	 * Adds subscription types to the subscription URI
+	 * @param append true to add, false to replace
+	 * @param subTypes An array of subscription type enum constants to add
+	 * @return this builder
+	 */
+	public MetricURIBuilder subType(boolean append, SubscriptionType...subTypes) {
+		if(!append) this.subTypes.clear();
+		if(subTypes!=null) {
+			for(SubscriptionType t: subTypes) {
+				if(t!=null) this.subTypes.add(t);
+			}
+		}
+		return this;
+	}
+	
+	/**
+	 * Appends subscription types to the subscription URI
+	 * @param subTypes An array of subscription type enum constants to add
+	 * @return this builder
+	 */
+	public MetricURIBuilder appendSubType(SubscriptionType...subTypes) {
+		return subType(true, subTypes);
+	}
+	
+	/**
+	 * Replaces subscription types in the subscription URI
+	 * @param subTypes An array of subscription type enum constants to replace the current ones
+	 * @return this builder
+	 */
+	public MetricURIBuilder subType(SubscriptionType...subTypes) {
+		return subType(false, subTypes);
+	}
+	
+	
+	
+	
 
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		// TODO Auto-generated method stub
+		log("MetricURI Builder Test");
+		log(
+				MetricURIBuilder.newBuilder("DefaultDomain", "njw810", "GroovyAgent")
+					.namespace("A=B", "C=D", "E=F")
+					.metricName("TCPOperations")
+					.longMetricTypes()
+					.subType(SubscriptionType.NEW_METRIC)
+					.metricStatus(MetricStatus.values())
+					.build()
+		);
+		
 
 	}
+	
+//	public Map<String, Object> attrListToMap(AttributeList attrList) {
+//		Map<String, Object> attributeMap = new HashMap<String, Object>(attrList.size());
+//		for(Attribute attr: attrList.asList()) {
+//			attributeMap.put(attr.getName(), attr.getValue());
+//		}
+//		return attributeMap;
+//	}
 
+	
+	public static void log(Object msg) {
+		System.out.println(msg);
+	}
+	
 }
