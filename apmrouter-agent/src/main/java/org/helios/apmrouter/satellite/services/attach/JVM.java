@@ -415,6 +415,15 @@ public class JVM extends NotificationBroadcasterSupport implements JVMMBean {
 	public static String cleanDisplayName(VirtualMachineDescriptor vmd) {
 		if(vmd==null) return UNKNOWN;
 		String display = vmd.displayName();
+		return cleanDisplayName(display);
+	}
+	
+	/**
+	 * Examines the VM display name (command line main class) and attempts to clean it up for use as a key
+	 * @param display The VirtualMachineDescriptor of the target JVM
+	 * @return The cleaned name, or <b><code>"Unknown"</code></b> if the display name did not conform to a recognized pattern
+	 */
+	public static String cleanDisplayName(String display) {
 		String[] dfragments = WHITE_SPACE_EXPR.split(display);
 		if(dfragments.length>0 && dfragments[0]!=null && !dfragments[0].trim().isEmpty()) {
 			String name = UNKNOWN;
@@ -427,7 +436,9 @@ public class JVM extends NotificationBroadcasterSupport implements JVMMBean {
 			return name;
 		}
 		return UNKNOWN;
+		
 	}
+	
 
 	/**
 	 * {@inheritDoc}

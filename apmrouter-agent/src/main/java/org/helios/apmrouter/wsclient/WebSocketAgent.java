@@ -31,11 +31,15 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
+import org.helios.apmrouter.metric.AgentIdentity;
+import org.helios.apmrouter.metric.MetricURIBuilder;
+import org.helios.apmrouter.metric.MetricURIBuilder.SubscriptionType;
+import org.helios.apmrouter.subscription.EmptyMetricURISubscriptionEventListener;
 import org.helios.apmrouter.subscription.MetricURIEvent;
 import org.helios.apmrouter.subscription.MetricURISubscriptionEventListener;
+import org.helios.apmrouter.trace.ITracer;
+import org.helios.apmrouter.trace.TracerFactory;
 import org.helios.apmrouter.util.SimpleLogger;
-import org.helios.apmrouter.util.SystemClock;
-import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.helios.apmrouter.util.URLHelper;
 import org.json.JSONObject;
 
@@ -71,22 +75,38 @@ public class WebSocketAgent implements WebSocketEventListener {
 			agent = WebSocketAgent.newInstance("ws://localhost:8087/ws");
 			log("Connected to [" + agent.getWebSocketURI() + "]");
 			agent.wsClient.setSynchRequestTimeout(5000);
-			int loop = 10000;
-			int dot = loop/100;
-			for(int i = 0; i < loop; i++) {
-				agent.getMetrics("DefaultDomain/njw810/APMRouterServer/platform=JVM/category=cpu");
-				System.out.print(".");
-				if(i%dot==0) System.out.println("--[ " + i);
-			}
-			log("Warmup Complete");
-			SystemClock.startTimer();
-			for(int i = 0; i < loop; i++) {
-				agent.getMetrics("DefaultDomain/njw810/APMRouterServer/platform=JVM/category=cpu");
-				System.out.print(".");
-				if(i%dot==0) System.out.println("--[ " + i);				
-			}
-			ElapsedTime et = SystemClock.endTimer();
-			log(et + "  Avg " + et.avgMs(loop) + " ms. ") ;
+//			int loop = 10000;
+//			int dot = loop/100;
+//			for(int i = 0; i < loop; i++) {
+//				agent.getMetrics("DefaultDomain/njw810/APMRouterServer/platform=JVM/category=cpu");
+//				System.out.print(".");
+//				if(i%dot==0) System.out.println("--[ " + i);
+//			}
+//			log("Warmup Complete");
+//			SystemClock.startTimer();
+//			for(int i = 0; i < loop; i++) {
+//				agent.getMetrics("DefaultDomain/njw810/APMRouterServer/platform=JVM/category=cpu");
+//				System.out.print(".");
+//				if(i%dot==0) System.out.println("--[ " + i);				
+//			}
+//			ElapsedTime et = SystemClock.endTimer();
+//			log(et + "  Avg " + et.avgMs(loop) + " ms. ") ;
+			String host = AgentIdentity.ID.getHost();
+			String agentName = AgentIdentity.ID.getAgentName();
+			log("AGENT: -----[ " + agentName + "@" + host + "]");
+			ITracer tracer = TracerFactory.getTracer();
+			URI metricURI = MetricURIBuilder.newBuilder("*", host, agentName).subType(SubscriptionType.NEW_METRIC).namespace("foo", "bar").build();
+			final Set<Object> results = new CopyOnWriteArraySet<Object>();
+			agent.subscribeMetricURISynch(metricURI, new EmptyMetricURISubscriptionEventListener(){
+				@Override
+				public void onNewMetric(Object newMetric) {
+					log("Received New Metric:" + newMetric);
+					results.add(newMetric);
+				}
+			});
+			tracer.traceCounter(0, "EEE", "foo", "bar");
+			Thread.currentThread().join();
+			log("Done");
 		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
 		} finally {
@@ -425,7 +445,7 @@ public class WebSocketAgent implements WebSocketEventListener {
 	protected void registerURISub(long rid, URI metricUri, MetricURISubscriptionEventListener...listeners) {
 		metricURIRequestIds.put(metricUri, rid);
 		final MetricURISubscriptionEventListener[] _listeners = (listeners==null || listeners.length==0) ? EMPTY_LISTENER_ARR : listeners; 
-		reqListeners.put(rid, _listeners);
+		reqListeners.put(rid, _listeners);		
 	}
 	
 	/**

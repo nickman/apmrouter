@@ -3,15 +3,23 @@
  */
 package org.helios.apmrouter.metric;
 
-import org.helios.apmrouter.jmx.ConfigurationHelper;
-import org.helios.apmrouter.jmx.StringHelper;
-
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Properties;
+import java.util.Set;
+
+import org.helios.apmrouter.jmx.ConfigurationHelper;
+import org.helios.apmrouter.jmx.StringHelper;
+import org.helios.apmrouter.satellite.services.attach.JVM;
+
+import sun.management.Agent;
 
 /**
  * <p>Title: AgentIdentity</p>
@@ -28,6 +36,10 @@ public enum AgentIdentity {
 	
 	/** We don't really want these host names except as a last resort */
 	public final Set<String> UNDEZ_HOST_NAMES; 
+	
+	/** The agent property name for the JVM's main class */
+	public static final String JVM_MAIN_CLASS = "sun.java.command";
+
 	
 	/**
 	 * Creates a new AgentIdentity by divining the host name and agent name
@@ -187,6 +199,30 @@ public enum AgentIdentity {
 				return;
 			}
 		}
+		if(agentName==null) {
+			agentName = System.getProperty(JVM_MAIN_CLASS, null);
+			if(agentName!=null && agentName.trim().isEmpty()) {
+				agentName = null;
+			} else {
+				agentName = JVM.cleanDisplayName(agentName);
+			}
+		}
+		if(agentName==null) {
+			try {
+				Class<?> clazz = Class.forName("sun.management.Agent");
+				clazz.getDeclaredMethod("loadManagementProperties").invoke(null);
+				Properties p = (Properties)clazz.getDeclaredMethod("getManagementProperties").invoke(null);
+				agentName = p.getProperty(JVM_MAIN_CLASS, null);
+				if(agentName!=null && agentName.trim().isEmpty()) {
+					agentName = null;
+				} else {
+					agentName = JVM.cleanDisplayName(agentName);
+				}
+			} catch (Exception ex) {
+				agentName = null;
+			}				
+		}
+		
 		if(agentName==null) {
 			// Ok, we'll use the PID until we implement agent naming plugins
 			agentName = ManagementFactory.getRuntimeMXBean().getName().split("@")[0];

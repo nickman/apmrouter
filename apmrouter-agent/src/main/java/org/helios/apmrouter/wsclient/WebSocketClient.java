@@ -349,8 +349,8 @@ public class WebSocketClient extends OneToOneDecoder implements ChannelPipelineF
 	/**
 	 * Removes the synchronous handler from the pipeline
 	 */
-	protected void clearSynchHandler() {
-		channel.getPipeline().remove(synchHandlerKey);
+	protected void clearSynchHandler() {		
+		try { channel.getPipeline().remove(synchHandlerKey); } catch (Exception ex) {}
 	}
 	
 	
