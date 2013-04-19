@@ -136,7 +136,10 @@ public class JMXCollector2 extends AbstractCollector {
     /** A map of MemoryPool ObjectNames keyed by the memory pool name */
     protected Map<String, ObjectName> memoryPoolObjectNames = null;
     /** Memory Pool MXBean Mask Object Name */
-    protected ObjectName memoryPoolMXBean = null;
+    protected ObjectName nioBufferPoolMXBean = null;
+
+    /** A map of NIO BufferPool ObjectNames */
+    protected Map<String, ObjectName> nioBufferPoolObjectNames = null;
 
     /** Indicates if thread deadlocking should be monitored */
     protected boolean deadLockMonitor = false;
@@ -156,6 +159,9 @@ public class JMXCollector2 extends AbstractCollector {
     protected Map<Thread.State, Integer> threadStates = new HashMap<Thread.State, Integer>(12);
 
     protected Context ctx = null;
+
+    // 0 for ToBeDetermined, 1 for Yes, 2 for NeverMind
+    protected int shouldCollectNIOMXBean = 0;
 
     /**
      * The constructor for passing an instance of IMBeanServerConnectionFactory
@@ -533,10 +539,79 @@ public class JMXCollector2 extends AbstractCollector {
         processMemoryPools();
         // Threads
         processThreads();
+
+        if(shouldCollectNIOMXBean==2) { // NIO MXBean was not found so don't bother
+            return;
+        }else{
+            processNIO();
+        }
+
         if(mbeanQueryAttempted<=mbeanQueryAttempts) {
             mbeanQueryAttempted++;
         }
     }
+
+    protected void processNIO() {
+        String rootSegment[] = null;
+        long count = 0l;
+        long totalCapacity = 0l;
+        long memoryUsed = 0l;
+        try {
+            if(nioBufferPoolObjectNames==null) {
+                nioBufferPoolObjectNames = new HashMap<String, ObjectName>();
+                try {
+                    nioBufferPoolMXBean = new ObjectName("java.nio:type=BufferPool,*");
+                    if(!shouldBeCollected(nioBufferPoolMXBean)) return;
+                    Set<ObjectName> bufferPools = mBeanServerConnection.queryNames(nioBufferPoolMXBean, null);
+                    if(bufferPools.size()==0) {
+                        if(mbeanQueryAttempted<mbeanQueryAttempts) {
+                            nioBufferPoolObjectNames=null;
+                            return;
+                            // will retry
+                        }
+                    }
+                    for(ObjectName on: bufferPools) {
+                        if(shouldBeCollected(on)) {
+                            nioBufferPoolObjectNames.put(on.getKeyProperty("name"), on);
+                        }
+                    }
+                } catch (Exception e) {
+                    // If an error occurs finding matching MBeans, it is probably because the target MBean was not available.
+                    // Set the collection to null and retry next time.
+                    nioBufferPoolObjectNames=null;
+                    return;
+                }
+
+            }
+            if(!shouldBeCollected(nioBufferPoolMXBean)) return;
+
+            for(Entry<String, ObjectName> entry: nioBufferPoolObjectNames.entrySet()) {
+                count = (Long)mBeanServerConnection.getAttribute(entry.getValue(), "Count");
+                totalCapacity = (Long)mBeanServerConnection.getAttribute(entry.getValue(), "TotalCapacity");
+                memoryUsed = (Long)mBeanServerConnection.getAttribute(entry.getValue(), "MemoryUsed");
+                info(count+", "+totalCapacity+","+memoryUsed+",");
+                if(mappedMetrics) {
+                    rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=NIOBufferPools", "name=" + entry.getKey()};
+                } else {
+                    rootSegment = StringHelper.append(false,tracingNameSpace,mxBeanSegment,"NIO BufferPools", entry.getKey());
+                }
+
+                tracer.traceGauge(count,"Count",rootSegment);
+                tracer.traceGauge(totalCapacity,"TotalCapacity",rootSegment);
+                tracer.traceGauge(memoryUsed,"MemoryUsed",rootSegment);
+            }
+        } catch (InstanceNotFoundException ine) {
+            if(logErrors) { warn("MXBean Collector (" + objectName + ") Could Not Locate MBean " + nioBufferPoolMXBean); }
+        } catch (IOException ioex){
+            if(logErrors) { error("There are some issues connecting to the MBeanServer for bean " + this.getBeanName()); }
+            mBeanServerConnection=null;
+        } catch (Exception e) {
+            if(logErrors) {
+                error("Failed to process NIO Buffer Pool Stats", e);
+            }
+        }
+    }
+
 
     /**
      * Determines if a MXBean objectName should be collected based on the include and exclude constraints.
@@ -739,9 +814,9 @@ public class JMXCollector2 extends AbstractCollector {
             if(memoryPoolObjectNames==null) {
                 memoryPoolObjectNames = new HashMap<String, ObjectName>();
                 try {
-                    memoryPoolMXBean = new ObjectName(ManagementFactory.MEMORY_POOL_MXBEAN_DOMAIN_TYPE+",name=*");
-                    if(!shouldBeCollected(memoryPoolMXBean)) return;
-                    Set<ObjectName> memoryPools = mBeanServerConnection.queryNames(memoryPoolMXBean, null);
+                    nioBufferPoolMXBean = new ObjectName(ManagementFactory.MEMORY_POOL_MXBEAN_DOMAIN_TYPE+",name=*");
+                    if(!shouldBeCollected(nioBufferPoolMXBean)) return;
+                    Set<ObjectName> memoryPools = mBeanServerConnection.queryNames(nioBufferPoolMXBean, null);
                     if(memoryPools.size()==0) {
                         if(mbeanQueryAttempted<mbeanQueryAttempts) {
                             memoryPoolObjectNames=null;
@@ -762,7 +837,7 @@ public class JMXCollector2 extends AbstractCollector {
                 }
 
             }
-            if(!shouldBeCollected(memoryPoolMXBean)) return;
+            if(!shouldBeCollected(nioBufferPoolMXBean)) return;
 
             for(Entry<String, ObjectName> entry: memoryPoolObjectNames.entrySet()) {
                 poolType = (String)mBeanServerConnection.getAttribute(entry.getValue(), "Type");
@@ -780,7 +855,7 @@ public class JMXCollector2 extends AbstractCollector {
 
             }
         } catch (InstanceNotFoundException ine) {
-            if(logErrors) { warn("MXBean Collector (" + objectName + ") Could Not Locate MBean " + memoryPoolMXBean); }
+            if(logErrors) { warn("MXBean Collector (" + objectName + ") Could Not Locate MBean " + nioBufferPoolMXBean); }
         } catch (IOException ioex){
             if(logErrors) { error("There are some issues connecting to the MBeanServer for bean " + this.getBeanName()); }
             mBeanServerConnection=null;
