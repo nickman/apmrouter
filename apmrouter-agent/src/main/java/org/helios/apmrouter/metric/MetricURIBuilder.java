@@ -188,7 +188,7 @@ public class MetricURIBuilder {
 		T[] enumValues = type.getEnumConstants();
 		if(enumValues.length==0) return Collections.emptySet();
 		Map<String, T> ORD2ENUM = getEnumCache(type);
-		Set<T> set = EnumSet.noneOf(enumValues[0].getClass());
+		Set<T> set = (Set<T>) EnumSet.noneOf(enumValues[0].getClass());
 		String[] evalues = COMMA_SPLITTER.split(value);
 		if(evalues.length>0) {
 			for(String evalue : evalues) {
