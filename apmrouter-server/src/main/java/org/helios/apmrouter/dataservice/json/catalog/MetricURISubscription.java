@@ -392,6 +392,10 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 		MetricURISubscription metricUriSub = subscriptions.get(metricUri);
 		if(metricUriSub==null) {
 			synchronized(subscriptions) {
+				/***
+				 * SOMETHINGS UP RIGHT HERE.
+				 * THE SUBS RETURNED ARE NOT THE SUBS THE CHANNEL PAIR WAS ADDED TO.
+				 */
 				metricUriSub = subscriptions.get(metricUri);
 				if(metricUriSub==null) {
 					metricUriSub = new MetricURISubscription(session, metricUri);
@@ -467,6 +471,17 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 //			
 //		}
 //	}
+
+	/** The new metric write future listener */
+	protected final ChannelFutureListener writeListener = new ChannelFutureListener() {
+		@Override
+		public void operationComplete(ChannelFuture f) throws Exception {
+			if(!f.isSuccess()) {
+				LOG.warn("Failed to send new metric to channel [" + f.getChannel().getId() + "]", f.getCause());
+			}
+		}
+	};
+
 	
 	/**
 	 * Called when a new metric comes in the door and is determined to be a member of this metric uri, but not in the set already.
@@ -474,7 +489,10 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	 */
 	protected void sendSubscribersNewMetric(Metric metric) {
 		for(Channel channel: subscribedChannels) {
-			((ChannelJsonResponsePair)channel).write(metric, MetricURIEvent.NEW_METRIC.getEventName(), OpCode.ON_METRIC_URI_EVENT);
+			((ChannelJsonResponsePair)channel).write(
+					metric, 
+					MetricURIEvent.NEW_METRIC.getEventName(), 
+					OpCode.ON_METRIC_URI_EVENT).addListener(writeListener);
 		}
 	}
 	
@@ -589,6 +607,8 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 				}
 			});
 			pair.incrSubs();
+		} else {
+			LOG.warn("For some wierd reason, the pair of channel [" + channel.getId() + "] already exists in subscribed channels");
 		}
 	}
 	
@@ -649,6 +669,14 @@ class ChannelJsonResponsePair implements Channel {
 	}
 	
 
+	/** A listener to purge a channel and it's pair from instances when it closes  */
+	private static final ChannelFutureListener pairCleaner = new ChannelFutureListener() {
+		@Override
+		public void operationComplete(ChannelFuture future) throws Exception {
+			instances.remove(future.getChannel());
+		}		
+	};
+	
 	/**
 	 * Returns the ChannelJsonResponsePair for the passed channel
 	 * @param channel the inner channel
@@ -663,6 +691,7 @@ class ChannelJsonResponsePair implements Channel {
 				if(pair==null) {
 					pair = new ChannelJsonResponsePair(channel, response);
 					instances.put(channel, pair);
+					channel.getCloseFuture().addListener(pairCleaner);
 				}
 			}
 		}
@@ -992,6 +1021,7 @@ class ChannelJsonResponsePair implements Channel {
 	public void setAttachment(Object attachment) {
 		channel.setAttachment(attachment);
 	}
+
 	/**
 	 * {@inheritDoc}
 	 * @see java.lang.Object#hashCode()
@@ -1010,24 +1040,21 @@ class ChannelJsonResponsePair implements Channel {
 	 */
 	@Override
 	public boolean equals(Object obj) {
-		if (this == obj) {
+		if (this == obj)
 			return true;
-		}
-		if (obj == null) {
+		if (obj == null)
 			return false;
-		}
-		if (getClass() != obj.getClass()) {
+		if (getClass() != obj.getClass())
 			return false;
-		}
 		ChannelJsonResponsePair other = (ChannelJsonResponsePair) obj;
 		if (channel == null) {
-			if (other.channel != null) {
+			if (other.channel != null)
 				return false;
-			}
-		} else if (!channel.equals(other.channel)) {
+		} else if (!channel.getId().equals(other.channel.getId()))
 			return false;
-		}
 		return true;
 	}
+
+	
 	
 }

@@ -33,9 +33,10 @@
         </property>
     </bean>
     
-    <bean id="hibernateJmxStats" class="org.hibernate.jmx.StatisticsService">
+    <bean id="HibernateStatistics" class="org.helios.apmrouter.hibernate.HibernateStatsService">
+    	<constructor-arg ref="sessionFactory" />
     	<property name="statisticsEnabled" value="true"/>
-    	<property name="sessionFactory" ref="sessionFactory"/>
+    	<property name="objectName" value="org.hibernate.jmx:service=HibernateStatistics" />    	
     </bean>
  
     <tx:annotation-driven />

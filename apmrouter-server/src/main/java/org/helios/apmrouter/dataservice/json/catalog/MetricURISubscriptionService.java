@@ -26,6 +26,7 @@ package org.helios.apmrouter.dataservice.json.catalog;
 
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.lang.management.ManagementFactory;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -55,25 +56,13 @@ import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.support.MetricType;
 
 /**
- * <p>
- * Title: MetricURISubscriptionService
- * </p>
- * <p>
- * Description: Service to manage subscriptions to metric events in the form of
- * {@link MetricURI}s.
- * </p>
- * <p>
- * Company: Helios Development Group LLC
- * </p>
- * 
+ * <p>Title: MetricURISubscriptionService</p>
+ * <p>Description: Service to manage subscriptions to metric events in the form of {@link MetricURI}s.</p> 
+ * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- *         <p>
- *         <code>org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionService</code>
- *         </p>
+ * <p><code>org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionService</code></p>
  */
-
-public class MetricURISubscriptionService extends ServerComponentBean implements
-		UncaughtExceptionHandler, MetricURISubscriptionServiceMXBean {
+public class MetricURISubscriptionService extends ServerComponentBean implements UncaughtExceptionHandler, MetricURISubscriptionServiceMXBean {
 	/** Flag to indicate if the worker threads should keep running */
 	protected boolean keepRunning = false;
 	/** The hibernate session factory */
@@ -236,24 +225,21 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 		return MetricURISubscription.subscriptions.size();
 	}
 
+
 	/**
 	 * Subscribes the passed {@link Channel} to the specified {@link MetricURI}.
-	 * 
-	 * @param metricUri
-	 *            The {@link MetricURI} to subscribe to
-	 * @param response
-	 *            The json response to format the response (with the correct
-	 *            RID)
-	 * @param channel
-	 *            The {@link Channel} to subscribe
+	 * @param metricUri The {@link MetricURI} to subscribe to
+	 * @param response The json response to format the response (with the correct RID)
+	 * @param channel The {@link Channel} to subscribe
 	 */
-
 	public void subscribeMetricURI(MetricURI metricUri, JsonResponse response, Channel channel) {
 		Session session = null;
 		try {
 			session = sessionFactory.openSession();
 			MetricURISubscription sub = MetricURISubscription.getMetricURISubscription(session, metricUri);
 			sub.subscribeChannel(channel, response);
+		} catch (Exception ex) {
+			error("Failed to subscribe to [", metricUri.getMetricUri(), "] for channel [", channel, "] ", ex);
 		} finally {
 			if (session != null) {
 				try {
@@ -557,56 +543,46 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 		public void run() {
 			while (keepRunning) {
 				try {
-					Object[] newMetricEvent = NewElementTriggers.newMetricQueue
-							.take();
+					Object[] newMetricEvent = NewElementTriggers.newMetricQueue.take();
 					incr("NewMetricEvents");
+					final String newMetricStr = Arrays.toString(newMetricEvent);
+					debug("NewMetric:", newMetricStr);
 					final long startTime = System.nanoTime();
 					long metricId = (Long) newMetricEvent[MetricTrigger.METRIC_COLUMN_ID];
-					int metricType = ((Number) newMetricEvent[MetricTrigger.TYPE_COLUMN_ID])
-							.intValue();
-					Iterator<MetricURISubscription> subIter = MetricURISubscription
-							.getMatchingSubscriptions(
-									org.helios.apmrouter.metric.MetricType
-											.valueOf(metricType).getMask(),
-									EntryStatus.ALL_STATUS_MASK, // new metrics
-																	// are
-																	// always
-																	// active,
-																	// but we
-																	// want the
-																	// search to
-																	// be
-																	// neutral
-																	// for
-																	// status,
-																	// so we
-																	// turn all
-																	// the bits
-																	// on
-									MetricURISubscriptionType.NEW_METRIC
-											.getMask());
-					if (subIter == null)
+					int metricType = ((Number) newMetricEvent[MetricTrigger.TYPE_COLUMN_ID]).intValue();
+					Iterator<MetricURISubscription> subIter = MetricURISubscription.getMatchingSubscriptions(
+							org.helios.apmrouter.metric.MetricType.valueOf(metricType).getMask(),
+							EntryStatus.ALL_STATUS_MASK, // new metrics are always active, but we want the search to be neutral for status, so we turn all the bits on 
+							MetricURISubscriptionType.NEW_METRIC.getMask()
+					);
+					
+					if (subIter == null) {
+						debug("No subscribers for new metric [", newMetricEvent[3] , "/", newMetricEvent[6], "]");
 						continue;
+					}
+					
 					Metric lazyMetric = null;
 					while (subIter.hasNext()) {
 						MetricURISubscription subscription = subIter.next();
 						if (subscription.hasMetricId(metricId)) {
 							continue;
 						}
-						if (!subscription.resolveMembership(metricId,
-								_catalogDataSource)) {
+						if (!subscription.resolveMembership(metricId, _catalogDataSource)) {
+							debug("Metric [", newMetricEvent[3] , "/", newMetricEvent[6], "] did not resolve for sub [", subscription.getMetricURI().getMetricUri(), "]");
 							continue;
 						}
 						subscription.addMetricId(metricId);
 						if (lazyMetric == null) {
 							lazyMetric = getMetric(metricId, _sessionFactory);
 							if (lazyMetric == null) {
-								incr("NewMetricQueueProcessingErrors");
-								break; // we don't want to handle this error
-										// here.
+								warn("Metric [", newMetricEvent[3] , "/", newMetricEvent[6], "] failed catalog lookup");
+								// this means we got a metric id, but could not find it in the metric catalog
+								incr("FailedNewMetricCatalogLookups");
+								break; // we don't want to handle this error here.
 							}
 						}
 						subscription.sendSubscribersNewMetric(lazyMetric);
+						debug("Broadcast Metric [", newMetricEvent[3] , "/", newMetricEvent[6], "] for sub [", subscription.getMetricURI().getMetricUri(), "] with [", subscription.subscribedChannels.size(), "] channels");
 						incr("NewMetricBroadcasts");
 					}
 					final long elapsed = System.nanoTime() - startTime;
@@ -973,6 +949,16 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	@ManagedMetric(category = "MetricURISubscriptionNewMetrics", displayName = "NewMetricEvents", metricType = MetricType.COUNTER, description = "The total number of new metric events received")
 	public long getNewMetricEvents() {
 		return getMetricValue("NewMetricEvents");
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean#getFailedNewMetricCatalogLookups()
+	 */
+	@Override
+	@ManagedMetric(category = "MetricURISubscriptionNewMetrics", displayName = "FailedNewMetricCatalogLookups", metricType = MetricType.COUNTER, description = "The total number of failed metric catalog lookups")	
+	public long getFailedNewMetricCatalogLookups() { 
+		return getMetricValue("FailedNewMetricCatalogLookups");
 	}
 
 	/**

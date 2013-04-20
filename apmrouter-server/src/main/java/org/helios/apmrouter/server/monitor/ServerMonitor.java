@@ -271,7 +271,8 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 	 */
 	protected void trace() {
 		MBeanServer server = JMXHelper.getHeliosMBeanServer();
-		for(Map.Entry<ObjectName, Map<String[], String[]>> metrics: allCounterMetrics.entrySet()) {
+		final Set<Map.Entry<ObjectName, Map<String[], String[]>>> _allCounterMetrics = new HashSet<Map.Entry<ObjectName, Map<String[], String[]>>>(allCounterMetrics.entrySet());
+		for(Map.Entry<ObjectName, Map<String[], String[]>> metrics: _allCounterMetrics) {
 			final ObjectName on = metrics.getKey();
 			if(!server.isRegistered(on)) {
 				warn("Target MBean not registered [", on, "]");
@@ -289,7 +290,8 @@ public class ServerMonitor extends ServerComponentBean implements Runnable {
 				}				
 			}
 		}
-		for(Map.Entry<ObjectName, Map<String[], String[]>> metrics: allGaugeMetrics.entrySet()) {
+		final Set<Map.Entry<ObjectName, Map<String[], String[]>>> _allGaugeMetrics = new HashSet<Map.Entry<ObjectName, Map<String[], String[]>>>(allGaugeMetrics.entrySet());
+		for(Map.Entry<ObjectName, Map<String[], String[]>> metrics: _allGaugeMetrics) {
 			final ObjectName on = metrics.getKey();
 			if(!server.isRegistered(on)) {
 				warn("Target MBean not registered [", on, "]");

@@ -199,6 +199,9 @@ public abstract class ServerComponent {
 		return b.toString();
 	}
 	
+	/** EOL bytes */
+	private static final byte[] EOL = "\n".getBytes();
+	
 	/**
 	 * Formats a throwable's stack trace
 	 * @param t The throwable to format
@@ -207,8 +210,9 @@ public abstract class ServerComponent {
 	public static String formatStackTrace(Throwable t) {
 		if(t==null) return "";
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		t.printStackTrace(new PrintStream(baos, true));
 		try {
+			baos.write(EOL);
+			t.printStackTrace(new PrintStream(baos, true));		
 			baos.flush();
 		} catch (IOException e) {
 		}

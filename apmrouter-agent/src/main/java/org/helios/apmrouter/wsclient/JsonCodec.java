@@ -160,7 +160,7 @@ public class JsonCodec extends SimpleChannelHandler {
 	 */
 	@Override
 	public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
-		SimpleLogger.debug("JsonCodec: Received from [", e.getRemoteAddress() , "]-->[", e.getMessage(), "]" );
+		//SimpleLogger.debug("JsonCodec: Received from [", e.getRemoteAddress() , "]-->[", e.getMessage(), "]" );
 		Object event = e.getMessage();
 		if(event instanceof TextWebSocketFrame) {
 			TextWebSocketFrame textFrame = (TextWebSocketFrame)event;

@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.helios.apmrouter.metric.AgentIdentity;
 import org.helios.apmrouter.metric.MetricURIBuilder;
@@ -97,15 +98,25 @@ public class WebSocketAgent implements WebSocketEventListener {
 			ITracer tracer = TracerFactory.getTracer();
 			URI metricURI = MetricURIBuilder.newBuilder("*", host, agentName).subType(SubscriptionType.NEW_METRIC).namespace("foo", "bar").build();
 			final Set<Object> results = new CopyOnWriteArraySet<Object>();
+			final AtomicLong st = new AtomicLong();
 			agent.subscribeMetricURISynch(metricURI, new EmptyMetricURISubscriptionEventListener(){
 				@Override
 				public void onNewMetric(Object newMetric) {
-					log("Received New Metric:" + newMetric);
+					long elapsed = System.currentTimeMillis()-st.get();
+					log("Received New Metric after [" + elapsed + "] ms. :" + newMetric);
 					results.add(newMetric);
 				}
 			});
-			tracer.traceCounter(0, "EEE", "foo", "bar");
-			Thread.currentThread().join();
+			//Thread.sleep(3000);
+			log("Listener Registered");
+			
+			for(int x = 0; x < 100; x++) {
+				st.set(System.currentTimeMillis());
+				String mname = "D" + x;
+				tracer.traceCounter(0, mname, "foo", "bar");
+				log("Traced [" + mname + "]");
+				Thread.sleep(5000);
+			}			
 			log("Done");
 		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
@@ -385,7 +396,7 @@ public class WebSocketAgent implements WebSocketEventListener {
 	@Override
 	public void onMessage(SocketAddress remoteAddress, JSONObject message) {
 		try {
-			SimpleLogger.info(message.toString(2));
+			//SimpleLogger.info(message.toString(2));
 			long rerid = message.getLong("rerid");
 			MetricURISubscriptionEventListener[] listeners = getListenersForRerid(rerid);			
 			MetricURIEvent event = MetricURIEvent.forEvent(message.getString("t"));

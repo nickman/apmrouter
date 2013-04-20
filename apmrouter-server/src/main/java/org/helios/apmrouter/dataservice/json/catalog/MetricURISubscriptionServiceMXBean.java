@@ -24,8 +24,7 @@
  */
 package org.helios.apmrouter.dataservice.json.catalog;
 
-import org.springframework.jmx.export.annotation.ManagedMetric;
-import org.springframework.jmx.support.MetricType;
+import org.helios.apmrouter.server.ServerComponentBeanMXBean;
 
 
 
@@ -37,7 +36,7 @@ import org.springframework.jmx.support.MetricType;
  * <p><code>org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionServiceMXBean</code></p>
  */
 
-public interface MetricURISubscriptionServiceMXBean {
+public interface MetricURISubscriptionServiceMXBean extends ServerComponentBeanMXBean {
 
 	/**
 	 * Returns the current subscriptions
@@ -216,6 +215,12 @@ public interface MetricURISubscriptionServiceMXBean {
 	 * @return the total number of new metric events received
 	 */
 	public long getNewMetricEvents();
+	
+	/**
+	 * Returns the total number of failed metric catalog lookups
+	 * @return the total number of failed metric catalog lookups
+	 */
+	public long getFailedNewMetricCatalogLookups();
 	
 	/**
 	 * Returns the total number of real-time data events processed
