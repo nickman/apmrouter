@@ -160,8 +160,7 @@ public class JMXCollector2 extends AbstractCollector {
 
     protected Context ctx = null;
 
-    // 0 for ToBeDetermined, 1 for Yes, 2 for NeverMind
-    protected int shouldCollectNIOMXBean = 0;
+    protected int timesNIOMXBeanSearched = 0;
 
     /**
      * The constructor for passing an instance of IMBeanServerConnectionFactory
@@ -540,9 +539,7 @@ public class JMXCollector2 extends AbstractCollector {
         // Threads
         processThreads();
 
-        if(shouldCollectNIOMXBean==2) { // NIO MXBean was not found so don't bother
-            return;
-        }else{
+        if(timesNIOMXBeanSearched<3) {
             processNIO();
         }
 
@@ -564,11 +561,15 @@ public class JMXCollector2 extends AbstractCollector {
                     if(!shouldBeCollected(nioBufferPoolMXBean)) return;
                     Set<ObjectName> bufferPools = mBeanServerConnection.queryNames(nioBufferPoolMXBean, null);
                     if(bufferPools.size()==0) {
-                        if(mbeanQueryAttempted<mbeanQueryAttempts) {
+                        if(timesNIOMXBeanSearched <3) {
+                            timesNIOMXBeanSearched++;
                             nioBufferPoolObjectNames=null;
                             return;
-                            // will retry
+                            // will retry three times before dropping further attempts
                         }
+                    }else{
+                        // reset counter as NIO BufferPool MBean just came online
+                        timesNIOMXBeanSearched=0;
                     }
                     for(ObjectName on: bufferPools) {
                         if(shouldBeCollected(on)) {
@@ -589,7 +590,6 @@ public class JMXCollector2 extends AbstractCollector {
                 count = (Long)mBeanServerConnection.getAttribute(entry.getValue(), "Count");
                 totalCapacity = (Long)mBeanServerConnection.getAttribute(entry.getValue(), "TotalCapacity");
                 memoryUsed = (Long)mBeanServerConnection.getAttribute(entry.getValue(), "MemoryUsed");
-                info(count+", "+totalCapacity+","+memoryUsed+",");
                 if(mappedMetrics) {
                     rootSegment = new String[]{ROOT_MXBEAN_SEGMENT ,"category=NIOBufferPools", "name=" + entry.getKey()};
                 } else {
