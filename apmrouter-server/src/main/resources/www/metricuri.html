@@ -1,0 +1,134 @@
+<!DOCTYPE HTML>
+<html><head>
+		<title>Helios APMRouter MetricURI Explorer</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<script type="text/javascript" src="js/jquery-1.8.2.min.js"></script>
+		<script type="text/javascript" src="js/ui/jquery-ui-1.9.1.custom.js"></script>
+		<link type="text/css" href= "js/datatables/jquery.dataTables.css" rel="stylesheet" />
+		<link type="text/css" href= "js/datatables/jquery.dataTables_themeroller.css" rel="stylesheet" />
+
+		<link type="text/css" href="js/layout/layout-default.css" rel="stylesheet" />
+		<link type="text/css" href="css/helios.css" rel="stylesheet" />
+		<link type="text/css" href="css/apmr.css" rel="stylesheet" />
+		<link type="text/css" href="js/niceforms/niceforms-default.css" rel="stylesheet" />
+		
+		<!-- 
+			<script type="text/javascript" src="js/niceforms/niceforms.js"></script>
+		-->
+		
+		<script type="text/javascript" src="js/layout/jquery.layout-latest.js" ></script>
+		<script type="text/javascript" src="js/layouttest.js" ></script>
+		<script type="text/javascript" src="js/datatables/jquery.dataTables.min.js" ></script>
+		
+		<script type="text/javascript" src="js/jquery.livequery.js"></script>	
+		
+		
+	<style type="text/css">
+	/* STYLE LAYOUT ELEMENTS */
+	#header			{ border: 0 0 1px; padding-bottom: 0; }
+	#innerContainer { padding: 0; border: 0; }
+	#resources, #staff { padding: 0; } /* has header/content-div */
+	#resources, #filters, #staff { border-top: 0; }
+	#filters		{border-top: 0;  background: #CEE; }
+	#staff			{  }
+	/* hide panes until layout inits... */
+	#header, #resources, #innerContainer,	/* outer-layout panes */
+	#filters, #staff { display: none; }		/* inner-layout panes */
+	/* STYLE DEMO ELEMENTS */
+	body			{ background: #999; }
+	#header div		{ position: relative; overflow: hidden; }
+	#header button	{ vertical-align: middle; }
+	div.toolbar		{ padding: 5px 10px; border: 1px solid #BBB; background: #F6F6F6; }
+	div.buttons		{ padding: 7px 10px 0; text-align: center; }
+		div.left	{ float: left;  text-align: left;  }
+		div.right	{ float: right; text-align: right; }
+		div.left ,
+		div.right	{ width: 25%; font-weight: bold; font-size: 1.2em; }
+		#btnToggle	{ background: #EEE; }
+		#btnSlide	{ background: #EEE; }
+	#filters		{ background: #EEE; }
+	th				{ background: #DDD; }
+	h5				{ background: #F6F6F6; border-bottom: 1px solid #BBB; padding: 5px 15px; margin: 0; }
+	</style>
+		
+		<script type="text/javascript">
+		$(document).ready(function () {
+			var spinner = $( "#maxDepth" ).spinner({ min: 0, max: 99 });
+	        $('body').layout({ applyDefaultStyles: true, center__size: "50%", north__size: "50%" });
+	    });
+			
+		</script>
+</head>
+<body>
+	<div id="header" class="ui-layout-north">
+		<div class="toolbarx">
+
+			<fieldset>
+				<legend>Metric URI</legend>
+				<dl>
+					<dt><label for="uri">URI:</label></dt><dd><input type="text" name="uri" id="uri" size="64" maxlength="512" /></dd>
+				</dl>			
+				<dl>
+					<dt><label for="metricType">MetricType:</label></dt>
+					<dd >
+						<select id="metricType" multiple="multiple" size="1"  >
+							<option value="0">LONG_COUNTER</option>
+							<option value="1">LONG_GAUGE</option>
+							<option value="2">DELTA_COUNTER</option>
+							<option value="3">DELTA_GAUGE</option>
+							<option value="4">INCREMENTOR</option>
+							<option value="5">INTERVAL_INCREMENTOR</option>
+							<option value="6">ERROR</option>
+							<option value="7">STRING</option>
+							<option value="8">PDU</option>
+							<option value="9">BLOB</option>
+						</select>
+					</dd>
+				</dl>
+				<dl>
+					<dt><label for="subType">SubscriptionType:</label></dt>
+		            <dd>
+		            	<input type="checkbox" name="subType" id="subTypeData" value="Data" /><label for="subTypeData" class="opt">Data</label>
+		                <input type="checkbox" name="subType" id="subTypeNewMetric" value="NewMetric" /><label for="subTypeNewMetric" class="opt">New Metric</label>
+		                <input type="checkbox" name="subType" id="subTypeStateChange" value="StateChange" /><label for="subTypeStateChange" class="opt">State Change</label>
+		            </dd>
+				</dl>
+				<dl>
+					<dt><label for="metricStatus">MetricStatus:</label></dt>
+		            <dd>
+		            	<input type="checkbox" name="metricStatus" id="metricStatusActive" value="ACTIVE" /><label for="metricStatusActive" class="opt">Active</label>
+		                <input type="checkbox" name="metricStatus" id="metricStatusStale" value="STALE" /><label for="metricStatusStale" class="opt">Stale</label>
+		                <input type="checkbox" name="metricStatus" id="metricStatusOffline" value="OFFLINE" /><label for="metricStatusOffline" class="opt">Offline</label>
+		            </dd>
+				</dl>
+				<dl>
+		            <dt><label for="maxDepth">MaxDepth:</label></dt>
+		            <dd><input  type="text" value="0" name="maxDepth" id="maxDepth" width="3" size="3"  maxlength="12" /></dd>
+				</dl>
+		        <dl>
+		        	
+		            <dd><button type="button" name="subscribe" id="btnSubscribe">Subscribe</button><button type="button" name="unsubscribe" id="btnUnsubscribe">Unsubscribe</button></dd>
+		            
+		        </dl>
+				
+			</fieldset>
+    			
+			<!-- 
+			<button>Back</button>
+			<button>Fwd</button>
+			<button>Home</button>
+			<input style="width: 70%;" />
+			-->
+			
+		</div>
+	</div>
+	<div id="resources" class="ui-layout-center">
+		<h5>Pane Header</h5>
+		<div class="ui-layout-content">
+		</div>
+	</div>
+
+
+</body>
+</html>		
+
