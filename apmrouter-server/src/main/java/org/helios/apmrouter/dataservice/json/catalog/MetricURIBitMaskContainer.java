@@ -44,7 +44,7 @@ public class MetricURIBitMaskContainer extends AbstractBitMaskMatchContainer<Lon
 	private static final Set<MetricURISubscription> EMPTY_SUBS = Collections.unmodifiableSet(new HashSet<MetricURISubscription>(0));
 	
 	/**
-	 * Returns a key fo rlooking up other MetricURIBitMaskContainer
+	 * Returns a key for looking up other MetricURIBitMaskContainer
 	 * @param bitMask The bit mask that will equals
 	 * @return a key
 	 */

@@ -234,6 +234,15 @@ public class MetricURI implements MetricURIMBean {
 	}
 	
 	/**
+	 * Determines if the passed mask is a match for this metric uri
+	 * @param mask the mask to test
+	 * @return true for a match, false otherwise
+	 */
+	public boolean matches(long mask) {
+		return 0 != (this.metricTypeStatusSubTypeMask & mask);
+	}
+	
+	/**
 	 * Creates a new MetricURI
 	 * @param uri The URI to build this MetricURI with
 	 */

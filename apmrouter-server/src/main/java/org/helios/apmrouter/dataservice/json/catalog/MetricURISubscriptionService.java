@@ -237,7 +237,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 		try {
 			session = sessionFactory.openSession();
 			MetricURISubscription sub = MetricURISubscription.getMetricURISubscription(session, metricUri);
-			sub.subscribeChannel(channel, response);
+			sub.subscribeChannel(channel, response, sub);
 		} catch (Exception ex) {
 			error("Failed to subscribe to [", metricUri.getMetricUri(), "] for channel [", channel, "] ", ex);
 		} finally {

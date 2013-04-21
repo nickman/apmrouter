@@ -161,11 +161,11 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	/** The metric catalog */
 	protected static final IMetricCatalog metricCatalog = ICEMetricCatalog.getInstance();
 	
-	/** A map of {@link MetricURISubscription}s keyed by the subscription's {@link MetricURI} */
+	/** A map of  {@link MetricURISubscription}s keyed by the subscription's {@link MetricURI} */
 	protected static final ConcurrentHashMap<MetricURI, MetricURISubscription> subscriptions = new ConcurrentHashMap<MetricURI, MetricURISubscription>(128, 0.75f, 16);
 	
-	/** A list of MetricURIBitMaskContainers */
-	protected static final List<MetricURIBitMaskContainer> subscriptionsByBitMask = new CopyOnWriteArrayList<MetricURIBitMaskContainer>();
+//	/** A list of MetricURIBitMaskContainers */
+//	protected static final List<MetricURIBitMaskContainer> subscriptionsByBitMask = new CopyOnWriteArrayList<MetricURIBitMaskContainer>();
 	
 	/** A map representing the superset of subscribed-to metric ids as keys and a set of subscribers as the value */
 	protected static final NonBlockingHashMapLong<Set<MetricURISubscription>> metricIdSuperSet = new NonBlockingHashMapLong<Set<MetricURISubscription>>(false); 
@@ -177,17 +177,22 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	
 	
 	
-	/**
-	 * Returns an iterator over the subscriptions keyed for the passed type/status/subType mask, or null if there are none.
-	 * @param mask The type/status/subType mask to get subscriptions for
-	 * @return a subscription iterator or null
-	 */
-	public static Iterator<MetricURISubscription> getSubscriptionsForSubType(long mask) {
-		int index = subscriptionsByBitMask.indexOf(mask);
-		if(index==-1) return null;
-		MetricURIBitMaskContainer container = subscriptionsByBitMask.get(index);
-		return Collections.unmodifiableSet(container.getValue()).iterator();
-	}
+//	/**
+//	 * Returns an iterator over the subscriptions keyed for the passed type/status/subType mask, or null if there are none.
+//	 * @param mask The type/status/subType mask to get subscriptions for
+//	 * @return a subscription iterator or null
+//	 */
+//	public static Iterator<MetricURISubscription> getSubscriptionsForSubType(long mask) {
+//		Set<MetricURISubscription> matching = new HashSet<MetricURISubscription>();
+//		for(MetricURI muri: subscriptions.keySet()) {
+//			if()
+//		}
+//		
+//		int index = subscriptionsByBitMask.indexOf(mask);
+//		if(index==-1) return null;
+//		MetricURIBitMaskContainer container = subscriptionsByBitMask.get(index);
+//		return Collections.unmodifiableSet(container.getValue()).iterator();
+//	}
 	
 	/**
 	 * Returns an iterator over the subscriptions with a matching type/status/subType mask, or null if there are none.
@@ -195,11 +200,13 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	 * @return a subscription iterator or null
 	 */
 	public static Iterator<MetricURISubscription> getMatchingSubscriptions(long mask) {
-		MetricURIBitMaskContainer key = MetricURIBitMaskContainer.Key(mask);
-		int index = subscriptionsByBitMask.indexOf(key);
-		if(index==-1) return null;
-		MetricURIBitMaskContainer container = subscriptionsByBitMask.get(index);
-		return Collections.unmodifiableSet(container.getValue()).iterator();		
+		Set<MetricURISubscription> matching = new HashSet<MetricURISubscription>();
+		for(Map.Entry<MetricURI, MetricURISubscription> entry: subscriptions.entrySet()) {
+			if(entry.getKey().matches(mask)) {
+				matching.add(entry.getValue());
+			}
+		}
+		return matching.iterator();		
 	}
 	
 	
@@ -399,16 +406,7 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 				metricUriSub = subscriptions.get(metricUri);
 				if(metricUriSub==null) {
 					metricUriSub = new MetricURISubscription(session, metricUri);
-					subscriptions.put(metricUri, metricUriSub);
-					int index = subscriptionsByBitMask.indexOf(metricUri.getMetricTypeStatusSubTypeMask());
-					MetricURIBitMaskContainer subsContainer = null;
-					if(index==-1) {
-						subsContainer = new MetricURIBitMaskContainer(metricUri.getMetricTypeStatusSubTypeMask());						
-						subscriptionsByBitMask.add(subsContainer);
-					} else {
-						subsContainer = subscriptionsByBitMask.get(index);
-					}
-					subsContainer.getValue().add(metricUriSub);
+					subscriptions.put(metricUri, metricUriSub);					
 				}
 			}
 		}
@@ -591,8 +589,9 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 	 * Subscribes the passed channel to this MetricURISubscription
 	 * @param channel The channel to subscribe
 	 * @param response The response formatter for the channel's remote client
+	 * @param sub The subscription instance
 	 */
-	public void subscribeChannel(final Channel channel, JsonResponse response) {
+	public void subscribeChannel(final Channel channel, JsonResponse response, final MetricURISubscription sub) {
 		if(channel==null) throw new IllegalArgumentException("The passed channel was null", new Throwable());
 		if(response==null) throw new IllegalArgumentException("The passed response was null", new Throwable());
 		final ChannelJsonResponsePair pair = ChannelJsonResponsePair.getChannelJsonResponsePair(channel, response);
@@ -600,15 +599,24 @@ public class MetricURISubscription implements ChannelGroupFutureListener, Metric
 			pair.getCloseFuture().addListener(new ChannelFutureListener() {
 				@Override
 				public void operationComplete(ChannelFuture future) throws Exception {
-					subscribedChannels.remove(pair);
-					if(subscribedChannels.size()<1) {
-						subscriptions.remove(metricURI);
-					}
+					terminateSubscriber(pair, sub);
 				}
 			});
 			pair.incrSubs();
 		} else {
 			LOG.warn("For some wierd reason, the pair of channel [" + channel.getId() + "] already exists in subscribed channels");
+		}
+	}
+	
+	/**
+	 * Terminates a subscription
+	 * @param pair The channel pair
+	 * @param sub the subscription
+	 */
+	protected synchronized void terminateSubscriber(ChannelJsonResponsePair pair, MetricURISubscription sub) {
+		subscribedChannels.remove(pair);
+		if(subscribedChannels.size()<1) {						
+			subscriptions.remove(metricURI);
 		}
 	}
 	

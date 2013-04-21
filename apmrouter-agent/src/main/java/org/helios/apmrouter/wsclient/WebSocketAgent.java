@@ -112,7 +112,7 @@ public class WebSocketAgent implements WebSocketEventListener {
 			
 			for(int x = 0; x < 100; x++) {
 				st.set(System.currentTimeMillis());
-				String mname = "D" + x;
+				String mname = "C" + x;
 				tracer.traceCounter(0, mname, "foo", "bar");
 				log("Traced [" + mname + "]");
 				Thread.sleep(5000);
