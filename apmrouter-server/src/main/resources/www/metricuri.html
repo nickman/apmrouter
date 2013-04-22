@@ -51,18 +51,51 @@
 	h5				{ background: #F6F6F6; border-bottom: 1px solid #BBB; padding: 5px 15px; margin: 0; }
 	</style>
 		
-		<script type="text/javascript">
+	<script type="text/javascript">
+		var metricGridColumnModel = [
+	                  			{ "sTitle": "Metric URI"},                             
+	                 			{ "sTitle": "Metric Types" },
+	                 			{ "sTitle": "Subscription Types" },                			
+	                 			{ "sTitle": "Metric Status" },
+	                 			{ "sTitle": "Max Depth" },
+	                 			{ "sTitle": "Name" },
+	                 			{ "sTitle": "Data" },
+	                 			{ "sTitle": "New" },
+	                 			{ "sTitle": "toActive" },
+	                 			{ "sTitle": "toStale" },
+	                 			{ "sTitle": "toOffline" }
+	                 ];
+	
 		$(document).ready(function () {
 			var spinner = $( "#maxDepth" ).spinner({ min: 0, max: 99 });
 	        $('body').layout({ applyDefaultStyles: true, center__size: "50%", north__size: "50%" });
+	    	metricGrid = $('#metricDisplayTable').dataTable({
+	            "bJQueryUI": true,
+	            "sPaginationType": "full_numbers",
+	            "aoColumns" : metricGridColumnModel,
+	            "bInfo" : true,
+	            "bPaginate" : false,
+	            "bSort" : true,
+	            "sScrollY": "90px",
+	            "bCollapse" : true,
+	            "bScrollCollapse": true,
+	            "sRowSelect": "multi"
+	            
+	            
+	            	
+	        }); 
+
 	    });
-			
-		</script>
+		// $.get(dis, function(data, a) { $('#connectedLight').html(data); } );
+		// var dis = "img/svg/disconnected-status.svg";
+	</script>
 </head>
 <body>
 	<div id="header" class="ui-layout-north">
-		<div class="toolbarx">
-
+		<div class="toolbar">
+			<div id="connectBar" style="padding-top: 2px">
+				<span>Connected:<span id="connectedLight"></span></span>
+			</div>
 			<fieldset>
 				<legend>Metric URI</legend>
 				<dl>
@@ -125,6 +158,9 @@
 	<div id="resources" class="ui-layout-center">
 		<h5>Pane Header</h5>
 		<div class="ui-layout-content">
+			<div id="metricDisplayGrid" class="ui-layout-east nopad">
+				<table id="metricDisplayTable" style="overflow:auto; "></table>							
+			</div>
 		</div>
 	</div>
 

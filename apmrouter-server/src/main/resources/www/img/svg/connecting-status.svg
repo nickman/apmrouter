@@ -1,0 +1,75 @@
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   version="1.1"
+   width="16"
+   height="16"
+   id="svg3980">
+  <defs
+     id="defs3982">
+    <linearGradient
+       id="linearGradient4580">
+      <stop
+         id="stop4584"
+         style="stop-color:#ffcc00;stop-opacity:0"
+         offset="0" />
+      <stop
+         id="stop4582"
+         style="stop-color:#ffcc00;stop-opacity:1"
+         offset="1" />
+    </linearGradient>
+    <radialGradient
+       cx="24.285715"
+       cy="33.076466"
+       r="7.8571429"
+       fx="24.285715"
+       fy="33.076466"
+       id="radialGradient3902"
+       xlink:href="#linearGradient3896"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(-1.0181818,0,0,1.0181818,48.727273,994.68433)" />
+    <linearGradient
+       id="linearGradient3896">
+      <stop
+         id="stop3900"
+         style="stop-color:#ff0000;stop-opacity:0"
+         offset="0" />
+      <stop
+         id="stop3898"
+         style="stop-color:#ff0000;stop-opacity:1"
+         offset="1" />
+    </linearGradient>
+    <radialGradient
+       cx="7.973762"
+       cy="8.1163368"
+       r="8"
+       fx="7.973762"
+       fy="8.1163368"
+       id="radialGradient4586"
+       xlink:href="#linearGradient4580"
+       gradientUnits="userSpaceOnUse" />
+  </defs>
+  <metadata
+     id="metadata3985">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     id="layer1">
+    <path
+       d="m -0.02623754,8.116337 c 0,4.4183 3.58172304,8 7.99999994,8 4.4182766,0 7.9999996,-3.5817 7.9999996,-8 0,-4.4183 -3.581723,-8 -7.9999996,-8 -4.4182769,0 -7.99999994,3.5817 -7.99999994,8 z"
+       id="path3125"
+       style="fill:url(#radialGradient4586);fill-opacity:1;fill-rule:nonzero;stroke:none" />
+  </g>
+</svg>
