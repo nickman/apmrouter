@@ -21,6 +21,7 @@
 		<script type="text/javascript" src="js/datatables/jquery.dataTables.min.js" ></script>
 		
 		<script type="text/javascript" src="js/jquery.livequery.js"></script>	
+		<script type="text/javascript" src="js/jquery.websocket.js"></script>
 		
 		
 	<style type="text/css">
@@ -53,7 +54,8 @@
 		
 	<script type="text/javascript">
 		var metricGridColumnModel = [
-	                  			{ "sTitle": "Metric URI"},                             
+	                  			{ "sTitle": "Metric URI"},   
+	                  			{ "sTitle": "Sub Count" },
 	                 			{ "sTitle": "Metric Types" },
 	                 			{ "sTitle": "Subscription Types" },                			
 	                 			{ "sTitle": "Metric Status" },
@@ -67,6 +69,8 @@
 	                 ];
 	
 		$(document).ready(function () {
+			$(document).websocket({wsuri:'ws://' + document.location.host + '/ws'});
+			//$.get("img/svg/disconnected-status.svg", function(data, a) { $('#connectedLight').html(data); } );
 			var spinner = $( "#maxDepth" ).spinner({ min: 0, max: 99 });
 	        $('body').layout({ applyDefaultStyles: true, center__size: "50%", north__size: "50%" });
 	    	metricGrid = $('#metricDisplayTable').dataTable({
@@ -80,21 +84,17 @@
 	            "bCollapse" : true,
 	            "bScrollCollapse": true,
 	            "sRowSelect": "multi"
-	            
-	            
-	            	
 	        }); 
-
 	    });
-		// $.get(dis, function(data, a) { $('#connectedLight').html(data); } );
-		// var dis = "img/svg/disconnected-status.svg";
+		
+		
 	</script>
 </head>
 <body>
 	<div id="header" class="ui-layout-north">
 		<div class="toolbar">
-			<div id="connectBar" style="padding-top: 2px">
-				<span>Connected:<span id="connectedLight"></span></span>
+			<div id="connectBar" style="padding-top: 2px; ">
+				<span style="vertical-align: middle; display: inline-block;"><span style="vertical-align: middle; display: inline-block;" >Connected:<span id="connectedLight" style="vertical-align: middle; display: inline-block;" ></span></span></span>
 			</div>
 			<fieldset>
 				<legend>Metric URI</legend>
