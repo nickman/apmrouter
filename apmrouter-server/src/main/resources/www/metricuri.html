@@ -53,6 +53,7 @@
 	</style>
 		
 	<script type="text/javascript">
+		var stateCache = {};
 		var metricGridColumnModel = [
 	                  			{ "sTitle": "Metric URI"},   
 	                  			{ "sTitle": "Sub Count" },
@@ -69,8 +70,6 @@
 	                 ];
 	
 		$(document).ready(function () {
-			$(document).websocket({wsuri:'ws://' + document.location.host + '/ws'});
-			//$.get("img/svg/disconnected-status.svg", function(data, a) { $('#connectedLight').html(data); } );
 			var spinner = $( "#maxDepth" ).spinner({ min: 0, max: 99 });
 	        $('body').layout({ applyDefaultStyles: true, center__size: "50%", north__size: "50%" });
 	    	metricGrid = $('#metricDisplayTable').dataTable({
@@ -84,8 +83,65 @@
 	            "bCollapse" : true,
 	            "bScrollCollapse": true,
 	            "sRowSelect": "multi"
-	        }); 
+	        });
+	    	// ========================================
+	    	//  Bind the websocket session events
+	    	// ========================================
+	    	$(document).bind('websocket-sessionid', function(event, sessionid){
+	    		console.info("SESSIONID:%s", sessionid);
+	    	});
+	    	$('#sessionIdDisplay').bind('websocket-sessionid', function(event, sessionid){
+	    		$(this).val(sessionid);
+	    	});
+	    	
+	    	$('#sessionIdDisplay').bind('websocket-disconnected', function(event, sessionid){
+	    		$(this).val("");
+	    	});
+	    	$('#connectedLight').bind('websocket-connected', function(event){
+	    		console.debug("Processing websocket.connected. event [%o]", event);
+	    		$(this).html(stateCache.connected_img);
+	    	});	    	
+	    	$('#connectedLight').bind('websocket-disconnected', function(event, sessionid){
+	    		console.debug("Processing websocket.disconnected. event [%o]", event);
+	    		$(this).html(stateCache.disconnected_img);
+	    	});
+	    	// ========================================
+	    	// Cache the content for session manageent
+	    	// so we have it on session loss
+	    	// and then initialize the websocket
+	    	// ========================================
+	    	$.when(
+			    	getContentBatch(stateCache, {
+			    		'connected_img' : 'img/svg/connected-status.svg',
+			    		'disconnected_img' : 'img/svg/disconnected-status.svg',
+			    		'connecting_img' : 'img/svg/connecting-status.svg'	    		
+			    	})).then(function(){
+			    		$(document).websocket({wsuri:'ws://' + document.location.host + '/ws'});			    		
+			    	}
+			);	    	
+
+			
+			
+
 	    });
+		
+		function getContent(url) {
+			return $.get(url).then(function(data){
+				return data;
+			});	
+		}
+
+		function getContentBatch(_settings, contentMap) {
+			var promises = [];
+			$.each(contentMap, function(k,v){
+				promises.push(getContent(v)
+						.then( function(content) {
+							_settings[k] = content;					
+						})
+				);
+			});
+			return $.when(promises);
+		}		
 		
 		
 	</script>
@@ -94,7 +150,17 @@
 	<div id="header" class="ui-layout-north">
 		<div class="toolbar">
 			<div id="connectBar" style="padding-top: 2px; ">
-				<span style="vertical-align: middle; display: inline-block;"><span style="vertical-align: middle; display: inline-block;" >Connected:<span id="connectedLight" style="vertical-align: middle; display: inline-block;" ></span></span></span>
+				<table>
+					<tr><td width="20%" align="left">
+						<span style="vertical-align: middle; display: inline-block;"><span style="vertical-align: middle; display: inline-block;" >Connected:<span id="connectedLight" style="vertical-align: middle; display: inline-block; position: relative;"></span></span></span>	
+					</td><td align="right">
+						<div>Session ID: <input id="sessionIdDisplay" contenteditable="false" disabled="disabled" maxlength="20" ></input> </div>
+					</td></tr>
+				</table>
+			
+			
+			
+				
 			</div>
 			<fieldset>
 				<legend>Metric URI</legend>
