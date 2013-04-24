@@ -1,18 +1,16 @@
 
 
 
-
 ;(function ( $, window, document, undefined ) {
 	var settings = {};
+	var states = ['connected', 'disconnected', 'connecting'];
 	function onopen() {				
 		console.info("WS: Connected to [%s]", settings.wsuri);
-		//$.event.trigger('websocket-connected');
-		settings.state = 'connected';
 	}
 	
 	function onmessage(message) {
-		var json = JSON.parse(message.data);
-		console.info("WS: MessageEvent: [%o]:[%o]", message, json);
+		var json = JSON.parse(message);
+		console.info("WS: MessageEvent: [%o]",json);
 		if(json.sessionid) {
 			settings.sessionid = json.sessionid;
 			$.event.trigger('websocket-sessionid', [json.sessionid]);
@@ -20,9 +18,8 @@
 	}
 	
 	function onclose(e) {		
-		console.info("WS: Closed");
-		settings.state = 'disconnected';
-		//$.event.trigger('websocket-disconnected');
+		console.info("WS: Closed [%s]", settings.sessionid==null ? "<>" : settings.sessionid);
+		delete settings.sessionid;
 	}
 	
 	function onerror(e) {
@@ -44,9 +41,34 @@
 		},
 		isReconnectScheduled : function() {
 			return settings.reconnectTimeoutHandle != -1;
-		}	
+		},
+		send : function(data) {
+			if(settings.state != 'connected') {
+				throw "Cannot send websocket data. We're not connected !";
+			} else {
+				//this.config.ws.send(JSON.stringify(req));
+				if(data==null) return;
+				if(typeof(data)=="object") {
+					var _data = JSON.stringify(data);					
+					settings.ws.send(_data);
+					console.debug("Sent [%s]", _data);
+				} else if(typeof(data)=="string") {
+					settings.ws.send(data);
+					console.debug("Sent [%s]", data);
+				} else {
+					throw "I don't know how to handle this data type [" + typeof(data) + "]";
+				}
+				
+			}
+		},
+		close:  function() {
+			if(settings.ws!=null) {
+				try {
+					settings.ws.close();
+				} catch (e) {}
+			}
+		}
 	}
-	
 	
 	
 	$.websocket = function(arg, args) {
@@ -54,8 +76,10 @@
 		if(privatePattern.test(arg)) throw "Cannot invoke private signatures [" + arg + "]";
 		var f = methods[arg];		
 		if(!$.isFunction(f)) throw "Not a jQuery.websocket method [" + arg + "]";
-		return f.apply($.fn.websocket, $.isArray(args) ? args : []);			
+		return f.apply($.fn.websocket, args==null ? [] : $.isArray(args) ? args : [args]);			
 	}
+	
+	
     
 	$.fn.websocket = function(arg, args) {
 		if(arg==null) throw "No first arg passed";
@@ -93,65 +117,99 @@
 	    	settings.connectTimeoutHandle = -1;
 	    	settings.reconnectTimeoutHandle = -1;
 	    	settings.state = 'disconnected';	    	
-	    	settings.ws = new WebSocket(settings.wsuri);
-	    	settings.ws.onopen = onopen;
-	    	settings.ws.onclose = onclose;
-	    	settings.ws.onerror = onerror;
-	    	settings.ws.onmessage = onmessage;
-	    	Object.observe(settings, function(changes){
-	    		$.each(changes, function(index, change){
-	    			if(change.name == 'state' && change.type == 'updated') {
-	    				var newState = change.object.state;
-	    				$.event.trigger('websocket-' + newState);
-	    			}
-	    		});
-	    	});
+	    	_connect();
+		}
+
+		
+		function _setState(state, args) {
+			if(state==null || states.indexOf(state)==-1) throw "The value [" + state + "] is not a valid state";
+			settings.state = state;
+			$.event.trigger('websocket-' + state, args==null ? [] : $.isArray(args) ? args : [args]);
 		}
 		
 		
 		function _setConnectTimeout() {
-			
+			_cancelConnectTimeout();
+			settings.connectTimeoutHandle = setTimeout(function(){
+				if(settings.ws!=null) settings.ws.close();
+			}, settings.connectTimeout);
+			console.debug("Connect timeout set to [%s] on handle [%s]", settings.connectTimeout, settings.connectTimeoutHandle);
 		}
 		
-		function _connect(callback) {
-			// send connecting event
-			$.apmr.config.connecting = true;		
-			var cli = this;
-			$.apmr.config.connectTimeoutHandle = setTimeout(function(){
-				$.apmr.onConnectionTimeout();
-				if(callback!=null) callback();
-			},$.apmr.config.connectionTimeout);
-			setTimeout(function(){
-				cli.config.ws = new WebSocket(cli.config.wsUrl);
-				cli.config.ws.c = cli;
-				cli.config.ws.onopen = $.apmr.onOpen;
-				cli.config.ws.onerror = $.apmr.onError;
-				cli.config.ws.onclose = $.apmr.onClose;
-				cli.config.ws.onmessage = $.apmr.onMessage;
-			},1);
-			console.info("Connecting.....");
+		function _cancelConnectTimeout() {
+			if(settings.connectTimeoutHandle!=-1) {
+				clearTimeout(settings.connectTimeoutHandle);
+				console.debug("Cancelled connect timeout on handle [%s]", settings.connectTimeoutHandle);
+				settings.connectTimeoutHandle = -1;
+			}			
 		}
 		
-		
-		function startReconnectLoop() {
-			if(isConnectingOrConnected() || isReconnectScheduled()) return;
+		function _scheduleConect() {
+			_cancelScheduleConect();
 			settings.reconnectTimeoutHandle = setTimeout(function(){
 				settings.reconnectTimeoutHandle = -1;
-				$.event.trigger('websocket-connecting',[]);
-				
-				$.apmr.connect(function(){ // callback called when reconnect times out
-					if($.apmr.isConnectingOrConnected()) return;
-					if($.apmr.config.ws) {
-						$.apmr.config.ws.close();
-					}
-					//$.apmr.config.reconnectTimeoutHandle = $.apmr.startReconnectLoop();
-				});
-			}, $.apmr.config.reconnectPauseTime);
+				_connect();
+			}, settings.reconnectPeriod);
+			console.debug("Scheduled connect attempt in [%s] ms. on handle [%s]", settings.reconnectPeriod, settings.reconnectTimeoutHandle);
 		}
 		
 		
+		function _cancelScheduleConect() {
+			if(settings.reconnectTimeoutHandle!=-1) {
+				clearTimeout(settings.reconnectTimeoutHandle);
+				console.debug("Cancelled connect loop on handle [%s]", settings.reconnectTimeoutHandle);
+				settings.reconnectTimeoutHandle = -1;
+			}			
+		}
 		
+		
+		function _connect() {
+			if(settings.ws!=null && (settings.ws.readyState==0 || settings.ws.readyState==1)) {
+				console.warn("WS Connect requested but websocket state already [%s]", settings.ws.readyState);
+				return;
+			}
+			_setConnectTimeout();
+			_setState('connecting');
+			settings.ws = new WebSocket(settings.wsuri);
+	    	settings.ws.onopen = function() {
+	    		_cancelConnectTimeout();
+	    		_setState('connected');
+	    		onopen();
+	    	};
+	    	settings.ws.onclose = function(e) {
+	    		_setState('disconnected');
+	    		onclose(e);
+	    		console.debug("About to start reconnect loop");
+	    		_startReconnectLoop();
+	    	};
+	    	settings.ws.onerror = function(e) {
+	    		onerror(e);
+	    	};
+	    	settings.ws.onmessage = function(message) {
+	    		onmessage(message.data);
+	    	};
+			console.debug("WS Connecting to [%s]", settings.wsuri);
+		}
+		
+		/*
+		 * 
+		 */
+		
+		
+		function _startReconnectLoop() {
+			console.debug("isConnectingOrConnected:[%s]   isReconnectScheduled:[%s]", methods.isConnectingOrConnected(), methods.isReconnectScheduled());
+			if(methods.isConnectingOrConnected() || methods.isReconnectScheduled()) return;
+			_scheduleConect();
+		}
     }
+	
+	$.websocket.send = function(data) {
+		$.websocket('send', data);
+	}
+	
+	$.websocket.close = function() {
+		$.websocket('close');
+	}
 	
 })( jQuery, window, document );
 
