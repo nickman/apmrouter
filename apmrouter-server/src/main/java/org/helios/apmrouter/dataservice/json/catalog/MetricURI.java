@@ -24,6 +24,7 @@
  */
 package org.helios.apmrouter.dataservice.json.catalog;
 
+import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -33,6 +34,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
 
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.cache.CacheStatistics;
@@ -855,4 +859,64 @@ public class MetricURI implements MetricURIMBean {
 	}
 	
 
+}
+
+interface  PerformanceMetadataMBean {
+
+    double getTimeTook();
+    void setTimeTook(double timeTook);
+    String getRequestType();
+    void setRequestType(String requestType);
+}
+
+class RequestPerformanceMetadata implements PerformanceMetadataMBean {
+
+    private double startTime;
+    private double endTime;
+    private double timeTook;
+    private String requestType;
+    private int numOfRequests;
+
+    
+
+    MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+    ObjectName name;
+    
+    
+    public RequestPerformanceMetadata() {
+        try {
+        	name = new ObjectName("test.performace:type=PerformanceMetadataMBean");      
+        } catch (Exception ex) {
+        	throw new RuntimeException("Yo dog. Bad object name", ex);
+        }    	
+    }
+    
+
+    
+
+    public double getTimeTook() {
+        return timeTook;
+    }
+    public void setTimeTook(double timeTook) {
+        this.timeTook = timeTook;
+    }
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.PerformanceMetadataMBean#getRequestType()
+	 */
+	@Override
+	public String getRequestType() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.catalog.PerformanceMetadataMBean#setRequestType(java.lang.String)
+	 */
+	@Override
+	public void setRequestType(String requestType) {
+		// TODO Auto-generated method stub
+		
+	}
+    
 }
