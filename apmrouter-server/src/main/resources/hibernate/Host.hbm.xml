@@ -56,6 +56,18 @@
     	<return-scalar column="domain" type="string"/>
     	SELECT DISTINCT DOMAIN FROM HOST
     </sql-query>
+    <sql-query name="searchDomains">
+    	<return-scalar column="domain" type="string"/>
+    	SELECT DISTINCT DOMAIN FROM HOST WHERE DOMAIN LIKE :domain
+    	<query-param name="domain" type="java.lang.String" />
+    </sql-query>
+    <sql-query name="searchHosts">
+    	<return-scalar column="host" type="string"/>
+    	SELECT DISTINCT HOST FROM HOST WHERE DOMAIN LIKE :domain AND HOST LIKE :host
+    	<query-param name="domain" type="java.lang.String" />
+    	<query-param name="host" type="java.lang.String" />    	
+    </sql-query>
+    
     <query name="hostsByDomain">from host where domain = :domain
     	<query-param name="domain" type="java.lang.String"/>
     </query>

@@ -269,6 +269,11 @@ public class HttpRequestRouter extends ServerComponentBean  implements ChannelUp
 		}
 		// now we have a request...
 		String uri = request.getUri();
+		int qindex = uri.indexOf("?");
+		if(qindex!=-1) {
+			uri = uri.substring(0, qindex-1);
+					
+		}
 		if(uri.endsWith(WS_URI_SUFFIX)) {
 			ctx.getPipeline().addLast(webSocketHandler.getBeanName(), webSocketHandler);
 			ctx.sendUpstream(e);

@@ -117,6 +117,15 @@
  		</property>
  	</bean>
  	
+ 	<bean id="mauto" class="org.helios.apmrouter.server.unification.pipeline.http.MetricAutoCompleteService">
+ 		<property name="uriPatterns">
+ 			<set>
+ 				<value>/mauto</value>
+ 				<value>/mauto/</value>
+ 			</set>
+ 		</property> 	
+ 	</bean>
+ 	
  	 
  	 <bean id="ws" class="org.helios.apmrouter.server.unification.pipeline.http.WebSocketServiceHandler" />
  	

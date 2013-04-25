@@ -343,16 +343,6 @@ public class HttpStaticFileServerHandler extends AbstractHttpRequestHandler {
 
 
 
-    private void sendError(ChannelHandlerContext ctx, HttpResponseStatus status) {
-        HttpResponse response = new DefaultHttpResponse(HTTP_1_1, status);
-        response.setHeader(CONTENT_TYPE, "text/plain; charset=UTF-8");
-        response.setContent(ChannelBuffers.copiedBuffer(
-                "Failure: " + status.toString() + "\r\n",
-                CharsetUtil.UTF_8));
-
-        // Close the connection as soon as the error message is sent.
-        ctx.getChannel().write(response).addListener(ChannelFutureListener.CLOSE);
-    }
     
     /**
      * When file timestamp is the same as what the browser is sending up, send a "304 Not Modified"
