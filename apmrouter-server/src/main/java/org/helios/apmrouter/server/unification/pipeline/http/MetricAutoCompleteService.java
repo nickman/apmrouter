@@ -31,6 +31,7 @@ import static org.jboss.netty.handler.codec.http.HttpResponseStatus.OK;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -51,6 +52,7 @@ import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.QueryStringDecoder;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -135,19 +137,24 @@ public class MetricAutoCompleteService extends AbstractHttpRequestHandler {
 	 * @return A JSON object containing the resolved items
 	 * @throws Exception thrown on any error
 	 */
-	protected JSONObject resolveLookup(Map<String, List<String>> params) throws Exception {
+	protected Object resolveLookup(Map<String, List<String>> params) throws Exception {
 		Session session = null;
+		Query query = null;
 		try {
 			String current = params.get("term").get(0);
 			String path = (current==null || current.trim().isEmpty()) ? "" : current.trim();
+			while(path.startsWith("/")) {
+				path = path.substring(1);
+			}
 			JSONObject resp = new JSONObject();
+			resp.putOnce("matches", new JSONArray());
 			String[] fragments = trimmedSplit(path);
 			if(level.isEnabledFor(APMLogLevel.DEBUG )) {
 				session = sessionFactory.openSession(dsi);
 			} else {
 				session = sessionFactory.openSession();
 			}
-			Query query = null;
+			
 			
 			switch (fragments.length) {
 				case 0:  	// looking for a domain
@@ -158,7 +165,9 @@ public class MetricAutoCompleteService extends AbstractHttpRequestHandler {
 					query.setString("domain", fragments[0] + "%");
 					break;
 				case 2:
-					query = session.getNamedQuery("searchDomains");
+					query = session.getNamedQuery("searchHosts");
+					query.setString("domain", fragments[0] + "%");
+					query.setString("host", fragments[1] + "%");
 					break;
 				
 				case 3:
@@ -168,14 +177,24 @@ public class MetricAutoCompleteService extends AbstractHttpRequestHandler {
 				default:  // we have a domain, host and agent, and possible some namespaces
 					
 			}
-			
-			resp.put("path", path);
-			return resp;
+			if(query==null) {
+				throw new Exception("Failed to parse term [" + path + "]");
+			}
+			for(Object obj: query.list()) {
+				Map<String, String> entry = new HashMap<String, String>(2);
+				entry.put("label", obj.toString());
+				entry.put("value", obj.toString());
+				resp.append("matches", entry);
+			}
+			//
+			info("AutoComplete Result for [", path, "]\n", resp.toString(2));
+			return resp.getJSONArray("matches");
 		} catch (Exception ex) {
+			error("Metric AutoComplete Lookup Failure ", ex);
 			JSONObject err = new JSONObject();
 			err.put("err", ex.toString());
 			return err;
-		} finally {
+		} finally {			
 			if(session!=null) try { session.close(); } catch (Exception ex) {}
 		}
 	}

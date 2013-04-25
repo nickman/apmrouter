@@ -59,6 +59,27 @@ function init_metricuri() {
 	$('#uri').bind('websocket-sessionid', function(event, sessionid){
 		//$(this).autocomplete( "option", "autoFocus" );
 	});
+	
+	$( "#uri" ).autocomplete({
+		source: "/mauto",
+		minLength: 0,
+		disabled: false,
+		response: function( event, ui ) {
+			console.info("Response:  event: %o   ui:%o", event, ui);
+		},	
+		select: function( event, ui ) {
+	        console.info( ui.item ?
+	          "Selected: " + ui.item.value + " aka " + ui.item.id :
+	          "Nothing selected, input was " + this.value );
+	    }		
+	});
+	$("#uri").keypress(function(event) {
+		   if(event.keyCode==10) {
+			   if(event.ctrlKey) {
+				   $( "#uri" ).autocomplete( "search", "" );
+			   }
+		   }
+	});
 
 	// ========================================
 	// Cache the content for session manageent

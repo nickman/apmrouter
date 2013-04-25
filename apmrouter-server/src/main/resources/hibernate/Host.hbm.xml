@@ -52,14 +52,17 @@
             </column>
         </property>
     </class>
+    
+    
     <sql-query name="allDomains">
     	<return-scalar column="domain" type="string"/>
-    	SELECT DISTINCT DOMAIN FROM HOST
+    	SELECT DISTINCT H.DOMAIN AS DOMAIN FROM HOST H
     </sql-query>
     <sql-query name="searchDomains">
     	<return-scalar column="domain" type="string"/>
-    	SELECT DISTINCT DOMAIN FROM HOST WHERE DOMAIN LIKE :domain
+    	SELECT DISTINCT H.DOMAIN AS DOMAIN FROM HOST H WHERE H.DOMAIN LIKE :domain
     	<query-param name="domain" type="java.lang.String" />
+    	
     </sql-query>
     <sql-query name="searchHosts">
     	<return-scalar column="host" type="string"/>
