@@ -106,3 +106,21 @@ function init_metricuri() {
 
 	
 }
+/**
+ * Request options:<ul>
+ * 	<li><b>request</b>: (mandatory) The JSON subscription request</li>
+ * 	<li><b>timeout</b>: The timeout in ms. on the request invocation confirm. (i.e. not a subscriber timeout) Default is 2000 ms.</li>
+ * 	<li><b>oncomplete</b>: A callback invoked when the request is confirmed</li>
+ * 	<li><b>ontimeout</b>: A callback invoked when the request times out</li>
+ * 	<li><b>onevent</b>: A callback invoked when a subscription event is fired for this subscription</li>
+ * 	<li><b></b>:  </li>
+ * 	<li><b></b>:  </li>
+ * 	<li><b></b>:  </li>
+ * 	<li><b></b>:  </li>
+ * 
+ * </ul>
+ * @param request
+ */
+function subscribe(request) {
+	
+}
