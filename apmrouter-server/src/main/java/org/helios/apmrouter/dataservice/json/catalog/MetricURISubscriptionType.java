@@ -145,9 +145,9 @@ public enum MetricURISubscriptionType implements BitMaskedEnum, ByteBitMaskOpera
 	}
 	
 	/**
-	 * Returns a string containing the pipe delimited names of the MetricURISubscriptionType that are enabled in the passed mask
+	 * Returns an array of the MetricURISubscriptionTypes that are enabled in the passed mask
 	 * @param mask The mask to render
-	 * @return a string containing the pipe delimited names of the MetricURISubscriptionType that are enabled in the passed mask
+	 * @return an array of the MetricURISubscriptionTypes that are enabled in the passed mask
 	 */
 	public static MetricURISubscriptionType[] getEnabledFor(byte mask) {
 		if(mask<0) throw new IllegalArgumentException("Invalid mask value [" + mask + "]", new Throwable());

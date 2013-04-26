@@ -26,9 +26,12 @@ package org.helios.apmrouter.catalog;
 
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.Map;
+import java.util.Set;
 
 import org.helios.apmrouter.collections.ConcurrentLongSortedSet;
+import org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionType;
 import org.helios.apmrouter.util.BitMaskedEnum;
 
 /**
@@ -110,6 +113,32 @@ public enum EntryStatus {
 				
 		}
 	}
+	
+	/**
+	 * Returns an array of the EntryStatuses enabled for the passed byte mask
+	 * @param mask The mask to render
+	 * @return an array of the EntryStatuses enabled for the passed byte mask
+	 */
+	public static EntryStatus[] getEnabledFor(byte mask) {
+		if(mask<0) throw new IllegalArgumentException("Invalid mask value [" + mask + "]", new Throwable());
+		Set<EntryStatus> enabled = EnumSet.noneOf(EntryStatus.class);
+		for(EntryStatus to: values()) {
+			if(to.isEnabled(mask)) {
+				enabled.add(to);
+			}
+		}
+		return enabled.toArray(new EntryStatus[enabled.size()]);
+	}	
+
+	/**
+	 * Determines if this EntryStatus is enabled in the passed mask
+	 * @param mask the mask to test
+	 * @return if this EntryStatus is enabled in the passed mask, false otherwise
+	 */
+	public boolean isEnabled(byte mask) {
+		return mask == (mask | this.mask);		
+	}
+
 	
 	/**
 	 * Decodes the passed int to an EntryStatus name

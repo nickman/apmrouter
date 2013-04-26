@@ -247,7 +247,9 @@ public class CatalogJSONDataService extends ServerComponentBean {
 	public void subscribeMetricURI(JsonRequest request, Channel channel) {
 		String muri = request.getArgument("uri");
 		try {
-			metricUriSubService.subscribeMetricURI(MetricURI.getMetricURI(muri), request.response(), channel);
+			MetricURI metricUri = MetricURI.getMetricURI(muri);
+			metricUriSubService.subscribeMetricURI(metricUri, request.response(), channel);
+			request.response().setContent(metricUri.toJSON(false));
 		} catch (Exception ex) {
 			error("Failed to subscribe to MetricURI [" , request , "]", ex);
 			throw new RuntimeException("Failed to subscribe to MetricURI [" + request + "]", ex);

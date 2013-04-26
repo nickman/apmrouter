@@ -29,6 +29,14 @@ function init_metricuri() {
         "bScrollCollapse": true,
         "sRowSelect": "multi"
     });
+
+	// ========================================
+	//  Set all the default options
+	// ========================================	
+	$('input[name="subType"]').attr('checked', 'true');
+	$('input[name="metricStatus"]').attr('checked', 'true');
+	$('#metricType option.default-option').attr('selected', true);
+	
 	
 	// ========================================
 	//  Bind the websocket session events
@@ -60,26 +68,26 @@ function init_metricuri() {
 		//$(this).autocomplete( "option", "autoFocus" );
 	});
 	
-	$( "#uri" ).autocomplete({
-		source: "/mauto",
-		minLength: 0,
-		disabled: false,
-		response: function( event, ui ) {
-			console.info("Response:  event: %o   ui:%o", event, ui);
-		},	
-		select: function( event, ui ) {
-	        console.info( ui.item ?
-	          "Selected: " + ui.item.value + " aka " + ui.item.id :
-	          "Nothing selected, input was " + this.value );
-	    }		
-	});
-	$("#uri").keypress(function(event) {
-		   if(event.keyCode==10) {
-			   if(event.ctrlKey) {
-				   $( "#uri" ).autocomplete( "search", "" );
-			   }
-		   }
-	});
+//	$( "#uri" ).autocomplete({
+//		source: "/mauto",
+//		minLength: 0,
+//		disabled: false,
+//		response: function( event, ui ) {
+//			console.info("Response:  event: %o   ui:%o", event, ui);
+//		},	
+//		select: function( event, ui ) {
+//	        console.info( ui.item ?
+//	          "Selected: " + ui.item.value + " aka " + ui.item.id :
+//	          "Nothing selected, input was " + this.value );
+//	    }		
+//	});
+//	$("#uri").keypress(function(event) {
+//		   if(event.keyCode==10) {
+//			   if(event.ctrlKey) {
+//				   $( "#uri" ).autocomplete( "search", "" );
+//			   }
+//		   }
+//	});
 
 	// ========================================
 	// Cache the content for session manageent

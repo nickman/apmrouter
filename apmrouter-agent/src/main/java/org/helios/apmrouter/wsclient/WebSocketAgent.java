@@ -266,8 +266,9 @@ public class WebSocketAgent implements WebSocketEventListener {
 	 * @param metricURI The MetricURI to subscribe to
 	 * @param listeners The listeners that will be invoked on with incoming data for this subscription. 
 	 * If empty, the responses will be routed to the agent's global event listeners
+	 * @return the subscription response if synch, otherwise, if asynch, returns null
 	 */
-	public void subscribeMetricURI(final boolean asynch, URI metricURI, MetricURISubscriptionEventListener...listeners) {
+	public JSONObject subscribeMetricURI(final boolean asynch, URI metricURI, MetricURISubscriptionEventListener...listeners) {
 		JsonRequest request = JsonRequestBuilder.newBuilder()
 				.put("svc", "catalog")
 				.put("op", "submetricuri")
@@ -276,10 +277,13 @@ public class WebSocketAgent implements WebSocketEventListener {
 		if(asynch) {
 			registerURISub(request.getRequestId(), metricURI, listeners);
 		}
-		wsClient.sendRequest(asynch, request);
+		registerURISub(request.getRequestId(), metricURI, listeners);
+		JSONObject response = wsClient.sendRequest(asynch, request);
 		if(!asynch) {
 			registerURISub(request.getRequestId(), metricURI, listeners);
+			return response;
 		}
+		return null;
 	}
 	
 	/**
@@ -354,9 +358,10 @@ public class WebSocketAgent implements WebSocketEventListener {
 	 * @param metricURI The MetricURI to subscribe to
 	 * @param listeners The listeners that will be invoked on with incoming data for this subscription. 
 	 * If empty, the responses will be routed to the agent's global event listeners
+	 * @return the subscription response 
 	 */
-	public void subscribeMetricURISynch(URI metricURI, MetricURISubscriptionEventListener...listeners) {
-		subscribeMetricURI(true, metricURI, listeners);
+	public JSONObject subscribeMetricURISynch(URI metricURI, MetricURISubscriptionEventListener...listeners) {
+		return subscribeMetricURI(false, metricURI, listeners);
 	}
 
 	/**

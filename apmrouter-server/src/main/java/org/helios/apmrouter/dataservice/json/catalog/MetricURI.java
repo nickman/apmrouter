@@ -25,6 +25,7 @@
 package org.helios.apmrouter.dataservice.json.catalog;
 
 import java.lang.management.ManagementFactory;
+import java.lang.reflect.Array;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -47,6 +48,8 @@ import org.helios.apmrouter.metric.MetricType;
 import org.hibernate.Session;
 import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.criterion.Restrictions;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -378,6 +381,70 @@ public class MetricURI implements MetricURIMBean {
 		return subType.isEnabled(subscriptionType);
 	}
 	
+	/**
+	 * Generates a JSON string representing this MetricURI using the compact ordinal representation of the options
+	 * @return a JSON string 
+	 */
+	public String toJSON(boolean compact) {
+		try {
+			JSONObject jo = new JSONObject();
+			jo.put("domain", domain);
+			jo.put("host", host);
+			jo.put("agent", agent);
+			jo.put("namespace", namespace);
+			jo.put("metricname", metricName);
+			jo.put("maxdepth", maxDepth);
+			jo.put("metrictypes", getMetricTypesAsJsonArray(compact));
+			jo.put("metrictstatus", getMetricStatusesAsJsonArray(compact));
+			jo.put("subtypes", getSubTypesAsJsonArray(compact));
+			return jo.toString();
+		} catch (Exception ex) {
+			throw new RuntimeException("Failed to create compact JSON", ex);
+		}
+	}
+	
+	/**
+	 * Generates a JSONArray for this MetricURI's subscription types
+	 * @param compact If true, uses the enum ordinals, otherwise uses the full name
+	 * @return a JSONArray of this MetricURI's subscription types
+	 */
+	public JSONArray getSubTypesAsJsonArray(boolean compact) {
+		JSONArray mtypes = new JSONArray();
+		for(MetricURISubscriptionType st: MetricURISubscriptionType.getEnabledFor(subscriptionType)) {
+			mtypes.put(compact ? st.ordinal() : st.name());
+		}
+		return mtypes;
+	}
+	
+	
+	/**
+	 * Generates a JSONArray for this MetricURI's metric types
+	 * @param compact If true, uses the enum ordinals, otherwise uses the full name
+	 * @return a JSONArray of this MetricURI's metric types
+	 */
+	public JSONArray getMetricTypesAsJsonArray(boolean compact) {
+		JSONArray mtypes = new JSONArray();
+		for(int i: metricType) {
+			mtypes.put(compact ? i : MetricType.valueOf(i).name());
+		}
+		return mtypes;
+	}
+	
+	/**
+	 * Generates a JSONArray for this MetricURI's metric statuses
+	 * @param compact If true, uses the enum ordinals, otherwise uses the full name
+	 * @return a JSONArray of this MetricURI's metric statuses
+	 */
+	public JSONArray getMetricStatusesAsJsonArray(boolean compact) {
+		JSONArray mtypes = new JSONArray();
+		for(EntryStatus es: EntryStatus.getEnabledFor(metricStatusMask)) {
+			mtypes.put(compact ? es.ordinal() : es.name());
+		}
+		return mtypes;
+	}
+	
+	
+	
 	
 	/**
 	 * {@inheritDoc}
@@ -403,6 +470,9 @@ public class MetricURI implements MetricURIMBean {
 		builder.append(Arrays.toString(metricType));
 		builder.append("\n\tmetricStatus:");
 		builder.append(Arrays.toString(metricStatus));
+		builder.append("\n\tsubTypes:");
+		builder.append(Arrays.toString(MetricURISubscriptionType.getEnabledFor(subscriptionType)));
+		
 		builder.append("\n]");
 		return builder.toString();
 	}
@@ -422,6 +492,31 @@ public class MetricURI implements MetricURIMBean {
 	public static void log(Object msg) {
 		System.out.println(msg);
 	}
+	
+//	public static JSONArray enumArrayToJSONArray(Class<? extends Enum<?>> enumType, Object arr, boolean compact) {
+//	JSONArray jsonArray = new JSONArray();
+//	if(arr==null) return jsonArray;
+//	if(Enum.class.isInstance(arr)) {
+//		jsonArray.put(compact ? ((Enum)arr).ordinal() : ((Enum)arr).name());
+//	} else if(arr.getClass().isArray()) {
+//		Class<?> arrayType = arr.getClass().getComponentType();
+//		int arrSize = Array.getLength(arr);
+//		if(int.class.isAssignableFrom(arrayType)) {
+//			for(int i = 0; i < arrSize; i++) {
+//				int value = Array.getInt(arr, i);
+//				jsonArray.put(compact ? value : enumType.);
+//			}
+//		} else if(CharSequence.class.isAssignableFrom(arrayType)) {
+//			
+//		} else if(Enum.class.isAssignableFrom(arrayType)) {
+//			
+//		}
+//	} else {
+//		jsonArray.put(arr);
+//	}
+//	return jsonArray;
+//}
+	
 	
 	/**
 	 * Converts the passed string to a {@link URI}.

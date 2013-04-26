@@ -101,16 +101,16 @@
 			<fieldset>
 				<legend>Metric URI</legend>
 				<dl>
-					<dt><label for="uri">URI:</label></dt><dd><input type="text" name="uri" placeholder="/<domain>/<host>/<agent>/...." id="uri" size="64" maxlength="512" /></dd>
+					<dt><label for="uri">URI:</label></dt><dd><input type="text" name="uri" placeholder="/<domain>/<host>/<agent>/...." id="uri" size="96" maxlength="512" /></dd>
 				</dl>			
 				<dl>
 					<dt><label for="metricType">MetricType:</label></dt>
 					<dd >
 						<select id="metricType" multiple="multiple" size="1"  >
-							<option value="0">LONG_COUNTER</option>
-							<option value="1">LONG_GAUGE</option>
-							<option value="2">DELTA_COUNTER</option>
-							<option value="3">DELTA_GAUGE</option>
+							<option value="0" class="default-option">LONG_COUNTER</option>
+							<option value="1" class="default-option">LONG_GAUGE</option>
+							<option value="2" class="default-option">DELTA_COUNTER</option>
+							<option value="3" class="default-option">DELTA_GAUGE</option>
 							<option value="4">INCREMENTOR</option>
 							<option value="5">INTERVAL_INCREMENTOR</option>
 							<option value="6">ERROR</option>
@@ -142,7 +142,10 @@
 				</dl>
 		        <dl>
 		        	
-		            <dd><button type="button" name="subscribe" id="btnSubscribe">Subscribe</button><button type="button" name="unsubscribe" id="btnUnsubscribe">Unsubscribe</button></dd>
+		            <dd>
+		            	<button type="button" name="subscribe" id="btnSubscribe">Subscribe</button>
+		            </dd>
+		            
 		            
 		        </dl>
 				

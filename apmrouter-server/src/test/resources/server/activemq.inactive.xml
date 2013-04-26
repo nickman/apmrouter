@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:jms="http://www.springframework.org/schema/jms"
+       xmlns:amq="http://activemq.apache.org/schema/core"       
+       xsi:schemaLocation="
+       http://activemq.apache.org/schema/core http://activemq.apache.org/schema/core/activemq-core-5.5.0.xsd
+       http://www.springframework.org/schema/jms http://www.springframework.org/schema/jms/spring-jms.xsd
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+       http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-3.0.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd       
+       ">
+	
+	
+	<amq:broker id="heliosAmqBroker" useJmx="true" persistent="false" brokerId="helios" brokerName="helios" enableStatistics="true" start="true" advisorySupport="true"  >
+				 
+    	<amq:destinationPolicy>
+    		<amq:policyMap>
+    			<amq:policyEntries>
+    				<amq:policyEntry queue="helios.agent.in.>" gcInactiveDestinations="false" inactiveTimoutBeforeGC="30000" useCache="false" />
+    				<amq:policyEntry topic="helios.metrictree.>" gcInactiveDestinations="true" inactiveTimoutBeforeGC="120000" useCache="false" />    				
+    			</amq:policyEntries>
+    		</amq:policyMap>
+    	</amq:destinationPolicy>
+		<amq:managementContext>
+			<amq:managementContext findTigerMbeanServer="true" createConnector="false" createMBeanServer="false" />
+		</amq:managementContext>    	    	    		
+    	
+		<amq:plugins>
+			<amq:simpleAuthenticationPlugin anonymousAccessAllowed="true" ></amq:simpleAuthenticationPlugin>
+		</amq:plugins>    	
+    	
+    	<amq:transportConnectors>
+      		<amq:transportConnector name="TCP" uri="tcp://0.0.0.0:8185" />
+      		<amq:transportConnector name="VM" uri="vm://helios?create=false" />
+      		<amq:transportConnector name="NIO" uri="nio://0.0.0.0:8186"/>      		
+    	</amq:transportConnectors>
+  	</amq:broker>
+  	
+  	<amq:connectionFactory id="internalConnectionFactory" alwaysSyncSend="true"  brokerURL="vm://helios?create=false" disableTimeStampsByDefault="true" statsEnabled="true"  />
+  	
+  	<amq:topic id="METRICS_IN" name="METRICS_IN" physicalName="METRICS_IN">
+  	
+  	
+  	</amq:topic>
+  	
+
+</beans>
+
