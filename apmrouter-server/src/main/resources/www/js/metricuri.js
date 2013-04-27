@@ -1,4 +1,6 @@
 		var stateCache = {};
+		var _RID_FACTORY_ = 0;
+		var _SUBSCRIPTIONS_ = {};
 		var metricGridColumnModel = [
 	                  			{ "sTitle": "Metric URI"},   
 	                  			{ "sTitle": "Sub Count" },
@@ -14,6 +16,19 @@
 	                 			{ "sTitle": "toOffline" }
 	                 ];
 
+
+/*
+ * Metric Subscription
+ *  - uri
+ *  - sub-count
+ *  - subId (rid)
+ *  - 
+ *   
+ */		
+		
+		
+		
+		
 function init_metricuri() {
 	var spinner = $( "#maxDepth" ).spinner({ min: 0, max: 99 });
     $('body').layout({ applyDefaultStyles: true, center__size: "50%", north__size: "50%" });
@@ -103,24 +118,77 @@ function init_metricuri() {
 	    		$(document).websocket({wsuri:'ws://' + document.location.host + '/ws'});			    		
 	    	}
 	);	    	
-
-	
 }
 /**
- * Request options:<ul>
- * 	<li><b>request</b>: (mandatory) The JSON subscription request</li>
+ * Initiates a MetricURI subscription
+ * @param request A (mandatory) JSON subscription request
+ * @param options:<ul>
  * 	<li><b>timeout</b>: The timeout in ms. on the request invocation confirm. (i.e. not a subscriber timeout) Default is 2000 ms.</li>
- * 	<li><b>oncomplete</b>: A callback invoked when the request is confirmed</li>
+ * 	<li><b>oncomplete</b>: A callback invoked when the request is confirmed. If the metricuri subscription already exists, this will callback immediately.</li>
  * 	<li><b>ontimeout</b>: A callback invoked when the request times out</li>
  * 	<li><b>onevent</b>: A callback invoked when a subscription event is fired for this subscription</li>
- * 	<li><b></b>:  </li>
- * 	<li><b></b>:  </li>
- * 	<li><b></b>:  </li>
- * 	<li><b></b>:  </li>
- * 
  * </ul>
- * @param request
+ * @return the unique request identifier which is also the handle to the subscription.
  */
-function subscribe(request) {
+function subscribe(request, options) {
+	var muri = _SUBSCRIPTIONS_[request.args.uri];
+	if(muri==null) {
+		var newrid = _RID_FACTORY_++; 
+		muri = new MetricSubscription(request.args.uri, newrid);
+		_SUBSCRIPTIONS_[request.args.uri] = muri;
+	}
+}
+
+/**
+ * Validates the passed request to make sure it is a valid op call
+ * @param request The request to validate
+ */
+function validate(request) {
 	
 }
+
+var MetricSubscription = Object.subClass({
+	init: function(metricuri, rid){
+				this._metricuri = metricuri;				
+				this._rid = rid;
+				this._sub_count = 0;
+	},
+	MetricSubscription : function(metricuri, rid) {
+		if (!(this instanceof arguments.callee)) {
+			return new MetricSubscription(metricuri, rid);
+		}
+	}	
+});
+
+
+//.put("svc", "catalog")
+//.put("op", "submetricuri")
+//.putMapPair("args", "uri", metricURI.toASCIIString())
+
+
+
+
+//$.apmr.svcOp = function(svc, op, args, callback) {
+//	var req = {'t': 'req', 'svc' : svc, 'op' : op};
+//	if(args!=null) {
+//		req['args'] = args;
+//	}
+//	console.debug("Request Object:[%o]", req);
+//	console.debug("JSON Request:[%s]", JSON.stringify(req));
+//	return $.apmr.send(req, callback);
+//},
+
+
+//* Initiates a subscription.
+//* @param subprops: <ul>
+//* 	<li><b>sourcetype</b>: The event source type, e.g. "jmx". <b>Mandatory</b></li>
+//* 	<li><b>sourcename</b>: The event source name, e.g. "service:jmx:local://DefaultDomain". <b>Mandatory</b></li>
+//*  <li><b>op</b>: The operation to execute, i.e. "start" or "stop". <b>Mandatory</b></li>
+//* 	<li><b>filter</b>: The event filter specifier, e.g. "org.helios.apmrouter.session:service=SharedChannelGroup". <b>Mandatory</b></li>
+//* 	<li><b>xfilter</b>: An optional extended filter, e.g. and array of JMX notification types</li>
+//*  <li><b>args</b>: Optional additional arguments in the form of properties.</li>
+//* 	<li><b>subhandler</b>: The callback handler that will receive subscribed events</li>
+//* 	<li><b>confirmhandler</b>: The callback handler that will receive the confirmation of a subscription operation or a timeout notification
+//* which indicates the subscription request failed.</li>
+//* </ul>
+//*/

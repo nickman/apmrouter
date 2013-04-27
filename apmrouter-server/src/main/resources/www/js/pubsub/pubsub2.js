@@ -1,4 +1,4 @@
-;(function(d){
+;(function(m){
 
 	// the topic/subscription hash
 	var cache = {};

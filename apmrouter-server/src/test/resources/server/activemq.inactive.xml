@@ -17,7 +17,7 @@
        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd       
        ">
 	
-	
+	<!-- 
 	<amq:broker id="heliosAmqBroker" useJmx="true" persistent="false" brokerId="helios" brokerName="helios" enableStatistics="true" start="true" advisorySupport="true"  >
 				 
     	<amq:destinationPolicy>
@@ -49,7 +49,7 @@
   	
   	
   	</amq:topic>
-  	
+  	-->
 
 </beans>
 
