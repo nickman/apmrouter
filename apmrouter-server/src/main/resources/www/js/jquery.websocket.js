@@ -3,6 +3,7 @@
 
 ;(function ( $, window, document, undefined ) {
 	var settings = {};
+	var messageSubscribers = [];
 	var states = ['connected', 'disconnected', 'connecting'];
 	function onopen() {				
 		console.info("WS: Connected to [%s]", settings.wsuri);
@@ -10,11 +11,18 @@
 	
 	function onmessage(message) {
 		var json = JSON.parse(message);
-		console.info("WS: MessageEvent: [%o]",json);
-		if(json.sessionid) {
-			settings.sessionid = json.sessionid;
-			$.event.trigger('websocket-sessionid', [json.sessionid]);
-		}
+		console.debug("WS: MessageEvent: [%o]",json);
+		$.each(messageSubscribers, function(index, listener){
+			if($.isFunction(listener)) {
+				listener(json);
+			} else {
+				listener.onMessage(json);
+			}
+		});
+//		if(json.sessionid) {
+//			settings.sessionid = json.sessionid;
+//			$.event.trigger('websocket-sessionid', [json.sessionid]);
+//		}
 	}
 	
 	function onclose(e) {		
@@ -42,6 +50,38 @@
 		isReconnectScheduled : function() {
 			return settings.reconnectTimeoutHandle != -1;
 		},
+		addMessageListener : function(listeners) {
+			if(listeners!=null) {
+				if(!$.isArray(listeners)) {
+					listeners = [listeners];
+				} 
+				var added = 0;
+				$.each(listeners, function(index, listener){
+					if(listener!=null && ($.isFunction(listener) || $.isFunction(listener.onMessage)) && $.inArray(listener, messageSubscribers)==-1) {					
+						messageSubscribers.push(listener);
+						added++;
+					}
+				});
+				console.debug("Registered [%s] New Message Listeners for a total of [%s]", added, messageSubscribers.length);
+			}
+		},
+		removeMessageListener : function(listeners) {
+			if(listeners!=null) {
+				if(!$.isArray(listeners)) {
+					listeners = [listeners];
+				} 
+				var removed = 0;
+				$.each(listeners, function(index, listener){
+					var indexOfR = $.inArray(listener, messageSubscribers);
+					if(listener!=null && indexOfR!=-1) {					
+						messageSubscribers.splice(indexOfR, 1);
+						removed++;
+					}
+				});
+				console.debug("Removed [%s] Message Listeners leaving a total of [%s]", removed, messageSubscribers.length);
+			}
+		},
+		
 		send : function(data) {
 			if(settings.state != 'connected') {
 				throw "Cannot send websocket data. We're not connected !";
@@ -206,6 +246,15 @@
 	$.websocket.send = function(data) {
 		$.websocket('send', data);
 	}
+	
+	$.websocket.addMessageListener = function(data) {
+		$.websocket('addMessageListener', data);
+	}
+	
+	$.websocket.removeMessageListener = function(data) {
+		$.websocket('removeMessageListener', data);
+	}
+	
 	
 	$.websocket.close = function() {
 		$.websocket('close');

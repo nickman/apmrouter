@@ -1,6 +1,9 @@
+		
 		var stateCache = {};
 		var _RID_FACTORY_ = 0;
+		var _RERID_FACTORY_ = 0;
 		var _SUBSCRIPTIONS_ = {};
+		var _TIMEOUT_ = 2000;
 		var metricGridColumnModel = [
 	                  			{ "sTitle": "Metric URI"},   
 	                  			{ "sTitle": "Sub Count" },
@@ -119,6 +122,92 @@ function init_metricuri() {
 	    	}
 	);	    	
 }
+
+
+/**
+ * Generalized websocket service invoker
+ * @param command A (mandatory) JSON subscription request
+ * @param options:<ul>
+ * 	<li><b>timeout</b>: The timeout in ms. on the request invocation confirm. (i.e. not a subscriber timeout) Default is 2000 ms.</li>
+ * 	<li><b>onresponse</b>: A callback invoked when the immediate response of the command invocation is received.</li>
+ * 	<li><b>ontimeout</b>: A callback invoked when the request times out</li>
+ * 	<li><b>onevent</b>: A callback invoked when an asynchronous event is received associated to the original invocation.</li>
+ * 	<li><b>oncancel</b>: A callback invoked the asynchronous event subscription associated to the original invocation is cancelled</li>
+ * </ul>
+ * @return the unique request identifier which is also the handle to the subscription.
+ */
+function wsinvoke(command, options) {
+	if(command==null || !$.isPlainObject(command)) throw "The command must be a valid object";
+	if(command.svc==null || $.trim(command.svc)=="") throw "The command must specicy a valid service name";
+	if(command.op==null || $.trim(command.op)=="") throw "The command must specicy a valid service operation name";
+	if(command.t==null || $.trim(command.op)=="") command.op = "req";
+	var RID = _RID_FACTORY_++;
+	command.rid = RID;
+	console.debug("RID:[%s]", RID);
+	var deferred = null, promise = null, done = false, wsInvokeTimeoutHandle = -1;
+	
+	if(!$.isEmptyObject(options)) {
+		deferred = $.Deferred();
+		promise = deferred.promise();
+		var responseListener = function(json){
+			if(json!=null && json.rerid==RID) {
+				if(wsInvokeTimeoutHandle!=-1) {
+					clearTimeout(wsInvokeTimeoutHandle);
+				}
+				deferred.resolve.apply(RID);
+				console.debug("Received Response for RID [%s]-->[%o]", RID, json);
+				if(options.onresponse!=null && $.isFunction(options.onresponse)) {
+					options.onresponse(json);
+				}
+			}
+		};
+		promise.always(function(){
+			$.websocket.removeMessageListener(responseListener);
+			console.debug("Removing Message Listener for RID [%s]", RID);
+		});
+		$.websocket.addMessageListener(responseListener);
+		console.debug("Added Message Listener for RID [%s]-->[%o]", RID, responseListener);
+		wsInvokeTimeoutHandle = setTimeout(function(){
+			$.websocket.removeMessageListener(responseListener);
+			console.error("Request for RID [%s] Timed Out", RID);
+			if(options.ontimeout!=null && $.isFunction(options.ontimeout)) {
+				options.ontimeout();
+			}			
+			promise.fail();			
+		}, options.timeout || _TIMEOUT_);
+	}
+	$.websocket.send(command);
+	console.debug("Sent Message Listener for RID [%s]", RID);
+	if(promise!=null) {
+		return promise;
+	}
+}
+
+/*
+ * {"t":"req","svc":"catalog","op":"nq","args":{"name":"findLevelFoldersForAgent","p":{"level":1,"agentId":"1","parent":"/platform=JVM%"}},"rid":7}
+
+ * 
+ * 
+ * Sample Response:
+ * {"rerid":9,"t":"resp","msg":[]}
+ 
+ * Sample Request:
+{
+ "args": {
+  "es": "jmx",
+  "esn": "service:jmx:local://DefaultDomain",
+  "f": "org.helios.apmrouter.destination:service=H2TimeSeriesDestination,name=H2TimeSeriesDestination",
+  "stf": ["apmrouter.h2timeseries.intervalroll.65"]
+ },
+ "op": "start",
+ "rid": 11,
+ "svc": "sub",
+ "t": "req"
+}
+
+ */
+
+
 /**
  * Initiates a MetricURI subscription
  * @param request A (mandatory) JSON subscription request
