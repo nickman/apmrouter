@@ -98,6 +98,7 @@ public class WilyIntroscopeDestination extends BaseDestination {
 			Thread.currentThread().setContextClassLoader(wilyClassLoader);
 			wilyTracer = WilyIntroscopeTracer.getInstance();
 			info("Loaded Wily Agent Tracer");
+			super.doStart();
 		} finally {
 			Thread.currentThread().setContextClassLoader(cl);
 		}		
