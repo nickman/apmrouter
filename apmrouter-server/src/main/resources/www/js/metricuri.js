@@ -141,12 +141,14 @@ function wsinvoke(command, options) {
 	if(command.svc==null || $.trim(command.svc)=="") throw "The command must specicy a valid service name";
 	if(command.op==null || $.trim(command.op)=="") throw "The command must specicy a valid service operation name";
 	if(command.t==null || $.trim(command.op)=="") command.op = "req";
-	var RID = _RID_FACTORY_++;
-	command.rid = RID;
-	console.debug("RID:[%s]", RID);
-	var deferred = null, promise = null, done = false, wsInvokeTimeoutHandle = -1;
+	var returnValue = null;
 	
 	if(!$.isEmptyObject(options)) {
+		var RID = _RID_FACTORY_++;
+		command.rid = RID;
+		console.debug("RID:[%s]", RID);
+		returnValue = RID;
+		var deferred = null, promise = null, done = false, wsInvokeTimeoutHandle = -1;		
 		deferred = $.Deferred();
 		promise = deferred.promise();
 		var responseListener = function(json){

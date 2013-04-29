@@ -97,8 +97,7 @@
 					console.debug("Sent [%s]", data);
 				} else {
 					throw "I don't know how to handle this data type [" + typeof(data) + "]";
-				}
-				
+				}				
 			}
 		},
 		close:  function() {
