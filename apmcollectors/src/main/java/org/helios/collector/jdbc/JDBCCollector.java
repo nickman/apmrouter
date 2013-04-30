@@ -71,16 +71,16 @@ public class JDBCCollector extends AbstractCollector implements ApplicationConte
 	
 	/**
 	 * Starts the collector and initializes all the sql mappings.
-	 * @throws CollectorStartException
-	 * @see org.helios.collectors.AbstractCollector#startCollector()
+	 * @throws CollectorException
+	 * @see org.helios.collector.core.AbstractCollector#startCollector()
 	 */
 	public void startCollector() throws CollectorException {
 		log = Logger.getLogger(getClass().getName() + "." + this.beanName);
 	}
 	
 	/**
-	 * @throws CollectorInitException
-	 * @see org.helios.collectors.AbstractCollector#initCollector()
+	 * @throws CollectorException
+	 * @see org.helios.collector.core.AbstractCollector#initCollector()
 	 */
 	public void initCollector() throws CollectorException {
 		for(Iterator<SQLMapping> iter = sqlMaps.values().iterator(); iter.hasNext();) {
@@ -90,13 +90,13 @@ public class JDBCCollector extends AbstractCollector implements ApplicationConte
 				mapping.init(tracingNameSpace, tracer, JMXHelper.getHeliosMBeanServer());
 			} catch (Exception e) {
 				if(this.logErrors) {
-					log.error("Failed to initialize SQLMapping [" + mapping.getName() + "]. Removing from map.", e);
+					error("Failed to initialize SQLMapping [" + mapping.getName() + "]. Removing from map.", e);
 				}
 				iter.remove();
 			}
-			if(log.isDebugEnabled()) log.debug("Initialized SQLMapping [" + mapping.getName() + "]");
+			debug("Initialized SQLMapping [" + mapping.getName() + "]");
 		}
-		log.info("Initialized [" + sqlMaps.size() + " SQLMappings for [" + this.beanName + "]");
+		info("Initialized [" + sqlMaps.size() + " SQLMappings for [" + this.beanName + "]");
 		if(sqlMaps.size()<1) {
 			throw new CollectorException("No SQLMappings were active after in [" + this.beanName + "] initialization");
 		}		
@@ -105,20 +105,20 @@ public class JDBCCollector extends AbstractCollector implements ApplicationConte
 
 	/**
 	 * @return
-	 * @see org.helios.collectors.AbstractCollector#collectCallback()
+	 * @see org.helios.collector.core.AbstractCollector#collectCallback()
 	 */
 	@Override
 	public CollectionResult collectCallback() {
 		Connection conn = null;
 		CollectionResult result = new CollectionResult();		
 		try {
-			if(log.isDebugEnabled()) log.debug("Connecting");
+			debug("Connecting");
 			long start = System.currentTimeMillis();
 //			tracer.startThreadInfoCapture();
 			conn = connectionFactory.getJDBCConnection(connectionTimeout);
 //			tracer.endThreadInfoCapture("Local Postgres", "Connect");
 			long elapsed = System.currentTimeMillis()-start;			
-			if(log.isDebugEnabled()) log.debug("Connected in [" + elapsed + "] ms.");
+			debug("Connected in [" + elapsed + "] ms.");
 			Map<String, Object> connMetaData = getConnMetaData(conn);
 			for(SQLMapping sqlMap: sqlMaps.values()) {
 				if(!sqlMap.isPre()) {
@@ -130,7 +130,7 @@ public class JDBCCollector extends AbstractCollector implements ApplicationConte
 		} catch (Exception e) {			
 			result.setResultForLastCollection(CollectionResult.Result.FAILURE);
 			if(logErrors) {
-				log.error("Failed to acquire connection", e);
+				error("Failed to acquire connection", e);
 			}
 		} finally {
 			try { conn.close(); } catch (Exception e) {}

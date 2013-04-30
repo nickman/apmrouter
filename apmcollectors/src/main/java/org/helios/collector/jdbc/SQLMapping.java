@@ -99,7 +99,6 @@ public class SQLMapping implements ApplicationContextAware, BeanNameAware {
 	 * Called on collector init.
 	 * @param prefix The collector provided metric name prefix.
 	 * @param tracer The collector provided  HOT tracer 
-	 * @param collectorCache A reference to the collector cache
 	 * @param server The collector provided MBeanServer.
 	 * @throws ProviderNotFoundException
 	 */
@@ -376,7 +375,7 @@ public class SQLMapping implements ApplicationContextAware, BeanNameAware {
 	
 	/**
 	 * Adds a node of <code>&lt;MetricMaps&gt;</code> to the SQLMapping.
-	 * @param metricMapNode An XML node containing XML defined <code>MetricMap</code>s. 
+	 * @param configNode An XML node containing XML defined <code>MetricMap</code>s.
 	 */
 	public void setMetricMapsNode(Node configNode) {		
 		Node metricMapNode = XMLHelper.getChildNodeByName(configNode, "MetricMaps", false);
