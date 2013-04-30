@@ -175,7 +175,7 @@ function wsinvoke(command, options) {
 				function(error) {}    // on failed send
 		);
 	}
-}
+}  
 
 
 
