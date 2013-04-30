@@ -551,7 +551,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 	public final void collect(){
 		lastTimeCollectionStarted=System.currentTimeMillis();
 		//Check whether blackout period is active for this collector
-		info("Collect called for bean: " + this.getBeanName());
+		debug("Collect called for bean: " + this.getBeanName());
 		processBlackoutInfo();
 		if(blackoutInfo!=null && blackoutInfo.isBlackoutActive()){
 			info("*** Skipping collection as blackout period is active...");
@@ -599,7 +599,7 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 			final String threadName = Thread.currentThread().getName();
 			try {
 				Thread.currentThread().setName("Collector[" + this.getBeanName() + "]");				
-				info("[", threadName, "] Starting collect for bean: ", this.getBeanName());
+				debug("[", threadName, "] Starting collect for bean: ", this.getBeanName());
 				long start = System.currentTimeMillis();
 				setState(CollectorState.COLLECTING);
 				//numberOfCollectorsRunning.incrementAndGet();
