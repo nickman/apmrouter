@@ -85,7 +85,7 @@
 		send : function(data) {
 			var deferred = $.Deferred();
 			if(settings.state != 'connected') {
-				throw "Cannot send websocket data. We're not connected !";
+				deferred.reject("Cannot send websocket data. We're not connected !");
 			} else {
 				var result = null;
 				if(data==null) {

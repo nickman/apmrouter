@@ -153,6 +153,7 @@ function init_metricuri() {
 
 function wsinvoke(command, options) {
 	validate(command);
+	var resultPromise = null;
 	var RID = _RID_FACTORY_++;
 	command.rid = RID;
 	console.debug("RID:[%s]", RID);
@@ -165,14 +166,12 @@ function wsinvoke(command, options) {
 		// this is a subscription call for repeated callbacks
 	} else {
 		// this is a one-time call
-		if(hasAny(options, ['onconfirmed', 'onerror'])) {
-			// the callbacks have been specified, we're returning nul
-		} else {
-			// no callbacks specified, we're returning a promise
-		}
+		resultPromise = waitForResponseOrTimeout(rid, _timeout);
 		return $.websocket.send(command).then(
-				function(result) {},  // on successful send
-				function(error) {}    // on failed send
+				function() {return resultPromise;},  // called if the send succeeded
+				function(ex) {   					// called if the send failed
+					return resultPromise.reject(ex);
+				}
 		);
 	}
 }  
@@ -184,7 +183,7 @@ function wsinvoke(command, options) {
  * SHOULD BE REGISTERED BEFORE WS-SEND IS INVOKED.
  * @param rid The request id to wait for a response on 
  * @param timeout The timeout period to wait for a response in ms.
- * @returns A deferred promise on the result of the wwebsocket invoke
+ * @returns A deferred promise on the result of the websocket invoke
  */
 function waitForResponseOrTimeout(rid, timeout) {
 	var _timeout = timeout || _TIMEOUT_;
