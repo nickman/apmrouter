@@ -44,12 +44,13 @@ public class BufferSearch {
 	/** Counter target for match */
 	protected final int matchCount;
 	/** A thread local for the counter so we can reuse this search across multiple threads */
-	protected final ThreadLocal<int[]> counter = new ThreadLocal<int[]>(){
+	protected final ThreadLocal<int[]> _counter = new ThreadLocal<int[]>(){
 		@Override
 		protected int[] initialValue() {
 			return new int[]{0};
 		}
 	};
+	protected int counter = 0;
 	protected static final Random random = new Random(System.currentTimeMillis());
 	
 	
@@ -60,8 +61,8 @@ public class BufferSearch {
 	
 	public static void main(String[] args) {
 		log("BufferSearch Test");
-		int bufferSize = 10000;
-		int segmentSize = 10;
+		int bufferSize = 100000;
+		int segmentSize = 100;
 		int segmentStart = Math.abs(random.nextInt(bufferSize-segmentSize));
 		final byte[] segment = new byte[segmentSize];
 		
@@ -75,13 +76,16 @@ public class BufferSearch {
 		ByteSequenceIndexFinder finder = new ByteSequenceIndexFinder(segment);
 		BufferSearch bsearch = new BufferSearch(segment); 
 		log("Warmup Starting");
-		for(int i = 0; i < 5000; i++) {
-			bsearch.search(cb);
-			cb.bytesBefore(finder);
+		int pos1 = -1;
+		int pos2 = -1;
+		for(int i = 0; i < 20000; i++) {
+			pos1 = bsearch.search(cb);
+			pos2 = cb.bytesBefore(finder);
 		}
-		log("Warmup Done");
+		log("Warmup Done. Pos1:" + pos1 + " Pos2:" + finder.getLastResult());
+		finder.reset();
 		SystemClock.startTimer();
-		for(int i = 0; i < 5000; i++) {
+		for(int i = 0; i < 10000; i++) {
 			bsearch.search(cb);
 		}
 		log("BufferSearch:" + SystemClock.endTimer());
@@ -123,46 +127,48 @@ public class BufferSearch {
 			if(!cb.readable()) return -1;
 			int readable = cb.readableBytes();
 			while(pos<readable && !nextByte(cb.getByte(pos))) {
-				if(ctr()==matchCount) break;
+				if(counter==matchCount) break;
 				pos++;
 			}
-			return matchCount==ctr() ? pos-matchCount+1 : -1;
+			return matchCount==counter ? pos-matchCount+1 : -1;
 		} catch (Exception ex) {
-			throw new RuntimeException("Search failed. pos:" + pos + " ctr:" + ctr(), ex);
+			throw new RuntimeException("Search failed. pos:" + pos + " ctr:" + counter, ex);
 		} finally {
-			counter.remove();
+			counter=0;
 		}
 	}
 	
 	private boolean nextByte(byte b) {		
-		if(b==pattern[ctr()]) {
-			return incr()==matchCount;
+		if(b==pattern[counter]) {
+			counter++;
+			return counter==matchCount;
 		}
-		return reset();
+		counter = 0;
+		return false;
 	}
 	
 	/**
 	 * Increments the counter and returns the new value
 	 * @return the new value of the counter
 	 */
-	private int incr() {
-		return counter.get()[0]++;
+	private int _incr() {
+		return _counter.get()[0]++;
 	}
 	
 	/**
 	 * Returns the current value of the counter 
 	 * @return the current value of the counter
 	 */
-	private int ctr() {
-		return counter.get()[0];
+	private int _ctr() {
+		return _counter.get()[0];
 	}
 	
 	/**
 	 * Resets the counter to zero.
 	 * @return false
 	 */
-	private boolean reset() {
-		counter.get()[0] = 0;
+	private boolean _reset() {
+		_counter.get()[0] = 0;
 		return false;
 	}
 
