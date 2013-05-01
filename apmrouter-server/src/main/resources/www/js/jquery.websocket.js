@@ -249,8 +249,11 @@
 		}
     }
 	
+	/**
+	 * Sends the passed request and returns a promise on the send op.
+	 */
 	$.websocket.send = function(data) {
-		$.websocket('send', data);
+		return $.websocket('send', data);
 	}
 	
 	$.websocket.addMessageListener = function(data) {

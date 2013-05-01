@@ -241,7 +241,7 @@ public class CatalogJSONDataService extends ServerComponentBean {
 					JSONObject jo = new JSONObject();
 					jo.put("msg", message);
 					//request.response().setContent(jo);
-					channel.write(request.response().setContent(jo)).addListener(new ChannelFutureListener() {
+					channel.write(request.response().setContent(message)).addListener(new ChannelFutureListener() {
 						@Override
 						public void operationComplete(ChannelFuture future) throws Exception {
 							if(future.isSuccess()) {

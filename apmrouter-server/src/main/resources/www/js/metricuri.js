@@ -166,9 +166,11 @@ function wsinvoke(command, options) {
 		// this is a subscription call for repeated callbacks
 	} else {
 		// this is a one-time call
-		resultPromise = waitForResponseOrTimeout(rid, _timeout);
-		return $.websocket.send(command).then(
-				function() {return resultPromise;},  // called if the send succeeded
+		console.debug("OneTime Call rid:[%s], timeout:[%s]", RID, _timeout);
+		resultPromise = waitForResponseOrTimeout(RID, _timeout);
+		sendPromise = $.websocket.send(command);
+		return sendPromise.then(
+				function() {return resultPromise.then(options.onresponse, options.onerror);},  // called if the send succeeded
 				function(ex) {   					// called if the send failed
 					return resultPromise.reject(ex);
 				}
@@ -190,7 +192,7 @@ function waitForResponseOrTimeout(rid, timeout) {
 	var wsInvokeTimeoutHandle = -1;	
 	var deferred = $.Deferred();
 	var responseListener = function(json){
-		if(json!=null && json.rerid==rid && !deferred.isRejected()) {
+		if(json!=null && json.rerid==rid && deferred.state()!="rejected") {
 			if(wsInvokeTimeoutHandle!=-1) {
 				clearTimeout(wsInvokeTimeoutHandle);
 				wsInvokeTimeoutHandle=-1;
