@@ -83,21 +83,28 @@
 		},
 		
 		send : function(data) {
+			var deferred = $.Deferred();
 			if(settings.state != 'connected') {
-				throw "Cannot send websocket data. We're not connected !";
+				deferred.reject("Cannot send websocket data. We're not connected !");
 			} else {
-				//this.config.ws.send(JSON.stringify(req));
-				if(data==null) return;
-				if(typeof(data)=="object") {
+				var result = null;
+				if(data==null) {
+					deferred.reject(false);
+				} else if(typeof(data)=="object") {
 					var _data = JSON.stringify(data);					
-					settings.ws.send(_data);
+					result = settings.ws.send(_data); 
 					console.debug("Sent [%s]", _data);
 				} else if(typeof(data)=="string") {
-					settings.ws.send(data);
+					result = settings.ws.send(data);
 					console.debug("Sent [%s]", data);
+				}
+				if(result!=null) {
+					if(result) deferred.resolve(result);
+					else deferred.reject(result);
 				} else {
-					throw "I don't know how to handle this data type [" + typeof(data) + "]";
-				}				
+					deferred.reject("I don't know how to handle this data type [" + typeof(data) + "]");
+				}
+				return deferred.promise();
 			}
 		},
 		close:  function() {
@@ -242,8 +249,11 @@
 		}
     }
 	
+	/**
+	 * Sends the passed request and returns a promise on the send op.
+	 */
 	$.websocket.send = function(data) {
-		$.websocket('send', data);
+		return $.websocket('send', data);
 	}
 	
 	$.websocket.addMessageListener = function(data) {

@@ -1,0 +1,66 @@
+<!DOCTYPE HTML>
+<html><head>
+		<title>WSInvoke Test</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<script type="text/javascript" src="js/jquery-1.8.2.min.js"></script>
+		<script type="text/javascript" src="js/class.js"></script>
+		<script type="text/javascript" src="js/jquery.livequery.js"></script>	
+		<script type="text/javascript" src="js/jquery.websocket.js"></script>
+		<script type="text/javascript" src="js/metricuri.js"></script>
+		
+		
+		
+	<script type="text/javascript">
+	
+		$(document).ready(function () {
+			console.info("Doc Loaded");
+			$('#connected').bind('websocket-connected', function(event){
+				$(this).text("yes");
+			});
+			$('#connected').bind('websocket-disconnected', function(event){
+				$(this).text("no");
+			});
+			
+			$(document).websocket({wsuri:'ws://' + document.location.host + '/ws'});
+	    });
+		var echor = {
+			t : "req",
+			svc : "catalog",
+			op : "echo",
+			args : {
+				sleep : 3000,
+				msg : "Yo! We loaded in [" + (window.chrome.csi().onloadT - window.chrome.csi().startE) + "] ms."
+			}
+		};
+		var option1 = { 
+				timeout : 5000, 
+				onresponse : function(result) {
+					console.info("On Result [%o]", result.msg);
+				},
+				onerror : function(result) {
+					console.error("On Error [%o]", result);
+				}				
+		}
+		
+		var option2 = { 
+				timeout : 5000, 
+				onresponse : function(result) {
+					console.info("On Result [%o]", result.msg);
+				},
+				onerror : function(result) {
+					console.error("On Error [%o]", result);
+				}				
+		}
+		
+			
+		//var result = wsinvoke(echor, 			
+		
+	</script>
+</head>
+<body>
+	<h4>Nobody here but us wsinvoke testers</h4>
+	<div>Connected:<div id="connected"></div></div>
+
+</body>
+</html>		
+

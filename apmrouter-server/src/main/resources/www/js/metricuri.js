@@ -123,6 +123,92 @@ function init_metricuri() {
 	);	    	
 }
 
+/*
+ * Validate command. If not valid, return null.
+ * Implement response listener:
+ * 		- Valid JSON and RERID == RID
+ * 			- Clear timeout
+ * 			- Complete promise
+ * 
+ * send
+ * 	
+ * 	===   fire-n-forget   ===
+ * 	wsinvoke(request)
+ * 
+ *  === One time call with confirm ===
+ * 	<void> wsinvoke(request, timeout, onconfirmed, onerror)   (error can be a timeout)
+ * 	<promise> wsinvoke(request, <timeout>)   (error can be a timeout)
+ * 
+ *  === Initiate Repeated Callbacks ===
+ * 	<void> wssub(request, <timeout>, <onconfirmed>, <onerror>, <onevent>, <oncancel>)
+ *  <promise> wssub(request, <timeout>)
+ *  
+ *  
+ * 	3 ways to handle sub-events:
+ * 		1. Provide callback function on sub call
+ * 		2. Sub events passed on Deferred.progress
+ * 		3. No callbacks... events are broadcast to an event specified in the request
+ * 
+ */
+
+function wsinvoke(command, options) {
+	validate(command);
+	var resultPromise = null;
+	var RID = _RID_FACTORY_++;
+	command.rid = RID;
+	console.debug("RID:[%s]", RID);
+	var _timeout = hasNumeric(options, 'timeout') ? parseInt(options['timeout']) : _TIMEOUT_;
+	if(!hasInvokeOptions(options)) {
+		// no options means fire-n-forget, but we're still returning a ws.send promise
+		return $.websocket.send(command);
+	}
+	if(hasSubOptions(options)) {
+		// this is a subscription call for repeated callbacks
+	} else {
+		// this is a one-time call
+		console.debug("OneTime Call rid:[%s], timeout:[%s]", RID, _timeout);
+		resultPromise = waitForResponseOrTimeout(RID, _timeout);
+		sendPromise = $.websocket.send(command);
+		return sendPromise.then(
+				function() {return resultPromise.then(options.onresponse, options.onerror);},  // called if the send succeeded
+				function(ex) {   					// called if the send failed
+					return resultPromise.reject(ex);
+				}
+		);
+	}
+}  
+
+
+
+/**
+ * Waits for a response from a websocket invoke.
+ * SHOULD BE REGISTERED BEFORE WS-SEND IS INVOKED.
+ * @param rid The request id to wait for a response on 
+ * @param timeout The timeout period to wait for a response in ms.
+ * @returns A deferred promise on the result of the websocket invoke
+ */
+function waitForResponseOrTimeout(rid, timeout) {
+	var _timeout = timeout || _TIMEOUT_;
+	var wsInvokeTimeoutHandle = -1;	
+	var deferred = $.Deferred();
+	var responseListener = function(json){
+		if(json!=null && json.rerid==rid && deferred.state()!="rejected") {
+			if(wsInvokeTimeoutHandle!=-1) {
+				clearTimeout(wsInvokeTimeoutHandle);
+				wsInvokeTimeoutHandle=-1;
+			}
+			deferred.resolve(json);
+			console.debug("Received Response for RID [%s]-->[%o]", rid, json);
+		}
+	};
+	$.websocket.addMessageListener(responseListener);
+	wsInvokeTimeoutHandle = setTimeout(function(){
+		$.websocket.removeMessageListener(responseListener);
+		console.error("Request for RID [%s] Timed Out", rid);
+		deferred.reject("Request for RID [" + rid + "] timedout after [" + _timeout + "] ms.");
+	}, _timeout);	
+	return deferred.promise();
+}
 
 /**
  * Generalized websocket service invoker
@@ -136,7 +222,7 @@ function init_metricuri() {
  * </ul>
  * @return the unique request identifier which is also the handle to the subscription.
  */
-function wsinvoke(command, options) {
+function wsinvokex(command, options) {
 	if(command==null || !$.isPlainObject(command)) throw "The command must be a valid object";
 	if(command.svc==null || $.trim(command.svc)=="") throw "The command must specicy a valid service name";
 	if(command.op==null || $.trim(command.op)=="") throw "The command must specicy a valid service operation name";
@@ -183,6 +269,7 @@ function wsinvoke(command, options) {
 	if(promise!=null) {
 		return promise;
 	}
+	return returnValue;
 }
 
 /*
@@ -235,7 +322,106 @@ function subscribe(request, options) {
  * @param request The request to validate
  */
 function validate(request) {
-	
+	// "t" will default to "req" if not defined
+	if(request.t==null || $.trim(request.t)=="") {
+		request.t = "req";
+	}
+	if(request.svc==null || $.trim(request.svc)=="") throw 'Request Target Service ["svc"] was null or empty for request [' + stringifyReq(request) + "]";
+	if(request.op==null || $.trim(request.op)=="") throw 'Request Target Op ["op"] was null or empty for request [' + stringifyReq(request) + "]";
+}
+
+function hasInvokeOptions(options) {
+	if(options==null || !$.isPlainObject(options)) return false; // could be a timeout
+	if(options.timeout!=null) return true;
+	if(options.onresponse!=null) return true;
+	if(options.ontimeout!=null) return true;
+	return false;	
+}
+
+function hasSubOptions(options) {
+	if(options==null || !$.isPlainObject(options)) return false;
+	if(options.onevent!=null) return true;
+	if(options.oncancel!=null) return true;
+	return false;	
+}
+
+/**
+ * Determines if any of the passed keys are present (as keys) in the passed options
+ * @param options The option object to test
+ * @param keys The keys to test for
+ * @returns {Boolean} true if any of the keys are present
+ */
+function hasAny(options, keys) {
+	if(options==null || !$.isPlainObject(options) || keys==null || $.isEmptyObject(keys)) return false;	
+	var keysToCheckFor = [];
+	if($.isArray(keys)) {
+		if(keys.length==0) return false;
+		keysToCheckFor = keys;
+	} else if($.isPlainObject(keys)) {
+		$.each(keys, function(k,v) {keysToCheckFor.push(k)});
+		if(keys.length==0) return false;
+	}
+	var ok = false;
+	for(k in keysToCheckFor) {
+		var entry = keysToCheckFor[k];
+		if(options[entry]!=null) {
+			ok = true;
+			break;
+		}
+		
+	}
+	return ok;	
+}
+
+/**
+ * Determines if the passed options object contains a value keyed with the passed key and that is numeric
+ * @param options The option object to test
+ * @param keys The key to test for
+ * @returns {Boolean} true if the key is present and the value is numeric
+ */
+function hasNumeric(options, key) {
+	if(options==null || !$.isPlainObject(options) || key==null ) return false;
+	return $.isNumeric(options[key]);
+}
+
+/**
+ * Determines if all of the passed keys are present (as keys) in the passed options.
+ * @param options The option object to test
+ * @param keys The keys to test for
+ * @returns {Boolean} true if all of the keys are present
+ */
+function hasAll(options, keys) {
+	if(options==null || !$.isPlainObject(options) || keys==null || $.isEmptyObject(keys)) return false;	
+	var keysToCheckFor = [];
+	if($.isArray(keys)) {
+		if(keys.length==0) return false;
+		keysToCheckFor = keys;
+	} else if($.isPlainObject(keys)) {
+		$.each(keys, function(k,v) {keysToCheckFor.push(k)});
+		if(keys.length==0) return false;
+	}
+	var ok = true;
+	for(k in keysToCheckFor) {
+		var entry = keysToCheckFor[k];
+		if(options[entry]==null) {
+			ok = false;
+			break;
+		}
+		
+	}
+	return ok;	
+}
+
+
+/**
+ * Stringifies the request parameter for error reporting
+ * @param request The request object to stringify
+ * @returns the stringified request
+ */
+function stringifyReq(request) {
+	if(request==null) return "<null>";
+	if($.isPlainObject(request)) return JSON.stringify(request);
+	return ("" + request); 
 }
 
 var MetricSubscription = Object.subClass({

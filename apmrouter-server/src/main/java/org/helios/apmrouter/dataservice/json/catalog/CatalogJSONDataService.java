@@ -48,6 +48,9 @@ import org.hibernate.SessionFactory;
 import org.hibernate.engine.NamedQueryDefinition;
 import org.hibernate.impl.SessionFactoryImpl;
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -218,6 +221,52 @@ public class CatalogJSONDataService extends ServerComponentBean {
 	public void setMarshaller(JSONMarshaller marshaller) {
 		this.marshaller = marshaller;
 	}
+	
+	/**
+	 * Client diagnostic helper. Echos the passed content in <b>args</b> keyed by <b>msg</b>.
+	 * If a numeric arg is passed keyed by <b>sleep</b>, the service will sleep that number of ms. before responding. 
+	 * @param request The JSON request
+	 * @param channel The channel to write the response to
+	 */
+	@JSONRequestHandler(name="echo")
+	public void echo(final JsonRequest request, final Channel channel) {
+		final String message = request.getArgument("msg");		
+		final long sleep = getSleep(request.getArgument("sleep"));
+		channel.getPipeline().execute(new Runnable(){
+			@Override
+			public void run() {
+				info("Echo Request [", message, "] sleeping for [", sleep, "] ms.");
+				try { Thread.currentThread().join(sleep); } catch (Exception es) {}
+				try {
+					JSONObject jo = new JSONObject();
+					jo.put("msg", message);
+					//request.response().setContent(jo);
+					channel.write(request.response().setContent(message)).addListener(new ChannelFutureListener() {
+						@Override
+						public void operationComplete(ChannelFuture future) throws Exception {
+							if(future.isSuccess()) {
+								info("Returned response for Echo Request [", message, "] sleeping for [", sleep, "] ms.");
+							} else {
+								error("Failed to Echo Request [", message, "] sleeping for [", sleep, "] ms. ", future.getCause());
+							}							
+						}
+					});
+				} catch (Exception ex) {
+					error("Failed to send response on echo request ", ex);
+				}
+			}
+		});
+		
+	}
+	
+	private long getSleep(String sleep) {
+		try {
+			return Math.abs(Long.parseLong(sleep.trim()));
+		} catch (Exception ex) {
+			return 0;
+		}
+	}
+	
 	
 	/**
 	 * Processes the resolution of a client supplied {@link MetricURI} into a list of matching metrics
