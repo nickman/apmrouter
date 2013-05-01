@@ -32,7 +32,7 @@
 				msg : "Yo! We loaded in [" + (window.chrome.csi().onloadT - window.chrome.csi().startE) + "] ms."
 			}
 		};
-		var options = { 
+		var option1 = { 
 				timeout : 5000, 
 				onresponse : function(result) {
 					console.info("On Result [%o]", result.msg);
@@ -41,6 +41,17 @@
 					console.error("On Error [%o]", result);
 				}				
 		}
+		
+		var option2 = { 
+				timeout : 5000, 
+				onresponse : function(result) {
+					console.info("On Result [%o]", result.msg);
+				},
+				onerror : function(result) {
+					console.error("On Error [%o]", result);
+				}				
+		}
+		
 			
 		//var result = wsinvoke(echor, 			
 		

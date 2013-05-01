@@ -24,7 +24,11 @@
  */
 package org.helios.apmrouter.util;
 
+import java.util.Arrays;
+import java.util.Random;
+
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 
 /**
  * <p>Title: BufferSearch</p>
@@ -45,9 +49,57 @@ public class BufferSearch {
 		protected int[] initialValue() {
 			return new int[]{0};
 		}
-	}; 
+	};
+	protected static final Random random = new Random(System.currentTimeMillis());
 	
 	
+	
+	public static void log(Object msg) {
+		System.out.println(msg);
+	}
+	
+	public static void main(String[] args) {
+		log("BufferSearch Test");
+		int bufferSize = 10000;
+		int segmentSize = 10;
+		int segmentStart = Math.abs(random.nextInt(bufferSize-segmentSize));
+		final byte[] segment = new byte[segmentSize];
+		
+		
+		byte[] buff = new byte[bufferSize];
+		random.nextBytes(buff);
+		System.arraycopy(buff, segmentStart, segment, 0, segmentSize);
+		log("Segment:" + Arrays.toString(segment));
+		log("Start:" + segmentStart);
+		ChannelBuffer cb = ChannelBuffers.wrappedBuffer(buff);
+		ByteSequenceIndexFinder finder = new ByteSequenceIndexFinder(segment);
+		BufferSearch bsearch = new BufferSearch(segment); 
+		log("Warmup Starting");
+		for(int i = 0; i < 5000; i++) {
+			bsearch.search(cb);
+			cb.bytesBefore(finder);
+		}
+		log("Warmup Done");
+		SystemClock.startTimer();
+		for(int i = 0; i < 5000; i++) {
+			bsearch.search(cb);
+		}
+		log("BufferSearch:" + SystemClock.endTimer());
+		SystemClock.startTimer();
+		for(int i = 0; i < 5000; i++) {
+			cb.bytesBefore(finder);
+		}
+		log("Finder:" + SystemClock.endTimer());
+		
+		
+//		int pos1 = new BufferSearch(segment).search(cb);
+//		int pos2 = cb.bytesBefore(finder)-segmentSize+1;
+//		log("Pos1:" + pos1);
+//		byte[] extracted = new byte[segmentSize];
+//		cb.getBytes(pos2, extracted);
+//		log("Pos2:" + pos2 + "\n\t" + Arrays.toString(extracted));
+		
+	}
 	
 	/**
 	 * Creates a new BufferSearch
@@ -66,20 +118,27 @@ public class BufferSearch {
 	 */
 	public int search(ChannelBuffer cb) {
 		int pos = 0;
-		if(!cb.readable()) return -1;
-		int readable = cb.readableBytes();
-		while(pos<readable && !nextByte(cb.getByte(pos))) {
-			pos++;
+		try {
+			
+			if(!cb.readable()) return -1;
+			int readable = cb.readableBytes();
+			while(pos<readable && !nextByte(cb.getByte(pos))) {
+				if(ctr()==matchCount) break;
+				pos++;
+			}
+			return matchCount==ctr() ? pos-matchCount+1 : -1;
+		} catch (Exception ex) {
+			throw new RuntimeException("Search failed. pos:" + pos + " ctr:" + ctr(), ex);
+		} finally {
+			counter.remove();
 		}
-		return matchCount==ctr() ? pos : -1;
 	}
 	
-	private boolean nextByte(byte b) {
+	private boolean nextByte(byte b) {		
 		if(b==pattern[ctr()]) {
-			return matchCount==incr();
+			return incr()==matchCount;
 		}
-		reset();
-		return false;
+		return reset();
 	}
 	
 	/**
@@ -100,20 +159,15 @@ public class BufferSearch {
 	
 	/**
 	 * Resets the counter to zero.
+	 * @return false
 	 */
-	private void reset() {
+	private boolean reset() {
 		counter.get()[0] = 0;
+		return false;
 	}
 
 
 
 
-	/**
-	 * @param args
-	 */
-	public static void main(String[] args) {
-		// TODO Auto-generated method stub
-
-	}
 
 }
