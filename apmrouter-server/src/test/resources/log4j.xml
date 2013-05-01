@@ -2,7 +2,7 @@
 <!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
 <log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/" debug="false">
 
-	
+
 
    <appender name="CONSOLE" class="org.apache.log4j.ConsoleAppender">
       <param name="Target" value="System.out"/>
@@ -10,15 +10,15 @@
          <param name="ConversionPattern" value="%d{ABSOLUTE} %-5p [%c{3}] %m%n"/>
       </layout>
    </appender>
-   
+
    <appender name="CONSOLET" class="org.apache.log4j.ConsoleAppender">
       <param name="Target" value="System.err"/>
       <layout class="org.apache.log4j.EnhancedPatternLayout">
          <param name="ConversionPattern" value="[%c{3}] %m%n" />
       </layout>
    </appender>
-   
-   
+
+
 	<appender name="FILE" class="org.apache.log4j.RollingFileAppender">
 		<param name="append" value="false"/>
 		<param name="maxFileSize" value="1024000"/>
@@ -27,9 +27,9 @@
 		<layout class="org.apache.log4j.PatternLayout">
 			<param name="ConversionPattern" value="%-4r [%t] %-5p %c %x - %m%n" />
 		</layout>
-	</appender>   
+	</appender>
 
-	<!-- 
+	<!--
 	<appender name="VFILE" class="org.apache.log4j.RollingFileAppender">
 		<param name="append" value="false"/>
 		<param name="maxFileSize" value="1024000"/>
@@ -38,10 +38,10 @@
 		<layout class="org.apache.log4j.PatternLayout">
 			<param name="ConversionPattern" value="%-4r [%t] %-5p %c %x - %m%n" />
 		</layout>
-	</appender>   
+	</appender>
    -->
-   
-   <!-- 
+
+   <!--
 	 <appender name="SOCKET" class="org.apache.log4j.net.SocketAppender">
 	        <param name="Port" value="9409" />
 	        <param name="RemoteHost" value="cube" />
@@ -50,7 +50,7 @@
 	 </appender>
    -->
 
-<!--  
+<!--
   <appender name="SOCKET" class="org.apache.log4j.net.SocketAppender">
       <param name="Port" value="4436"/>
       <param name="RemoteHost" value="localhost"/>
@@ -58,7 +58,7 @@
       <param name="Threshold" value="INFO"/>
    </appender>
 -->
-<!-- 
+<!--
    <category name="org.helios.tracing.aop">
      <priority value="TRACE" class="org.jboss.logging.XLevel"/>
    </category>
@@ -68,51 +68,51 @@
    </category>
 -->
 
-	
-	
+
+
    <category name="org.helios.apmrouter.catalog.api.impl.DataServiceInterceptor">
-      <priority value="INFO"/>      
+      <priority value="INFO"/>
    </category>
-	
+
 
    <category name="org.helios" >
       <priority value="INFO"/>
    </category>
-   
+
    <category name="org.springframework.jmx.export.annotation">
       <priority value="WARN"/>
    </category>
-   
-   
-   
-   
+
+
+
+
    <category name="org.apache.log4j">
      <priority value="FATAL"/>
    </category>
-   
+
    <!--
    <category name="org.helios.apmrouter.server.tracing.virtual" additivity="true">
      <priority value="FATAL"/>
      <appender-ref ref="VFILE"/>
    </category>
    -->
-   
-   
+
+
   <category name="org">
      <priority value="INFO"/>
    </category>
-   
+
 
    <category name="LOGSTASH" additivity="false">
       <priority value="DEBUG"/>
       <!-- <appender-ref ref="SOCKET"  /> -->
    </category>
-   
+
 
    <root>
-   	  <priority value="WARN"/>
+   	  <priority value="DEBUG"/>
    	  <appender-ref ref="CONSOLE"/>
-   	  <appender-ref ref="FILE"  />      
+   	  <appender-ref ref="FILE"  />
    </root>
 
 

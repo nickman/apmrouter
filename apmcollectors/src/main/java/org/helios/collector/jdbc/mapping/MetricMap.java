@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.helios.apmrouter.util.StringHelper;
 
 //import net.sf.ehcache.Ehcache;
 //- import org.helios.ot.deltas.DeltaManager;
@@ -75,7 +76,7 @@ public class MetricMap {
 	/** Instance logger */
 	protected final Logger log = Logger.getLogger(getClass());
 	/** The default expression delimeter */
-	public static final  String DEFAULT_DELIMETER = "|";
+	public static final  String DEFAULT_DELIMETER = ",";
 	/** The expression delimeter */
 	public String delimeter = DEFAULT_DELIMETER ;
 	/** The metric name formatter */
@@ -118,7 +119,7 @@ public class MetricMap {
 	
 	/**
 	 * XML node based constructor.
-	 * @param rootNode The root configuration XML node for this mapping.
+	 * @param node The root configuration XML node for this mapping.
 	 */
 	public MetricMap(Node node) throws InvalidMetricMappingException {
 		valueCol = XMLHelper.getAttributeValueByName(node, "value");
@@ -138,7 +139,6 @@ public class MetricMap {
 	 * Initializes the metric map.
 	 * @param prefix The collector provided metric name prefix.
 	 * @param tracer The collector provided  HOT tracer
-	 * @param collectorCache A reference to the collector's collector cache. 
 	 * @param server The collector provided MBeanServer.
 	 * @throws InvalidMetricMappingException
 	 */
@@ -184,64 +184,13 @@ public class MetricMap {
 	//-
 	public void traceMetrics(IReadOnlyProcessedResultSet prs, Map<String, Object> connMetaData) {
 		if(!tracerEnabled) return;
-		/*		MetricType metricType = MetricType.typeForCode(metricTypeFormatter.getValue(prs, connMetaData));
-//		Builder builder = tracer.trace(
-//				nameFormatter.getValue(prs, connMetaData),  // "Elapsed Time"
-//				valueFormatter.getValue(prs, connMetaData), // String: "7543287"
-//				metricType.name())  // "STICKY_DELTA_LONG_AVG" 
-//		.segment(prefix)  // ["Database"]
-//		.segment(segmentFormatter.getValues(prs, connMetaData))  // [ECS, Oracle, SQL, Statements, SELECT state,event_data from event where event_name=:1]
-//		.temporal(temporal);
-		ICEMetric trace = null;		
+        //tracer.traceGauge(Long.parseLong(valueFormatter.getValue(prs, connMetaData)), nameFormatter.getValue(prs, connMetaData), prefix, segmentFormatter.getValues(prs, connMetaData)));
+		MetricType metricType = MetricType.valueOf(metricTypeFormatter.getValue(prs, connMetaData));
 		if(metricType.isDelta()) {
-			if(metricType.isLong()) {
-				if(metricType.isSticky()) {
-					
-					trace = tracer.traceStickyDelta(
-							new Double(
-									valueFormatter.getValue(prs, connMetaData)
-							).longValue(), 
-							nameFormatter.getValue(prs, connMetaData), 
-							prefix, 
-							segmentFormatter.getValues(prs, connMetaData)
-					);
-					//log.info("DB Trace:\n\tRaw Value:[" + valueFormatter.getValue(prs, connMetaData) + "]\n\tTrace:" + trace);
-				} else {
-					trace = tracer.traceDelta(
-							Long.parseLong(
-									valueFormatter.getValue(prs, connMetaData)
-							), 
-							nameFormatter.getValue(prs, connMetaData), 
-							prefix, 
-							segmentFormatter.getValues(prs, connMetaData)
-					);
-				}
-			} else if(metricType.isInt()) {
-				if(metricType.isSticky()) {
-					trace = tracer.traceStickyDelta(Integer.parseInt(valueFormatter.getValue(prs, connMetaData)), nameFormatter.getValue(prs, connMetaData), prefix, segmentFormatter.getValues(prs, connMetaData));
-				} else {
-					trace = tracer.traceDelta(Integer.parseInt(valueFormatter.getValue(prs, connMetaData)), nameFormatter.getValue(prs, connMetaData), prefix, segmentFormatter.getValues(prs, connMetaData));
-				}				
-			}
+            tracer.traceDeltaGauge(Long.parseLong(valueFormatter.getValue(prs, connMetaData)), nameFormatter.getValue(prs, connMetaData), StringHelper.append(prefix,segmentFormatter.getValues(prs, connMetaData)));
 		} else {
-			if(metricType.isLong()) {
-				if(metricType.isSticky()) {
-					trace = tracer.traceSticky(Long.parseLong(valueFormatter.getValue(prs, connMetaData)), nameFormatter.getValue(prs, connMetaData), prefix, segmentFormatter.getValues(prs, connMetaData));
-				} else {
-					trace = tracer.trace(Long.parseLong(valueFormatter.getValue(prs, connMetaData)), nameFormatter.getValue(prs, connMetaData), prefix, segmentFormatter.getValues(prs, connMetaData));
-				}
-			} else if(metricType.isInt()) {
-				if(metricType.isSticky()) {
-					trace = tracer.traceSticky(Integer.parseInt(valueFormatter.getValue(prs, connMetaData)), nameFormatter.getValue(prs, connMetaData), prefix, segmentFormatter.getValues(prs, connMetaData));
-				} else {
-					trace = tracer.trace(Integer.parseInt(valueFormatter.getValue(prs, connMetaData)), nameFormatter.getValue(prs, connMetaData), prefix, segmentFormatter.getValues(prs, connMetaData));
-				}				
-			}			
+				tracer.traceGauge(Long.parseLong(valueFormatter.getValue(prs, connMetaData)), nameFormatter.getValue(prs, connMetaData), StringHelper.append(prefix,segmentFormatter.getValues(prs, connMetaData)));
 		}
-		//tracer.traceTrace(trace);
-		if(scope != null && trace!=null) {
-			scopeMap.put(trace.getFQN(), new ScopeState(trace.getMetricType(), true, nameFormatter.getValue(prs, connMetaData), segmentFormatter.getValues(prs, connMetaData)));
-		}*/
 	}
 	
 	/**
@@ -414,7 +363,7 @@ public class MetricMap {
 		this.prefix = prefix;
 	}
 	/**
-	 * @param tracerFactory the tracerFactory to set
+	 * @param tracer the tracerFactory to set
 	 */
 	public void setTracer(ITracer tracer) {
 		this.tracer = tracer;
