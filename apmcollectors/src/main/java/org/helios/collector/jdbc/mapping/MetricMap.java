@@ -39,7 +39,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.helios.apmrouter.jmx.StringHelper;
+import org.helios.apmrouter.util.StringHelper;
 
 //import net.sf.ehcache.Ehcache;
 //- import org.helios.ot.deltas.DeltaManager;
@@ -76,7 +76,7 @@ public class MetricMap {
 	/** Instance logger */
 	protected final Logger log = Logger.getLogger(getClass());
 	/** The default expression delimeter */
-	public static final  String DEFAULT_DELIMETER = "|";
+	public static final  String DEFAULT_DELIMETER = ",";
 	/** The expression delimeter */
 	public String delimeter = DEFAULT_DELIMETER ;
 	/** The metric name formatter */
@@ -187,9 +187,9 @@ public class MetricMap {
         //tracer.traceGauge(Long.parseLong(valueFormatter.getValue(prs, connMetaData)), nameFormatter.getValue(prs, connMetaData), prefix, segmentFormatter.getValues(prs, connMetaData)));
 		MetricType metricType = MetricType.valueOf(metricTypeFormatter.getValue(prs, connMetaData));
 		if(metricType.isDelta()) {
-            tracer.traceDeltaGauge(Long.parseLong(valueFormatter.getValue(prs, connMetaData)), nameFormatter.getValue(prs, connMetaData), StringHelper.fastConcatAndDelim(true,",",prefix), StringHelper.fastConcatAndDelim(true,",",segmentFormatter.getValues(prs, connMetaData)));
+            tracer.traceDeltaGauge(Long.parseLong(valueFormatter.getValue(prs, connMetaData)), nameFormatter.getValue(prs, connMetaData), StringHelper.append(prefix,segmentFormatter.getValues(prs, connMetaData)));
 		} else {
-				tracer.traceGauge(Long.parseLong(valueFormatter.getValue(prs, connMetaData)), nameFormatter.getValue(prs, connMetaData), StringHelper.fastConcatAndDelim(true,",",prefix), StringHelper.fastConcatAndDelim(true,",",segmentFormatter.getValues(prs, connMetaData)));
+				tracer.traceGauge(Long.parseLong(valueFormatter.getValue(prs, connMetaData)), nameFormatter.getValue(prs, connMetaData), StringHelper.append(prefix,segmentFormatter.getValues(prs, connMetaData)));
 		}
 	}
 	
