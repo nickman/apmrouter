@@ -191,8 +191,7 @@ public class SQLMapping implements ApplicationContextAware, BeanNameAware {
 			}
 			elapsed = System.currentTimeMillis()-start;
 			//- tracer.traceSticky(elapsed, "Collection Time (ms)", "Helios", "Collectors", "Database", mappingName);
-			
-			tracer.traceGauge(elapsed, "Collection Time (ms)",  "Collectors", getClass().getSimpleName(),mappingName);
+			tracer.traceGauge(elapsed, "ElapsedTime",  "Collectors", getClass().getSimpleName(),mappingName);
 		} catch (Exception e) {
 			if(LOG.isEnabledFor(Level.ERROR)) LOG.error("SQLMap Execution Error:\n\tSQL:" + sql, e);
 		} finally {
