@@ -40,6 +40,7 @@ import org.jboss.netty.buffer.ChannelBuffers;
 
 public class ByteSequenceIndexFinderTestCase {
 
+	
 	/**
 	 * Some quick test cases and rough performance measurements.
 	 * @param args None.
@@ -48,18 +49,11 @@ public class ByteSequenceIndexFinderTestCase {
 		final byte MINUS_ONE = -1; 
 		try {
 			log("ByteSequenceIndexFinder Testing");			
-			ClassLoader.getSystemClassLoader().setClassAssertionStatus("org.helios.apmrouter.util.ByteSequenceIndexFinder", true);			
-			boolean assertsOn = ByteSequenceIndexFinder.assertionsEnabled();
-			if(!assertsOn) {
-				System.err.println("This test won't do much since assertions are not enabled....");
-			} else {
-				log("Assertions Enabled:" + assertsOn);
-			}
 			
 			Random random = new Random(System.currentTimeMillis());
-			int bufferCount = 100;
-			int bufferSize = 10;
-			int sequenceSize = 3;
+			int bufferCount = 1000;
+			int bufferSize = 10000;
+			int sequenceSize = 300;
 			// create n ChannelBuffers, each y bytes long
 			ChannelBuffer[] buffers = new ChannelBuffer[bufferCount];
 			// create n byte sequences, each y bytes long
@@ -78,13 +72,14 @@ public class ByteSequenceIndexFinderTestCase {
 				} else {
 					Arrays.fill(sequences[i], MINUS_ONE);					
 				}
+				
 				finders[i] = new ByteSequenceIndexFinder(sequences[i]);
-				log("Loaded #" + i + " seq:" + Arrays.toString(sequences[i]) + "  and buffer:" + Arrays.toString(buffers[i].array()));
+				//log("Loaded #" + i + " seq:" + Arrays.toString(sequences[i]) + "  and buffer:" + Arrays.toString(buffers[i].array()));
 			}
 			log("Sample Data Populated. Starting test...");
 			for(int i = 0; i < bufferCount; i++) {
 				boolean odd = (i%2!=0);
-				log("Testing #" + i + " seq:" + Arrays.toString(sequences[i]) + "  and buffer:" + Arrays.toString(buffers[i].array()));
+				//log("Testing #" + i + " seq:" + Arrays.toString(sequences[i]) + "  and buffer:" + Arrays.toString(buffers[i].array()));
 				int pos = finders[i].findIn(buffers[i]);
 						//finders[i].findIn(buffers[i]);  // buffers[i].bytesBefore(finders[i]);
 				if(odd) {
@@ -95,9 +90,12 @@ public class ByteSequenceIndexFinderTestCase {
 					if(pos==-1) {
 						throw new Exception("Test failed. Expected >-1 , got " + pos +" with seq:" + Arrays.toString(sequences[i]) + "  and buffer:" + Arrays.toString(buffers[i].array()));
 					}
-					log("Extracting #" + i + " pos:" + pos); 
+					//log("Extracting #" + i + " pos:" + pos); 
 					byte[] extract = new byte[sequenceSize];
 					buffers[i].getBytes(pos, extract);
+					if(!Arrays.equals(extract, sequences[i])) {
+						throw new Exception("Test failed. Got  " + Arrays.toString(extract) + " with seq:" + Arrays.toString(sequences[i]) + "  and buffer:" + Arrays.toString(buffers[i].array()));
+					}
 					
 					
 				}
@@ -108,9 +106,6 @@ public class ByteSequenceIndexFinderTestCase {
 		} catch (Exception ex) {
 			ex.printStackTrace(System.err);
 		}
-		
-		// enable assertions
-		//ByteSequenceIndexFinder.class.getClassLoader().setClassAssertionStatus(ByteSequenceIndexFinder.class.getName(), true);
 		
 		
 		

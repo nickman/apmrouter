@@ -24,8 +24,6 @@
  */
 package org.helios.apmrouter.util;
 
-import java.util.Random;
-
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBufferIndexFinder;
 
@@ -64,9 +62,13 @@ public class ByteSequenceIndexFinder implements ChannelBufferIndexFinder {
 	 */
 	@Override
 	public boolean find(ChannelBuffer buffer, int guessedIndex) {
-		boolean found = (buffer.getByte(guessedIndex)==sequence[pos]);
+		byte nextByte = buffer.getByte(guessedIndex);
+		boolean found = nextByte==sequence[pos];
 		if(found) pos++;
-		else pos = 0;
+		else {
+			pos = 0;
+			if(nextByte==sequence[pos]) pos++;
+		}
 		if(pos==slength) {
 			pos = 0;
 			lastResult = guessedIndex-slength+1;
@@ -74,6 +76,7 @@ public class ByteSequenceIndexFinder implements ChannelBufferIndexFinder {
 		}
 		return false;
 	}
+
 	
 	/**
 	 * Locates the first starting offset in the passed {@link ChannelBuffer} 
@@ -177,14 +180,5 @@ public class ByteSequenceIndexFinder implements ChannelBufferIndexFinder {
 	public int getLastResult() {
 		return lastResult;
 	}
-	
-	static boolean assertionsEnabled() {
-		boolean assertsEnabled = false;
-        assert assertsEnabled = true; // Intentional side effect!!!
-        if (!assertsEnabled)
-            return false;
-        return true;
-	}
-
 	
 }
