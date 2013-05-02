@@ -160,21 +160,32 @@ function wsinvoke(command, options) {
 	var _timeout = hasNumeric(options, 'timeout') ? parseInt(options['timeout']) : _TIMEOUT_;
 	if(!hasInvokeOptions(options)) {
 		// no options means fire-n-forget, but we're still returning a ws.send promise
-		return $.websocket.send(command);
+		console.debug("OneTime Call No Callbacks: rid:[%s], timeout:[%s]", RID, _timeout);
+		resultPromise = waitForResponseOrTimeout(RID, _timeout);
+		return $.websocket.send(command).then(
+				function() {						// called if the send succeeded
+					return resultPromise
+				},  
+				function(ex) {   					// called if the send failed					
+					return resultPromise;
+				}
+		);
 	}
-	if(hasSubOptions(options)) {
-		// this is a subscription call for repeated callbacks
-	} else {
+	if(!hasSubOptions(options)) {		
 		// this is a one-time call
 		console.debug("OneTime Call rid:[%s], timeout:[%s]", RID, _timeout);
 		resultPromise = waitForResponseOrTimeout(RID, _timeout);
-		sendPromise = $.websocket.send(command);
-		return sendPromise.then(
-				function() {return resultPromise.then(options.onresponse, options.onerror);},  // called if the send succeeded
+		return $.websocket.send(command).then(
+				function() {						// called if the send succeeded
+					return resultPromise.then(options.onresponse, options.onerror);
+				},  
 				function(ex) {   					// called if the send failed
 					return resultPromise.reject(ex);
 				}
-		);
+		);		
+	} else {
+		// this is a subscription call for repeated callbacks  (['onevent', 'oncancel'])
+		
 	}
 }  
 
@@ -198,7 +209,7 @@ function waitForResponseOrTimeout(rid, timeout) {
 				wsInvokeTimeoutHandle=-1;
 			}
 			deferred.resolve(json);
-			console.debug("Received Response for RID [%s]-->[%o]", rid, json);
+			console.debug("[%s] Received Response for RID [%s]-->[%o]", this, rid, json);
 		}
 	};
 	$.websocket.addMessageListener(responseListener);
@@ -216,7 +227,7 @@ function waitForResponseOrTimeout(rid, timeout) {
  * @param options:<ul>
  * 	<li><b>timeout</b>: The timeout in ms. on the request invocation confirm. (i.e. not a subscriber timeout) Default is 2000 ms.</li>
  * 	<li><b>onresponse</b>: A callback invoked when the immediate response of the command invocation is received.</li>
- * 	<li><b>ontimeout</b>: A callback invoked when the request times out</li>
+ * 	<li><b>onerror</b>: A callback invoked when the request times out or some other error</li>
  * 	<li><b>onevent</b>: A callback invoked when an asynchronous event is received associated to the original invocation.</li>
  * 	<li><b>oncancel</b>: A callback invoked the asynchronous event subscription associated to the original invocation is cancelled</li>
  * </ul>
@@ -330,19 +341,22 @@ function validate(request) {
 	if(request.op==null || $.trim(request.op)=="") throw 'Request Target Op ["op"] was null or empty for request [' + stringifyReq(request) + "]";
 }
 
+/**
+ * Determines if the passed object contains callbacks for a simple invocation
+ * @param options The object to test for callbacks
+ * @returns true if the passed object contains callbacks for a simple invocation, false otherwise
+ */
 function hasInvokeOptions(options) {
-	if(options==null || !$.isPlainObject(options)) return false; // could be a timeout
-	if(options.timeout!=null) return true;
-	if(options.onresponse!=null) return true;
-	if(options.ontimeout!=null) return true;
-	return false;	
+	return hasAny(options, ['onresponse', 'onerror']);	
 }
 
+/**
+ * Determines if the passed object contains callbacks for a subscription invocation
+ * @param options The object to test for callbacks
+ * @returns true if the passed object contains callbacks for a subscription invocation, false otherwise
+ */
 function hasSubOptions(options) {
-	if(options==null || !$.isPlainObject(options)) return false;
-	if(options.onevent!=null) return true;
-	if(options.oncancel!=null) return true;
-	return false;	
+	return hasAny(options, ['onevent', 'oncancel']);
 }
 
 /**

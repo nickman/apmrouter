@@ -25,13 +25,14 @@
 	    });
 		var echor = {
 			t : "req",
-			svc : "catalog",
+			svc : "ws-invoke",
 			op : "echo",
 			args : {
 				sleep : 3000,
 				msg : "Yo! We loaded in [" + (window.chrome.csi().onloadT - window.chrome.csi().startE) + "] ms."
 			}
 		};
+		// One time, callbacks provided
 		var option1 = { 
 				timeout : 5000, 
 				onresponse : function(result) {
@@ -40,20 +41,27 @@
 				onerror : function(result) {
 					console.error("On Error [%o]", result);
 				}				
-		}
-		
+		};
+		// One time, no callbacks provided, callbacks attached to returned promise
+		//  Call like this:   wsinvoke(echor, option2).then(callbacksForOption2[0], callbacksForOption2[1]);
 		var option2 = { 
 				timeout : 5000, 
-				onresponse : function(result) {
-					console.info("On Result [%o]", result.msg);
-				},
-				onerror : function(result) {
-					console.error("On Error [%o]", result);
-				}				
-		}
-		
+		};
+		var callbacksForOption2 = [
+    		function(result) {
+ 					console.info("On Result [%o]", result.msg);
+ 			},
+ 			function(result) {
+ 					console.error("On Error [%o]", result);
+ 			}				
+                          
+		]; 
+		// Subscription request
+		var option3 = {
+				
+		};
 			
-		//var result = wsinvoke(echor, 			
+		 			
 		
 	</script>
 </head>

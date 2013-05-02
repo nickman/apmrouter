@@ -93,7 +93,7 @@
 				} else if(typeof(data)=="object") {
 					var _data = JSON.stringify(data);					
 					result = settings.ws.send(_data); 
-					console.debug("Sent [%s]", _data);
+					console.debug("Sent Data[%s]", _data);
 				} else if(typeof(data)=="string") {
 					result = settings.ws.send(data);
 					console.debug("Sent [%s]", data);
