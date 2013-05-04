@@ -37,6 +37,7 @@ import java.util.Collections;
 import org.helios.apmrouter.dataservice.json.JSONRequestRouter;
 import org.helios.apmrouter.dataservice.json.JsonResponse;
 import org.helios.apmrouter.dataservice.json.marshalling.JSONMarshaller;
+import org.helios.apmrouter.dataservice.json.marshalling.netty.ChannelBufferizable;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.server.services.session.ChannelType;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
@@ -115,9 +116,10 @@ public class WebSocketServiceHandler extends ServerComponentBean implements Chan
             return;
         }
 		Object message = ((MessageEvent)e).getMessage();
-		if((message instanceof JsonResponse) || (message instanceof JSONObject) || (message instanceof CharSequence)) {
-			WebSocketFrame frame = new TextWebSocketFrame(marshaller.marshallToText(message));		
-			ctx.sendDownstream(new DownstreamMessageEvent(channel, Channels.future(channel), frame, channel.getRemoteAddress()));					
+		if((message instanceof ChannelBufferizable)) {
+			ctx.sendDownstream(new DownstreamMessageEvent(channel, Channels.future(channel), new TextWebSocketFrame(((ChannelBufferizable)message).toChannelBuffer()), channel.getRemoteAddress()));
+		} else if((message instanceof JsonResponse) || (message instanceof JSONObject) || (message instanceof CharSequence)) {				
+			ctx.sendDownstream(new DownstreamMessageEvent(channel, Channels.future(channel), new TextWebSocketFrame(marshaller.marshallToText(message)), channel.getRemoteAddress()));					
 		} else {
             ctx.sendDownstream(e);
 		}
