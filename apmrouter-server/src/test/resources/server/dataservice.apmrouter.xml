@@ -32,7 +32,7 @@
 	
  -->
 <bean id="catalog" class="org.helios.apmrouter.dataservice.json.catalog.CatalogJSONDataService" />
-<bean id="ws-invoke" class="org.helios.apmrouter.dataservice.json.WSInvokeTestJSONDataService" />
+<bean id="wsinvoke" class="org.helios.apmrouter.dataservice.json.WSInvokeTestJSONDataService" />
 
 <bean id="sub" class="org.helios.apmrouter.dataservice.json.sub.SubscriptionDataService" />
 <bean id="jmx" class="org.helios.apmrouter.subscription.impls.jmx.JMXSubscriptionCriteriaBuilder" /> 	

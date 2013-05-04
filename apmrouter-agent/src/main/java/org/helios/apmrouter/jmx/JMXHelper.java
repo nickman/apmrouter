@@ -500,25 +500,68 @@ public class JMXHelper {
 	/**
 	 * Returns a String->Object Map of the named attributes from the Mbean.
 	 * @param on The object name of the MBean.
-	 * @param server The MBeanServerConnection the MBean is registered in.
-	 * @param attributes An array of attribute names to retrieve.
+	 * @param server The MBeanServerConnection the MBean is registered in. If this is null, uses the helios mbean server
+	 * @param attributes An array of attribute names to retrieve. If this is null or empty, retrieves all the names
 	 * @return A name value map of the requested attributes.
 	 */
 	public static Map<String, Object> getAttributes(ObjectName on, MBeanServerConnection server, String...attributes) {
 		try {
+			if(attributes==null || attributes.length<1) {
+				attributes = getAttributeNames(on, server);
+			}
 			Map<String, Object> attrs = new HashMap<String, Object>(attributes.length);
 			AttributeList attributeList = server.getAttributes(on, attributes);
 			
 			
 			for(int i = 0; i < attributeList.size(); i++) {
 				Attribute at = (Attribute)attributeList.get(i);
-				if(isIn(at.getName(), attributes)) {
-					attrs.put(at.getName(), at.getValue());
-				}
+				attrs.put(at.getName(), at.getValue());
 			}
 			return attrs;
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to getAttributes on [" + on + "]", e);
+		}
+	}
+	
+	/**
+	 * Returns a String->Object Map of the named attributes from the Mbean in the helios mbeanserver
+	 * @param on The object name of the MBean.
+	 * @param attributes An array of attribute names to retrieve. If this is null or empty, retrieves all the names
+	 * @return A name value map of the requested attributes.
+	 */
+	public static Map<String, Object> getAttributes(ObjectName on, String...attributes) {
+		return getAttributes(on, getHeliosMBeanServer(), attributes);
+	}
+	
+	
+	/**
+	 * Returns an array of the names of the attributes for the passed ObjectName reached through the helios mbeanserver
+	 * @param objectName The mbean to get the attribute names for
+	 * @return an array of strings
+	 */
+	public static String[] getAttributeNames(ObjectName objectName) {
+		return getAttributeNames(objectName, getHeliosMBeanServer());
+	}
+	
+	
+	/**
+	 * Returns an array of the names of the attributes for the passed ObjectName reached through the passed mbean server connection
+	 * @param objectName The mbean to get the attribute names for
+	 * @param connection The connection to reach the mbean through. If null, uses the helios mbean server
+	 * @return an array of strings
+	 */
+	public static String[] getAttributeNames(ObjectName objectName, MBeanServerConnection connection) {
+		if(objectName==null) throw new IllegalArgumentException("The passed objectname was null", new Throwable());
+		if(connection==null) connection = getHeliosMBeanServer();		
+		try {
+			MBeanAttributeInfo[] infos = connection.getMBeanInfo(objectName).getAttributes();
+			String[] names = new String[infos.length];
+			for(int i = 0; i < infos.length; i++) {
+				names[i] = infos[i].getName();
+			}
+			return names;
+		} catch (Exception ex) {
+			return new String[0];
 		}
 	}
 	
@@ -530,11 +573,7 @@ public class JMXHelper {
 	 */
 	public static boolean isIn(String name, String[] array) {
 		if(array==null || name==null) return false;
-		for(String s: array) {
-			if(s.equals(name)) return true;
-		}
-		return false;
-		
+		return Arrays.binarySearch(array, name)>=0; 
 	}
 	
 	

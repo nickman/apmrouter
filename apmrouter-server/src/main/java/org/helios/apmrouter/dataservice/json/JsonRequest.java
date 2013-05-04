@@ -83,7 +83,16 @@ public class JsonRequest {
 	 */
 	public JsonResponse subResponse() {
 		return new JsonResponse(rid, JsonResponse.RESP_TYPE_SUB);
+	}
+	
+	/**
+	 * Returns a subscription confirmation {@link JsonResponse} for the subscription initiation started by this request
+	 * @return a subscription confirmation {@link JsonResponse} for the subscription initiation started by this request
+	 */
+	public JsonResponse subConfirm() {
+		return new JsonResponse(rid, JsonResponse.RESP_TYPE_SUB_STARTED);
 	}	
+	
 	
 	/**
 	 * Adds an op argument to the map
@@ -160,6 +169,17 @@ public class JsonRequest {
 			return defaultValue;
 		}
 		return (T)value;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return String
+				.format("JsonRequest [\\n\\ttCode:%s, rid:%s, serviceName:%s, opName:%s, request:%s, arguments:%s]",
+						tCode, rid, serviceName, opName, request, arguments);
 	}
 	
 }

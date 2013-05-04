@@ -58,8 +58,30 @@
 		]; 
 		// Subscription request
 		var option3 = {
-				
+			onresponse : function(data) {
+				console.info("SubConfirm:[%o]", data);
+			},
+			onerror : function(data) {
+				console.info("SubRequestFailed:[%o]", data);
+			},			
+			onevent : function(data) {
+				console.info("EVENT:[%o]", data);
+			}
 		};
+		
+		
+		// the sub request
+		var subrequest = {
+				rid : 1,
+				t : "req",
+				svc : "wsinvoke",
+				op : "subscribe",
+				args : {
+					//objectname : "java.lang:type=OperatingSystem", 
+					objectname : "java.lang:type=*",
+					freq : 5000
+				}
+		}
 			
 		 			
 		

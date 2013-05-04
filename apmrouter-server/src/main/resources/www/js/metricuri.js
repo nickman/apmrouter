@@ -185,7 +185,22 @@ function wsinvoke(command, options) {
 		);		
 	} else {
 		// this is a subscription call for repeated callbacks  (['onevent', 'oncancel'])
-		
+		if($.isFunction(options.onevent)) {
+			$.websocket.addMessageListener(function(data){
+				options.onevent(data);
+			});
+			console.debug("Sub Call rid:[%s], timeout:[%s]", RID, _timeout);
+			resultPromise = waitForResponseOrTimeout(RID, _timeout);
+			return $.websocket.send(command).then(
+					function() {						// called if the send succeeded
+						return resultPromise.then(options.onresponse, options.onerror);
+					},  
+					function(ex) {   					// called if the send failed
+						return resultPromise.reject(ex);
+					}
+			);		
+			
+		}
 	}
 }  
 

@@ -24,7 +24,10 @@
  */
 package org.helios.apmrouter.dataservice.json;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -33,12 +36,19 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.management.Notification;
+import javax.management.NotificationFilter;
+import javax.management.NotificationListener;
 import javax.management.ObjectName;
 
+import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
 /**
  * <p>Title: WSInvokeTestJSONDataService</p>
@@ -62,35 +72,68 @@ public class WSInvokeTestJSONDataService extends ServerComponentBean {
 	
 	/** A map of subscriptions keyed by the channel ID */
 	protected final Map<Integer, Subscription> subscriptions = new ConcurrentHashMap<Integer, Subscription>();
+	/** A map of subscriptions keyed by the rid */
+	protected final Map<Integer, Subscription> subscriptionsByRid = new ConcurrentHashMap<Integer, Subscription>();
 	
-	private class Subscription implements ChannelFutureListener, Runnable {
+	private class Subscription implements ChannelFutureListener, Runnable, NotificationListener, NotificationFilter {
+		/** The original JsonRequest for this sub */
+		private final JsonRequest jsonRequest;
 		/** The ObjectName subscribed to */
 		private final ObjectName objectName;
 		/** The schedule handle */
 		private final ScheduledFuture<?> schedule;
 		/** The channel owning the subscription */
 		private final Channel channel;
+		/** the names of the atributes we'll be retrieving for each matching ObjectName */
+		private final Map<ObjectName, String[]> attributeNames;
+
+		private long sentMessages = 0;
 
 		/**
 		 * Creates a new Subscription
+		 * @param jsonRequest The original JsonRequest for this sub
 		 * @param objectName The ObjectName subscribed to
-		 * @param frequency The frequency of the subscription's events in ms.
+		 * @param channel The channel to write events to
+		 * @param frequency the frequency of the JMX poll in ms.
 		 */
-		public Subscription(ObjectName objectName, Channel channel, long frequency) {
+		public Subscription(JsonRequest jsonRequest, ObjectName objectName, Channel channel, long frequency) {
+			this.jsonRequest = jsonRequest;
 			this.objectName = objectName;			
 			this.channel = channel;
 			this.channel.getCloseFuture().addListener(this);
-			if(this.objectName.isPattern()) {
-				
-			} else {
-				
+			Set<ObjectName> matches = JMXHelper.getHeliosMBeanServer().queryNames(objectName, null);
+			attributeNames = new HashMap<ObjectName, String[]>(matches.size());
+			for(ObjectName on: matches) {
+				try {
+					Set<String> numericAttrs = new HashSet<String>();
+					for(Map.Entry<String, Object> attr : JMXHelper.getAttributes(on).entrySet()) {
+						if(attr.getValue()!=null && Number.class.isInstance(attr.getValue())) {
+							numericAttrs.add(attr.getKey());
+						}
+					}
+					info("Will poll [", on, "] for these attributes:", numericAttrs.toString().replace("[", "[\n\t").replace("]", "\n]").replace(",", "\n\t"));
+					attributeNames.put(on, numericAttrs.toArray(new String[numericAttrs.size()]));
+				} catch (Exception ex) {}
 			}
-			this.schedule = scheduler.scheduleWithFixedDelay(this, 0, frequency, TimeUnit.MILLISECONDS);			
+			this.schedule = scheduler.scheduleWithFixedDelay(this, frequency, frequency, TimeUnit.MILLISECONDS);
+			subscriptions.put(channel.getId(), this);
 		}
 		
+		/**
+		 * {@inheritDoc}
+		 * @see java.lang.Runnable#run()
+		 */
 		public void run() {
 			try {
+				Map<String, Object> map = new HashMap<String, Object>();
+				map.put("subkey", objectName.toString());				
 				
+				for(Map.Entry<ObjectName, String[]> entry: attributeNames.entrySet()) {
+					Map<String, Object> onmap = JMXHelper.getAttributes(entry.getKey(), entry.getValue());
+					map.put(entry.getKey().toString(), onmap);
+				}
+				channel.write(jsonRequest.subResponse().setContent(map));
+				sentMessages++;
 			} catch (Exception ex) {
 				error("Subscription for channel [", channel, "] and ON [", objectName, "] encountered error ", ex);
 				// FIXME: Send an error response
@@ -115,7 +158,40 @@ public class WSInvokeTestJSONDataService extends ServerComponentBean {
 		 */
 		@Override
 		public void operationComplete(ChannelFuture future) throws Exception {
+			info("Cancelling Subscription " , this);
 			cancel(true);
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * @see javax.management.NotificationFilter#isNotificationEnabled(javax.management.Notification)
+		 */
+		@Override
+		public boolean isNotificationEnabled(Notification notification) {
+			// TODO Auto-generated method stub
+			return false;
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * @see javax.management.NotificationListener#handleNotification(javax.management.Notification, java.lang.Object)
+		 */
+		@Override
+		public void handleNotification(Notification notification,
+				Object handback) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		/**
+		 * {@inheritDoc}
+		 * @see java.lang.Object#toString()
+		 */
+		@Override
+		public String toString() {
+			return String.format(
+					"Subscription [\\n\\tobjectName:%s, channel:%s]",
+					objectName, channel);
 		}
 		
 		
@@ -129,8 +205,39 @@ public class WSInvokeTestJSONDataService extends ServerComponentBean {
 	 * @param request The subscribe request
 	 * @param channel The channel to write the subscribe confirm and subsequent events.
 	 */
+	@JSONRequestHandler(name="subscribe")
 	public void subscribeEvents(final JsonRequest request, final Channel channel) {
-		
+		info("Processing Subscription Request:", request);
+		try {
+			final String objName = request.getArgument("objectname");
+			final long frequency = request.getArgument("freq", 10000L);
+			new Subscription(request, JMXHelper.objectName(objName), channel, frequency);
+			ChannelFutureListener completionListener = new ChannelFutureListener() {
+				@Override
+				public void operationComplete(ChannelFuture future) throws Exception {
+					info("SubReg Future:\n\tIsCancelled:", future.isCancelled(), 
+							"\n\tIsDone:", future.isDone(),
+							"\n\tIsSuccess:", future.isSuccess(),
+							"\n\tChannel:", future.getChannel(),
+							"\n\tCause:", future.getCause()							
+					);
+					if(!future.isDone()) {
+						info("Subscription Request Incomplete");
+					}
+					if(future.isSuccess()) {
+						
+						info("Subscription Request Complete:", request);
+					} else {
+						//FIXME: send error here
+						error("Failed to send ", future.getCause());
+					}
+				}				
+			};
+			channel.write(request.response().setContent("subkey" + objName)).addListener(completionListener);
+		} catch (Exception ex) {
+			error("Failed to initiate subscription with [", request, "] from channel [", channel, "] ", ex);
+			// FIXME: send back error msg
+		}
 	}
 
 	/**

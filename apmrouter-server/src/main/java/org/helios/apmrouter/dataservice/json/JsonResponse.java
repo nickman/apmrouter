@@ -69,6 +69,12 @@ public class JsonResponse {
 	public static final String RESP_TYPE_RESP = "resp";
 	/** Response flag for a subscription event delivery */
 	public static final String RESP_TYPE_SUB = "sub";
+	/** Response flag for a subscription start confirm */
+	public static final String RESP_TYPE_SUB_STARTED = "subst";
+	/** Response flag for a subscription stop notification */
+	public static final String RESP_TYPE_SUB_STOPPED = "xsub";
+	/** Response flag for a growl */
+	public static final String RESP_TYPE_GROWL = "growl";
 	
 	
 	/**
