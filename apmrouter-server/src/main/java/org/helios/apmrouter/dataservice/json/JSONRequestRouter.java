@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.util.StringHelper;
 import org.jboss.netty.channel.Channel;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -81,7 +82,7 @@ public class JSONRequestRouter extends ServerComponentBean {
 			long requestId = request.getLong(REQUEST_ID);
 			String service = request.getString(SERVICE_NAME);
 			String op = request.getString(OP_NAME);
-			JsonRequest jreq = new JsonRequest(flag, requestId, service, op, request);
+			JsonRequest jreq = new JsonRequest(channel, flag, requestId, service, op, request);
 			if(request.has(ARGS_NAME)) {
 				JSONArray arr = null;
 				try {
@@ -152,6 +153,8 @@ public class JSONRequestRouter extends ServerComponentBean {
 			if(service!=null) {
 				JSONRequestHandlerImpl handler = service.get(req.opName);
 				handler.processRequest(req, channel);
+			} else {
+				req.error(StringHelper.fastConcat("JSON Invocation from [", channel.toString(), "] for req [", req.serviceName, "/", req.opName, "] failed. Could not locate service/op")).send(channel);
 			}
 		} catch (Exception ex) {
 			error("Failed to invoke request", ex);

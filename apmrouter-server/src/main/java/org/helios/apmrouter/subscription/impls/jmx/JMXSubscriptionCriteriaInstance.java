@@ -203,7 +203,7 @@ public class JMXSubscriptionCriteriaInstance implements SubscriptionCriteria<Str
 			long[] key = (long[])handback;
 			if(key.length==2) {
 				if(jmxSubId.equals(key[0]) && session.getSubscriptionSessionId()==key[1]) {
-					session.send(request.subResponse().setContent(notification));
+					request.subResponse("" + jmxSubId).setContent(notification).send(request.getChannel());
 					return;
 				}
 			}

@@ -24,10 +24,15 @@
  */
 package org.helios.apmrouter.dataservice.json;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.helios.apmrouter.util.StringHelper;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.Channels;
+import org.jboss.netty.channel.DownstreamMessageEvent;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -50,24 +55,57 @@ public class JsonRequest {
 	/** The original request, in case there is other stuff in there that the data service needs */
 	public final JSONObject request;
 	
+	/** The channel that the request came in on. May sometimes be null */
+	private final Channel channel;
+	
+
 	/** The arguments supplied to the op */
 	public final Map<Object, Object> arguments = new TreeMap<Object, Object>();
 	
 	/**
 	 * Creates a new JsonRequest
+	 * @param channel The channel that the request came in on. Ignored if null 
 	 * @param tCode the type code of the request
 	 * @param rid The client supplied request ID
 	 * @param serviceName The service name requested
 	 * @param opName The op name requested
 	 * @param request The original request
 	 */
-	public JsonRequest(String tCode, long rid, String serviceName, String opName, JSONObject request) {
+	public JsonRequest(Channel channel, String tCode, long rid, String serviceName, String opName, JSONObject request) {
+		this.channel = channel;
 		this.tCode = tCode;
 		this.rid = rid;
 		this.serviceName = serviceName;
 		this.opName = opName;
 		this.request = request;
 	}
+	
+	/**
+	 * Returns an error {@link JsonResponse} for this request
+	 * @param message The error message to send
+	 * @return an error {@link JsonResponse} for this request
+	 */
+	public JsonResponse error(CharSequence message) {
+		return error(message, null);
+	}
+	
+	/**
+	 * Returns an error {@link JsonResponse} for this request
+	 * @param message The error message to send
+	 * @param t The exception to render in the error message. Ignored if null.
+	 * @return an error {@link JsonResponse} for this request
+	 */
+	public JsonResponse error(CharSequence message, Throwable t) {
+		JsonResponse response = new JsonResponse(rid, JsonResponse.RESP_TYPE_ERR);
+		Map<String, String> map = new HashMap<String, String>(t==null ? 1 : 2);
+		map.put("err", message.toString());
+		if(t!=null) {
+			map.put("ex", StringHelper.formatStackTrace(t));
+		}
+		response.setContent(map);
+		return response;
+	}
+	
 	
 	/**
 	 * Returns a {@link JsonResponse} for this request
@@ -79,20 +117,30 @@ public class JsonRequest {
 	
 	/**
 	 * Returns a subscription send {@link JsonResponse} for the subscription issued by this request
+	 * @param subKey subKey The unique subscription identifier
 	 * @return a subscription send {@link JsonResponse} for the subscription issued by this request
 	 */
-	public JsonResponse subResponse() {
-		return new JsonResponse(rid, JsonResponse.RESP_TYPE_SUB);
+	public JsonResponse subResponse(String subKey) {
+		return new JsonSubConfirm(rid, JsonResponse.RESP_TYPE_SUB, subKey);
 	}
 	
 	/**
 	 * Returns a subscription confirmation {@link JsonResponse} for the subscription initiation started by this request
+	 * @param subKey The unique subscription identifier
 	 * @return a subscription confirmation {@link JsonResponse} for the subscription initiation started by this request
 	 */
-	public JsonResponse subConfirm() {
-		return new JsonResponse(rid, JsonResponse.RESP_TYPE_SUB_STARTED);
+	public JsonResponse subConfirm(String subKey) {
+		return new JsonSubConfirm(rid, JsonResponse.RESP_TYPE_SUB_STARTED, subKey);
 	}	
 	
+	/**
+	 * Returns a subscription cancellation {@link JsonResponse} for the cancelled subscription.
+	 * @param subKey The unique subscription identifier
+	 * @return a subscription cancellation {@link JsonResponse} for the cancelled subscription.
+	 */
+	public JsonResponse subCancel(String subKey) {
+		return new JsonSubConfirm(rid, JsonResponse.RESP_TYPE_SUB_STOPPED, subKey);
+	}	
 	
 	/**
 	 * Adds an op argument to the map
@@ -170,6 +218,15 @@ public class JsonRequest {
 		}
 		return (T)value;
 	}
+	
+	/**
+	 * Returns the channel that the request came in on or null if this is a synthetic request.
+	 * @return the channel
+	 */
+	public Channel getChannel() {
+		return channel;
+	}
+	
 
 	/**
 	 * {@inheritDoc}

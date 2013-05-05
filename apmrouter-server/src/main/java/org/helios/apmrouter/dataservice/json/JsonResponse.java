@@ -27,10 +27,21 @@ package org.helios.apmrouter.dataservice.json;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.helios.apmrouter.OpCode;
+import org.helios.apmrouter.dataservice.json.marshalling.netty.ChannelBufferizable;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
+import org.jboss.netty.channel.Channels;
+import org.jboss.netty.channel.DownstreamMessageEvent;
+import org.jboss.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -48,19 +59,26 @@ import com.google.gson.annotations.SerializedName;
  * <p><code>org.helios.apmrouter.dataservice.json.JsonResponse</code></p>
  */
 
-public class JsonResponse {
+public class JsonResponse implements ChannelBufferizable  {
 	/** The client provided request ID that this response is being sent for */
 	@SerializedName("rerid")
 	protected final long reRequestId;
-	/**  */
+	/** The response type */
 	@SerializedName("t")
 	protected final String type;
+	/** The response instance id */
+	@SerializedName("id")
+	protected final int id = System.identityHashCode(this);
+	
 	/** The content payload */
 	@SerializedName("msg")
 	protected Object content = null;
 	/** The response op code */
 	@SerializedName("op")
 	protected OpCode opCode = null;
+	
+	/** The gson serializer */
+	protected static final Gson gson = new GsonBuilder().create();
 	
 	
 	/** Response flag for an error message */
@@ -203,7 +221,50 @@ public class JsonResponse {
 		this.opCode = opCode;
 		return this;
 	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.dataservice.json.marshalling.netty.ChannelBufferizable#toChannelBuffer()
+	 */
+	@Override
+	public ChannelBuffer toChannelBuffer() {
+		return ChannelBuffers.wrappedBuffer(gson.toJson(this).getBytes());
+	}
 	
+	/** An empty ChannelFuture const. */
+	private static final ChannelFuture[] EMPTY_CHANNEL_FUTURE_ARR = {};
+	
+	/**
+	 * Sends this response to all the passed channels as a {@link TextWebSocketFrame}
+	 * @param listener A channel future listener to attach to each channel future. Ignored if null.
+	 * @param channels The channels to send this response to
+	 * @return An array of the futures for the write of this response to each channel written to
+	 */
+	public ChannelFuture[] send(ChannelFutureListener listener, Channel...channels) {		
+		if(channels!=null && channels.length>0) {
+			Set<ChannelFuture> futures = new HashSet<ChannelFuture>(channels.length);
+			TextWebSocketFrame frame = new TextWebSocketFrame(this.toChannelBuffer());
+			for(Channel channel: channels) {
+				if(channel!=null && channel.isWritable()) {
+					ChannelFuture cf = Channels.future(channel);
+					if(listener!=null) cf.addListener(listener);
+					channel.getPipeline().sendDownstream(new DownstreamMessageEvent(channel, cf, frame, channel.getRemoteAddress()));
+					futures.add(cf);
+				}
+			}
+			return futures.toArray(new ChannelFuture[futures.size()]);
+		}
+		return EMPTY_CHANNEL_FUTURE_ARR;
+	}
+	
+	/**
+	 * Sends this response to all the passed channels as a {@link TextWebSocketFrame}
+	 * @param channels The channels to send this response to
+	 * @return An array of the futures for the write of this response to each channel written to
+	 */
+	public ChannelFuture[] send(Channel...channels) {
+		return send(null, channels);
+	}
 	
 	
 }

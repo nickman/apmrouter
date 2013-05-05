@@ -174,7 +174,13 @@ public class SharedChannelGroup implements ChannelGroup, ChannelFutureListener, 
 		scheduler.scheduleAtFixedRate(new Runnable(){
 			public void run() {
 				for(DecoratedChannel dc: channelsByRemote.values()) {
-					if(dc.host==null || dc.agent==null) {
+					//=======================================================================================
+					//  FIXME:  This is temporary until:
+					//			A. We can handle the full agent protocol in JS WebSock Clients
+					//			B. We have a cleaner and more specific way of excluding JS WebSock Clients
+					//				since agent protocol capable clients may be using WebSock
+					//=======================================================================================
+					if((dc.host==null || dc.agent==null) && dc.getChannelType()!=ChannelType.WEBSOCKET_REMOTE) {
 						dc.sendWho();
 					}
 				}

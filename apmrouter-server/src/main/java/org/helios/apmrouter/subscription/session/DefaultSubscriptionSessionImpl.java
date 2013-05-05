@@ -116,8 +116,9 @@ public class DefaultSubscriptionSessionImpl extends ServerComponentBean implemen
 		try {
 			SubscriptionCriteriaInstance<?> sci = criteria.instantiate(request);
 			sci.resolve(session);
-			resolvedCriteria.put(sci.getCriteriaId(), sci);			
-			session.send(request.response().setContent(sci.getCriteriaId()));
+			resolvedCriteria.put(sci.getCriteriaId(), sci);
+			request.subConfirm("" + sci.getCriteriaId()).send(request.getChannel());
+			//session.send(request.response().setContent(sci.getCriteriaId()));
 			sendSubStarted(sci);
 			return sci.getCriteriaId();
 		} catch (FailedCriteriaResolutionException fce) {

@@ -81,7 +81,28 @@
 					objectname : "java.lang:type=*",
 					freq : 5000
 				}
-		}
+		};
+		
+		function testSub() {
+			wsinvoke(subrequest, option3);
+		};
+		
+		// A request for a non existent service
+		var badServiceRequest = {
+				rid : 1,
+				t : "req",
+				svc : "IDONTEXIST",
+				op : "NEITHERDOI",
+				args : {
+				}
+		};
+		
+		function testBadService() {
+			wsinvoke(badServiceRequest);
+		};
+		
+		
+		
 			
 		 			
 		

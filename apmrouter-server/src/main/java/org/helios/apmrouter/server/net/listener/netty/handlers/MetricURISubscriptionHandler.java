@@ -28,6 +28,7 @@ import java.net.SocketAddress;
 
 import org.helios.apmrouter.OpCode;
 import org.helios.apmrouter.dataservice.json.JsonResponse;
+import org.helios.apmrouter.dataservice.json.JsonSubConfirm;
 import org.helios.apmrouter.dataservice.json.catalog.MetricURI;
 import org.helios.apmrouter.dataservice.json.catalog.MetricURISubscriptionService;
 import org.jboss.netty.buffer.ChannelBuffer;
@@ -111,7 +112,7 @@ public class MetricURISubscriptionHandler extends AbstractAgentRequestHandler {
 			byte[] uriBytes = new  byte[uriLength];
 			buff.readBytes(uriBytes);
 			String uri = new String(uriBytes);
-			JsonResponse responder = new JsonResponse(rid, "sub");
+			JsonResponse responder = new JsonSubConfirm(rid, JsonResponse.RESP_TYPE_SUB, uri);
 			final ChannelBuffer response = ChannelBuffers.buffer(10); // opCode(1) + success(1) + rid(8) = 10					
 			if(sub) {
 				response.writeByte(OpCode.METRIC_URI_SUB_CONFIRM.op());
@@ -124,7 +125,7 @@ public class MetricURISubscriptionHandler extends AbstractAgentRequestHandler {
 			} else {
 				response.writeByte(OpCode.METRIC_URI_UNSUB_CONFIRM.op());
 				try {
-					subService.cancelMetricURISubscription(MetricURI.getMetricURI(uri), responder, channel);
+					subService.cancelMetricURISubscription(MetricURI.getMetricURI(uri), channel);
 					response.writeByte(1);
 				} catch (Exception ex) {
 					response.writeByte(0);

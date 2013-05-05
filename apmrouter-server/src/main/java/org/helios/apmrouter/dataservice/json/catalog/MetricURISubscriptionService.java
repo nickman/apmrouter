@@ -251,21 +251,12 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	}
 
 	/**
-	 * Unsubscribes the passed {@link Channel} from the subscription to the
-	 * specified {@link MetricURI}.
-	 * 
-	 * @param metricUri
-	 *            The {@link MetricURI} to unsubscribe from
-	 * @param response
-	 *            The json response to format the response (with the correct
-	 *            RID)
-	 * @param channel
-	 *            The {@link Channel} to unsubscribe
+	 * Unsubscribes the passed {@link Channel} from the subscription to the specified {@link MetricURI}.
+	 * @param metricUri The {@link MetricURI} to unsubscribe from
+	 * @param channel The {@link Channel} to unsubscribe
 	 */
-	public void cancelMetricURISubscription(MetricURI metricUri,
-			JsonResponse response, Channel channel) {
-		MetricURISubscription sub = MetricURISubscription
-				.getMetricURISubscriptionOrNull(metricUri);
+	public void cancelMetricURISubscription(MetricURI metricUri, Channel channel) {
+		MetricURISubscription sub = MetricURISubscription.getMetricURISubscriptionOrNull(metricUri);
 		if (sub != null) {
 			sub.unSubscribeChannel(channel);
 		}
@@ -287,34 +278,24 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 	}
 
 	/**
-	 * Processes the resolution of a client supplied {@link MetricURI} into a
-	 * list of matching metrics
-	 * 
-	 * @param metricUri
-	 *            The metric URI to resolve
-	 * @param response
-	 *            The json response to format the response (with the correct
-	 *            RID)
-	 * @param channel
-	 *            The channel to write the response to
-	 * @param subscribe
-	 *            If true, also subscribes the session to the metric URI,
-	 *            otherwise only retrieves the data
+	 * Processes the resolution of a client supplied {@link MetricURI} into a list of matching metrics
+	 * @param metricUri The metric URI to resolve
+	 * @param response The json response to format the response (with the correct RID)
+	 * @param channel The channel to write the response to
+	 * @param subscribe If true, also subscribes the session to the metric URI, otherwise only retrieves the data
 	 */
 	public void resolveMetricURI(MetricURI metricUri, JsonResponse response, Channel channel, boolean subscribe) {		
 		SystemClock.startTimer();
 		List<Metric> metrics = getMetricsForURI(metricUri);
-		channel.write(response.setContent(metrics));
+		response.setContent(metrics).send(channel);		
 		if (subscribe)
 			subscribeMetricURI(metricUri, response, channel);
 		info("Metric URI Query ", SystemClock.endTimer());
 	}
 
 	/**
-	 * Sets the object Json marshaller
-	 * 
-	 * @param marshaller
-	 *            the object Json marshaller
+	 * Sets the object Json marshaller 
+	 * @param marshaller the object Json marshaller
 	 */
 	@Autowired(required = true)
 	public void setMarshaller(JSONMarshaller marshaller) {
@@ -323,9 +304,7 @@ public class MetricURISubscriptionService extends ServerComponentBean implements
 
 	/**
 	 * Sets the hibernate session factory
-	 * 
-	 * @param sessionFactory
-	 *            the hibernate session factory
+	 * @param sessionFactory the hibernate session factory
 	 */
 	@Autowired(required = true)
 	public void setSessionFactory(SessionFactory sessionFactory) {

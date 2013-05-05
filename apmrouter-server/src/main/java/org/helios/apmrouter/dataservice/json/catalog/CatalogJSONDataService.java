@@ -201,9 +201,10 @@ public class CatalogJSONDataService extends ServerComponentBean {
 		try {
 			int agentId = Integer.parseInt(request.getArgument("agentId"));
 			session = sessionFactory.openSession();
-			channel.write(request.response().setContent(AgentMetricSet.newInstance(session, agentId)));
+			request.response().setContent(AgentMetricSet.newInstance(session, agentId)).send(channel);
 		} catch (Exception ex) {
-			error("Failed to execute agentMetricSet [" + request + "]", ex);
+			request.error("Failed to execute agentMetricSet [" + request + "]", ex);
+			error("Failed to execute agentMetricSet [" , request , "]", ex);
 		} finally {
 			if(session!=null && session.isOpen()) try { session.close(); } catch (Exception e) {/* No Op */}
 		}
@@ -250,7 +251,7 @@ public class CatalogJSONDataService extends ServerComponentBean {
 		try {
 			MetricURI metricUri = MetricURI.getMetricURI(muri);
 			metricUriSubService.subscribeMetricURI(metricUri, request.response(), channel);
-			request.response().setContent(metricUri.toJSON(false));
+			request.subConfirm(muri).setContent(metricUri.toJSON(false)).send(channel);
 		} catch (Exception ex) {
 			error("Failed to subscribe to MetricURI [" , request , "]", ex);
 			throw new RuntimeException("Failed to subscribe to MetricURI [" + request + "]", ex);
@@ -266,7 +267,7 @@ public class CatalogJSONDataService extends ServerComponentBean {
 	public void resolveURI(JsonRequest request, Channel channel) {
 		String muri = request.getArgument("uri");
 		List<Metric> resp = metricUriSubService.getMetricsForURI(MetricURI.getMetricURI(URLHelper.toURI(muri)));		
-		channel.write(request.response().setContent(resp));
+		request.response().setContent(resp).send(channel);
 	}
 	
 	
@@ -280,7 +281,8 @@ public class CatalogJSONDataService extends ServerComponentBean {
 	public void cancelMetricURISubscription(JsonRequest request, Channel channel) {
 		String muri = request.getArgument("uri");
 		try {
-			metricUriSubService.cancelMetricURISubscription(MetricURI.getMetricURI(muri), request.response(), channel);
+			metricUriSubService.cancelMetricURISubscription(MetricURI.getMetricURI(muri), channel);
+			request.subCancel(muri).send(channel);
 		} catch (Exception ex) {
 			error("Failed to unsubscribe from MetricURI [" , request , "]", ex);
 			throw new RuntimeException("Failed to unsubscribe from MetricURI [" + request + "]", ex);

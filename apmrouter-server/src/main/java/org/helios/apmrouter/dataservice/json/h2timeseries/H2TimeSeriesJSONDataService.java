@@ -217,7 +217,7 @@ public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 	 * Returns the rolling average of the liveData query times in ms
 	 * @return the rolling average of the liveData query times in ms
 	 */
-	@ManagedMetric(category="H2TimeSeriesJSONDataService", metricType=MetricType.GAUGE, description="the rolling average of the liveData query times in ms")
+	@ManagedMetric(category="H2TimeSeriesJSONDataService", displayName="RollingLiveDataQueryTimeMs", metricType=MetricType.GAUGE, description="the rolling average of the liveData query times in ms")
 	public long getRollingLiveDataQueryTimeMs() {
 		return TimeUnit.MILLISECONDS.convert(getRollingLiveDataQueryTimeNs(), TimeUnit.NANOSECONDS); 
 	}
@@ -226,7 +226,7 @@ public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 	 * Returns the rolling average of the liveData query times in ns
 	 * @return the rolling average of the liveData query times in ns
 	 */
-	@ManagedMetric(category="H2TimeSeriesJSONDataService", metricType=MetricType.GAUGE, description="the rolling average of the liveData query times in ns")
+	@ManagedMetric(category="H2TimeSeriesJSONDataService", displayName="RollingLiveDataQueryTimeNs", metricType=MetricType.GAUGE, description="the rolling average of the liveData query times in ns")
 	public long getRollingLiveDataQueryTimeNs() {
 		return lastElapsedLiveData.avg(); 
 	}
@@ -235,7 +235,7 @@ public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 	 * Returns the last liveData query time in ns
 	 * @return the last liveData query time in ns, or -1 if there is no history
 	 */
-	@ManagedMetric(category="H2TimeSeriesJSONDataService", metricType=MetricType.GAUGE, description="the last liveData query time in ns")
+	@ManagedMetric(category="H2TimeSeriesJSONDataService", displayName="LastLiveDataQueryTimeNs", metricType=MetricType.GAUGE, description="the last liveData query time in ns")
 	public long getLastLiveDataQueryTimeNs() {
 		return lastElapsedLiveData.isEmpty() ? -1L : lastElapsedLiveData.get(0); 
 	}
@@ -244,7 +244,7 @@ public class H2TimeSeriesJSONDataService extends ServerComponentBean {
 	 * Returns the last liveData query time in ms
 	 * @return the last liveData query time in ms, or -1 if there is no history
 	 */
-	@ManagedMetric(category="H2TimeSeriesJSONDataService", metricType=MetricType.GAUGE, description="the last liveData query time in ms")
+	@ManagedMetric(category="H2TimeSeriesJSONDataService", displayName="LastLiveDataQueryTimeMs", metricType=MetricType.GAUGE, description="the last liveData query time in ms")
 	public long getLastLiveDataQueryTimeMs() {
 		return TimeUnit.MILLISECONDS.convert(getLastLiveDataQueryTimeNs(), TimeUnit.NANOSECONDS); 
 	}

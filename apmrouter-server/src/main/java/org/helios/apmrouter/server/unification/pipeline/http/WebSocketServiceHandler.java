@@ -30,6 +30,7 @@ import static org.jboss.netty.handler.codec.http.HttpMethod.GET;
 import static org.jboss.netty.handler.codec.http.HttpResponseStatus.FORBIDDEN;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Collections;
@@ -206,7 +207,8 @@ public class WebSocketServiceHandler extends ServerComponentBean implements Chan
 				public void operationComplete(ChannelFuture f) throws Exception {
 					if(f.isSuccess()) {
 						Channel wsChannel = f.getChannel();
-						//SharedChannelGroup.getInstance().add(f.getChannel(), ChannelType.WEBSOCKET_REMOTE, "WebSocketClient-" + f.getChannel().getId());
+						
+						SharedChannelGroup.getInstance().add(f.getChannel(), ChannelType.WEBSOCKET_REMOTE, "WebSocketClient-" + f.getChannel().getId(), ((InetSocketAddress)wsChannel.getRemoteAddress()).getAddress().getCanonicalHostName(), "WebSock[" + wsChannel.getId() + "]");
 						wsChannel.write(new JSONObject(Collections.singletonMap("sessionid", wsChannel.getId())));
 						//wsChannel.getPipeline().remove(DefaultChannelHandler.NAME);
 					}

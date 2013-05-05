@@ -43,6 +43,7 @@ import javax.management.ObjectName;
 
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.util.StringHelper;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -123,6 +124,7 @@ public class WSInvokeTestJSONDataService extends ServerComponentBean {
 		 * {@inheritDoc}
 		 * @see java.lang.Runnable#run()
 		 */
+		@Override
 		public void run() {
 			try {
 				Map<String, Object> map = new HashMap<String, Object>();
@@ -132,11 +134,11 @@ public class WSInvokeTestJSONDataService extends ServerComponentBean {
 					Map<String, Object> onmap = JMXHelper.getAttributes(entry.getKey(), entry.getValue());
 					map.put(entry.getKey().toString(), onmap);
 				}
-				channel.write(jsonRequest.subResponse().setContent(map));
+				jsonRequest.subResponse(objectName.toString()).setContent(map).send(channel);
 				sentMessages++;
 			} catch (Exception ex) {
-				error("Subscription for channel [", channel, "] and ON [", objectName, "] encountered error ", ex);
-				// FIXME: Send an error response
+				error("Subscription for channel [", channel, "] on ObjectName [", objectName, "] encountered error ", ex);
+				jsonRequest.error(StringHelper.fastConcat("Subscription for channel [", channel.toString(), "] and ON [", objectName.toString(), "] encountered error "), ex).send(channel);
 			}
 		}
 		
@@ -224,19 +226,18 @@ public class WSInvokeTestJSONDataService extends ServerComponentBean {
 					if(!future.isDone()) {
 						info("Subscription Request Incomplete");
 					}
-					if(future.isSuccess()) {
-						
+					if(future.isSuccess()) {						
 						info("Subscription Request Complete:", request);
 					} else {
-						//FIXME: send error here
+						request.error(StringHelper.fastConcat("Subscription request for channel [", channel.toString(), "] on ObjectName [", objectName.toString(), "] failed"), future.getCause()).send(channel);
 						error("Failed to send ", future.getCause());
 					}
 				}				
 			};
-			channel.write(request.response().setContent("subkey" + objName)).addListener(completionListener);
+			request.subConfirm(objName).send(completionListener, channel);
 		} catch (Exception ex) {
 			error("Failed to initiate subscription with [", request, "] from channel [", channel, "] ", ex);
-			// FIXME: send back error msg
+			request.error(StringHelper.fastConcat("Subscription request for channel [", channel.toString(), "] on ObjectName [", objectName.toString(), "] failed"), ex).send(channel);
 		}
 	}
 
