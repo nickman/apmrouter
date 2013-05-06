@@ -3,6 +3,7 @@
 		var _RID_FACTORY_ = 0;
 		var _RERID_FACTORY_ = 0;
 		var _SUBSCRIPTIONS_ = {};
+		var _SUBCOUNT_ = 0;
 		var _TIMEOUT_ = 2000;
 		var metricGridColumnModel = [
 	                  			{ "sTitle": "Metric URI"},   
@@ -19,6 +20,13 @@
 	                 			{ "sTitle": "toOffline" }
 	                 ];
 
+
+
+function getSubCount() {
+	var cnt = 0;
+	$.each(_SUBSCRIPTIONS_, function(){cnt++});
+	cnt++;
+}
 
 /*
  * Metric Subscription
@@ -453,18 +461,98 @@ function stringifyReq(request) {
 	return ("" + request); 
 }
 
+
+/**
+ * MetricSubscription class, a functional container for tracking MetricURI instances and the details of their state.
+ */
 var MetricSubscription = Object.subClass({
 	init: function(metricuri, rid){
-				this._metricuri = metricuri;				
-				this._rid = rid;
-				this._sub_count = 0;
+			/* The MetricURI of this subscription and the key of this object in _SUBSCRIPTIONS_ */
+			this._metricuri = metricuri;				
+			/* The initiating request id */
+			this._rid = rid;
+			/* The number of subscribers currently subscribed to this MetricURI */
+			this._sub_count = 0;
+			/* OnEvent subscribers directly on this subscription */
+			this._event_subscribers = [];
+			/* Deferred.progress/complete listeners on this subscription */
+			this._deferred_subscribers = [];
 	},
 	MetricSubscription : function(metricuri, rid) {
 		if (!(this instanceof arguments.callee)) {
 			return new MetricSubscription(metricuri, rid);
 		}
-	}	
+	},
+	/**
+	 * Adds an event subscriber or array of subscribers to this subscription. Any subscribers already subscribed will be ignored.
+	 * If a subscriber is a Deferred  (d.constructor == $.Deferred().__proto__.constructor_)
+	 * or hasAll(d, ['then', 'reject', 'notify', 'always'])
+	 * @param subscriber A subscriber or array of subscribers
+	 * @return the number of subscribers added
+	 */
+	addEventSubscriber : function(subscriber) {
+		if(subscriber==null) return;
+		var subscribers = $.isArray(subscriber) ? subscriber : [subscriber];
+		var arr = this._event_subscribers;
+		var darr = this._event_subscribers;
+		var added = 0;
+		$.each(subscribers, function(index, sub){
+			if(sub!=null) {
+				var target = null;
+				if(hasAll(sub, ['then', 'reject', 'notify', 'always'])) {
+					target = darr; // add as deferred
+				} else {
+					target = arr; // add as simple subscriber
+				}
+				if(target.indexOf(sub)==-1) {
+					target.push(sub);
+					added++;
+				}
+			}
+		});
+		console.debug("Added [%s] subscribers to MetricSubscription [%s]", added, this._metricuri);
+		this._sub_count += added;
+		return added;
+	},
+	/**
+	 * Removes an event subscriber or array of subscribers from this subscription. Any subscribers not subscribed will be ignored.
+	 * @param subscriber A subscriber or array of subscribers
+	 * @return the number of subscribers removed
+	 */
+	removeEventSubscriber : function(subscriber) {
+		if(subscriber==null) return;
+		var subscribers = $.isArray(subscriber) ? subscriber : [subscriber];
+		var removed = 0;
+		var arr = this._event_subscribers;
+		var darr = this._event_subscribers;
+		$.each(subscribers, function(index, sub){
+			if(sub!=null) {
+				var target = null;
+				if(hasAll(sub, ['then', 'reject', 'notify', 'always'])) {
+					target = darr; // add as deferred
+				} else {
+					target = arr; // add as simple subscriber
+				}
+				
+				var index = target.indexOf(sub);
+				if(index!=-1) {
+					if(target.splice(index, 1)!=null) removed++;
+				}
+			}			
+		});
+		console.debug("Removed [%s] subscribers from MetricSubscription [%s]", removed, this._metricuri);
+		this._sub_count -= removed;
+		return removed;
+	}
+	
 });
+
+/*
+ * 	3 ways to handle sub-events:
+ * 		1. Provide callback function on sub call
+ * 		2. Sub events passed on Deferred.progress
+ * 		3. No callbacks... events are broadcast to an event specified in the request
+ */
 
 
 //.put("svc", "catalog")

@@ -2,6 +2,7 @@
 <html><head>
 		<title>WSInvoke Test</title>
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<script type="text/javascript" src="js/dat.gui.min.js"></script>
 		<script type="text/javascript" src="js/jquery-1.8.2.min.js"></script>
 		<script type="text/javascript" src="js/class.js"></script>
 		<script type="text/javascript" src="js/jquery.livequery.js"></script>	
@@ -10,10 +11,14 @@
 		
 		
 		
+		
 	<script type="text/javascript">
 	
 		$(document).ready(function () {
 			console.info("Doc Loaded");
+			var gui = new dat.GUI();
+			gui.add('subcount', _SUBCOUNT_);
+			
 			$('#connected').bind('websocket-connected', function(event){
 				$(this).text("yes");
 			});
