@@ -176,7 +176,7 @@ public class DecoratedChannel implements Channel, DecoratedChannelMBean, Seriali
 			return "tcp://" + ((InetSocketAddress)getRemoteAddress()).getAddress().getHostAddress() + ":" + ((InetSocketAddress)getRemoteAddress()).getPort(); 
 		} else if(type.name().startsWith("WEBSOCKET")) {
 			if(getRemoteAddress()==null) return "ws://" ; 
-			return "ws://" + ((InetSocketAddress)getRemoteAddress()).getAddress().getHostAddress() + ":" + ((InetSocketAddress)getRemoteAddress()).getPort();			
+			return "ws://" + ((InetSocketAddress)delegate.getRemoteAddress()).getAddress().getHostAddress() + ":" + ((InetSocketAddress)getRemoteAddress()).getPort();			
 		} else {
 			return "unknown";
 		}

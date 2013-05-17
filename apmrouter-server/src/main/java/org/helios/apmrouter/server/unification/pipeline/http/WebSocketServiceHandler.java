@@ -208,7 +208,13 @@ public class WebSocketServiceHandler extends ServerComponentBean implements Chan
 					if(f.isSuccess()) {
 						Channel wsChannel = f.getChannel();
 						
-						SharedChannelGroup.getInstance().add(f.getChannel(), ChannelType.WEBSOCKET_REMOTE, "WebSocketClient-" + f.getChannel().getId(), ((InetSocketAddress)wsChannel.getRemoteAddress()).getAddress().getCanonicalHostName(), "WebSock[" + wsChannel.getId() + "]");
+						SharedChannelGroup.getInstance().add(
+								f.getChannel(), 
+								ChannelType.WEBSOCKET_REMOTE, 
+								"WebSocketClient-" + f.getChannel().getId(), 
+								((InetSocketAddress)wsChannel.getRemoteAddress()).getAddress().getCanonicalHostName(), 
+								"WebSock[" + wsChannel.getId() + "]"
+						);
 						wsChannel.write(new JSONObject(Collections.singletonMap("sessionid", wsChannel.getId())));
 						//wsChannel.getPipeline().remove(DefaultChannelHandler.NAME);
 					}

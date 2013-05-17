@@ -17,7 +17,7 @@
 		$(document).ready(function () {
 			console.info("Doc Loaded");
 			var gui = new dat.GUI();
-			gui.add('subcount', _SUBCOUNT_);
+			gui.add(window, '_SUBCOUNT_').listen();
 			
 			$('#connected').bind('websocket-connected', function(event){
 				$(this).text("yes");

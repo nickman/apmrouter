@@ -159,6 +159,62 @@ function init_metricuri() {
  * 
  */
 
+function subscribeMetricUri(service, op, metricuri, args) {  // args could be { freq : 5000 }
+	var subrequest = {
+			t: "sub",
+			svc : "wsinvoke",
+			op :  "subscribe",
+			args : {
+				objectname : "java.lang:type=*"				
+			}	
+	};
+	$.extend(subrequest, args);
+	/** handles the subscription confirm */	
+	onresponse = function(data) {
+		
+	}
+	
+	
+	
+	/*
+	 * Options for sub:
+		var option3 = {
+			onresponse : function(data) {
+				console.info("SubConfirm:[%o]", data);
+			},
+			onerror : function(data) {
+				console.info("SubRequestFailed:[%o]", data);
+			},			
+			onevent : function(data) {
+				console.info("EVENT:[%o]", data);
+			}
+		};
+		
+	 */
+	
+	/*
+	 * Response from server confirming sub.
+	 * id: 177967120
+	 * rerid: 0
+	 * subkey: "java.lang:type=*"
+	 * t: "subst"
+	 */
+	
+	wsinvoke(subrequest, option3);
+}
+
+/**
+ * Generalized websocket service invoker
+ * @param command A (mandatory) JSON subscription request
+ * @param options:<ul>
+ * 	<li><b>timeout</b>: The timeout in ms. on the request invocation confirm. (i.e. not a subscriber timeout) Default is 2000 ms.</li>
+ * 	<li><b>onresponse</b>: A callback invoked when the immediate response of the command invocation is received.</li>
+ * 	<li><b>onerror</b>: A callback invoked when the request times out or some other error</li>
+ * 	<li><b>onevent</b>: A callback invoked when an asynchronous event is received associated to the original invocation.</li>
+ * 	<li><b>oncancel</b>: A callback invoked the asynchronous event subscription associated to the original invocation is cancelled</li>
+ * </ul>
+ * @return the unique request identifier which is also the handle to the subscription.
+ */
 function wsinvoke(command, options) {
 	validate(command);
 	var resultPromise = null;
@@ -244,18 +300,6 @@ function waitForResponseOrTimeout(rid, timeout) {
 	return deferred.promise();
 }
 
-/**
- * Generalized websocket service invoker
- * @param command A (mandatory) JSON subscription request
- * @param options:<ul>
- * 	<li><b>timeout</b>: The timeout in ms. on the request invocation confirm. (i.e. not a subscriber timeout) Default is 2000 ms.</li>
- * 	<li><b>onresponse</b>: A callback invoked when the immediate response of the command invocation is received.</li>
- * 	<li><b>onerror</b>: A callback invoked when the request times out or some other error</li>
- * 	<li><b>onevent</b>: A callback invoked when an asynchronous event is received associated to the original invocation.</li>
- * 	<li><b>oncancel</b>: A callback invoked the asynchronous event subscription associated to the original invocation is cancelled</li>
- * </ul>
- * @return the unique request identifier which is also the handle to the subscription.
- */
 function wsinvokex(command, options) {
 	if(command==null || !$.isPlainObject(command)) throw "The command must be a valid object";
 	if(command.svc==null || $.trim(command.svc)=="") throw "The command must specicy a valid service name";
@@ -327,6 +371,19 @@ function wsinvokex(command, options) {
  "svc": "sub",
  "t": "req"
 }
+
+===  Sub Confirm ===
+id: 1748656220
+rerid: 0
+subkey: "java.lang:type=*"
+t: "subst"
+
+=== Sub Event ===
+id: 1645754428
+msg: Object
+rerid: 0
+subkey: "java.lang:type=*"
+t: "sub"
 
  */
 
@@ -461,6 +518,13 @@ function stringifyReq(request) {
 	return ("" + request); 
 }
 
+function getMetricSubscription(metricuri, rid) {
+	if(metricuri==null) throw "MetricURI was null";
+	var sub = _SUBSCRIPTIONS_[metricuri];
+	if(sub!=null) return sub;
+	else return new MetricSubscription(metricuri, rid);	
+}
+
 
 /**
  * MetricSubscription class, a functional container for tracking MetricURI instances and the details of their state.
@@ -473,15 +537,64 @@ var MetricSubscription = Object.subClass({
 			this._rid = rid;
 			/* The number of subscribers currently subscribed to this MetricURI */
 			this._sub_count = 0;
+			/* The number of listeners currently subscribed to this MetricURI */
+			this._listener_count = 0;			
 			/* OnEvent subscribers directly on this subscription */
 			this._event_subscribers = [];
 			/* Deferred.progress/complete listeners on this subscription */
 			this._deferred_subscribers = [];
-	},
+			
+			_SUBSCRIPTIONS_[metricuri] = this;
+	},	
 	MetricSubscription : function(metricuri, rid) {
+		if(metricuri!=null) {
+			var sub = _SUBSCRIPTIONS_[metricuri];
+			if(sub!=null) return sub;
+		}
 		if (!(this instanceof arguments.callee)) {
 			return new MetricSubscription(metricuri, rid);
 		}
+	},
+	/**
+	 * Renders this MetricSubscription as a string
+	 */
+	toString : function() {
+		var str = "MetricSubscription: [" + this._metricuri + "] rid:" + this._rid +
+			" subcount:" + this._sub_count + " listeners:" + this._listener_count +
+			" es:" + this._event_subscribers.length + 
+			" ds:" + this._deferred_subscribers.length;
+		return str;
+	},
+	/**
+	 * Increments the subscriber count for non-callback (event broadcast listeners) subscribers
+	 */
+	incrementSubscribers : function() {
+		this._listener_count++;
+		this._sub_count++;
+	},
+	/**
+	 * Decrements the subscriber count for non-callback (event broadcast listeners) subscribers
+	 */
+	decrementSubscribers : function() {
+		this._listener_count--;
+		this._sub_count--;
+	},
+	
+	/**
+	 * Invoked when a subscription event is received for the metricuri in this subscription
+	 * @param data The message payload from the event
+	 */
+	fireEvent : function(data) {
+		if(data==null) return;
+		if(this._listener_count>0) {
+			
+		}
+	},
+	/**
+	 * Cancels this subscription
+	 */
+	cancel : function() {
+		
 	},
 	/**
 	 * Adds an event subscriber or array of subscribers to this subscription. Any subscribers already subscribed will be ignored.
@@ -546,6 +659,11 @@ var MetricSubscription = Object.subClass({
 	}
 	
 });
+
+
+
+
+//var MetricSubscription.prototype.toString = MetricSubscription.toString;
 
 /*
  * 	3 ways to handle sub-events:
