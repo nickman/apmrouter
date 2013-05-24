@@ -3,26 +3,74 @@
 
 ;(function ( $, window, document, undefined ) {
 	var settings = {};
-	var messageSubscribers = [];
+	// Arrays of listeners keyed by the message type key extracted from each message
+	var messageSubscribers = {};
+	// Default handler for messages of an undetermined type
+	var unknownMessageType = function(data){
+		console.error("====================================================================");
+		console.error("Message received of unknown type:%o", data);
+		console.error("====================================================================");
+	};
+	// Default handler for messages of a recognized type, but with no listeners
+	var unhandledMessage = function(key, data){
+		console.warn("====================================================================");
+		console.warn("Message received of type [%s] had no handlers:%o", key, data);
+		console.warn("====================================================================");
+	};
+	
+	// The websocket possible states
 	var states = ['connected', 'disconnected', 'connecting'];
 	function onopen() {				
 		console.info("WS: Connected to [%s]", settings.wsuri);
 	}
 	
+	function getListenersFor(typeKey, prefix) {
+		var listeners = [];
+		$.each([typeKey, prefix + "=" + prefix], function(index, value){
+			var _found = messageSubscribers[value];
+			if(_found!=null && $.isArray(_found)) {
+				$.each(_found, function(i, v) {
+					listeners.push(v);
+				});
+			}
+		});
+		return listeners;
+	}
+	
 	function onmessage(message) {
 		var json = JSON.parse(message);
 		console.debug("WS: MessageEvent: [%o]",json);
-		$.each(messageSubscribers, function(index, listener){
-			if($.isFunction(listener)) {
-				listener(json);
-			} else {
-				listener.onMessage(json);
+		/*
+		 * Get the message type key, which could be:
+		 * 	"rerid": The id of the request that the response is generated for
+		 * 	"subkey": The subscription request identifier
+		 * 	"bcastkey": The key this sub response should be broadcast with for cases where subscribers do not directly register but bind to named events with this name. 
+		 */
+		var typeKeys = ["rerid", "subkey", "bcastkey"];
+		var compoundKey = [];
+		var keysWithHandlers = 0;
+		var foundMessageKeys = 0;
+		$.each(typeKeys, function(index, value){
+			var typeKey = json[value];
+			if(typeKey!=null) {
+				compoundKey.push(typeKey);
+				foundMessageKeys++;
+				var listeners = getListenersFor(typeKey);
+				if(listeners.length>0) {
+					keysWithHandlers++;
+					$.each(listeners, function(index, listener){
+						listener.apply(json);
+					});
+				}
 			}
 		});
-//		if(json.sessionid) {
-//			settings.sessionid = json.sessionid;
-//			$.event.trigger('websocket-sessionid', [json.sessionid]);
-//		}
+		if(foundMessageKeys==0) {
+			unknownMessageType(json);
+		} else {
+			if(keysWithHandlers==0) {
+				unhandledMessage(compoundKey.join('|'), json);
+			}
+		}
 	}
 	
 	function onclose(e) {		
@@ -50,7 +98,42 @@
 		isReconnectScheduled : function() {
 			return settings.reconnectTimeoutHandle != -1;
 		},
+		/**
+		 * Internal add message listener function. No Op if either parameter is null
+		 * @param typeKey The type key the listener responds to
+		 * @param listener The listener
+		 */
+		_addMessageListener : function(typeKey, listener) {
+			if(typeKey==null || listener==null) return;
+			var listeners = messageSubscribers[typeKey]|[];
+			listeners.push(listener);
+			messageSubscribers[typeKey] = listeners;
+		},
+		/**
+		 * Internal remove message listener function. 
+		 * @param typeKey The type key the listener might be registered under. Ignored if null.
+		 * @param listener The listener to remove. No Op if null.
+		 */
+		_addMessageListener : function(typeKey, listener) {
+			if(typeKey==null || listener==null) return;
+			var listeners = messageSubscribers[typeKey]|[];
+			listeners.push(listener);
+			messageSubscribers[typeKey] = listeners;
+		},
+		
 		addMessageListener : function(listeners) {
+			if(listeners==null) throw "Attempted to register null listener";
+			if(!$.isArray(listeners)) {
+				
+			} else if(!$.isPlainObject(listeners)) {
+				
+			} else if(!$.isFunction(listeners)) {
+				if(listeners['typeKey']!=null) {
+					_addMessageListener(listeners.typeKey, listeners);
+				}
+			}
+			
+			
 			if(listeners!=null) {
 				if(!$.isArray(listeners)) {
 					listeners = [listeners];
