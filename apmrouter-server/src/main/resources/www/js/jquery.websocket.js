@@ -114,8 +114,16 @@
 		 * @param typeKey The type key the listener might be registered under. Ignored if null.
 		 * @param listener The listener to remove. No Op if null.
 		 */
-		_addMessageListener : function(typeKey, listener) {
-			if(typeKey==null || listener==null) return;
+		_removeMessageListener : function(typeKey, listener) {
+			if(typeKey==null) {
+				if(listener==null) return;
+				$.each(messageSubscribers, function(key, listeners){
+					var index = listeners.indexOf(listener);
+					if(index>-1) listeners.splice(index, 1);
+				});
+			} else {
+				delete messageSubscribers[typeKey];
+			}
 			var listeners = messageSubscribers[typeKey]|[];
 			listeners.push(listener);
 			messageSubscribers[typeKey] = listeners;
