@@ -45,7 +45,7 @@ import org.apache.log4j.Logger;
 import org.helios.apmrouter.collections.delay.DelayChangeReceiver;
 import org.helios.apmrouter.collections.delay.NotifyingDelay;
 import org.helios.apmrouter.jmx.JMXHelper;
-import org.springframework.jmx.export.annotation.ManagedOperation;
+
 
 /**
  * <p>Title: VirtualAgent</p>
@@ -192,20 +192,31 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 		drainExpired();
 		if(tracerExpiryQueue.isEmpty()) return 0;		
 		try {						
+			boolean loop = true;
 			VirtualTracer vt = null;
-			while(true) {
+			while(loop) {
 				vt = tracerExpiryQueue.last();  
 				long delay = vt.getDelay(unit);
 				if(delay<1) {
 					vt.clearDelayChangeReceiver();
 					boolean removed = tracerExpiryQueue.remove(vt);
 					if(!removed) {
-						log.error("Failed to remove VT:" + vt);
+						log.error("Failed to remove VT on GetDelay:" + vt + "\n\tStarting Iterator Loop....");
+						for(Iterator<VirtualTracer> iter = tracerExpiryQueue.iterator(); iter.hasNext();) {
+							VirtualTracer ivt = iter.next();
+							log.error("Inspecting VT [" + ivt.getSerial() + "]  (target:[" + vt.getSerial() + "])");
+							if(ivt.getSerial()==vt.getSerial()) {
+								iter.remove();
+								log.error("Removed VT [" + ivt.getSerial() + "]");
+								break;
+							}
+						}
 					}
 				} else {
 					return delay;
 				}
 			}
+			return 0;
 		} catch (NoSuchElementException nse) {
 			return 0;
 		}		
@@ -226,14 +237,21 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 					vt.clearDelayChangeReceiver();
 					boolean removed = tracerExpiryQueue.remove(vt);
 					if(!removed) {
-						log.error("Failed to remove VT:" + vt);
+						log.error("Failed to remove VT on DrainExpired:" + vt);
+						for(Iterator<VirtualTracer> iter = tracerExpiryQueue.iterator(); iter.hasNext();) {
+							VirtualTracer ivt = iter.next();
+							if(ivt.getSerial()==vt.getSerial()) {
+								iter.remove();
+								break;
+							}
+						}						
 					}
 				} else {
 					break;
 				}
 				if(tracerExpiryQueue.isEmpty()) break;
 			}
-		} catch (Exception ex) {}		
+		} catch (Exception ex) {/* No Op */}		
 	}
 	
 	/**

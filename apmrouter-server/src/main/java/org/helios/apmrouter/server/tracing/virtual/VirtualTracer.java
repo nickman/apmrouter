@@ -39,7 +39,6 @@ import org.helios.apmrouter.collections.delay.NotifyingDelay;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
-import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.trace.MetricSubmitter;
 import org.helios.apmrouter.trace.TracerImpl;
 
