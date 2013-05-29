@@ -46,6 +46,13 @@
 		 * 	"subkey": The subscription request identifier
 		 * 	"bcastkey": The key this sub response should be broadcast with for cases where subscribers do not directly register but bind to named events with this name. 
 		 */
+		if(json.sessionid != null && ("" + json.sessionid).length>2) {
+			var sessionid = $.trim("" + json.sessionid);
+			settings.sessionid = sessionid; 
+			$('sessionIdListener').trigger('sessionid', [sessionid]);
+			console.info("[onmessage] Dispatched Session ID [%s]", sessionid);
+			return sessionid;
+		}
 		var typeKeys = ["rerid", "subkey", "bcastkey"];
 		var compoundKey = [];
 		var keysWithHandlers = 0;
@@ -128,32 +135,30 @@
 			listeners.push(listener);
 			messageSubscribers[typeKey] = listeners;
 		},
-		
+		/**
+		 * Registers a message listener or listeners
+		 * @param listeners Navigates the passed object to find functions
+		 */
 		addMessageListener : function(listeners) {
 			if(listeners==null) throw "Attempted to register null listener";
 			if(!$.isArray(listeners)) {
-				
+				$.each(listeners, function(index, value){
+					this.addMessageListener(value);
+				});
 			} else if(!$.isPlainObject(listeners)) {
-				
-			} else if(!$.isFunction(listeners)) {
-				if(listeners['typeKey']!=null) {
-					_addMessageListener(listeners.typeKey, listeners);
-				}
-			}
-			
-			
-			if(listeners!=null) {
-				if(!$.isArray(listeners)) {
-					listeners = [listeners];
-				} 
-				var added = 0;
-				$.each(listeners, function(index, listener){
-					if(listener!=null && ($.isFunction(listener) || $.isFunction(listener.onMessage)) && $.inArray(listener, messageSubscribers)==-1) {					
-						messageSubscribers.push(listener);
-						added++;
+				$.each(listeners, function(key, value){
+					if(!$.isFunction(value)) {
+						this._addMessageListener(key, value);						
+					} else {
+						this.addMessageListener(value);
 					}
 				});
-				console.debug("Registered [%s] New Message Listeners for a total of [%s]", added, messageSubscribers.length);
+			} else if(!$.isFunction(listeners)) {
+				if(listeners['typeKey']!=null) {
+					this._addMessageListener(listeners.typeKey, listeners);
+				} else {
+					console.warn("Message Listener Add Dropped [%o]", listeners);
+				}
 			}
 		},
 		removeMessageListener : function(listeners) {
@@ -236,6 +241,8 @@
 				}
 			}
 		} else {
+			console.error("Invalid WebSocket Args: [%o, %o]", arg, args);
+			throw "Invalid WebSocket Args";
 		}
 		/**
 		 * Initializes the plugin state
