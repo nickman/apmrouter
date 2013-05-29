@@ -40,9 +40,9 @@ public enum AgentIdentity {
 	public static final String JVM_MAIN_CLASS = "sun.java.command";
 
 	/** The pattern for an IPV4 Octet */
-	public static final String OCTET = "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.";
+	public final String OCTET;
 	/** Pattern to match an IP V4 address */
-	public static final Pattern IPV4_ADDRESS_PATTERN = Pattern.compile("^" + OCTET + OCTET + OCTET + OCTET + "?");
+	public final Pattern IPV4_ADDRESS_PATTERN;
 	
 	
 	/**
@@ -50,6 +50,8 @@ public enum AgentIdentity {
 	 */
 	private AgentIdentity(String...undHostNames) {
 		UNDEZ_HOST_NAMES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(undHostNames)));
+		OCTET = "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.";
+		IPV4_ADDRESS_PATTERN = Pattern.compile("^" + OCTET + OCTET + OCTET + OCTET + "?");
 		setHost();
 		setAgent();
 		
