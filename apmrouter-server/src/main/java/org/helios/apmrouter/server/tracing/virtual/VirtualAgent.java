@@ -199,18 +199,23 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 				long delay = vt.getDelay(unit);
 				if(delay<1) {
 					vt.clearDelayChangeReceiver();
-					boolean removed = tracerExpiryQueue.remove(vt);
-					if(!removed) {
-						log.error("Failed to remove VT on GetDelay:" + vt + "\n\tStarting Iterator Loop....");
-						for(Iterator<VirtualTracer> iter = tracerExpiryQueue.iterator(); iter.hasNext();) {
-							VirtualTracer ivt = iter.next();
-							log.error("Inspecting VT [" + ivt.getSerial() + "]  (target:[" + vt.getSerial() + "])");
-							if(ivt.getSerial()==vt.getSerial()) {
-								iter.remove();
-								log.error("Removed VT [" + ivt.getSerial() + "]");
-								break;
+					try {
+						vt.setRemoveMode(true);
+						boolean removed = tracerExpiryQueue.remove(vt);
+						if(!removed) {
+							log.error("Failed to remove VT on GetDelay:" + vt + "\n\tStarting Iterator Loop....");
+							for(Iterator<VirtualTracer> iter = tracerExpiryQueue.iterator(); iter.hasNext();) {
+								VirtualTracer ivt = iter.next();
+								log.error("Inspecting VT [" + ivt.getSerial() + "]  (target:[" + vt.getSerial() + "])");
+								if(ivt.getSerial()==vt.getSerial()) {
+									iter.remove();
+									log.error("Removed VT [" + ivt.getSerial() + "]");
+									break;
+								}
 							}
 						}
+					} finally {
+						vt.setRemoveMode(false);
 					}
 				} else {
 					return delay;
@@ -235,16 +240,21 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 				long tte = vt.getTimeToExpiry();
 				if(tte<1) {
 					vt.clearDelayChangeReceiver();
-					boolean removed = tracerExpiryQueue.remove(vt);
-					if(!removed) {
-						log.error("Failed to remove VT on DrainExpired:" + vt);
-						for(Iterator<VirtualTracer> iter = tracerExpiryQueue.iterator(); iter.hasNext();) {
-							VirtualTracer ivt = iter.next();
-							if(ivt.getSerial()==vt.getSerial()) {
-								iter.remove();
-								break;
-							}
-						}						
+					try {
+						vt.setRemoveMode(true);
+						boolean removed = tracerExpiryQueue.remove(vt);
+						if(!removed) {
+							log.error("Failed to remove VT on DrainExpired:" + vt);
+							for(Iterator<VirtualTracer> iter = tracerExpiryQueue.iterator(); iter.hasNext();) {
+								VirtualTracer ivt = iter.next();
+								if(ivt.getSerial()==vt.getSerial()) {
+									iter.remove();
+									break;
+								}
+							}						
+						}
+					} finally {
+						vt.setRemoveMode(false);
 					}
 				} else {
 					break;
@@ -345,8 +355,11 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 	 * @see org.helios.apmrouter.collections.delay.DelayChangeReceiver#onDelayChange(org.helios.apmrouter.collections.delay.NotifyingDelay, long)
 	 */
 	@Override
-	public void onDelayChange(VirtualTracer virtualTracer, long updateTimestamp) {		
+	public void onDelayChange(VirtualTracer virtualTracer, long updateTimestamp) {
+		if(virtualTracer==null) return;
+		virtualTracer.setRemoveMode(true);
 		if(tracerExpiryQueue.remove(virtualTracer)) {
+			virtualTracer.setRemoveMode(false);
 			tracerExpiryQueue.add(virtualTracer);			
 			receiver.onDelayChange(this, updateTimestamp);
 		} else {

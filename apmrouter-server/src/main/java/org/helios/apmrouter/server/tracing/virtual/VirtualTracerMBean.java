@@ -123,5 +123,11 @@ public interface VirtualTracerMBean  {
 	 * @return the tracer's timeout period in ms.
 	 */
 	public long getTimeoutPeriod();
+	
+	/**
+	 * Indicates if this VT is in remove mode
+	 * @return true if this VT is in remove mode, false otherwise
+	 */
+	public boolean isRemoveMode();
 
 }
