@@ -2,6 +2,9 @@
 
 
 ;(function ( $, window, document, undefined ) {
+	// the jquery.websocket instance
+	var jwebsocket = null;
+	// the websocket settings
 	var settings = {};
 	// Arrays of listeners keyed by the message type key extracted from each message
 	var messageSubscribers = {};
@@ -83,6 +86,7 @@
 	function onclose(e) {		
 		console.info("WS: Closed [%s]", settings.sessionid==null ? "<>" : settings.sessionid);
 		delete settings.sessionid;
+		jwebsocket = null;
 	}
 	
 	function onerror(e) {
@@ -104,6 +108,12 @@
 		},
 		isReconnectScheduled : function() {
 			return settings.reconnectTimeoutHandle != -1;
+		},
+		jws : function() {
+			if(jwebsocket==null) {
+				console.error("[jws] jquery.websocket has not been initialized");
+				throw "[jws] jquery.websocket has not been initialized";
+			}
 		},
 		/**
 		 * Internal add message listener function. No Op if either parameter is null
@@ -214,7 +224,7 @@
 	
 	
 	$.websocket = function(arg, args) {
-		if(arg==null) throw "No first arg passed";
+		if(jwebsocket==null && arg==null) throw "No first arg passed";
 		if(privatePattern.test(arg)) throw "Cannot invoke private signatures [" + arg + "]";
 		var f = methods[arg];		
 		if(!$.isFunction(f)) throw "Not a jQuery.websocket method [" + arg + "]";
@@ -224,7 +234,8 @@
 	
     
 	$.fn.websocket = function(arg, args) {
-		if(arg==null) throw "No first arg passed";
+		if(jwebsocket==null && arg==null) throw "No first arg passed";
+		
 		if($.isPlainObject(arg)) {
 			var options = arg;
 			if(!$.fn.websocket.state) {
@@ -248,7 +259,8 @@
 		 * Initializes the plugin state
 		 * @param options The init options
 		 */
-		function _init(wsuri, options) {		
+		function _init(wsuri, options) {
+			if(jwebsocket!=null) return jwebsocket;
 	    	console.debug("Initializing jquery.websocket [%s]", wsuri);
 			$.fn.websocket.state = $.extend({
 				connectTimeout: 2000,
@@ -262,6 +274,8 @@
 	    	settings.reconnectTimeoutHandle = -1;
 	    	settings.state = 'disconnected';	    	
 	    	_connect();
+	    	jwebsocket = this;
+	    	return jwebsocket;
 		}
 
 		
