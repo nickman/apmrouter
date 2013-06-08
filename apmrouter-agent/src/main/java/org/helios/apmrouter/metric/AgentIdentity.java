@@ -14,12 +14,11 @@ import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.helios.apmrouter.jmx.ConfigurationHelper;
 import org.helios.apmrouter.jmx.StringHelper;
 import org.helios.apmrouter.satellite.services.attach.JVM;
-
-import sun.management.Agent;
 
 /**
  * <p>Title: AgentIdentity</p>
@@ -40,12 +39,19 @@ public enum AgentIdentity {
 	/** The agent property name for the JVM's main class */
 	public static final String JVM_MAIN_CLASS = "sun.java.command";
 
+	/** The pattern for an IPV4 Octet */
+	public final String OCTET;
+	/** Pattern to match an IP V4 address */
+	public final Pattern IPV4_ADDRESS_PATTERN;
+	
 	
 	/**
 	 * Creates a new AgentIdentity by divining the host name and agent name
 	 */
 	private AgentIdentity(String...undHostNames) {
 		UNDEZ_HOST_NAMES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(undHostNames)));
+		OCTET = "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.";
+		IPV4_ADDRESS_PATTERN = Pattern.compile("^" + OCTET + OCTET + OCTET + OCTET + "?");
 		setHost();
 		setAgent();
 		
@@ -145,8 +151,12 @@ public enum AgentIdentity {
 	 * @return and array with [0] = domain (reversed for hierarchy), [1] = the non-qualified host name, [2] = the full qualified host name (reversed for hierarchy)
 	 */
 	protected String[] buildNames(String name) {
-		hostName = name.trim();
+		name = name.trim();
+		hostName = name;
 		String[] ret = new String[3];
+		if(IPV4_ADDRESS_PATTERN.matcher(name).matches()) {
+			return new String[]{"", hostName, hostName};
+		}
 		if(hostName.contains(".")) {
 			String[] frags = hostName.replace(" ", "").split("\\.");
 			ret[1] = frags[0];

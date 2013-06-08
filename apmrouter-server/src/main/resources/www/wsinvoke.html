@@ -16,8 +16,8 @@
 	
 		$(document).ready(function () {
 			console.info("Doc Loaded");
-			var gui = new dat.GUI();
-			gui.add(window, '_SUBCOUNT_').listen();
+			//var gui = new dat.GUI();
+			//gui.add(window, '_SUBCOUNT_').listen();
 			
 			$('#connected').bind('websocket-connected', function(event){
 				$(this).text("yes");
@@ -114,7 +114,7 @@
 	</script>
 </head>
 <body>
-	<h4>Nobody here but us wsinvoke testers</h4>
+	<h4 style="float: right;" >Nobody here but us wsinvoke testers</h4>
 	<div>Connected:<div id="connected"></div></div>
 
 </body>

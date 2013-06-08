@@ -2,7 +2,7 @@
 		var stateCache = {};
 		var _RID_FACTORY_ = 0;
 		var _RERID_FACTORY_ = 0;
-		var _SUBSCRIPTIONS_ = {};
+		
 		var _SUBCOUNT_ = 0;
 		var _TIMEOUT_ = 2000;
 		var metricGridColumnModel = [
@@ -248,7 +248,18 @@ function wsinvoke(command, options) {
 				}
 		);		
 	} else {
-		// this is a subscription call for repeated callbacks  (['onevent', 'oncancel'])
+		/*
+		 * 	3 ways to handle sub-events:
+		 * 		1. Provide callback function on sub call
+		 * 		2. Sub events passed on Deferred.progress
+		 * 		3. No callbacks... events are broadcast to an event specified in the request
+		 */
+
+		
+		/*
+		 * If options has an "onevent" callback, the request is for #1: Provide callback function on sub call 
+		 * this is a subscription call for repeated callbacks  (['onevent', 'oncancel'])
+		 */  
 		if($.isFunction(options.onevent)) {
 			$.websocket.addMessageListener(function(data){
 				options.onevent(data);
@@ -542,13 +553,12 @@ var MetricSubscription = Object.subClass({
 			/* OnEvent subscribers directly on this subscription */
 			this._event_subscribers = [];
 			/* Deferred.progress/complete listeners on this subscription */
-			this._deferred_subscribers = [];
-			
-			_SUBSCRIPTIONS_[metricuri] = this;
+			this._deferred_subscribers = [];			
+			MetricSubscription._SUBSCRIPTIONS_[metricuri] = this;
 	},	
 	MetricSubscription : function(metricuri, rid) {
 		if(metricuri!=null) {
-			var sub = _SUBSCRIPTIONS_[metricuri];
+			var sub = MetricSubscription._SUBSCRIPTIONS_[metricuri];
 			if(sub!=null) return sub;
 		}
 		if (!(this instanceof arguments.callee)) {
@@ -661,9 +671,8 @@ var MetricSubscription = Object.subClass({
 });
 
 
+MetricSubscription._SUBSCRIPTIONS_ = {};
 
-
-//var MetricSubscription.prototype.toString = MetricSubscription.toString;
 
 /*
  * 	3 ways to handle sub-events:

@@ -32,6 +32,7 @@ import java.util.Date;
 import java.util.concurrent.Delayed;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -39,7 +40,6 @@ import org.helios.apmrouter.collections.delay.NotifyingDelay;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
-import org.helios.apmrouter.metric.catalog.IDelegateMetric;
 import org.helios.apmrouter.trace.MetricSubmitter;
 import org.helios.apmrouter.trace.TracerImpl;
 
@@ -72,6 +72,15 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	protected final MetricSubmitter _submitter;
 	/** the availability name space */
 	protected final CharSequence[] avns;
+	
+	/** Indicates if remove mode is enabled */
+	protected final AtomicBoolean removeMode = new AtomicBoolean(false);
+	/** The remove id set when the VT is put in remove mode */
+	protected final AtomicLong removeId = new AtomicLong(0);
+	
+	/** Serial number generator for setting the tracer into remove mode */
+	private static final AtomicLong removeSerial = new AtomicLong(Long.MIN_VALUE);
+	
 	
 
 	/** The number of sent metrics */
@@ -229,6 +238,7 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	 */
 	@Override
 	public long getDelay(TimeUnit unit) {
+		if(isRemoveMode()) return removeId.get();
 		return unit.convert(getTimeToExpiry(), TimeUnit.MILLISECONDS);
 	}
 	
@@ -448,6 +458,45 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 		return timeoutPeriod;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualTracerMBean#isRemoveMode()
+	 */
+	@Override
+	public boolean isRemoveMode() {
+		return removeMode.get();
+	}
+	
+	/**
+	 * Returns the next negative serial number, resetting the sequence if it has reached zero.
+	 * @return the next negative serial number
+	 */
+	long getRemoveSerial() {
+		long serial = removeSerial.incrementAndGet();
+		if(serial>=0) {
+			synchronized(removeSerial) {
+				removeSerial.set(Long.MIN_VALUE);
+				serial = removeSerial.incrementAndGet();
+			}
+		}
+		return serial;
+	}
+	
+	/**
+	 * Sets the remove state of this VT
+	 * @param enable true to enable, false to reset
+	 * @return true if the mode was changed, false otherwise
+	 */
+	boolean setRemoveMode(boolean enable) {
+		final boolean set = removeMode.compareAndSet(!enable, enable);
+		if(!set) return false;
+		if(enable) {
+			removeId.set(getRemoveSerial());
+		} else {
+			removeId.set(0);
+		}
+		return true;
+	}
 
 
 }

@@ -2,32 +2,91 @@
 
 
 ;(function ( $, window, document, undefined ) {
+	// the jquery.websocket instance
+	var jwebsocket = null;
+	// the websocket settings
 	var settings = {};
-	var messageSubscribers = [];
+	// Arrays of listeners keyed by the message type key extracted from each message
+	var messageSubscribers = {};
+	// Default handler for messages of an undetermined type
+	var unknownMessageType = function(data){
+		console.error("====================================================================");
+		console.error("Message received of unknown type:%o", data);
+		console.error("====================================================================");
+	};
+	// Default handler for messages of a recognized type, but with no listeners
+	var unhandledMessage = function(key, data){
+		console.warn("====================================================================");
+		console.warn("Message received of type [%s] had no handlers:%o", key, data);
+		console.warn("====================================================================");
+	};
+	
+	// The websocket possible states
 	var states = ['connected', 'disconnected', 'connecting'];
 	function onopen() {				
 		console.info("WS: Connected to [%s]", settings.wsuri);
 	}
 	
+	function getListenersFor(typeKey, prefix) {
+		var listeners = [];
+		$.each([typeKey, prefix + "=" + prefix], function(index, value){
+			var _found = messageSubscribers[value];
+			if(_found!=null && $.isArray(_found)) {
+				$.each(_found, function(i, v) {
+					listeners.push(v);
+				});
+			}
+		});
+		return listeners;
+	}
+	
 	function onmessage(message) {
 		var json = JSON.parse(message);
 		console.debug("WS: MessageEvent: [%o]",json);
-		$.each(messageSubscribers, function(index, listener){
-			if($.isFunction(listener)) {
-				listener(json);
-			} else {
-				listener.onMessage(json);
+		/*
+		 * Get the message type key, which could be:
+		 * 	"rerid": The id of the request that the response is generated for
+		 * 	"subkey": The subscription request identifier
+		 * 	"bcastkey": The key this sub response should be broadcast with for cases where subscribers do not directly register but bind to named events with this name. 
+		 */
+		if(json.sessionid != null && ("" + json.sessionid).length>2) {
+			var sessionid = $.trim("" + json.sessionid);
+			settings.sessionid = sessionid; 
+			$('sessionIdListener').trigger('sessionid', [sessionid]);
+			console.info("[onmessage] Dispatched Session ID [%s]", sessionid);
+			return sessionid;
+		}
+		var typeKeys = ["rerid", "subkey", "bcastkey"];
+		var compoundKey = [];
+		var keysWithHandlers = 0;
+		var foundMessageKeys = 0;
+		$.each(typeKeys, function(index, value){
+			var typeKey = json[value];
+			if(typeKey!=null) {
+				compoundKey.push(typeKey);
+				foundMessageKeys++;
+				var listeners = getListenersFor(typeKey);
+				if(listeners.length>0) {
+					keysWithHandlers++;
+					$.each(listeners, function(index, listener){
+						listener.apply(json);
+					});
+				}
 			}
 		});
-//		if(json.sessionid) {
-//			settings.sessionid = json.sessionid;
-//			$.event.trigger('websocket-sessionid', [json.sessionid]);
-//		}
+		if(foundMessageKeys==0) {
+			unknownMessageType(json);
+		} else {
+			if(keysWithHandlers==0) {
+				unhandledMessage(compoundKey.join('|'), json);
+			}
+		}
 	}
 	
 	function onclose(e) {		
 		console.info("WS: Closed [%s]", settings.sessionid==null ? "<>" : settings.sessionid);
 		delete settings.sessionid;
+		jwebsocket = null;
 	}
 	
 	function onerror(e) {
@@ -50,19 +109,66 @@
 		isReconnectScheduled : function() {
 			return settings.reconnectTimeoutHandle != -1;
 		},
+		jws : function() {
+			if(jwebsocket==null) {
+				console.error("[jws] jquery.websocket has not been initialized");
+				throw "[jws] jquery.websocket has not been initialized";
+			}
+		},
+		/**
+		 * Internal add message listener function. No Op if either parameter is null
+		 * @param typeKey The type key the listener responds to
+		 * @param listener The listener
+		 */
+		_addMessageListener : function(typeKey, listener) {
+			if(typeKey==null || listener==null) return;
+			var listeners = messageSubscribers[typeKey]|[];
+			listeners.push(listener);
+			messageSubscribers[typeKey] = listeners;
+		},
+		/**
+		 * Internal remove message listener function. 
+		 * @param typeKey The type key the listener might be registered under. Ignored if null.
+		 * @param listener The listener to remove. No Op if null.
+		 */
+		_removeMessageListener : function(typeKey, listener) {
+			if(typeKey==null) {
+				if(listener==null) return;
+				$.each(messageSubscribers, function(key, listeners){
+					var index = listeners.indexOf(listener);
+					if(index>-1) listeners.splice(index, 1);
+				});
+			} else {
+				delete messageSubscribers[typeKey];
+			}
+			var listeners = messageSubscribers[typeKey]|[];
+			listeners.push(listener);
+			messageSubscribers[typeKey] = listeners;
+		},
+		/**
+		 * Registers a message listener or listeners
+		 * @param listeners Navigates the passed object to find functions
+		 */
 		addMessageListener : function(listeners) {
-			if(listeners!=null) {
-				if(!$.isArray(listeners)) {
-					listeners = [listeners];
-				} 
-				var added = 0;
-				$.each(listeners, function(index, listener){
-					if(listener!=null && ($.isFunction(listener) || $.isFunction(listener.onMessage)) && $.inArray(listener, messageSubscribers)==-1) {					
-						messageSubscribers.push(listener);
-						added++;
+			if(listeners==null) throw "Attempted to register null listener";
+			if(!$.isArray(listeners)) {
+				$.each(listeners, function(index, value){
+					this.addMessageListener(value);
+				});
+			} else if(!$.isPlainObject(listeners)) {
+				$.each(listeners, function(key, value){
+					if(!$.isFunction(value)) {
+						this._addMessageListener(key, value);						
+					} else {
+						this.addMessageListener(value);
 					}
 				});
-				console.debug("Registered [%s] New Message Listeners for a total of [%s]", added, messageSubscribers.length);
+			} else if(!$.isFunction(listeners)) {
+				if(listeners['typeKey']!=null) {
+					this._addMessageListener(listeners.typeKey, listeners);
+				} else {
+					console.warn("Message Listener Add Dropped [%o]", listeners);
+				}
 			}
 		},
 		removeMessageListener : function(listeners) {
@@ -118,7 +224,7 @@
 	
 	
 	$.websocket = function(arg, args) {
-		if(arg==null) throw "No first arg passed";
+		if(jwebsocket==null && arg==null) throw "No first arg passed";
 		if(privatePattern.test(arg)) throw "Cannot invoke private signatures [" + arg + "]";
 		var f = methods[arg];		
 		if(!$.isFunction(f)) throw "Not a jQuery.websocket method [" + arg + "]";
@@ -128,7 +234,8 @@
 	
     
 	$.fn.websocket = function(arg, args) {
-		if(arg==null) throw "No first arg passed";
+		if(jwebsocket==null && arg==null) throw "No first arg passed";
+		
 		if($.isPlainObject(arg)) {
 			var options = arg;
 			if(!$.fn.websocket.state) {
@@ -145,12 +252,15 @@
 				}
 			}
 		} else {
+			console.error("Invalid WebSocket Args: [%o, %o]", arg, args);
+			throw "Invalid WebSocket Args";
 		}
 		/**
 		 * Initializes the plugin state
 		 * @param options The init options
 		 */
-		function _init(wsuri, options) {		
+		function _init(wsuri, options) {
+			if(jwebsocket!=null) return jwebsocket;
 	    	console.debug("Initializing jquery.websocket [%s]", wsuri);
 			$.fn.websocket.state = $.extend({
 				connectTimeout: 2000,
@@ -164,6 +274,8 @@
 	    	settings.reconnectTimeoutHandle = -1;
 	    	settings.state = 'disconnected';	    	
 	    	_connect();
+	    	jwebsocket = this;
+	    	return jwebsocket;
 		}
 
 		
