@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sample>
+  <system_info>
+    <serial_number>1302666</serial_number>
+    <sys_name>pdk-mg-3par-01</sys_name>
+    <cpu_mhz>2327</cpu_mhz>
+    <ip_name>pdk-mg-3par-01</ip_name>
+    <os_rev>3.1.2</os_rev>
+    <system_model>InServ F400</system_model>
+    <ch_size_mb>256</ch_size_mb>
+  </system_info>
+  <perf_info>
+    <all_statvlun>
+      <statvlun>
+        <vv_name>ptdeesx_01</vv_name>
+        <host_name>pdk-pt-deesx-01</host_name>
+        <port_node>0</port_node>
+        <port_slot>1</port_slot>
+        <port_port>1</port_port>
+        <now>1298892751626</now>
+        <qlen>0</qlen>
+        <busy>1087164458</busy>
+        <rcount>118786</rcount>
+        <rbytes>1785798656</rbytes>
+        <rerror>0</rerror>
+        <rdrops>0</rdrops>
+        <rticks>119957361</rticks>
+        <wcount>2811392</wcount>
+        <wbytes>13680501760</wbytes>
+        <werror>0</werror>
+        <wdrops>0</wdrops>
+        <wticks>2730795608</wticks>
+      </statvlun>
+      <statvlun>
+        <vv_name>ptdeesx_02</vv_name>
+        <host_name>pdk-pt-deesx-01</host_name>
+        <port_node>0</port_node>
+        <port_slot>1</port_slot>
+        <port_port>1</port_port>
+        <now>1298892751627</now>
+        <qlen>0</qlen>
+        <busy>1260013837</busy>
+        <rcount>128415</rcount>
+        <rbytes>1912912896</rbytes>
+        <rerror>0</rerror>
+        <rdrops>0</rdrops>
+        <rticks>133027005</rticks>
+        <wcount>3405405</wcount>
+        <wbytes>19253437440</wbytes>
+        <werror>0</werror>
+        <wdrops>0</wdrops>
+        <wticks>3209045958</wticks>
+      </statvlun>
+    </all_statvlun>
+  </perf_info>
+</sample>
