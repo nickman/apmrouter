@@ -147,6 +147,26 @@ public class ByteSequenceIndexFinder implements ChannelBufferIndexFinder {
 		return findIn(channelBuffer.readerIndex(), channelBuffer.readableBytes(), channelBuffer);
 	}
 	
+	/**
+	 * Locates the first starting offset in the passed {@link ChannelBuffer} 
+	 * where the specified byte sequence was located.
+	 * The search starts the specified {@code index} (inclusive) 
+	 * This method does not modify the {@code readerIndex} or {@code writerIndex} 
+	 * of the passed channelBuffer.
+	 * The finder is {@link #reset()} once this method is complete.
+	 * 
+	 * @param index The offset where the search starts
+	 * @param channelBuffer The buffer to search
+     * @return the offset from the beginning of the buffer's readable bytes and the first byte of the byte sequence
+	 */
+	
+	public int findIn(ChannelBuffer channelBuffer, int index) {
+		int idx = findIn(index, channelBuffer.readableBytes()-index, channelBuffer);
+		if(idx==-1) return idx;
+		return idx+index;
+	}
+	
+
 	
 	 
     /**
