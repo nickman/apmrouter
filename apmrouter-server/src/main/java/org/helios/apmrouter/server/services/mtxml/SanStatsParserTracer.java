@@ -26,13 +26,22 @@ package org.helios.apmrouter.server.services.mtxml;
 
 import java.io.File;
 import java.io.RandomAccessFile;
+import java.lang.management.ManagementFactory;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.BasicConfigurator;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
@@ -64,6 +73,8 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	/** The parsing task queue */
 	protected BlockingQueue<ChannelBuffer> parseQueue = null;
 	
+	protected Set<String> vluns = new HashSet<String>();
+	
 	/** Sliding windows of xml file processing elapsed times in ns. */
 	protected final LongSlidingWindow fileProcessingTimesNs = new ConcurrentLongSlidingWindow(50);
 	/** Sliding windows of xml segment processing elapsed times in ns. */
@@ -77,22 +88,62 @@ public class SanStatsParserTracer extends ServerComponentBean {
 		// TODO Auto-generated constructor stub
 	}
 	
+	
+	
+	/**
+	 * Creates a new SanStatsParserTracer
+	 * @param threadPool The parse worker thread pool
+	 */
+	public SanStatsParserTracer(ExecutorService threadPool) {		
+		this.threadPool = threadPool;
+	}
+
+
+
 	/**
 	 * Static tester
 	 * @param args None
 	 */
 	public static void main(String[] args) {
+		final int coreThreads = ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors()*2;
+		final int maxThreads = ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors()*3;
 		BasicConfigurator.configure();
-		SanStatsParserTracer sspt = new SanStatsParserTracer();
+		ThreadPoolExecutor executor = new ThreadPoolExecutor(
+			coreThreads,
+			maxThreads,
+			15000,
+			TimeUnit.MILLISECONDS,
+			new ArrayBlockingQueue<Runnable>(1500),
+			new ThreadFactory(){
+				final AtomicLong serial = new AtomicLong(0);
+				@Override
+				public Thread newThread(Runnable r) {
+					Thread t = new Thread(r, "SanStatsParserThread#" + serial.incrementAndGet());
+					t.setDaemon(true);
+					return t;
+				}
+			},
+			new RejectedExecutionHandler(){
+				final AtomicLong rejections = new AtomicLong(0);
+				@Override
+				public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+					long rejection = rejections.incrementAndGet();
+					System.err.println("REJECTED EXECUTIONS:" + rejection);
+				}
+			}
+		); 
+		executor.prestartAllCoreThreads();
+		SanStatsParserTracer sspt = new SanStatsParserTracer(executor);
 		RandomAccessFile raf = null;
 		FileChannel fc = null;
 		MappedByteBuffer mbb = null;
 		SystemClock.startTimer();
-		for(int i = 0; i < 1000; i++) {
+		int loops = 2;
+		for(int i = 0; i < loops; i++) {
 			try {
 				//sspt.info("Processing SAN Stats XML");
-				//raf = new RandomAccessFile(new File("./src/test/resources/san/statvlun-small.xml"), "r");			
-				raf = new RandomAccessFile(new File("./src/test/resources/san/statvlun.xml"), "r");
+				raf = new RandomAccessFile(new File("./src/test/resources/san/statvlun-small.xml"), "r");			
+				//raf = new RandomAccessFile(new File("./src/test/resources/san/statvlun.xml"), "r");
 				//raf = new RandomAccessFile(new File("./src/test/resources/san/simple.xml"), "r");
 				fc = raf.getChannel();
 				mbb = fc.map(MapMode.READ_ONLY, 0, fc.size());
@@ -108,7 +159,12 @@ public class SanStatsParserTracer extends ServerComponentBean {
 			}
 		}
 		ElapsedTime et = SystemClock.endTimer();
-		sspt.info("Elapsed Time:", et,"\n\t", et.avgMs(1000));		
+		sspt.info("Elapsed Time:", et,"\n\tAverage Per Doc:", et.avgMs(loops), " ms.");		
+//		StringBuilder b=new StringBuilder("\n\t============================\n\tVlun Hosts\n\t============================");
+//		for(String s: sspt.vluns) {
+//			b.append("\n\t").append(s);
+//		}
+		sspt.info("Unique Ports:", sspt.vluns.size());
 	}
 	
 	/**
@@ -117,83 +173,89 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	 */
 	public void process(ChannelBuffer b) {
 		//info("Processing SAN Stats XML");
-		int[] index = new int[]{0};
-		Map<String, String> sysInfo = getSystemInfo(b, index);
-		fastForward(b, index);
+		
+		SanStatsParsingContext ctx = new SanStatsParsingContext();
+		ctx.setSysInfo(getSystemInfo(b));
+		
+		fastForwardToStartOf(b, "<all_statvlun>".getBytes());
 		ChannelBuffer vlunBuffer = null;
 		while(true) {
-			vlunBuffer = nextVlun(b, index);
+			vlunBuffer = nextVlun(b);
 			if(vlunBuffer==null) break;
-			 
+			getVlunInfo(vlunBuffer);
 			//info("VLUN:\n", getVlunInfo(vlunBuffer, index).toString().replace(",", "\n"));
 			//info("VLUN XML:\n[", toString(vlunBuffer), "]");
-			b.readerIndex(index[0]+=vlunBuffer.readableBytes());
+			//b.readerIndex(index[0]+=vlunBuffer.readableBytes());
 		}
 	}
-	
+	/** Opener format for statvlun instances */
 	private static final byte[] STATVLUN_OPENER = "<statvlun>".getBytes();
+	/** Closer format for statvlun instances */
 	private static final byte[] STATVLUN_CLOSER = "</statvlun>".getBytes();
+	/** Opener string format */
+	public static final String OPENER = "<%s>";
+	/** Closer string format */
+	public static final String CLOSER = "</%s>";
 	
 	/**
 	 * Returns the next vlun xml fragment in a sub-buffer
 	 * @param b The buffer to read from
-	 * @param index The index to increment
 	 * @return the read channel buffer or null if one was not found
 	 */
-	protected ChannelBuffer nextVlun(ChannelBuffer b, int[] index) {
-		return slice(b, STATVLUN_OPENER, STATVLUN_CLOSER, index);
+	protected ChannelBuffer nextVlun(ChannelBuffer b) {
+		return slice(b, STATVLUN_OPENER, STATVLUN_CLOSER);
 	}
 	
 	/**
 	 * Extracts the sysinfo from the channel buffer resident xml
 	 * @param b The channel buffer to extract from	 
-	 * @param index The index of the reader
 	 * @return a name/value map of the SAN sysinfo
 	 */
-	protected Map<String, String> getSystemInfo(ChannelBuffer b, int[] index) {
+	protected Map<String, String> getSystemInfo(ChannelBuffer b) {
 		Map<String, String> sysInfo = new HashMap<String, String>();
-		ChannelBuffer sysBuffer = slice(b, "<system_info>", "</system_info>", index);
+		ChannelBuffer sysBuffer = slice(b, "<system_info>", "</system_info>");
 		//info("SysInfo Buffer [", sysBuffer, "]");
 		if(sysBuffer!=null) {
-			sysInfo.put("serial", getStringContentFromXML(sysBuffer, "serial_number", index));
-			sysInfo.put("sysname", getStringContentFromXML(sysBuffer, "sys_name", index));
-			sysInfo.put("cpumhz", getStringContentFromXML(sysBuffer, "cpu_mhz", index));
-			sysInfo.put("ipname", getStringContentFromXML(sysBuffer, "ip_name", index));
-			sysInfo.put("osrev", getStringContentFromXML(sysBuffer, "os_rev", index));
-			sysInfo.put("systemmodel", getStringContentFromXML(sysBuffer, "system_model", index));
-			sysInfo.put("chsizemb", getStringContentFromXML(sysBuffer, "ch_size_mb", index));
+			getStringContentFromXML(sysBuffer, "serial_number", sysInfo);
+			getStringContentFromXML(sysBuffer, "sys_name", sysInfo);
+			getStringContentFromXML(sysBuffer, "cpu_mhz", sysInfo);
+			getStringContentFromXML(sysBuffer, "ip_name", sysInfo);
+			getStringContentFromXML(sysBuffer, "os_rev", sysInfo);
+			getStringContentFromXML(sysBuffer, "system_model", sysInfo);
+			getStringContentFromXML(sysBuffer, "ch_size_mb", sysInfo);
 		}
+		b.readerIndex(b.readerIndex() + sysBuffer.readerIndex());
 		//info("SysInfo:\n\n", sysInfo.toString().replace(",", "\n"));
 		return sysInfo;
 	}
-	private static int[] ZERO_ARR = {0}; 
+ 
 	
 	/**
 	 * Parses a vlun xml fragment in the passed channel buffer
 	 * @param b The channel buffer containing the vlun xml
-	 * @param index Not used
 	 * @return a map of the values in the vlun fragment
 	 */
-	protected Map<String, String> getVlunInfo(ChannelBuffer b, int[] index) {
+	protected Map<String, String> getVlunInfo(ChannelBuffer b) {
 		Map<String, String> vlunInfo = new HashMap<String, String>();
-		vlunInfo.put("vvname", getStringContentFromXML(b, "vv_name", ZERO_ARR));
-		vlunInfo.put("hostname", getStringContentFromXML(b, "host_name", ZERO_ARR));
-		vlunInfo.put("portnode", getStringContentFromXML(b, "port_node", ZERO_ARR));
-		vlunInfo.put("portslot", getStringContentFromXML(b, "port_slot", ZERO_ARR));
-		vlunInfo.put("portport", getStringContentFromXML(b, "port_port", ZERO_ARR));
-		vlunInfo.put("now", getStringContentFromXML(b, "now", ZERO_ARR));
-		vlunInfo.put("qlen", getStringContentFromXML(b, "qlen", ZERO_ARR));
-		vlunInfo.put("busy", getStringContentFromXML(b, "busy", ZERO_ARR));
-		vlunInfo.put("rcount", getStringContentFromXML(b, "rcount", ZERO_ARR));
-		vlunInfo.put("rbytes", getStringContentFromXML(b, "rbytes", ZERO_ARR));
-		vlunInfo.put("rerror", getStringContentFromXML(b, "rerror", ZERO_ARR));
-		vlunInfo.put("rdrops", getStringContentFromXML(b, "rdrops", ZERO_ARR));
-		vlunInfo.put("rticks", getStringContentFromXML(b, "rticks", ZERO_ARR));
-		vlunInfo.put("wcount", getStringContentFromXML(b, "wcount", ZERO_ARR));
-		vlunInfo.put("wbytes", getStringContentFromXML(b, "wbytes", ZERO_ARR));
-		vlunInfo.put("werror", getStringContentFromXML(b, "werror", ZERO_ARR));
-		vlunInfo.put("wdrops", getStringContentFromXML(b, "wdrops", ZERO_ARR));
-		vlunInfo.put("wticks", getStringContentFromXML(b, "wticks", ZERO_ARR));
+		getStringContentFromXML(b, "vv_name", vlunInfo);
+		getStringContentFromXML(b, "host_name", vlunInfo);
+		getStringContentFromXML(b, "port_node", vlunInfo);
+		getStringContentFromXML(b, "port_slot", vlunInfo);
+		getStringContentFromXML(b, "port_port", vlunInfo);
+		getStringContentFromXML(b, "now", vlunInfo);
+		getStringContentFromXML(b, "qlen", vlunInfo);
+		getStringContentFromXML(b, "busy", vlunInfo);
+		getStringContentFromXML(b, "rcount", vlunInfo);
+		getStringContentFromXML(b, "rbytes", vlunInfo);
+		getStringContentFromXML(b, "rerror", vlunInfo);
+		getStringContentFromXML(b, "rdrops", vlunInfo);
+		getStringContentFromXML(b, "rticks", vlunInfo);
+		getStringContentFromXML(b, "wcount", vlunInfo);
+		getStringContentFromXML(b, "wbytes", vlunInfo);
+		getStringContentFromXML(b, "werror", vlunInfo);
+		getStringContentFromXML(b, "wdrops", vlunInfo);
+		getStringContentFromXML(b, "wticks", vlunInfo);
+		vluns.add(vlunInfo.get("vvname") + "/" + vlunInfo.get("hostname") + vlunInfo.get("portnode") + vlunInfo.get("portslot") + vlunInfo.get("portport"));
 		return vlunInfo;
 	}
 	
@@ -201,30 +263,54 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	/**
 	 * Fastforwards the buffer reader index to the beginning of the first <b>statvlun</b>
 	 * @param b The buffer to fast forward
-	 * @param index The index to set
+	 * @param target The byte sequence to fast forward to
+	 * @return true if the fast forward succeeded, false otherwise
 	 */
-	protected void fastForward(ChannelBuffer b, int[] index) {		
-		byte[] allStatVlun = "<all_statvlun>".getBytes();
-		int allIndex = new ByteSequenceIndexFinder(allStatVlun).findIn(b);
-		index[0] = allIndex + allStatVlun.length;
-		b.readerIndex(index[0]);		
+	protected boolean fastForwardToStartOf(ChannelBuffer b, byte[] target) {				
+		int allIndex = new ByteSequenceIndexFinder(target).findIn(b);
+		if(allIndex==-1) return false;
+		b.readerIndex(allIndex);		
+		return true;
 	}
 	
-	/** Opener string format */
-	public static final String OPENER = "<%s>";
-	/** Closer string format */
-	public static final String CLOSER = "</%s>";
+	/**
+	 * Fastforwards the buffer reader index to the end of the first <b>statvlun</b>
+	 * @param b The buffer to fast forward
+	 * @param target The byte sequence to fast forward to the end of
+	 * @return true if the fast forward succeeded, false otherwise
+	 */
+	protected boolean fastForwardToEndOf(ChannelBuffer b, byte[] target) {
+		boolean start = fastForwardToStartOf(b, target);
+		if(!start) return false;
+		b.readerIndex(b.readerIndex() + target.length);
+		return true;
+	}
+	
+	
 	
 	/**
 	 * Extracts the content between and XML node named <b><code>nodeName</code></b> and returns it as a string
 	 * @param buffer The buffer to read from
 	 * @param nodeName The node name to read
-	 * @param index The index of the reader
 	 * @return the read string
 	 */
-	public String getStringContentFromXML(ChannelBuffer buffer, String nodeName, int[] index) {
-		return toString(sliceBetween(buffer, String.format(OPENER, nodeName), String.format(CLOSER, nodeName), index));
+	public String getStringContentFromXML(ChannelBuffer buffer, String nodeName) {
+		return toString(sliceBetween(buffer, String.format(OPENER, nodeName), String.format(CLOSER, nodeName)));
 	}
+	
+	/**
+	 * Extracts the content between and XML node named <b><code>nodeName</code></b> and saves it into the passed map
+	 * @param buffer The buffer to read from
+	 * @param nodeName The node name to read
+	 * @param map the map to save into
+	 * @return the read string
+	 */
+	public String getStringContentFromXML(ChannelBuffer buffer, String nodeName, Map<String, String> map) {
+		String s = toString(sliceBetween(buffer, String.format(OPENER, nodeName), String.format(CLOSER, nodeName)));
+		if(map!=null) map.put(nodeName, s);
+		return s;
+	}
+	
 	
 	/**
 	 * Reads all the bytes from the passed channel buffer and returns them as a string.
@@ -233,7 +319,7 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	 */
 	public static String toString(ChannelBuffer cb) {
 		byte[] bytes = new byte[cb.readableBytes()];
-		cb.getBytes(0, bytes);
+		cb.getBytes(cb.readerIndex(), bytes);
 		return new String(bytes);
 	}
 	
@@ -269,8 +355,8 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	 * @param end The ending delimeter
 	 * @return The slice channel buffer or null if one or both of the delimeters were not found
 	 */
-	protected ChannelBuffer slice(ChannelBuffer b, String start, String end, int[] index) {
-		return slice(b, start.getBytes(), end.getBytes(), index);
+	protected ChannelBuffer slice(ChannelBuffer b, String start, String end) {
+		return slice(b, start.getBytes(), end.getBytes());
 	}
 	
 	
@@ -283,13 +369,13 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	 * @param end The ending delimeter
 	 * @return The slice channel buffer or null if one or both of the delimeters were not found
 	 */
-	protected ChannelBuffer slice(ChannelBuffer b, byte[] start, byte[] end, int[] index) {
+	protected ChannelBuffer slice(ChannelBuffer b, byte[] start, byte[] end) {
 		ByteSequenceIndexFinder startFinder = new ByteSequenceIndexFinder(start);		
 		ByteSequenceIndexFinder endFinder = new ByteSequenceIndexFinder(end);
 		final int maxBytes = b.readableBytes();
 		final int startLength = start.length;
 		final int endLength = end.length;
-		int startOffset = startFinder.findIn(b, index[0]);
+		int startOffset = startFinder.findIn(b);
 		if(startOffset==-1) return null;
 		//info("Start Offset:", startOffset, "\n\tEnd Finder - Starting Index:", (startOffset+startLength), " Max Length:" + (maxBytes-startOffset-startLength));
 		
@@ -307,7 +393,7 @@ public class SanStatsParserTracer extends ServerComponentBean {
 		//info("Index for [", start, "]: ", startOffset, " End offset:", endOffset, " Content Length: ", contentLength);
 		
 		ChannelBuffer sysInfoBuffer = b.slice(startOffset, contentLength);
-		
+		b.readerIndex(startOffset + contentLength);
 		return sysInfoBuffer;
 	}
 	
@@ -318,12 +404,13 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	 * @param end The ending delimeter
 	 * @return the extracted buffer or null if the delimeters were not both found
 	 */
-	protected ChannelBuffer sliceBetween(ChannelBuffer b, String start, String end, int[] index) {
+	protected ChannelBuffer sliceBetween(ChannelBuffer b, String start, String end) {
 		final int startLength = start.getBytes().length;
 		final int endLength = end.getBytes().length;
-		ChannelBuffer sub = slice(b, start, end, index);
+		ChannelBuffer sub = slice(b, start, end);
 		if(sub==null) {
 			error("Failed to sub [" + start + "]");
+			return null;
 		}
 		return sub.slice(startLength, sub.readableBytes()-startLength-endLength);
 	}
