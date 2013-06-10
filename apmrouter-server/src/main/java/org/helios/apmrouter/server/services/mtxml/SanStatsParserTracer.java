@@ -31,19 +31,19 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.log4j.BasicConfigurator;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.collections.LongSlidingWindow;
 import org.helios.apmrouter.server.ServerComponentBean;
@@ -73,7 +73,7 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	/** The parsing task queue */
 	protected BlockingQueue<ChannelBuffer> parseQueue = null;
 	
-	protected Set<String> vluns = new HashSet<String>();
+	protected Set<String> vluns = new CopyOnWriteArraySet<String>();
 	
 	/** Sliding windows of xml file processing elapsed times in ns. */
 	protected final LongSlidingWindow fileProcessingTimesNs = new ConcurrentLongSlidingWindow(50);
@@ -107,13 +107,13 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	public static void main(String[] args) {
 		final int coreThreads = ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors()*2;
 		final int maxThreads = ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors()*3;
-		BasicConfigurator.configure();
+		//BasicConfigurator.configure();
 		ThreadPoolExecutor executor = new ThreadPoolExecutor(
 			coreThreads,
 			maxThreads,
 			15000,
 			TimeUnit.MILLISECONDS,
-			new ArrayBlockingQueue<Runnable>(1500),
+			new ArrayBlockingQueue<Runnable>(15000),
 			new ThreadFactory(){
 				final AtomicLong serial = new AtomicLong(0);
 				@Override
@@ -138,12 +138,12 @@ public class SanStatsParserTracer extends ServerComponentBean {
 		FileChannel fc = null;
 		MappedByteBuffer mbb = null;
 		SystemClock.startTimer();
-		int loops = 2;
+		int loops = 1;
 		for(int i = 0; i < loops; i++) {
 			try {
 				//sspt.info("Processing SAN Stats XML");
-				raf = new RandomAccessFile(new File("./src/test/resources/san/statvlun-small.xml"), "r");			
-				//raf = new RandomAccessFile(new File("./src/test/resources/san/statvlun.xml"), "r");
+				//raf = new RandomAccessFile(new File("./src/test/resources/san/statvlun-small.xml"), "r");			
+				raf = new RandomAccessFile(new File("./src/test/resources/san/statvlun.xml"), "r");
 				//raf = new RandomAccessFile(new File("./src/test/resources/san/simple.xml"), "r");
 				fc = raf.getChannel();
 				mbb = fc.map(MapMode.READ_ONLY, 0, fc.size());
@@ -174,19 +174,47 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	public void process(ChannelBuffer b) {
 		//info("Processing SAN Stats XML");
 		
-		SanStatsParsingContext ctx = new SanStatsParsingContext();
+		final SanStatsParsingContext ctx = new SanStatsParsingContext();
+		
 		ctx.setSysInfo(getSystemInfo(b));
 		
 		fastForwardToStartOf(b, "<all_statvlun>".getBytes());
-		ChannelBuffer vlunBuffer = null;
+		
+		final AtomicInteger i = new AtomicInteger(0);
+		int c = 0;
 		while(true) {
-			vlunBuffer = nextVlun(b);
-			if(vlunBuffer==null) break;
-			getVlunInfo(vlunBuffer);
-			//info("VLUN:\n", getVlunInfo(vlunBuffer, index).toString().replace(",", "\n"));
+			final ChannelBuffer vlunBuffer = nextVlun(b);
+			if(vlunBuffer==null) break;			
+			threadPool.execute(new Runnable() {
+				public void run() {
+					Map<String, String> vlinnfo = getVlunInfo(vlunBuffer);
+					ctx.addVLun(vlinnfo);
+					i.incrementAndGet();
+				}
+			});
+			c++;
+			
+			//System.out.println("VLUN XML:\n[" + toString(vlunBuffer) + "]");
+			//info("VLUN:\n", getVlunInfo(vlunBuffer).toString().replace(",", "\n"));
 			//info("VLUN XML:\n[", toString(vlunBuffer), "]");
 			//b.readerIndex(index[0]+=vlunBuffer.readableBytes());
 		}
+		//info("Found [", c, "] vlun stat instances");
+		while(c!=0) {
+			ctx.countdown();
+			c--;
+		}
+//		info("\n", ctx.printArrayTotals());
+//		info("\n", ctx.printHostAggregates());
+//		info("\n", ctx.printVVAggregates());
+		info("\n\n\n");
+		info("Total Hosts:", ctx.getTotalHosts());
+		info("Total VVs:", ctx.getTotalVVHosts());
+		info("Total Port Nodes:", ctx.getTotalPortNodes());
+		
+		
+		
+		//info("DONE");
 	}
 	/** Opener format for statvlun instances */
 	private static final byte[] STATVLUN_OPENER = "<statvlun>".getBytes();
@@ -224,7 +252,7 @@ public class SanStatsParserTracer extends ServerComponentBean {
 			getStringContentFromXML(sysBuffer, "system_model", sysInfo);
 			getStringContentFromXML(sysBuffer, "ch_size_mb", sysInfo);
 		}
-		b.readerIndex(b.readerIndex() + sysBuffer.readerIndex());
+		//b.readerIndex(b.readerIndex() + sysBuffer.readerIndex());
 		//info("SysInfo:\n\n", sysInfo.toString().replace(",", "\n"));
 		return sysInfo;
 	}
@@ -255,7 +283,10 @@ public class SanStatsParserTracer extends ServerComponentBean {
 		getStringContentFromXML(b, "werror", vlunInfo);
 		getStringContentFromXML(b, "wdrops", vlunInfo);
 		getStringContentFromXML(b, "wticks", vlunInfo);
-		vluns.add(vlunInfo.get("vvname") + "/" + vlunInfo.get("hostname") + vlunInfo.get("portnode") + vlunInfo.get("portslot") + vlunInfo.get("portport"));
+		String uniqueId = String.format("%s/%s/%s/%s/%s", vlunInfo.get("vv_name"), vlunInfo.get("host_name"), vlunInfo.get("port_node"), vlunInfo.get("port_slot"), vlunInfo.get("port_port")); 
+		if(vluns.add(uniqueId)) {
+			//info("------------> [", uniqueId, "]");
+		}
 		return vlunInfo;
 	}
 	
@@ -377,6 +408,7 @@ public class SanStatsParserTracer extends ServerComponentBean {
 		final int endLength = end.length;
 		int startOffset = startFinder.findIn(b);
 		if(startOffset==-1) return null;
+		startOffset += b.readerIndex(); 
 		//info("Start Offset:", startOffset, "\n\tEnd Finder - Starting Index:", (startOffset+startLength), " Max Length:" + (maxBytes-startOffset-startLength));
 		
 		//int endOffset = endFinder.findIn(b, maxBytes-startOffset-startLength);  // FIXME: We should limit the lengths a bit more
@@ -408,10 +440,12 @@ public class SanStatsParserTracer extends ServerComponentBean {
 		final int startLength = start.getBytes().length;
 		final int endLength = end.getBytes().length;
 		ChannelBuffer sub = slice(b, start, end);
+		
 		if(sub==null) {
 			error("Failed to sub [" + start + "]");
-			return null;
+			return null;		
 		}
+		//b.readerIndex(b.readerIndex() + sub.readableBytes());
 		return sub.slice(startLength, sub.readableBytes()-startLength-endLength);
 	}
 
