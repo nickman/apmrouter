@@ -75,7 +75,7 @@ import org.springframework.jmx.export.annotation.ManagedOperationParameters;
  * <p><code>org.helios.apmrouter.groovy.GroovyService</code></p>
  */
 
-public class GroovyService extends ServerComponentBean implements GroovyLoadedScriptListener{
+public class GroovyService extends ServerComponentBean implements GroovyLoadedScriptListener {
 	/** A map of compiled scripts keyed by an arbitrary reference name */
 	protected final Map<String, Script> compiledScripts = new ConcurrentHashMap<String, Script>();
 	
