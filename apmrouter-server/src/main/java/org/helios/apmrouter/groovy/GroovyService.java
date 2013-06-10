@@ -90,6 +90,8 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 	protected final GroovyClassLoader groovyClassLoader; 
 	/** The shared bindings */
 	protected final Map<String, Object> beans = new ConcurrentHashMap<String, Object>();
+	/** The global variables */
+	protected final Map<String, Object> globalVariables = new ConcurrentHashMap<String, Object>();
 	
 	/** A set of registered class listeners */
 	protected final Set<GroovyLoadedScriptListener> listeners = new CopyOnWriteArraySet<GroovyLoadedScriptListener>();
@@ -586,11 +588,12 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 						beans.put(beanName, applicationContext.getBean(beanName));
 					}
 					beans.put("RootCtx", applicationContext);					
+					beans.put("globalVariables", globalVariables);
 				}
 			}
 		}
 		//return new ThreadSafeNoNullsBinding(beans);
-		return new Binding(beans);
+		return new Binding(new HashMap<String, Object>(beans));
 	}
 
 	/**
@@ -614,21 +617,27 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 				GroovyClassLoader loader = new GroovyClassLoader(getClass().getClassLoader(), compilerConfiguration);
 				Class<?> clazz = loader.parseClass(new String(URLHelper.getBytesFromURL(ClassLoader.getSystemResource("groovy/ui/Console.groovy"))));
 				loader.close();
+				Constructor<?> ctor = clazz.getDeclaredConstructor(Binding.class);
+				Object console = ctor.newInstance(getBindings());
+				console.getClass().getDeclaredMethod("run").invoke(console);
+				
 				if(fileName!=null) {
 					File file = new File(fileName);
 					if(file.canRead()) {
-						clazz.getDeclaredMethod("main", String[].class).invoke(null, new Object[]{new String[]{fileName}});
-						return;
+						//clazz.getDeclaredMethod("main", String[].class).invoke(null, new Object[]{new String[]{fileName}});
+						//loadScriptFile(args[0] as File)
+						clazz.getDeclaredMethod("loadScriptFile", File.class).invoke(console, file);
+						//return;
 					}
 				}				
-				clazz.getDeclaredMethod("main", String[].class).invoke(null, new Object[]{new String[]{}});
+				//clazz.getDeclaredMethod("main", String[].class).invoke(null, new Object[]{new String[]{}});
 				return;
 			} catch (Exception ex) {
 				ex.printStackTrace(System.err);
 			}
 			Class<?> clazz = Class.forName("groovy.ui.Console");
-			Constructor<?> ctor = clazz.getDeclaredConstructor();
-			Object console = ctor.newInstance();
+			Constructor<?> ctor = clazz.getDeclaredConstructor(Binding.class);
+			Object console = ctor.newInstance(getBindings());
 			console.getClass().getDeclaredMethod("run").invoke(console);
 		} catch (Exception e) {
 			error("Failed to launch console", e);
@@ -937,124 +946,25 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 	
 	
 	/**
-	 * <p>Title: ThreadSafeNoNullsBinding</p>
-	 * <p>Description: A binding extension that prevents nul value property and variable sets</p> 
-	 * <p>Company: Helios Development Group LLC</p>
-	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
-	 * <p><code>org.helios.apmrouter.groovy.GroovyService.ThreadSafeNoNullsBinding</code></p>
+	 * Sets a global variable, returning the previosuly bound object or null there was none
+	 * @param key The global variable key
+	 * @param value The global variable value
+	 * @return the previosuly bound object or null there was none
 	 */
-	protected class ThreadSafeNoNullsBinding extends Binding {
-		/** The values as thread locals */
-		protected final Map<String, InheritableThreadLocal<Object>> values = new HashMap<String, InheritableThreadLocal<Object>>();
-		
-		
-		/**
-		 * Creates a new ThreadSafeNoNullsBinding
-		 */
-		public ThreadSafeNoNullsBinding() {
-			super();
-		}
-
-		/**
-		 * Creates a new ThreadSafeNoNullsBinding
-		 * @param variables The variables to add to the binding
-		 */
-		public ThreadSafeNoNullsBinding(Map<String, Object> variables) {
-			super();
-			if(variables!=null) {
-				for(Map.Entry<String, Object> entry: variables.entrySet()) {
-					InheritableThreadLocal<Object> t = new InheritableThreadLocal<Object>();
-					t.set(entry.getValue());
-					values.put(entry.getKey(), t);
-				}
-			}
-		}
-
-		/**
-		 * Creates a new ThreadSafeNoNullsBinding
-		 * @param args args to the binding
-		 */
-		public ThreadSafeNoNullsBinding(String[] args) {
-			super();
-			InheritableThreadLocal<Object> t = new InheritableThreadLocal<Object>();
-			t.set(args);
-			values.put("args", t);			
-		}
-		
-		/**
-		 * {@inheritDoc}
-		 * @see groovy.lang.Binding#setProperty(java.lang.String, java.lang.Object)
-		 */
-		@Override
-		public void setProperty(String key, Object value) {
-			if(value==null) {
-				error("Someone attempted to set a null value property into the groovy bindings [", key, "]:[", value, "]");
-			} else {
-				InheritableThreadLocal<Object> t = new InheritableThreadLocal<Object>();
-				t.set(value);
-				values.put(key, t);							
-			}
-		}
-		
-		/**
-		 * {@inheritDoc}
-		 * @see groovy.lang.Binding#setVariable(java.lang.String, java.lang.Object)
-		 */
-		@Override
-		public void setVariable(String name, Object value) { 
-			if(value==null) {
-				error("Someone attempted to put a null value variable into the groovy bindings [", name, "]:[", value, "]");
-			} else {
-				InheritableThreadLocal<Object> t = new InheritableThreadLocal<Object>();
-				t.set(value);
-				values.put(name, t);							
-			}
-		}
-		
-		/**
-		 * {@inheritDoc}
-		 * @see groovy.lang.Binding#getVariable(java.lang.String)
-		 */
-		@Override
-		public Object getVariable(String name) {
-			InheritableThreadLocal<Object> t = values.get(name);
-			if(t==null) throw new MissingPropertyException(name, this.getClass());
-			return t.get();
-		}
-		
-		/**
-		 * {@inheritDoc}
-		 * @see groovy.lang.Binding#getProperty(java.lang.String)
-		 */
-		@Override
-		public Object getProperty(String key) {
-			InheritableThreadLocal<Object> t = values.get(key);
-			if(t==null) return null;
-			return t.get();			
-		}
-		
-		/**
-		 * {@inheritDoc}
-		 * @see groovy.lang.Binding#hasVariable(java.lang.String)
-		 */
-		@Override
-		public boolean hasVariable(String name) {
-			return values.containsKey(name);
-		}
-		
-		/**
-		 * {@inheritDoc}
-		 * @see groovy.lang.Binding#getVariables()
-		 */
-		@Override
-		public Map<String, Object> getVariables() {
-			Map<String, Object> map = new HashMap<String, Object>(values.size());
-			for(Map.Entry<String, InheritableThreadLocal<Object>> entry: values.entrySet()) {
-				if(entry.getValue().get()!=null) {
-					map.put(entry.getKey(), entry.getValue().get());
-				}
-			}
-			return map;
-		}
+	public Object setGlobaVariable(String key, Object value) {
+		if(key==null || key.trim().isEmpty()) throw new IllegalArgumentException("The passed key was null or empty", new Throwable());
+		if(value==null) throw new IllegalArgumentException("The passed value was null or empty", new Throwable());
+		return globalVariables.put(key, value);
 	}
+	
+	/**
+	 * Returns the name global variable
+	 * @param key The global variable key
+	 * @return The global variable value or null if it has not been bound
+	 */
+	public Object getGlobaVariable(String key) {
+		if(key==null || key.trim().isEmpty()) throw new IllegalArgumentException("The passed key was null or empty", new Throwable());
+		return globalVariables.get(key);
+	}
+	
 }
