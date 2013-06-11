@@ -27,10 +27,12 @@ package org.helios.apmrouter.server.services.mtxml;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.cliffc.high_scale_lib.Counter;
 import org.cliffc.high_scale_lib.NonBlockingHashMap;
+import org.helios.apmrouter.metric.MetricType;
 
 /**
  * <p>Title: SanStatsParsingContext</p>
@@ -107,10 +109,25 @@ the top two would be sum by host and sum by vv_name
 	public static final String VVHOSTNAME = "host_name";
 	/** The tag name for the virtual vlun port node */
 	public static final String PORTNODE = "port_node";
+	/** The tag name for the virtual vlun port slot */
+	public static final String PORTSLOT = "port_slot";
+	/** The tag name for the virtual vlun port port */
+	public static final String PORTPORT = "port_port";
 	
-	
-
-	
+	/** The granularity format */
+	protected final String gformat;
+	/** The aggregation counter tag names */
+	protected static final String[] COUNTER_TAGS = new String[]{
+		QUEUE_LENGTH, BUSY_TIME, 
+		READ_COUNT, READ_BYTES, READ_ERRORS, READ_DROPS, READ_TICKS, 
+		WRITE_COUNT, WRITE_BYTES, WRITE_ERRORS, WRITE_DROPS, WRITE_TICKS
+	};
+	/** The aggregation counter metric types that should positionally match the {@link #COUNTER_TAGS}  */
+	protected static final MetricType[] COUNTER_METRIC_TYPES = new MetricType[]{
+		MetricType.LONG_GAUGE, MetricType.DELTA_GAUGE, 
+		MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, 
+		MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE
+	};
 	
 	/** The number of successfully parsed lun fragments */
 	private final AtomicInteger lunsParsed = new AtomicInteger(0);
@@ -122,24 +139,36 @@ the top two would be sum by host and sum by vv_name
 	//   Aggregations
 	// ================================================================================================
 	/** The total values across the array */
-	protected final NonBlockingHashMap<String, Counter> arrayTotals = new NonBlockingHashMap<String, Counter>(); 
-	/** The total values across each host in the array */
-	protected final NonBlockingHashMap<String, NonBlockingHashMap<String, Counter>> hostTotals = new NonBlockingHashMap<String, NonBlockingHashMap<String, Counter>>(); 
-	/** The total values across each vv in the array */
-	protected final NonBlockingHashMap<String, NonBlockingHashMap<String, Counter>> vvTotals = new NonBlockingHashMap<String, NonBlockingHashMap<String, Counter>>(); 
-	/** The total values across each port node in the array */
-	protected final NonBlockingHashMap<String, NonBlockingHashMap<String, Counter>> pnTotals = new NonBlockingHashMap<String, NonBlockingHashMap<String, Counter>>(); 
+	protected final NonBlockingHashMap<String, NonBlockingHashMap<String, Counter>> arrayTotals = new NonBlockingHashMap<String, NonBlockingHashMap<String, Counter>>(1024); 
 
-	public int getTotalHosts() {
-		return hostTotals.size();
+	/**
+	 * Returns the number of unique nodes collected for in this context
+	 * @return the number of unique nodes collected for in this context
+	 */
+	public int getNodeCount() {
+		return arrayTotals.size();
 	}
-	public int getTotalVVHosts() {
-		return vvTotals.size();
+	
+	/**
+	 * Increments the counter for the passed aggregate key by the passed amount
+	 * @param granularityKey The target granularity key that identifies the SAN node for which stats are beng supplied.
+	 * @param valueKey The key of the counter stat which is being supplied
+	 * @param value The value to increment by
+	 */
+	protected void increment(String granularityKey, String valueKey, long value) {
+		NonBlockingHashMap<String, Counter> counterMap = arrayTotals.get(granularityKey);
+		if(counterMap==null) {
+			synchronized(arrayTotals) {
+				counterMap = arrayTotals.get(granularityKey);
+				if(counterMap==null) {
+					counterMap = new NonBlockingHashMap<String, Counter>(COUNTER_TAGS.length);
+					initCounters(counterMap, COUNTER_TAGS);
+					arrayTotals.put(granularityKey, counterMap);
+				}
+			}
+		}
+		counterMap.get(valueKey).add(value);
 	}
-	public int getTotalPortNodes() {
-		return pnTotals.size();
-	}
-
 	
 	
 	/**
@@ -153,11 +182,13 @@ the top two would be sum by host and sum by vv_name
 		}
 	}
 	
+	
 	/**
 	 * Creates a new SanStatsParsingContext and initializes the aggregate counters
+	 * @param gformat The granularity format
 	 */
-	public SanStatsParsingContext() {
-		initCounters(arrayTotals, QUEUE_LENGTH, BUSY_TIME, READ_COUNT, READ_BYTES, READ_ERRORS, READ_DROPS, READ_TICKS, WRITE_COUNT, WRITE_BYTES, WRITE_ERRORS, WRITE_DROPS, WRITE_TICKS);
+	public SanStatsParsingContext(String gformat) {
+		this.gformat = gformat;		
 	}
 	
 	
@@ -168,7 +199,7 @@ the top two would be sum by host and sum by vv_name
 	 */
 	public void setSysInfo(Map<String, String> sysInfo) {
 		serialNumber = sysInfo.get("serial_number");
-		systemName = sysInfo.get("system_name");
+		systemName = sysInfo.get("sys_name");
 		ipName = sysInfo.get("ip_name");
 		osVersion = sysInfo.get("os_version");
 		modelName = sysInfo.get("model_name");
@@ -177,46 +208,15 @@ the top two would be sum by host and sum by vv_name
 		
 	}
 	
-	/**
-	 * Increments the counter in the passed aggregate by the passed amount
-	 * @param counterMap The map to increment
-	 * @param key The target key
-	 * @param value The value to increment by
-	 */
-	protected void increment(NonBlockingHashMap<String, Counter> counterMap, String key, long value) {
-		if(counterMap!=null) {
-			Counter ctr = counterMap.get(key);
-			if(ctr!=null) ctr.add(value);			
-		}
-	}
 	
 	/**
 	 * Returns the value for the passed key from the array aggregate
-	 * @param key The key to retrieve the value for
+	 * @param valueKey The key of the metric type being retrieved
+	 * @param keyParts The key to retrieve the value for
 	 * @return the long value
 	 */
-	public long getArrayValue(String key) {		
-		return arrayTotals.get(key).get();
-	}
-	
-	/**
-	 * @param counterMap
-	 * @param key
-	 * @return
-	 */
-	protected NonBlockingHashMap<String, Counter> getNestedCounterMap(NonBlockingHashMap<String, NonBlockingHashMap<String, Counter>> counterMap, String key) {
-		NonBlockingHashMap<String, Counter> ctr = counterMap.get(key);
-		if(ctr==null) {
-			synchronized(counterMap) {
-				ctr = counterMap.get(key);
-				if(ctr==null) {
-					ctr = new NonBlockingHashMap<String, Counter>();
-					initCounters(ctr, QUEUE_LENGTH, BUSY_TIME, READ_COUNT, READ_BYTES, READ_ERRORS, READ_DROPS, READ_TICKS, WRITE_COUNT, WRITE_BYTES, WRITE_ERRORS, WRITE_DROPS, WRITE_TICKS);
-					counterMap.put(key, ctr);
-				}
-			}
-		}
-		return ctr;
+	public long getArrayValue(String valueKey, String...keyParts) {		
+		return arrayTotals.get(String.format(gformat, keyParts)).get(valueKey).get();
 	}
 	
 	/**
@@ -244,31 +244,24 @@ the top two would be sum by host and sum by vv_name
 		lvalues[seq++] = Long.parseLong(vlunstats.get(WRITE_ERRORS));
 		lvalues[seq++] = Long.parseLong(vlunstats.get(WRITE_DROPS));
 		lvalues[seq++]= Long.parseLong(vlunstats.get(WRITE_TICKS));
-		
-		// ========================
-		//   array totals
-		// ========================
-		sumTotals(arrayTotals, lvalues);
-		
-		// ========================
-		//   host totals
-		// ========================
-		sumTotals(getNestedCounterMap(hostTotals, vlunstats.get(VVHOSTNAME)), lvalues); 
-		
-		// ========================
-		//   vv totals
-		// ========================
-		sumTotals(getNestedCounterMap(vvTotals, vlunstats.get(VVNAME)), lvalues); 
-
-		// ========================
-		//   port node totals
-		// ========================
-		sumTotals(getNestedCounterMap(pnTotals, vlunstats.get(VVHOSTNAME) + "/" + vlunstats.get(PORTNODE)), lvalues); 
 
 		
 		
+		// =====================================================
+		//   Calculate the granularity appropriate key
+		// =====================================================
+		String nodeKey = String.format(gformat, 	
+				systemName, 
+				vlunstats.get(VVNAME), 
+				vlunstats.get(VVHOSTNAME), 
+				vlunstats.get(PORTNODE),
+				vlunstats.get(PORTSLOT),
+				vlunstats.get(PORTPORT)
+		);
 		
-		this.lunsParsed.incrementAndGet();
+		sumTotals(nodeKey, lvalues);
+		
+		lunsParsed.incrementAndGet();
 
 		try {
 			completionQueue.put(vlunstats);
@@ -279,24 +272,24 @@ the top two would be sum by host and sum by vv_name
 	
 	/**
 	 * Applies the raw values to the passed aggregate counter map
-	 * @param counterMap The counter map to increment
+	 * @param nodeKey The compound key identifying the SAN node for which values are beng aggregated
 	 * @param rawValues The raw values read from a statvlun
 	 */
-	protected void sumTotals(NonBlockingHashMap<String, Counter> counterMap, long[] rawValues)  {
+	protected void sumTotals(String nodeKey, long[] rawValues)  {
 		int seq = 1;
-		increment(counterMap, QUEUE_LENGTH, rawValues[seq++]);
-		increment(counterMap, BUSY_TIME, rawValues[seq++]);
-		increment(counterMap, READ_COUNT, rawValues[seq++]);
-		increment(counterMap, READ_BYTES, rawValues[seq++]);
-		increment(counterMap, READ_ERRORS, rawValues[seq++]);
-		increment(counterMap, READ_DROPS, rawValues[seq++]);
-		increment(counterMap, READ_TICKS, rawValues[seq++]);
+		increment(nodeKey, QUEUE_LENGTH, rawValues[seq++]);
+		increment(nodeKey, BUSY_TIME, rawValues[seq++]);
+		increment(nodeKey, READ_COUNT, rawValues[seq++]);
+		increment(nodeKey, READ_BYTES, rawValues[seq++]);
+		increment(nodeKey, READ_ERRORS, rawValues[seq++]);
+		increment(nodeKey, READ_DROPS, rawValues[seq++]);
+		increment(nodeKey, READ_TICKS, rawValues[seq++]);
 
-		increment(counterMap, WRITE_COUNT, rawValues[seq++]);
-		increment(counterMap, WRITE_BYTES, rawValues[seq++]);
-		increment(counterMap, WRITE_ERRORS, rawValues[seq++]);
-		increment(counterMap, WRITE_DROPS, rawValues[seq++]);
-		increment(counterMap, WRITE_TICKS, rawValues[seq++]);
+		increment(nodeKey, WRITE_COUNT, rawValues[seq++]);
+		increment(nodeKey, WRITE_BYTES, rawValues[seq++]);
+		increment(nodeKey, WRITE_ERRORS, rawValues[seq++]);
+		increment(nodeKey, WRITE_DROPS, rawValues[seq++]);
+		increment(nodeKey, WRITE_TICKS, rawValues[seq++]);
 	}
 	
 	/**
@@ -321,67 +314,73 @@ the top two would be sum by host and sum by vv_name
 		return b.toString();
 	}
 	
-	/**
-	 * Returns a formatted string reporting the host total values
-	 * @return the host total values
-	 */
-	public String printHostAggregates() {
-		StringBuilder b = new StringBuilder("\n\t==============================\n\tVirtual Host Aggregates\n\t==============================");
-		for(Map.Entry<String, NonBlockingHashMap<String, Counter>> entry: hostTotals.entrySet()) {
-			b.append("\n\tHost:").append(entry.getKey());
-			NonBlockingHashMap<String, Counter> counterMap = entry.getValue();
-			b.append("\n\t\tQueue Length:").append(counterMap.get(QUEUE_LENGTH).get());
-			b.append("\n\t\tBusy Time:").append(counterMap.get(BUSY_TIME).get());
-			b.append("\n\t\tRead Count:").append(counterMap.get(READ_COUNT).get());
-			b.append("\n\t\tRead Bytes:").append(counterMap.get(READ_BYTES).get());
-			b.append("\n\t\tRead Errors:").append(counterMap.get(READ_ERRORS).get());
-			b.append("\n\t\tRead Drops:").append(counterMap.get(READ_DROPS).get());
-			b.append("\n\t\tRead Ticks:").append(counterMap.get(READ_TICKS).get());
-			b.append("\n\t\tWrite Count:").append(counterMap.get(WRITE_COUNT).get());
-			b.append("\n\t\tWrite Bytes:").append(counterMap.get(WRITE_BYTES).get());
-			b.append("\n\t\tWrite Errors:").append(counterMap.get(WRITE_ERRORS).get());
-			b.append("\n\t\tWrite Drops:").append(counterMap.get(WRITE_DROPS).get());
-			b.append("\n\t\tWrite Ticks:").append(counterMap.get(WRITE_TICKS).get());			
-		}
-		
-		return b.toString();
-	}
+//	/**
+//	 * Returns a formatted string reporting the host total values
+//	 * @return the host total values
+//	 */
+//	public String printHostAggregates() {
+//		StringBuilder b = new StringBuilder("\n\t==============================\n\tVirtual Host Aggregates\n\t==============================");
+//		for(Map.Entry<String, NonBlockingHashMap<String, Counter>> entry: hostTotals.entrySet()) {
+//			b.append("\n\tHost:").append(entry.getKey());
+//			NonBlockingHashMap<String, Counter> counterMap = entry.getValue();
+//			b.append("\n\t\tQueue Length:").append(counterMap.get(QUEUE_LENGTH).get());
+//			b.append("\n\t\tBusy Time:").append(counterMap.get(BUSY_TIME).get());
+//			b.append("\n\t\tRead Count:").append(counterMap.get(READ_COUNT).get());
+//			b.append("\n\t\tRead Bytes:").append(counterMap.get(READ_BYTES).get());
+//			b.append("\n\t\tRead Errors:").append(counterMap.get(READ_ERRORS).get());
+//			b.append("\n\t\tRead Drops:").append(counterMap.get(READ_DROPS).get());
+//			b.append("\n\t\tRead Ticks:").append(counterMap.get(READ_TICKS).get());
+//			b.append("\n\t\tWrite Count:").append(counterMap.get(WRITE_COUNT).get());
+//			b.append("\n\t\tWrite Bytes:").append(counterMap.get(WRITE_BYTES).get());
+//			b.append("\n\t\tWrite Errors:").append(counterMap.get(WRITE_ERRORS).get());
+//			b.append("\n\t\tWrite Drops:").append(counterMap.get(WRITE_DROPS).get());
+//			b.append("\n\t\tWrite Ticks:").append(counterMap.get(WRITE_TICKS).get());			
+//		}
+//		
+//		return b.toString();
+//	}
+	
+//	/**
+//	 * Returns a formatted string reporting the vv total values
+//	 * @return the vv total values
+//	 */
+//	public String printVVAggregates() {
+//		StringBuilder b = new StringBuilder("\n\t==============================\n\tVV Aggregates\n\t==============================");
+//		for(Map.Entry<String, NonBlockingHashMap<String, Counter>> entry: vvTotals.entrySet()) {
+//			b.append("\n\tvv Name:").append(entry.getKey());
+//			NonBlockingHashMap<String, Counter> counterMap = entry.getValue();
+//			b.append("\n\t\tQueue Length:").append(counterMap.get(QUEUE_LENGTH).get());
+//			b.append("\n\t\tBusy Time:").append(counterMap.get(BUSY_TIME).get());
+//			b.append("\n\t\tRead Count:").append(counterMap.get(READ_COUNT).get());
+//			b.append("\n\t\tRead Bytes:").append(counterMap.get(READ_BYTES).get());
+//			b.append("\n\t\tRead Errors:").append(counterMap.get(READ_ERRORS).get());
+//			b.append("\n\t\tRead Drops:").append(counterMap.get(READ_DROPS).get());
+//			b.append("\n\t\tRead Ticks:").append(counterMap.get(READ_TICKS).get());
+//			b.append("\n\t\tWrite Count:").append(counterMap.get(WRITE_COUNT).get());
+//			b.append("\n\t\tWrite Bytes:").append(counterMap.get(WRITE_BYTES).get());
+//			b.append("\n\t\tWrite Errors:").append(counterMap.get(WRITE_ERRORS).get());
+//			b.append("\n\t\tWrite Drops:").append(counterMap.get(WRITE_DROPS).get());
+//			b.append("\n\t\tWrite Ticks:").append(counterMap.get(WRITE_TICKS).get());			
+//		}
+//		
+//		
+//		return b.toString();
+//	}
+	
+	
 	
 	/**
-	 * Returns a formatted string reporting the vv total values
-	 * @return the vv total values
+	 * Waits for the next parse queue event completion
+	 * @param timeout The timeout of the wait
+	 * @param unit The unit of the timeout
+	 * @return true if an event was received, false otherwise
 	 */
-	public String printVVAggregates() {
-		StringBuilder b = new StringBuilder("\n\t==============================\n\tVV Aggregates\n\t==============================");
-		for(Map.Entry<String, NonBlockingHashMap<String, Counter>> entry: vvTotals.entrySet()) {
-			b.append("\n\tvv Name:").append(entry.getKey());
-			NonBlockingHashMap<String, Counter> counterMap = entry.getValue();
-			b.append("\n\t\tQueue Length:").append(counterMap.get(QUEUE_LENGTH).get());
-			b.append("\n\t\tBusy Time:").append(counterMap.get(BUSY_TIME).get());
-			b.append("\n\t\tRead Count:").append(counterMap.get(READ_COUNT).get());
-			b.append("\n\t\tRead Bytes:").append(counterMap.get(READ_BYTES).get());
-			b.append("\n\t\tRead Errors:").append(counterMap.get(READ_ERRORS).get());
-			b.append("\n\t\tRead Drops:").append(counterMap.get(READ_DROPS).get());
-			b.append("\n\t\tRead Ticks:").append(counterMap.get(READ_TICKS).get());
-			b.append("\n\t\tWrite Count:").append(counterMap.get(WRITE_COUNT).get());
-			b.append("\n\t\tWrite Bytes:").append(counterMap.get(WRITE_BYTES).get());
-			b.append("\n\t\tWrite Errors:").append(counterMap.get(WRITE_ERRORS).get());
-			b.append("\n\t\tWrite Drops:").append(counterMap.get(WRITE_DROPS).get());
-			b.append("\n\t\tWrite Ticks:").append(counterMap.get(WRITE_TICKS).get());			
-		}
-		
-		
-		return b.toString();
-	}
-	
-	
-	
-	public void countdown() {
+	public boolean countdown(long timeout, TimeUnit unit) {
 		try {
-			completionQueue.take();
+			return completionQueue.poll(timeout, unit)!=null;
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
+			return false;
 		}
 	}
 

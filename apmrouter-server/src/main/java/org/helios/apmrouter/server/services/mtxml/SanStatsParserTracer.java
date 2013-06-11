@@ -32,10 +32,8 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadFactory;
@@ -49,9 +47,12 @@ import org.helios.apmrouter.collections.LongSlidingWindow;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.util.ByteSequenceIndexFinder;
 import org.helios.apmrouter.util.SystemClock;
-import org.helios.apmrouter.util.SystemClock.ElapsedTime;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.springframework.jmx.export.annotation.ManagedAttribute;
+import org.springframework.jmx.export.annotation.ManagedMetric;
+import org.springframework.jmx.export.annotation.ManagedOperation;
+import org.springframework.jmx.support.MetricType;
 
 /**
  * <p>Title: SanStatsParserTracer</p>
@@ -70,31 +71,51 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	protected boolean parseQueueFairness = false;
 	/** The number of parsing worker threads */
 	protected int parseWorkers = 5;
+	/** The timeout waiting for queue processing completion */
+	protected long parseQueueTimeout = 5000;
+	/** The parse queue timeout completion unit */
+	protected TimeUnit parseQueueTimeoutUnit = TimeUnit.MILLISECONDS;	
 	/** The parsing task queue */
 	protected BlockingQueue<ChannelBuffer> parseQueue = null;
 	
-	protected Set<String> vluns = new CopyOnWriteArraySet<String>();
 	
-	/** Sliding windows of xml file processing elapsed times in ns. */
-	protected final LongSlidingWindow fileProcessingTimesNs = new ConcurrentLongSlidingWindow(50);
-	/** Sliding windows of xml segment processing elapsed times in ns. */
-	protected final LongSlidingWindow segmentProcessingTimesMs = new ConcurrentLongSlidingWindow(100); 
+	/** The granularity formatter */
+	protected final String gformat;
 	
+	
+	/** The XML header indicating the start of the statvluns */
+	private static final byte[] ALL_STAT_OPENER = "<all_statvlun>".getBytes();
+	/** Opener format for statvlun instances */
+	private static final byte[] STATVLUN_OPENER = "<statvlun>".getBytes();
+	/** Closer format for statvlun instances */
+	private static final byte[] STATVLUN_CLOSER = "</statvlun>".getBytes();
+	/** Opener format for system info instances */
+	private static final byte[] SYSINFO_OPENER = "<system_info>".getBytes();
+	/** Closer format for system info instances */
+	private static final byte[] SYSINFO_CLOSER = "</system_info>".getBytes();
+	
+	/** Opener string format */
+	public static final String OPENER = "<%s>";
+	/** Closer string format */
+	public static final String CLOSER = "</%s>";
 
 	/**
 	 * Creates a new SanStatsParserTracer
+	 * @param gformat The granularity formatter 
 	 */
-	public SanStatsParserTracer() {
-		// TODO Auto-generated constructor stub
+	public SanStatsParserTracer(String gformat) {
+		this.gformat = gformat;
 	}
 	
 	
 	
 	/**
 	 * Creates a new SanStatsParserTracer
+	 * @param gformat The granularity formatter
 	 * @param threadPool The parse worker thread pool
 	 */
-	public SanStatsParserTracer(ExecutorService threadPool) {		
+	public SanStatsParserTracer(String gformat, ExecutorService threadPool) {
+		this(gformat);
 		this.threadPool = threadPool;
 	}
 
@@ -133,14 +154,20 @@ public class SanStatsParserTracer extends ServerComponentBean {
 			}
 		); 
 		executor.prestartAllCoreThreads();
-		SanStatsParserTracer sspt = new SanStatsParserTracer(executor);
+		//String[] segments = new String[]{"resource=3par", "sysname=%s","vvname=%s", "hostname=%s", "portnode=%s", "portslot=%s", "portport=%s"};
+		SanStatsParserTracer sspt = new SanStatsParserTracer("resource=3par/sysname=%s/vvname=%s/hostname=%s/portnode=%s", executor);
+		//SanStatsParserTracer sspt = new SanStatsParserTracer("resource=3par/sysname=%s/vvname=%s/hostname=%s", executor);
 		RandomAccessFile raf = null;
 		FileChannel fc = null;
 		MappedByteBuffer mbb = null;
 		SystemClock.startTimer();
-		int loops = 1;
+		int loops = 1000;
+		StringBuilder segmentBuilder = new StringBuilder();
+		//for(int i = 0; i < segments.length; i++) {
 		for(int i = 0; i < loops; i++) {
 			try {
+				//segmentBuilder.append("/").append(segments[i]);
+				//SanStatsParserTracer sspt = new SanStatsParserTracer(segmentBuilder.toString(), executor);
 				//sspt.info("Processing SAN Stats XML");
 				//raf = new RandomAccessFile(new File("./src/test/resources/san/statvlun-small.xml"), "r");			
 				raf = new RandomAccessFile(new File("./src/test/resources/san/statvlun.xml"), "r");
@@ -150,21 +177,107 @@ public class SanStatsParserTracer extends ServerComponentBean {
 				//sspt.info("Loaded XML into buffer. Size [", mbb.limit(), "] Loaded: ", mbb.isLoaded(), "  Direct:", mbb.isDirect());
 				ChannelBuffer cbuf = ChannelBuffers.wrappedBuffer(mbb);
 				
-				sspt.process(cbuf);
+				sspt.process(cbuf);		
+				if(i%50==0) {
+					System.out.println(sspt.reportStats());
+				}
 			} catch (Exception ex) {		
 				ex.printStackTrace(System.err);
 			} finally {
 				if(raf!=null) try {raf.close();} catch (Exception e) {}
 				if(fc!=null) try {fc.close();} catch (Exception e) {}			
-			}
+			}			
 		}
-		ElapsedTime et = SystemClock.endTimer();
-		sspt.info("Elapsed Time:", et,"\n\tAverage Per Doc:", et.avgMs(loops), " ms.");		
-//		StringBuilder b=new StringBuilder("\n\t============================\n\tVlun Hosts\n\t============================");
-//		for(String s: sspt.vluns) {
-//			b.append("\n\t").append(s);
-//		}
-		sspt.info("Unique Ports:", sspt.vluns.size());
+		System.out.println(sspt.reportStats());
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponent#resetMetrics()
+	 */
+	@Override
+	@ManagedOperation(description="Resets the San Stats Processor Metrics")
+	public void resetMetrics() {
+		rejectedParseQueueExecutions.set(0L);
+		processedFiles.set(0L);
+		fileProcessingTimesNs.clear();
+		segmentProcessingTimesNs.clear();
+		super.resetMetrics();
+	}
+	
+	public String reportStats() {
+		StringBuilder b = new StringBuilder("\n\t============================\n\tSanParser Stats\n\t============================");
+		b.append("\n\trejectedParseQueueExecutions:").append(getRejectedParseQueueExecutions());
+		b.append("\n\tprocessedFileCount:").append(getProcessedFiles());
+		b.append("\n\tAverageSegmentProcessingTime(ns):").append(getAverageSegmentProcessingTimesNs());
+		b.append("\n\tAverageFileProcessingTime(ms):").append(getAverageFileProcessingTimesMs());
+		return b.toString();
+	}
+	
+	/** The cummulative count of rejected parse queue task submissions  */
+	protected final AtomicLong rejectedParseQueueExecutions = new AtomicLong(0L);
+	/** The cummulative count of processes san stats files */
+	protected final AtomicLong processedFiles = new AtomicLong(0L);
+	
+	/** Sliding windows of xml file processing elapsed times in ns. */
+	protected final LongSlidingWindow fileProcessingTimesNs = new ConcurrentLongSlidingWindow(50);
+	/** Sliding windows of xml segment processing elapsed times in ns. */
+	protected final LongSlidingWindow segmentProcessingTimesNs = new ConcurrentLongSlidingWindow(100);
+	
+	/**
+	 * Returns the last elapsed time to parse and process a statvlun file in ms
+	 * @return the last elapsed time to parse and process a statvlun file 
+	 */
+	@ManagedMetric(category="SanStatsParser", displayName="LastFileProcessingTimesMs", metricType=MetricType.GAUGE, description="The last elapsed time to parse and process a statvlun file in ms")	
+	public long getLastFileProcessingTimesMs() {
+		return TimeUnit.MILLISECONDS.convert(fileProcessingTimesNs.get(0), TimeUnit.NANOSECONDS);
+	}
+	
+	/**
+	 * Returns the cummulative number of processed san stats files 
+	 * @return the cummulative number of processed san stats files 
+	 */
+	@ManagedMetric(category="SanStatsParser", displayName="LastFileProcessingTimesMs", metricType=MetricType.COUNTER, description="The cummulative number of processed san stats files")	
+	public long getProcessedFiles() {
+		return processedFiles.get();
+	}
+	
+	
+	/**
+	 * Returns the rolling average of the last 50 elapsed times to parse and process a statvlun file in ms
+	 * @return the rolling average of the last 50 elapsed times to parse and process a statvlun file
+	 */
+	@ManagedMetric(category="SanStatsParser", displayName="LastFileProcessingTimesMs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 elapsed times to parse and process a statvlun file in ms")	
+	public long getAverageFileProcessingTimesMs() {
+		return TimeUnit.MILLISECONDS.convert(fileProcessingTimesNs.avg(), TimeUnit.NANOSECONDS);
+	}
+	
+	
+	
+	/**
+	 * Returns the last elapsed time to parse and process a statvlun segment in ns
+	 * @return the last elapsed time to parse and process a statvlun segment 
+	 */
+	@ManagedMetric(category="SanStatsParser", displayName="LastSegmentProcessingTimesNs", metricType=MetricType.GAUGE, description="The last elapsed time to parse and process a statvlun segment in ns")	
+	public long getLastSegmentProcessingTimesNs() {
+		return segmentProcessingTimesNs.get(0);
+	}
+	/**
+	 * Returns the rolling average of the last 100 elapsed times to parse and process a statvlun segment in ns,
+	 * @return the rolling average of the last 100 elapsed times to parse and process a statvlun segment
+	 */
+	@ManagedMetric(category="SanStatsParser", displayName="AverageSegmentProcessingTimesNs", metricType=MetricType.GAUGE, description="The rolling average of the last 100 elapsed times to parse and process a statvlun segment in ns")
+	public long getAverageSegmentProcessingTimesNs() {
+		return segmentProcessingTimesNs.avg();
+	}
+	
+	/**
+	 * Returns the cummulative count of rejected parse queue task submissions
+	 * @return the cummulative count of rejected parse queue task submissions
+	 */
+	@ManagedMetric(category="SanStatsParser", displayName="RejectedParseQueueExecutions", metricType=MetricType.COUNTER, description="The cummulative count of rejected parse queue task submissions")
+	public long getRejectedParseQueueExecutions() {
+		return rejectedParseQueueExecutions.get();
 	}
 	
 	/**
@@ -172,58 +285,46 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	 * @param b A channel buffer containing the bytes of the SAN stats xml to process
 	 */
 	public void process(ChannelBuffer b) {
-		//info("Processing SAN Stats XML");
-		
-		final SanStatsParsingContext ctx = new SanStatsParsingContext();
-		
+		processedFiles.incrementAndGet();
+		final SanStatsParsingContext ctx = new SanStatsParsingContext(gformat);
+		long fileStart = System.nanoTime();
 		ctx.setSysInfo(getSystemInfo(b));
-		
-		fastForwardToStartOf(b, "<all_statvlun>".getBytes());
-		
-		final AtomicInteger i = new AtomicInteger(0);
+		fastForwardToStartOf(b, ALL_STAT_OPENER);		
+		final AtomicInteger parseQueueTasks = new AtomicInteger(0);
+		final long _parseQueueTimeout = parseQueueTimeout;
+		final TimeUnit _parseQueueTimeoutUnit = parseQueueTimeoutUnit;
 		int c = 0;
 		while(true) {
 			final ChannelBuffer vlunBuffer = nextVlun(b);
-			if(vlunBuffer==null) break;			
-			threadPool.execute(new Runnable() {
-				public void run() {
-					Map<String, String> vlinnfo = getVlunInfo(vlunBuffer);
-					ctx.addVLun(vlinnfo);
-					i.incrementAndGet();
-				}
-			});
-			c++;
-			
-			//System.out.println("VLUN XML:\n[" + toString(vlunBuffer) + "]");
-			//info("VLUN:\n", getVlunInfo(vlunBuffer).toString().replace(",", "\n"));
-			//info("VLUN XML:\n[", toString(vlunBuffer), "]");
-			//b.readerIndex(index[0]+=vlunBuffer.readableBytes());
+			if(vlunBuffer==null) break;
+			try {
+				threadPool.execute(new Runnable() {
+					@Override
+					public void run() {
+						long segmentStart = System.nanoTime();						
+						Map<String, String> vlinnfo = getVlunInfo(vlunBuffer);
+						ctx.addVLun(vlinnfo);
+						parseQueueTasks.incrementAndGet();
+						segmentProcessingTimesNs.insert(System.nanoTime()-segmentStart);
+					}
+				});
+				c++;
+			} catch (Exception ex) {
+				warn("ParseQueue Task Rejection [", ex.toString(), "]");
+				rejectedParseQueueExecutions.incrementAndGet();
+			}
 		}
-		//info("Found [", c, "] vlun stat instances");
 		while(c!=0) {
-			ctx.countdown();
+			if(!ctx.countdown(_parseQueueTimeout, _parseQueueTimeoutUnit)) {
+				error("Timeout waiting [", _parseQueueTimeout, " ", _parseQueueTimeoutUnit.name(), "] for parse queue completion", new Throwable());
+				return;				
+			}
 			c--;
 		}
-//		info("\n", ctx.printArrayTotals());
-//		info("\n", ctx.printHostAggregates());
-//		info("\n", ctx.printVVAggregates());
-		info("\n\n\n");
-		info("Total Hosts:", ctx.getTotalHosts());
-		info("Total VVs:", ctx.getTotalVVHosts());
-		info("Total Port Nodes:", ctx.getTotalPortNodes());
+		fileProcessingTimesNs.insert(System.nanoTime()-fileStart);
 		
-		
-		
-		//info("DONE");
 	}
-	/** Opener format for statvlun instances */
-	private static final byte[] STATVLUN_OPENER = "<statvlun>".getBytes();
-	/** Closer format for statvlun instances */
-	private static final byte[] STATVLUN_CLOSER = "</statvlun>".getBytes();
-	/** Opener string format */
-	public static final String OPENER = "<%s>";
-	/** Closer string format */
-	public static final String CLOSER = "</%s>";
+	
 	
 	/**
 	 * Returns the next vlun xml fragment in a sub-buffer
@@ -241,7 +342,7 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	 */
 	protected Map<String, String> getSystemInfo(ChannelBuffer b) {
 		Map<String, String> sysInfo = new HashMap<String, String>();
-		ChannelBuffer sysBuffer = slice(b, "<system_info>", "</system_info>");
+		ChannelBuffer sysBuffer = slice(b, SYSINFO_OPENER, SYSINFO_CLOSER);
 		//info("SysInfo Buffer [", sysBuffer, "]");
 		if(sysBuffer!=null) {
 			getStringContentFromXML(sysBuffer, "serial_number", sysInfo);
@@ -283,10 +384,6 @@ public class SanStatsParserTracer extends ServerComponentBean {
 		getStringContentFromXML(b, "werror", vlunInfo);
 		getStringContentFromXML(b, "wdrops", vlunInfo);
 		getStringContentFromXML(b, "wticks", vlunInfo);
-		String uniqueId = String.format("%s/%s/%s/%s/%s", vlunInfo.get("vv_name"), vlunInfo.get("host_name"), vlunInfo.get("port_node"), vlunInfo.get("port_slot"), vlunInfo.get("port_port")); 
-		if(vluns.add(uniqueId)) {
-			//info("------------> [", uniqueId, "]");
-		}
 		return vlunInfo;
 	}
 	
@@ -447,6 +544,90 @@ public class SanStatsParserTracer extends ServerComponentBean {
 		}
 		//b.readerIndex(b.readerIndex() + sub.readableBytes());
 		return sub.slice(startLength, sub.readableBytes()-startLength-endLength);
+	}
+
+
+
+	/**
+	 * Returns the parse queue completion timeout
+	 * @return the parse queue completion timeout
+	 */
+	@ManagedAttribute(description="The parse queue completion timeout")
+	public long getParseQueueTimeout() {
+		return parseQueueTimeout;
+	}
+
+
+
+	/**
+	 * Sets the parse queue completion timeout
+	 * @param parseQueueTimeout the parse queue completion timeout
+	 */
+	@ManagedAttribute(description="The parse queue completion timeout")
+	public void setParseQueueTimeout(long parseQueueTimeout) {
+		this.parseQueueTimeout = parseQueueTimeout;
+	}
+
+
+
+	/**
+	 * Returns the parse queue completion timeout unit
+	 * @return the parseQueueTimeoutUnit
+	 */
+	@ManagedAttribute(description="The parse queue completion timeout unit")
+	public String getParseQueueTimeoutUnit() {
+		return parseQueueTimeoutUnit.name();
+	}
+
+
+
+	/**
+	 * Sets the parse queue completion timeout unit 
+	 * @param parseQueueTimeoutUnit the parse queue completion timeout unit
+	 */
+	@ManagedAttribute(description="The parse queue completion timeout unit")
+	public void setParseQueueTimeoutUnit(String parseQueueTimeoutUnit) {
+		this.parseQueueTimeoutUnit = TimeUnit.valueOf(parseQueueTimeoutUnit.trim().toUpperCase());
+	}
+
+
+
+	/**
+	 * Returns 
+	 * @return the parseWorkers
+	 */
+	public int getParseWorkers() {
+		return parseWorkers;
+	}
+
+
+
+	/**
+	 * Sets 
+	 * @param parseWorkers the parseWorkers to set
+	 */
+	public void setParseWorkers(int parseWorkers) {
+		this.parseWorkers = parseWorkers;
+	}
+
+
+
+	/**
+	 * Returns 
+	 * @return the gformat
+	 */
+	public String getGformat() {
+		return gformat;
+	}
+
+
+
+	/**
+	 * Sets 
+	 * @param threadPool the threadPool to set
+	 */
+	public void setThreadPool(ExecutorService threadPool) {
+		this.threadPool = threadPool;
 	}
 
 }
