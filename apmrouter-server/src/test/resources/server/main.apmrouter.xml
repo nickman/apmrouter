@@ -141,7 +141,7 @@
 		<constructor-arg>
 			<bean id="PatternRouterWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
 				<property name="corePoolSize" value="8" />
-				<property name="queueSize" value="10000" />
+				<property name="queueSize" value="100000" />
 				<property name="maximumPoolSize" value="8" />
 				<property name="coreThreadsStarted" value="8" />
 			</bean>

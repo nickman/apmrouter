@@ -83,6 +83,19 @@
       <priority value="WARN"/>
    </category>
 
+   <category name="com.stumbleupon.async">
+      <priority value="WARN"/>
+   </category>
+
+   <category name="org.hbase.async">
+      <priority value="WARN"/>
+   </category>
+   
+   <category name="net.opentsdb">
+      <priority value="WARN"/>
+   </category>
+   
+
 
 
 

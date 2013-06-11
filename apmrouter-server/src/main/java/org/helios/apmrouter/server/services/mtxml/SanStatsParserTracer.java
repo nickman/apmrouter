@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.collections.LongSlidingWindow;
 import org.helios.apmrouter.server.ServerComponentBean;
+import org.helios.apmrouter.server.tracing.ServerTracerFactory;
 import org.helios.apmrouter.util.ByteSequenceIndexFinder;
 import org.helios.apmrouter.util.SystemClock;
 import org.jboss.netty.buffer.ChannelBuffer;
@@ -52,6 +53,7 @@ import org.jboss.netty.buffer.ChannelBuffers;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.export.annotation.ManagedOperation;
+import org.springframework.jmx.export.annotation.ManagedOperationParameter;
 import org.springframework.jmx.support.MetricType;
 
 /**
@@ -161,7 +163,7 @@ public class SanStatsParserTracer extends ServerComponentBean {
 		FileChannel fc = null;
 		MappedByteBuffer mbb = null;
 		SystemClock.startTimer();
-		int loops = 1000;
+		int loops = 1;
 		StringBuilder segmentBuilder = new StringBuilder();
 		//for(int i = 0; i < segments.length; i++) {
 		for(int i = 0; i < loops; i++) {
@@ -230,7 +232,7 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	 */
 	@ManagedMetric(category="SanStatsParser", displayName="LastFileProcessingTimesMs", metricType=MetricType.GAUGE, description="The last elapsed time to parse and process a statvlun file in ms")	
 	public long getLastFileProcessingTimesMs() {
-		return TimeUnit.MILLISECONDS.convert(fileProcessingTimesNs.get(0), TimeUnit.NANOSECONDS);
+		return TimeUnit.MILLISECONDS.convert(fileProcessingTimesNs.getFirst(), TimeUnit.NANOSECONDS);
 	}
 	
 	/**
@@ -260,7 +262,7 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	 */
 	@ManagedMetric(category="SanStatsParser", displayName="LastSegmentProcessingTimesNs", metricType=MetricType.GAUGE, description="The last elapsed time to parse and process a statvlun segment in ns")	
 	public long getLastSegmentProcessingTimesNs() {
-		return segmentProcessingTimesNs.get(0);
+		return segmentProcessingTimesNs.getFirst();
 	}
 	/**
 	 * Returns the rolling average of the last 100 elapsed times to parse and process a statvlun segment in ns,
@@ -280,13 +282,55 @@ public class SanStatsParserTracer extends ServerComponentBean {
 		return rejectedParseQueueExecutions.get();
 	}
 	
+	private static ThreadLocal<Boolean> runTestData = new ThreadLocal<Boolean>() {
+		@Override
+		protected Boolean initialValue() {		
+			return false;
+		}
+	};
+	
+	/**
+	 * Processes a SAN stats xml file
+	 * @param fileName The name of a SAN stats xml file to process
+	 */
+	@ManagedOperation(description="Processes a SAN stats xml file")
+	@ManagedOperationParameter(name="FileName", description="The name of a SAN stats xml file to process")
+	public void process(String fileName) {
+		if(fileName==null || fileName.trim().isEmpty()) throw new IllegalArgumentException("The passed file name was null or empty", new Throwable());
+		if("test".equalsIgnoreCase(fileName.trim())) {
+			fileName = "./src/test/resources/san/statvlun.xml";
+			runTestData.set(true);
+			info("##########\tRunning process in test data mode");
+		}
+		File xmlFile = new File(fileName.trim());
+		if(!xmlFile.canRead()) throw new IllegalArgumentException("The passed file name [" + xmlFile + "] could not be read", new Throwable());
+		RandomAccessFile raf = null;
+		FileChannel fc = null;
+		MappedByteBuffer mbb = null;
+		try {
+			raf = new RandomAccessFile(xmlFile, "r");
+			fc = raf.getChannel();
+			mbb = fc.map(MapMode.READ_ONLY, 0, fc.size());
+			ChannelBuffer cbuf = ChannelBuffers.wrappedBuffer(mbb);
+			process(cbuf);		
+		} catch (Exception ex) {		
+			ex.printStackTrace(System.err);
+			log.error("Failed to process file [" + xmlFile + "]", ex);
+			throw new RuntimeException("Failed to process file [" + xmlFile + "]", ex);			
+		} finally {
+			if(raf!=null) try {raf.close();} catch (Exception e) {/* No Op */}
+			if(fc!=null) try {fc.close();} catch (Exception e) {/* No Op */}			
+		}					
+	}
+	
+	
 	/**
 	 * Processes a SAN stats xml file
 	 * @param b A channel buffer containing the bytes of the SAN stats xml to process
 	 */
 	public void process(ChannelBuffer b) {
 		processedFiles.incrementAndGet();
-		final SanStatsParsingContext ctx = new SanStatsParsingContext(gformat);
+		final SanStatsParsingContext ctx = new SanStatsParsingContext(gformat, runTestData.get());
 		long fileStart = System.nanoTime();
 		ctx.setSysInfo(getSystemInfo(b));
 		fastForwardToStartOf(b, ALL_STAT_OPENER);		
@@ -321,6 +365,7 @@ public class SanStatsParserTracer extends ServerComponentBean {
 			}
 			c--;
 		}
+		ctx.traceStats(ServerTracerFactory.getInstance().getTracer()); 
 		fileProcessingTimesNs.insert(System.nanoTime()-fileStart);
 		
 	}

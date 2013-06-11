@@ -27,12 +27,15 @@ package org.helios.apmrouter.server.services.mtxml;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.log4j.Logger;
 import org.cliffc.high_scale_lib.Counter;
 import org.cliffc.high_scale_lib.NonBlockingHashMap;
 import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.trace.ITracer;
 
 /**
  * <p>Title: SanStatsParsingContext</p>
@@ -57,6 +60,9 @@ host, vv_name, port
 the top two would be sum by host and sum by vv_name
 
  */
+	/** Static class logger */
+	protected static final Logger log = Logger.getLogger(SanStatsParserTracer.class);
+	
 	/** An unknown value */
 	public static final String UNKNOWN = "<unknown>";
 	
@@ -101,6 +107,22 @@ the top two would be sum by host and sum by vv_name
 	public static final String WRITE_DROPS= "wdrops";
 	/** The tag name for the write ticks */
 	public static final String WRITE_TICKS = "wticks";
+
+	/** The metric name for the queue length */
+	public static final String QLENGTH = "QueueLength";
+	/** The metric name for the ios per second */
+	public static final String IOPS = "IOsPerSec";
+	/** The metric name for the bytes per second */
+	public static final String BPS = "BytesPerSec";
+	/** The metric name for the service time */
+	public static final String SVCTIME = "ServiceTime";
+	/** The metric name for the IO Size */
+	public static final String IOSIZE = "IOSize";
+	/** The metric name for the busy time */
+	public static final String BUSYTIME = "BusyTime";
+	
+	/** The metric names to be recorded */
+	private static final String[] METRIC_NAMES = {QLENGTH, IOPS, BPS, SVCTIME, IOSIZE, BUSYTIME};
 	
 	
 	/** The tag name for the virtual vlun name */
@@ -116,6 +138,8 @@ the top two would be sum by host and sum by vv_name
 	
 	/** The granularity format */
 	protected final String gformat;
+	/** Indicates if the parse should add random pos values for testing purposes. Defaults to false */
+	protected final boolean testValues;
 	/** The aggregation counter tag names */
 	protected static final String[] COUNTER_TAGS = new String[]{
 		QUEUE_LENGTH, BUSY_TIME, 
@@ -139,7 +163,12 @@ the top two would be sum by host and sum by vv_name
 	//   Aggregations
 	// ================================================================================================
 	/** The total values across the array */
-	protected final NonBlockingHashMap<String, NonBlockingHashMap<String, Counter>> arrayTotals = new NonBlockingHashMap<String, NonBlockingHashMap<String, Counter>>(1024); 
+	protected final NonBlockingHashMap<String, NonBlockingHashMap<String, Counter>> arrayTotals = new NonBlockingHashMap<String, NonBlockingHashMap<String, Counter>>(1024);
+	/** The aggregated and calced values for each node */
+	protected final NonBlockingHashMap<String, NonBlockingHashMap<String, Long>> arrayCalcedTotals = new NonBlockingHashMap<String, NonBlockingHashMap<String, Long>>(1024);
+	/** The parsed metric namespaces keyed by the node key */
+	protected final NonBlockingHashMap<String, String[]> metricNameSpaces = new NonBlockingHashMap<String, String[]>(1024);
+	
 
 	/**
 	 * Returns the number of unique nodes collected for in this context
@@ -164,6 +193,12 @@ the top two would be sum by host and sum by vv_name
 					counterMap = new NonBlockingHashMap<String, Counter>(COUNTER_TAGS.length);
 					initCounters(counterMap, COUNTER_TAGS);
 					arrayTotals.put(granularityKey, counterMap);
+					granularityKey = granularityKey.trim();
+					while(granularityKey.startsWith("/")) {
+						granularityKey = granularityKey.substring(1);
+					}
+					String[] tags=  granularityKey.trim().split("/");
+					metricNameSpaces.put(granularityKey, tags);
 				}
 			}
 		}
@@ -189,7 +224,19 @@ the top two would be sum by host and sum by vv_name
 	 */
 	public SanStatsParsingContext(String gformat) {
 		this.gformat = gformat;		
+		this.testValues = false;
 	}
+	
+	/**
+	 * Creates a new SanStatsParsingContext and initializes the aggregate counters
+	 * @param gformat The granularity format
+	 * @param testValues Indicates if test values should be added to the values read in from the channel buffer 
+	 */
+	public SanStatsParsingContext(String gformat, boolean testValues) {
+		this.gformat = gformat;
+		this.testValues = testValues;
+	}
+
 	
 	
 	
@@ -261,6 +308,28 @@ the top two would be sum by host and sum by vv_name
 		
 		sumTotals(nodeKey, lvalues);
 		
+		//========================
+		// Update calced values
+		//========================
+		NonBlockingHashMap<String, Long> cm = arrayCalcedTotals.get(nodeKey);
+		if(cm==null) {
+			synchronized(arrayCalcedTotals) {
+				cm = arrayCalcedTotals.get(nodeKey);
+				if(cm==null) {
+					cm = new NonBlockingHashMap<String, Long>(10);
+					arrayCalcedTotals.put(nodeKey, cm);
+				}
+			}
+		}
+		NonBlockingHashMap<String, Counter> at = arrayTotals.get(nodeKey);
+		cm.put(QLENGTH, at.get(QUEUE_LENGTH).get());
+		cm.put(IOPS, calcIosPerSec(lvalues[0], at));
+		cm.put(BPS, calcBytesPerSec(lvalues[0], at));
+		cm.put(SVCTIME, calcServiceTime(at));
+		cm.put(IOSIZE, calcIoSize(at));
+		cm.put(BUSYTIME, calcBusyTime(lvalues[0], at));
+		
+		
 		lunsParsed.incrementAndGet();
 
 		try {
@@ -269,6 +338,76 @@ the top two would be sum by host and sum by vv_name
 			e.printStackTrace();
 		}
 	}
+	
+	/**
+	 * Returns a positive random int between zero and the passed value.
+	 * @param upTo The max range of the random number
+	 * @return the random value
+	 */
+	protected static int getTestValue(int upTo) {
+		return Math.abs(ThreadLocalRandom.current().nextInt(upTo));
+	}
+	
+	/**
+	 * Returns a positive random int
+	 * @return the random value
+	 */
+	protected static int getTestValue() {
+		return getTestValue(Integer.MAX_VALUE);
+	}
+	
+	
+	/**
+	 * Traces the contents of this context
+	 * @param tracer The tracer to trace the stats with
+	 */
+	public void traceStats(ITracer tracer) {
+		// {QLENGTH, IOPS, BPS, SVCTIME, IOSIZE, BUSYTIME};
+		for(Map.Entry<String, NonBlockingHashMap<String, Long>> entry: arrayCalcedTotals.entrySet()) {
+			NonBlockingHashMap<String, Long> cm = entry.getValue();
+			if(testValues) {
+				tracer.traceGauge(cm.get(QLENGTH)+getTestValue(10), QLENGTH, metricNameSpaces.get(entry.getKey()));
+				tracer.traceGauge(cm.get(IOPS)+getTestValue(100), IOPS, metricNameSpaces.get(entry.getKey()));
+				tracer.traceGauge(cm.get(BPS)+getTestValue(10000), BPS, metricNameSpaces.get(entry.getKey()));
+				tracer.traceGauge(cm.get(SVCTIME)+getTestValue(500000), SVCTIME, metricNameSpaces.get(entry.getKey()));
+				tracer.traceGauge(cm.get(IOSIZE)+getTestValue(2000000), IOSIZE, metricNameSpaces.get(entry.getKey()));
+				tracer.traceGauge(cm.get(BUSYTIME)+getTestValue(5), BUSYTIME, metricNameSpaces.get(entry.getKey()));
+			} else {
+				tracer.traceGauge(cm.get(QLENGTH), QLENGTH, metricNameSpaces.get(entry.getKey()));
+				tracer.traceGauge(cm.get(IOPS), IOPS, metricNameSpaces.get(entry.getKey()));
+				tracer.traceGauge(cm.get(BPS), BPS, metricNameSpaces.get(entry.getKey()));
+				tracer.traceGauge(cm.get(SVCTIME), SVCTIME, metricNameSpaces.get(entry.getKey()));
+				tracer.traceGauge(cm.get(IOSIZE), IOSIZE, metricNameSpaces.get(entry.getKey()));
+				tracer.traceGauge(cm.get(BUSYTIME), BUSYTIME, metricNameSpaces.get(entry.getKey()));				
+			}
+			if(log.isDebugEnabled()) {
+				StringBuilder b = new StringBuilder("\n======= [").append(entry.getKey()).append("] =======");
+				b.append("\n\t").append(QLENGTH).append(":").append(cm.get(QLENGTH));
+				b.append("\n\t").append(IOPS).append(":").append(cm.get(IOPS));
+				b.append("\n\t").append(BPS).append(":").append(cm.get(BPS));
+				b.append("\n\t").append(SVCTIME).append(":").append(cm.get(SVCTIME));
+				b.append("\n\t").append(IOSIZE).append(":").append(cm.get(IOSIZE));
+				b.append("\n\t").append(BUSYTIME).append(":").append(cm.get(BUSYTIME));
+				log.info(b);
+			}
+		}
+		
+//		increment(nodeKey, QUEUE_LENGTH, rawValues[seq++]);
+//		increment(nodeKey, BUSY_TIME, rawValues[seq++]);
+//		increment(nodeKey, READ_COUNT, rawValues[seq++]);
+//		increment(nodeKey, READ_BYTES, rawValues[seq++]);
+//		increment(nodeKey, READ_ERRORS, rawValues[seq++]);
+//		increment(nodeKey, READ_DROPS, rawValues[seq++]);
+//		increment(nodeKey, READ_TICKS, rawValues[seq++]);
+//
+//		increment(nodeKey, WRITE_COUNT, rawValues[seq++]);
+//		increment(nodeKey, WRITE_BYTES, rawValues[seq++]);
+//		increment(nodeKey, WRITE_ERRORS, rawValues[seq++]);
+//		increment(nodeKey, WRITE_DROPS, rawValues[seq++]);
+//		increment(nodeKey, WRITE_TICKS, rawValues[seq++]);
+		
+	}
+	
 	
 	/**
 	 * Applies the raw values to the passed aggregate counter map
@@ -314,58 +453,6 @@ the top two would be sum by host and sum by vv_name
 		return b.toString();
 	}
 	
-//	/**
-//	 * Returns a formatted string reporting the host total values
-//	 * @return the host total values
-//	 */
-//	public String printHostAggregates() {
-//		StringBuilder b = new StringBuilder("\n\t==============================\n\tVirtual Host Aggregates\n\t==============================");
-//		for(Map.Entry<String, NonBlockingHashMap<String, Counter>> entry: hostTotals.entrySet()) {
-//			b.append("\n\tHost:").append(entry.getKey());
-//			NonBlockingHashMap<String, Counter> counterMap = entry.getValue();
-//			b.append("\n\t\tQueue Length:").append(counterMap.get(QUEUE_LENGTH).get());
-//			b.append("\n\t\tBusy Time:").append(counterMap.get(BUSY_TIME).get());
-//			b.append("\n\t\tRead Count:").append(counterMap.get(READ_COUNT).get());
-//			b.append("\n\t\tRead Bytes:").append(counterMap.get(READ_BYTES).get());
-//			b.append("\n\t\tRead Errors:").append(counterMap.get(READ_ERRORS).get());
-//			b.append("\n\t\tRead Drops:").append(counterMap.get(READ_DROPS).get());
-//			b.append("\n\t\tRead Ticks:").append(counterMap.get(READ_TICKS).get());
-//			b.append("\n\t\tWrite Count:").append(counterMap.get(WRITE_COUNT).get());
-//			b.append("\n\t\tWrite Bytes:").append(counterMap.get(WRITE_BYTES).get());
-//			b.append("\n\t\tWrite Errors:").append(counterMap.get(WRITE_ERRORS).get());
-//			b.append("\n\t\tWrite Drops:").append(counterMap.get(WRITE_DROPS).get());
-//			b.append("\n\t\tWrite Ticks:").append(counterMap.get(WRITE_TICKS).get());			
-//		}
-//		
-//		return b.toString();
-//	}
-	
-//	/**
-//	 * Returns a formatted string reporting the vv total values
-//	 * @return the vv total values
-//	 */
-//	public String printVVAggregates() {
-//		StringBuilder b = new StringBuilder("\n\t==============================\n\tVV Aggregates\n\t==============================");
-//		for(Map.Entry<String, NonBlockingHashMap<String, Counter>> entry: vvTotals.entrySet()) {
-//			b.append("\n\tvv Name:").append(entry.getKey());
-//			NonBlockingHashMap<String, Counter> counterMap = entry.getValue();
-//			b.append("\n\t\tQueue Length:").append(counterMap.get(QUEUE_LENGTH).get());
-//			b.append("\n\t\tBusy Time:").append(counterMap.get(BUSY_TIME).get());
-//			b.append("\n\t\tRead Count:").append(counterMap.get(READ_COUNT).get());
-//			b.append("\n\t\tRead Bytes:").append(counterMap.get(READ_BYTES).get());
-//			b.append("\n\t\tRead Errors:").append(counterMap.get(READ_ERRORS).get());
-//			b.append("\n\t\tRead Drops:").append(counterMap.get(READ_DROPS).get());
-//			b.append("\n\t\tRead Ticks:").append(counterMap.get(READ_TICKS).get());
-//			b.append("\n\t\tWrite Count:").append(counterMap.get(WRITE_COUNT).get());
-//			b.append("\n\t\tWrite Bytes:").append(counterMap.get(WRITE_BYTES).get());
-//			b.append("\n\t\tWrite Errors:").append(counterMap.get(WRITE_ERRORS).get());
-//			b.append("\n\t\tWrite Drops:").append(counterMap.get(WRITE_DROPS).get());
-//			b.append("\n\t\tWrite Ticks:").append(counterMap.get(WRITE_TICKS).get());			
-//		}
-//		
-//		
-//		return b.toString();
-//	}
 	
 	
 	
@@ -456,5 +543,139 @@ the top two would be sum by host and sum by vv_name
 	public String toString() {
 		return new StringBuilder("SANStatsParsingContext[").append(this.systemName).append("] vluns parsed:").append(lunsParsed.get()).toString();
 	}
+	
+	
+	
+	/**
+	 * Calculates the IOs per second
+	 * @param rCount The read count
+	 * @param wCount The write count
+	 * @param now The timestamp
+	 * @return the number of ios per second
+	 */
+	protected static long calcIosPerSec(long rCount, long wCount, long now) {
+		if(now<1) return 0;
+		long total = rCount + wCount * 1000000;
+		double d = total / now;
+		return (long)d;
+	}
+	
+	/**
+	 * Calculates the IOs per second
+	 * @param now The vlun stat now timestamp
+	 * @param counterMap The accumulated counter map for a node 
+	 * @return the ios per second for the passed node
+	 */
+	protected static long calcIosPerSec(long now, NonBlockingHashMap<String, Counter> counterMap) {
+		return calcIosPerSec(counterMap.get(READ_COUNT).get(), counterMap.get(WRITE_COUNT).get(), now); 
+	}
+	
+	
+	/**
+	 * Calculates the bytes per second
+	 * @param rBytes The read byte count
+	 * @param wBytes The write byte count
+	 * @param now The timestamp
+	 * @return the number of bytes per second
+	 */
+	protected static long calcBytesPerSec(long rBytes, long wBytes, long now) {
+		if(now<1) return 0;
+		long total = rBytes+ wBytes * 1000;
+		double d = total / now;
+		return (long)d;
+	}
+	
+	/**
+	 * Calculates the bytes per second
+	 * @param now The vlun stat now timestamp
+	 * @param counterMap The accumulated counter map for a node 
+	 * @return the bytes per second for the passed node
+	 */
+	protected static long calcBytesPerSec(long now, NonBlockingHashMap<String, Counter> counterMap) {
+		return calcIosPerSec(counterMap.get(READ_BYTES).get(), counterMap.get(WRITE_BYTES).get(), now); 
+	}
+	
+	
+	/**
+	 * Calculates the service time for the passed node stats
+	 * @param rCount The read count
+	 * @param wCount The write count
+	 * @param rTicks The read ticks
+	 * @param wTicks The write count
+	 * @return the service time
+	 */
+	protected static long calcServiceTime(long rCount, long wCount, long rTicks, long wTicks) {		
+		try {			
+			double d = ((rTicks + wTicks) / (rCount + wCount)) * 1000;  
+			return (long)d;
+		} catch (Exception  e) {
+			return 0;
+		}
+	}
+	
+	/**
+	 * Calculates the service time
+	 * @param counterMap The accumulated counter map for a node 
+	 * @return the service time for the passed node
+	 */
+	protected static long calcServiceTime(NonBlockingHashMap<String, Counter> counterMap) {
+		return calcServiceTime(counterMap.get(READ_COUNT).get(), counterMap.get(WRITE_COUNT).get(), counterMap.get(READ_TICKS).get(), counterMap.get(WRITE_TICKS).get()); 
+	}
+	
+	
+	/**
+	 * Calculates the IO size for the last period
+	 * @param rBytes The read bytes
+	 * @param wBytes The written bytes
+	 * @param rCount The read count
+	 * @param wCount The write count
+	 * @return The IO size
+	 */
+	protected static long calcIoSize(long rBytes, long wBytes, long rCount, long wCount) {		
+		try {			
+			double d = ((rBytes + wBytes) / (rCount + wCount)) * 1000;  
+			return (long)d;
+		} catch (Exception  e) {
+			return 0;
+		}
+	}
+	
+	/**
+	 * Calculates the IO size
+	 * @param counterMap The accumulated counter map for a node 
+	 * @return the IO size for the passed node
+	 */
+	protected static long calcIoSize(NonBlockingHashMap<String, Counter> counterMap) {
+		return calcIoSize(counterMap.get(READ_BYTES).get(), counterMap.get(WRITE_BYTES).get(), counterMap.get(READ_COUNT).get(), counterMap.get(WRITE_COUNT).get()); 
+	}
+	
+	
+	/**
+	 * Calculates the busy time in the last period
+	 * @param busy The busy time
+	 * @param now The timestamp
+	 * @return The busy time
+	 */
+	protected static long calcBusyTime(long busy, long now) {		
+		try {			
+			double d = (busy * 100) / now;  
+			return (long)d;
+		} catch (Exception  e) {
+			return 0;
+		}
+	}
+	
+	/**
+	 * Calculates the busy time
+	 * @param now The vlun stat now timestamp
+	 * @param counterMap The accumulated counter map for a node 
+	 * @return the busy time for the passed node
+	 */
+	protected static long calcBusyTime(long now, NonBlockingHashMap<String, Counter> counterMap) {
+		return calcBusyTime(counterMap.get(BUSY_TIME).get(), now); 
+	}
+	
+	
+	
 
 }

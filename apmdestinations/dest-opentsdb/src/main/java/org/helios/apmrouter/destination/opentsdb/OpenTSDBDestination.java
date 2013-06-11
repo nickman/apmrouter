@@ -97,12 +97,12 @@ public class OpenTSDBDestination extends BaseDestination {
 	@Override
 	protected void doAcceptRoute(IMetric routable) {
 		if(!connected.get() || !routable.getMetricId().getType().isLong()) return;
-		if(routable.isMapped()) {
+		if(routable.isMapped()) {  
 			recorder.newRecording(routable.getName(), routable.getLongValue())
-				.tags(routable.getNamespaceMap(true, true))
+				.tags(routable.getNamespaceMap())
 				.record();
-//			if(routable.hasTXContext()) {
-//				info("TXContext:" + routable.getTXContext());
+//			if(routable.getNamespaceMap(true, true).toString().contains("3par")) {
+//				info("3par:" + routable.getNamespaceMap());
 //			}
 			incr("MetricsForwarded");
 		} else {

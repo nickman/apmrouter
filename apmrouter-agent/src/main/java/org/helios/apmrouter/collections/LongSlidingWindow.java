@@ -159,6 +159,25 @@ public class LongSlidingWindow {
 	}
 	
 	/**
+	 * Returns the first (chronologically the most recent) value in the array or -1L if the size is 0.
+	 * @return the first value in the array or -1L if the size is 0.
+	 */
+	public long getFirst() {
+		if(size()<1) return -1L;
+		return array.get(0);
+	}
+	
+	/**
+	 * Returns the last value (chronologically the oldest) in the array or -1L if the size is 0.
+	 * @return the last value in the array or -1L if the size is 0.
+	 */
+	public long getLast() {
+		if(size()<1) return -1L;
+		return array.get(size()-1);
+	}
+	
+	
+	/**
 	 * Returns this sliding window as a double array
 	 * @return a double array
 	 */
