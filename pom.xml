@@ -53,6 +53,7 @@
 		<javax-validation.version>1.0.0.GA</javax-validation.version>
 		<bonecp.version>0.7.1.RELEASE</bonecp.version>
 		<jansi.version>1.9</jansi.version>
+		<commons-compress.version>1.5</commons-compress.version>
 		<!-- GWT needs at least java 1.5 -->
 		<webappDirectory>${project.build.directory}/${project.build.finalName}</webappDirectory>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -78,6 +79,17 @@
 				<artifactId>slf4j-api</artifactId>
 				<version>${slf4j.version}</version>
 			</dependency>
+
+			<!-- ==========================================================
+			  Apache Compression Dependencies
+			    ========================================================== -->
+			
+			<dependency>
+			  <groupId>org.apache.commons</groupId>
+			  <artifactId>commons-compress</artifactId>
+			  <version>${commons-compress.version}</version>
+			</dependency>
+			
 
 
 			<!-- ==========================================================

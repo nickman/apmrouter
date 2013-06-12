@@ -161,7 +161,8 @@ public class ByteSequenceIndexFinder implements ChannelBufferIndexFinder {
 	 */
 	
 	public int findIn(ChannelBuffer channelBuffer, int index) {
-		int idx = findIn(index, channelBuffer.capacity()-index, channelBuffer);
+		//int idx = findIn(index, channelBuffer.capacity()-index, channelBuffer);
+		int idx = findIn(index, channelBuffer.readableBytes(), channelBuffer);
 		if(idx==-1) return idx;
 		return idx+index;
 	}

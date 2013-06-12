@@ -33,6 +33,15 @@
 				<artifactId>slf4j-api</artifactId>
 			</dependency>
 
+			<!-- ==========================================================
+			  Apache Compression Dependencies
+			    ========================================================== -->
+			
+			<dependency>
+			  <groupId>org.apache.commons</groupId>
+			  <artifactId>commons-compress</artifactId>
+			</dependency>
+
 
 			<!-- ==========================================================
 			  Testing Dependencies

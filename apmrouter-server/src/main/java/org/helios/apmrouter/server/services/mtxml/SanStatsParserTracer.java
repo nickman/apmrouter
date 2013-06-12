@@ -96,6 +96,9 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	/** Closer format for system info instances */
 	private static final byte[] SYSINFO_CLOSER = "</system_info>".getBytes();
 	
+	/** Opener for flag in the xml file indicating that test data should be generated */
+	private static final byte[] TEST_OPENER = "</test-data>".getBytes();
+	
 	/** Opener string format */
 	public static final String OPENER = "<%s>";
 	/** Closer string format */
@@ -325,8 +328,13 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	 * @param b A channel buffer containing the bytes of the SAN stats xml to process
 	 */
 	public void process(ChannelBuffer b) {
+		ByteSequenceIndexFinder testDataFinder = new ByteSequenceIndexFinder(TEST_OPENER);
+		if(testDataFinder.findIn(b)>=0) {
+			runTestData.set(true);
+		}
 		final int bufferSize = b.readableBytes();
-		info("Processing SanStats Buffer [", bufferSize, "]");
+		info("Processing SanStats Buffer [", bufferSize, "]. Test Data:", runTestData.get());
+		
 		final SanStatsParsingContext ctx = new SanStatsParsingContext(gformat, runTestData.get());
 		long fileStart = System.nanoTime();
 		ctx.setSysInfo(getSystemInfo(b));
