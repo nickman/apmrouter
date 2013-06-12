@@ -26,15 +26,17 @@ package org.helios.apmrouter.server.services.mtxml;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteOrder;
-import java.util.concurrent.ExecutorService;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.util.thread.ManagedThreadPool;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBufferFactory;
-import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.buffer.CompositeChannelBuffer;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
+import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelEvent;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -47,6 +49,7 @@ import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 import org.jboss.netty.handler.codec.compression.ZlibDecoder;
 import org.jboss.netty.handler.codec.compression.ZlibWrapper;
+import org.jboss.netty.handler.codec.oneone.OneToOneDecoder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.event.ContextRefreshedEvent;
@@ -120,28 +123,48 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 			UpstreamMessageEvent me = (UpstreamMessageEvent)e;
 			Object message = me.getMessage();
 			if(ChannelBuffer.class.isInstance(message)) {
+				ChannelBuffer b = (ChannelBuffer)message;
+//				if(b.order()!=ByteOrder.nativeOrder()) {
+//					info("Switching Buff ByteOrder from [", ByteOrder.nativeOrder(), "] to [", b.order(), "]");
+//					ChannelBuffer revb = ChannelBuffers.directBuffer(ByteOrder.nativeOrder(), b.readableBytes());
+//					revb.writeBytes(b);
+//					b = revb;
+//				}
 				ChannelBuffer cb = (ChannelBuffer)message;
-				ChannelBuffer accumulator = (ChannelBuffer)ctx.getAttachment();
+				List<ChannelBuffer> accumulator = (List<ChannelBuffer>)ctx.getAttachment();
 				if(accumulator==null) {
-					accumulator = ChannelBuffers.dynamicBuffer(chanelBufferFactory);
-					ctx.setAttachment(accumulator);
+					accumulator = new ArrayList<ChannelBuffer>();
+					ctx.setAttachment(accumulator);					
 					info("Adding close handler to invoke SAN Stats Processing");
 					e.getChannel().getCloseFuture().addListener(new ChannelFutureListener() {
+						@Override
 						public void operationComplete(ChannelFuture future) throws Exception {
-							ChannelBuffer cb = (ChannelBuffer)ctx.getAttachment();
-							if(cb==null) {
+							@SuppressWarnings("unchecked")
+							List<ChannelBuffer> cbList = (List<ChannelBuffer>)ctx.getAttachment();							 
+							if(cbList==null || cbList.isEmpty()) {
 								warn("SAN Stats Channel Closed but no buffer found as attachment");
 							} else {
-								info("SAN Stats Channel Closed. Channel Buffer [", cb, "]");
-								ChannelBuffer x = ChannelBuffers.directBuffer(cb.writerIndex());
-								x.writeBytes(cb);
-								parserTracer.process(x);													
+//								StringBuilder b = new StringBuilder("Channel Buffer Types: [").append(cbList.size())
+//										.append("] NativeType:").append(ByteOrder.nativeOrder());
+//								for(ChannelBuffer buff: cbList) {
+//									b.append("\n\tCB:[").append(buff.toString()).append("]:Type:").append(buff.order().toString());
+//									
+//								}
+//								info(b);
+								ChannelBuffer x = new CompositeChannelBuffer(cbList.get(0).order(), cbList, true);
+								info("SAN Stats Channel Closed. Channel Buffers [", cbList.size(), "] Readable [", x.readableBytes(), "] bytes");
+								ctx.setAttachment(null);
+								Channel closedChannel = future.getChannel();
+								ctx.sendUpstream(new UpstreamMessageEvent(closedChannel, x, closedChannel.getLocalAddress()));;
+								//parserTracer.process(x);													
 							}
 						}
 					});									
 				}
-				accumulator.writeBytes(cb);
-			}
+				accumulator.add(cb);
+				info("Added Inremental Buffer. GZip:", isGzip(cb));
+			}			
+		} else {
 			ctx.sendUpstream(e);
 		}
 		
@@ -155,10 +178,27 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 	public ChannelPipeline getPipeline() throws Exception {
 		ChannelPipeline pipeline = Channels.pipeline();
 		pipeline.addLast("sniffer", sniffer);
+		pipeline.addLast("aggregator", this);
 		pipeline.addLast("gzip", gunzip);
-		pipeline.addLast("statsHandler", this);
+		pipeline.addLast("statsHandler", statsParserHandler);
 		return pipeline;
 	}
+	
+	protected final OneToOneDecoder statsParserHandler = new OneToOneDecoder() {
+		/**
+		 * {@inheritDoc}
+		 * @see org.jboss.netty.handler.codec.oneone.OneToOneDecoder#decode(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.Channel, java.lang.Object)
+		 */
+		@Override
+		protected Object decode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
+			if(msg!=null && ChannelBuffer.class.isInstance(msg)) {
+				parserTracer.process((ChannelBuffer)msg);
+				ctx.setAttachment(null);
+			}
+			return null;
+		}
+		
+	};
 	
 	/**
 	 * <p>Title: GZipSniffer</p>
@@ -181,32 +221,35 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 				Object message = me.getMessage();
 				if(ChannelBuffer.class.isInstance(message)) {
 					ChannelBuffer cb = (ChannelBuffer)message;
-					if(cb.readableBytes()>=8) {
-						boolean gzip = isGzip(cb.getInt(0), cb.getInt(4));
-						info("Incoming SAN stats gzipped:", gzip);
-						if(!gzip) {
-							ctx.getPipeline().remove("gzip");
-						}
-						ctx.getPipeline().remove(this);
+					if(!isGzip(cb)) {
+						ctx.getPipeline().remove("gzip");						
 					}
+					ctx.getPipeline().remove(this);
 				}
 			}
 			ctx.sendUpstream(e);
 		}
 		
-		/**
-		 * Determines if the channel is carrying a gzipped metric submssion
-		 * @param magic1 The first byte of the incoming request
-		 * @param magic2 The second byte of the incoming request
-		 * @return true if the incoming payload is gzipped
-		 */
-		private boolean isGzip(int magic1, int magic2) {
-			return magic1 == 31 && magic2 == 139;	
-		}	
 		
 		
 	}
 	
+	/**
+	 * Determines if the channel is carrying a gzipped metric submssion
+	 * @param magic1 The first byte of the incoming request
+	 * @param magic2 The second byte of the incoming request
+	 * @return true if the incoming payload is gzipped
+	 */
+	public static boolean isGzip(int magic1, int magic2) {
+		return magic1 == 31 && magic2 == 139;	
+	}	
+	
+	public static boolean isGzip(ChannelBuffer buffer) {
+		if(buffer!=null && buffer.readableBytes()>=5) {
+			return isGzip(buffer.getUnsignedByte(0), buffer.getUnsignedByte(1));
+		}
+		return false;
+	}
 
 
 	/**

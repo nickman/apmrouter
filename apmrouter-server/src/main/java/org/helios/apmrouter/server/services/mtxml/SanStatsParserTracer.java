@@ -180,9 +180,6 @@ public class SanStatsParserTracer extends ServerComponentBean {
 				ChannelBuffer cbuf = ChannelBuffers.wrappedBuffer(mbb);
 				
 				sspt.process(cbuf);		
-				if(i%50==0) {
-					System.out.println(sspt.reportStats());
-				}
 			} catch (Exception ex) {		
 				ex.printStackTrace(System.err);
 			} finally {
@@ -190,7 +187,6 @@ public class SanStatsParserTracer extends ServerComponentBean {
 				if(fc!=null) try {fc.close();} catch (Exception e) {}			
 			}			
 		}
-		System.out.println(sspt.reportStats());
 	}
 	
 	/**
@@ -204,17 +200,10 @@ public class SanStatsParserTracer extends ServerComponentBean {
 		processedFiles.set(0L);
 		fileProcessingTimesNs.clear();
 		segmentProcessingTimesNs.clear();
+		processedFiles.set(0L);
 		super.resetMetrics();
 	}
 	
-	public String reportStats() {
-		StringBuilder b = new StringBuilder("\n\t============================\n\tSanParser Stats\n\t============================");
-		b.append("\n\trejectedParseQueueExecutions:").append(getRejectedParseQueueExecutions());
-		b.append("\n\tprocessedFileCount:").append(getProcessedFiles());
-		b.append("\n\tAverageSegmentProcessingTime(ns):").append(getAverageSegmentProcessingTimesNs());
-		b.append("\n\tAverageFileProcessingTime(ms):").append(getAverageFileProcessingTimesMs());
-		return b.toString();
-	}
 	
 	/** The cummulative count of rejected parse queue task submissions  */
 	protected final AtomicLong rejectedParseQueueExecutions = new AtomicLong(0L);
@@ -249,12 +238,19 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	 * Returns the rolling average of the last 50 elapsed times to parse and process a statvlun file in ms
 	 * @return the rolling average of the last 50 elapsed times to parse and process a statvlun file
 	 */
-	@ManagedMetric(category="SanStatsParser", displayName="LastFileProcessingTimesMs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 elapsed times to parse and process a statvlun file in ms")	
+	@ManagedMetric(category="SanStatsParser", displayName="AverageFileProcessingTimesMs", metricType=MetricType.GAUGE, description="The rolling average of the last 50 elapsed times to parse and process a statvlun file in ms")	
 	public long getAverageFileProcessingTimesMs() {
 		return TimeUnit.MILLISECONDS.convert(fileProcessingTimesNs.avg(), TimeUnit.NANOSECONDS);
 	}
 	
-	
+	/**
+	 * Returns the total number of files processed
+	 * @return the total number of files processed
+	 */
+	@ManagedMetric(category="SanStatsParser", displayName="FilesProcessed", metricType=MetricType.COUNTER, description="Thetotal number of files processed")
+	public long getFilesProcessed() {
+		return processedFiles.get();
+	}
 	
 	/**
 	 * Returns the last elapsed time to parse and process a statvlun segment in ns
@@ -329,7 +325,8 @@ public class SanStatsParserTracer extends ServerComponentBean {
 	 * @param b A channel buffer containing the bytes of the SAN stats xml to process
 	 */
 	public void process(ChannelBuffer b) {
-		processedFiles.incrementAndGet();
+		final int bufferSize = b.readableBytes();
+		info("Processing SanStats Buffer [", bufferSize, "]");
 		final SanStatsParsingContext ctx = new SanStatsParsingContext(gformat, runTestData.get());
 		long fileStart = System.nanoTime();
 		ctx.setSysInfo(getSystemInfo(b));
@@ -365,9 +362,11 @@ public class SanStatsParserTracer extends ServerComponentBean {
 			}
 			c--;
 		}
-		ctx.traceStats(ServerTracerFactory.getInstance().getTracer()); 
-		fileProcessingTimesNs.insert(System.nanoTime()-fileStart);
-		
+		processedFiles.incrementAndGet();
+		ctx.traceStats(ServerTracerFactory.getInstance().getTracer());
+		long elapsed = System.nanoTime()-fileStart;
+		fileProcessingTimesNs.insert(elapsed);
+		info("Processed SanStats Buffer [", bufferSize, "] in [", TimeUnit.MILLISECONDS.convert(elapsed, TimeUnit.NANOSECONDS), "] ms.");
 	}
 	
 	
