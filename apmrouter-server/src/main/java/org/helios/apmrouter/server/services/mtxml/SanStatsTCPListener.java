@@ -58,6 +58,10 @@ import org.jboss.netty.handler.codec.compression.ZlibWrapper;
 import org.jboss.netty.handler.codec.oneone.OneToOneDecoder;
 import org.jboss.netty.handler.execution.ExecutionHandler;
 import org.jboss.netty.handler.execution.OrderedMemoryAwareThreadPoolExecutor;
+import org.jboss.netty.handler.logging.LoggingHandler;
+import org.jboss.netty.logging.InternalLogLevel;
+import org.jboss.netty.logging.InternalLoggerFactory;
+import org.jboss.netty.logging.Log4JLoggerFactory;
 import org.jboss.netty.util.DefaultObjectSizeEstimator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -134,8 +138,8 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 		bootstrap = new ServerBootstrap(channelFactory);
 		bootstrap.setPipelineFactory(this);
 		bootstrap.setOption("child.receiveBufferSize", receiveSocketSize);
-
 		
+		InternalLoggerFactory.setDefaultFactory(new Log4JLoggerFactory());
 		sock = new InetSocketAddress("0.0.0.0", port);		
 		super.doStart();
 	}
@@ -161,13 +165,6 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 			UpstreamMessageEvent me = (UpstreamMessageEvent)e;
 			Object message = me.getMessage();
 			if(ChannelBuffer.class.isInstance(message)) {
-				ChannelBuffer b = (ChannelBuffer)message;
-//				if(b.order()!=ByteOrder.nativeOrder()) {
-//					info("Switching Buff ByteOrder from [", ByteOrder.nativeOrder(), "] to [", b.order(), "]");
-//					ChannelBuffer revb = ChannelBuffers.directBuffer(ByteOrder.nativeOrder(), b.readableBytes());
-//					revb.writeBytes(b);
-//					b = revb;
-//				}
 				ChannelBuffer cb = (ChannelBuffer)message;
 				List<ChannelBuffer> accumulator = (List<ChannelBuffer>)ctx.getAttachment();
 				if(accumulator==null) {
@@ -177,36 +174,27 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 					e.getChannel().getCloseFuture().addListener(new ChannelFutureListener() {
 						@Override
 						public void operationComplete(ChannelFuture future) throws Exception {
-							@SuppressWarnings("unchecked")
 							List<ChannelBuffer> cbList = (List<ChannelBuffer>)ctx.getAttachment();							 
 							if(cbList==null || cbList.isEmpty()) {
 								warn("SAN Stats Channel Closed but no buffer found as attachment");
 							} else {
-//								StringBuilder b = new StringBuilder("Channel Buffer Types: [").append(cbList.size())
-//										.append("] NativeType:").append(ByteOrder.nativeOrder());
-//								for(ChannelBuffer buff: cbList) {
-//									b.append("\n\tCB:[").append(buff.toString()).append("]:Type:").append(buff.order().toString());
-//									
-//								}
-//								info(b);
 								ChannelBuffer x = new CompositeChannelBuffer(cbList.get(0).order(), cbList, true);
 								info("SAN Stats Channel Closed. Channel Buffers [", cbList.size(), "] Readable [", x.readableBytes(), "] bytes");
 								ctx.setAttachment(null);
 								Channel closedChannel = future.getChannel();
-								ctx.sendUpstream(new UpstreamMessageEvent(closedChannel, x, closedChannel.getLocalAddress()));;
-								//parserTracer.process(x);													
+								ctx.sendUpstream(new UpstreamMessageEvent(closedChannel, x, closedChannel.getLocalAddress()));
 							}
 						}
 					});									
 				}
 				accumulator.add(cb);
-				//info("Added Inremental Buffer. GZip:", isGzip(cb));
 			}			
 		} else {
 			ctx.sendUpstream(e);
-		}
-		
+		}		
 	}
+	
+	
 	
 	/**
 	 * {@inheritDoc}
@@ -215,6 +203,7 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 	@Override
 	public ChannelPipeline getPipeline() throws Exception {
 		ChannelPipeline pipeline = Channels.pipeline();
+		pipeline.addLast("logger", logHandler);
 		pipeline.addLast("encoder", responseEncoder);
 		pipeline.addLast("sniffer", sniffer);
 		pipeline.addLast("aggregator", this);
@@ -222,6 +211,8 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 		pipeline.addLast("statsHandler", statsParserHandler);
 		return pipeline;
 	}
+	
+	protected final LoggingHandler logHandler = new LoggingHandler(getClass(), InternalLogLevel.INFO, true);
 	
 	/** Downstream message handler to encode responses as simple string byte arrays */
 	protected final ChannelDownstreamHandler responseEncoder = new ChannelDownstreamHandler() {
@@ -251,9 +242,13 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 		@Override
 		protected Object decode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
 			if(msg!=null && ChannelBuffer.class.isInstance(msg)) {
-				parserTracer.process((ChannelBuffer)msg);
-				channel.write("\n\tRequest Submitted");
-				ctx.setAttachment(null);
+				parserTracer.process((ChannelBuffer)msg);				
+				ctx.sendDownstream(
+						new DownstreamMessageEvent(
+								channel, 
+								Channels.future(channel), 
+								ChannelBuffers.wrappedBuffer("\n\tRequest Handled".getBytes()), 
+								channel.getRemoteAddress()));
 			}
 			return null;
 		}
