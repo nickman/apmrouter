@@ -149,10 +149,15 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 	 * @see org.helios.apmrouter.server.ServerComponentBean#onApplicationContextRefresh(org.springframework.context.event.ContextRefreshedEvent)
 	 */
 	@Override
-	public void onApplicationContextRefresh(ContextRefreshedEvent event) {		
-		super.onApplicationContextRefresh(event);		
-		info("Starting SanStatsTCPListener on [", sock, "]");
-		bootstrap.bind(sock);
+	public void onApplicationContextRefresh(ContextRefreshedEvent event) {						
+		try {
+			info("Starting SanStatsTCPListener on [", sock, "]");
+			bootstrap.bind(sock);
+			super.onApplicationContextRefresh(event);
+		} catch (Exception ex) {
+			error("Failed to start SanStatsTCPListener on [", sock, "] ", ex);
+			started.set(false);
+		}
 	}
 	
 	/**

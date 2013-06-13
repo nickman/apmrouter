@@ -29,6 +29,7 @@ import java.nio.ByteOrder;
 
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
 import org.apache.log4j.Logger;
+import org.helios.apmrouter.util.ByteSequenceIndexFinder;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBufferFactory;
 import org.jboss.netty.buffer.ChannelBufferInputStream;
@@ -192,10 +193,17 @@ Logging:
 public class BZip2Decoder extends OneToOneDecoder {
 	
 	/** The unzipping input stream */
-	private  BZip2CompressorInputStream bzipStream;
+	private  volatile BZip2CompressorInputStream bzipStream;
 	/** Indicates if the stream is finished */
 	private volatile boolean finished;
+	/** The swappable input stream */
+	private final SwapableBufferInputStream swapIs = new SwapableBufferInputStream();
+	/** The decoded content channel buffer */
+	protected ChannelBuffer decoded = null;
 	
+	protected static final byte[] CLOSER = "</sample>".getBytes();
+	
+	protected final ByteSequenceIndexFinder finder = new ByteSequenceIndexFinder(CLOSER);
 	/** The channel buffer factory */
 	protected static final ChannelBufferFactory chanelBufferFactory = new DirectChannelBufferFactory(ByteOrder.nativeOrder(), 1500000);
 
@@ -209,7 +217,7 @@ public class BZip2Decoder extends OneToOneDecoder {
 	}
 
 
-
+	
 
 	/**
 	 * {@inheritDoc}
@@ -220,19 +228,44 @@ public class BZip2Decoder extends OneToOneDecoder {
 		if (!(msg instanceof ChannelBuffer) || finished) {
 			return msg;
 		}
-		ChannelBuffer buff = (ChannelBuffer)msg;
-		InputStream inStream = new ChannelBufferInputStream(buff, buff.readableBytes());
-		ChannelBuffer decompressed = ChannelBuffers.dynamicBuffer(5 * buff.readableBytes(), chanelBufferFactory);
-		bzipStream = new BZip2CompressorInputStream(inStream, true);
-		byte[] bytes = new byte[9016];
-		int bytesRead = -1;
-		while((bytesRead=bzipStream.read(bytes))!=-1) {
-			decompressed.writeBytes(bytes, 0, bytesRead);
+		ChannelBuffer buff = (ChannelBuffer)msg;		
+		final int readableBytes = buff.readableBytes();		
+		swapIs.swapBuffer(buff);
+		if(bzipStream==null) {
+			synchronized(this) {
+				if(bzipStream==null) {					
+					bzipStream = new BZip2CompressorInputStream(swapIs, true);
+					decoded = ChannelBuffers.dynamicBuffer(readableBytes*10, chanelBufferFactory);
+				}
+			}
+		} 
+		
+		
+		log.info("Reading [" + readableBytes + "] compressed bytes through BZIP2 input stream");
+		byte[] tbuff = new byte[9126];
+		int readBytes = 0, totalReadBytes = 0;
+		while(buff.readableBytes()>0) {
+			int b = bzipStream.read();
+			decoded.writeByte(b);
+			readBytes++;
+			if(b==-1) {
+				finished = true;
+			}
 		}
-		bzipStream.close();
-		finished = true;
-		log.info("Decompression Complete --> [" + decompressed.readableBytes() + "] bytes" );
-		return decompressed;
+		log.info("Read [" + readBytes + "], Finished:" + finished );		
+		swapIs.close();
+		log.info("Decoded Channel Buffer: [" + decoded + "]");
+		
+//		byte[] decodedBytes = new byte[decoded.readableBytes()];
+//		decoded.readBytes(decodedBytes);
+//		decoded.resetReaderIndex();
+//		log.info("Decoded So Far:\n" + new String(decodedBytes));
+		if(finished) {
+			log.info("Detected EOF in BZIP2 input stream");
+			bzipStream.close();
+			return decoded;
+		}
+		return null;
 	}
 
 }
