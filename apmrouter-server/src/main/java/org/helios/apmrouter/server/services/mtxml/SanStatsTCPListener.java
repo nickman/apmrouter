@@ -26,8 +26,8 @@ package org.helios.apmrouter.server.services.mtxml;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -38,20 +38,21 @@ import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBufferFactory;
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.buffer.CompositeChannelBuffer;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelDownstreamHandler;
 import org.jboss.netty.channel.ChannelEvent;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.ChannelUpstreamHandler;
 import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.DownstreamMessageEvent;
+import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.UpstreamMessageEvent;
+import org.jboss.netty.channel.group.ChannelGroup;
+import org.jboss.netty.channel.group.DefaultChannelGroup;
+import org.jboss.netty.channel.socket.ServerSocketChannel;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 import org.jboss.netty.handler.codec.compression.ZlibDecoder;
 import org.jboss.netty.handler.codec.compression.ZlibWrapper;
@@ -116,7 +117,10 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 	protected long poolExecutorMaxChannelMemorySize = 1048576 *2;
 	/** The maximum total memory size for the pool executor */
 	protected long poolExecutorMaxTotalMemorySize = 1048576 * 10;
-	
+	/** Indicates if the logging handler should be enabled */
+	protected boolean loggingHandlerEnabled = false;
+	/** The channel  group */
+	protected final ChannelGroup channelGroup = new DefaultChannelGroup();
 	
 	/**
 	 * {@inheritDoc}
@@ -124,7 +128,14 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 	 */
 	@Override
 	protected void doStart() throws Exception {		
-		channelFactory = new NioServerSocketChannelFactory(bossPool, workerPool);
+		channelFactory = new NioServerSocketChannelFactory(bossPool, workerPool) {
+			@Override
+			public ServerSocketChannel newChannel(ChannelPipeline pipeline) {
+				ServerSocketChannel ssc = super.newChannel(pipeline);
+				channelGroup.add(ssc);
+				return ssc;
+			}
+		};
 		poolExecutor = new OrderedMemoryAwareThreadPoolExecutor(poolExecutorCoreThreads, poolExecutorMaxChannelMemorySize, poolExecutorMaxTotalMemorySize, 60, TimeUnit.SECONDS, new DefaultObjectSizeEstimator(), new ThreadFactory(){
 			final AtomicInteger serial = new AtomicInteger(0);
 			@Override
@@ -141,6 +152,7 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 		
 		InternalLoggerFactory.setDefaultFactory(new Log4JLoggerFactory());
 		sock = new InetSocketAddress("0.0.0.0", port);		
+		
 		super.doStart();
 	}
 	
@@ -160,6 +172,47 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 		}
 	}
 	
+//	/**
+//	 * {@inheritDoc}
+//	 * @see org.jboss.netty.channel.ChannelUpstreamHandler#handleUpstream(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.ChannelEvent)
+//	 */
+//	@Override
+//	public void handleUpstream(final ChannelHandlerContext ctx, ChannelEvent e) throws Exception {
+//		if(UpstreamMessageEvent.class.isInstance(e)) {
+//			UpstreamMessageEvent me = (UpstreamMessageEvent)e;
+//			Object message = me.getMessage();
+//			if(ChannelBuffer.class.isInstance(message)) {
+//				ChannelBuffer cb = (ChannelBuffer)message;
+//				List<ChannelBuffer> accumulator = (List<ChannelBuffer>)ctx.getAttachment();
+//				if(accumulator==null) {
+//					accumulator = new ArrayList<ChannelBuffer>();
+//					ctx.setAttachment(accumulator);					
+//					info("Adding close handler to invoke SAN Stats Processing");
+//					e.getChannel().getCloseFuture().addListener(new ChannelFutureListener() {
+//						@Override
+//						public void operationComplete(ChannelFuture future) throws Exception {
+//							List<ChannelBuffer> cbList = (List<ChannelBuffer>)ctx.getAttachment();							 
+//							if(cbList==null || cbList.isEmpty()) {
+//								warn("SAN Stats Channel Closed but no buffer found as attachment");
+//							} else {
+//								ChannelBuffer x = new CompositeChannelBuffer(cbList.get(0).order(), cbList, true);
+//								info("SAN Stats Channel Closed. Channel Buffers [", cbList.size(), "] Readable [", x.readableBytes(), "] bytes");
+//								ctx.setAttachment(null);
+//								Channel closedChannel = future.getChannel();
+//								ctx.sendUpstream(new UpstreamMessageEvent(closedChannel, x, closedChannel.getLocalAddress()));
+//							}
+//						}
+//					});									
+//				}
+//				accumulator.add(cb);
+//			}			
+//		} else {
+//			ctx.sendUpstream(e);
+//		}		
+//	}
+	
+	
+	
 	/**
 	 * {@inheritDoc}
 	 * @see org.jboss.netty.channel.ChannelUpstreamHandler#handleUpstream(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.ChannelEvent)
@@ -171,33 +224,13 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 			Object message = me.getMessage();
 			if(ChannelBuffer.class.isInstance(message)) {
 				ChannelBuffer cb = (ChannelBuffer)message;
-				List<ChannelBuffer> accumulator = (List<ChannelBuffer>)ctx.getAttachment();
-				if(accumulator==null) {
-					accumulator = new ArrayList<ChannelBuffer>();
-					ctx.setAttachment(accumulator);					
-					info("Adding close handler to invoke SAN Stats Processing");
-					e.getChannel().getCloseFuture().addListener(new ChannelFutureListener() {
-						@Override
-						public void operationComplete(ChannelFuture future) throws Exception {
-							List<ChannelBuffer> cbList = (List<ChannelBuffer>)ctx.getAttachment();							 
-							if(cbList==null || cbList.isEmpty()) {
-								warn("SAN Stats Channel Closed but no buffer found as attachment");
-							} else {
-								ChannelBuffer x = new CompositeChannelBuffer(cbList.get(0).order(), cbList, true);
-								info("SAN Stats Channel Closed. Channel Buffers [", cbList.size(), "] Readable [", x.readableBytes(), "] bytes");
-								ctx.setAttachment(null);
-								Channel closedChannel = future.getChannel();
-								ctx.sendUpstream(new UpstreamMessageEvent(closedChannel, x, closedChannel.getLocalAddress()));
-							}
-						}
-					});									
-				}
-				accumulator.add(cb);
-			}			
+				
+			}
 		} else {
 			ctx.sendUpstream(e);
 		}		
 	}
+	
 	
 	
 	
@@ -208,14 +241,16 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 	@Override
 	public ChannelPipeline getPipeline() throws Exception {
 		ChannelPipeline pipeline = Channels.pipeline();
-		pipeline.addLast("logger", logHandler);
+		if(loggingHandlerEnabled) {
+			pipeline.addLast("logger", logHandler);			
+		}
 		pipeline.addLast("encoder", responseEncoder);
 		pipeline.addLast("sniffer", sniffer);
-		pipeline.addLast("aggregator", this);
 		pipeline.addLast("executionHandler", executionHandler);		
 		pipeline.addLast("statsHandler", statsParserHandler);
 		return pipeline;
 	}
+	
 	
 	protected final LoggingHandler logHandler = new LoggingHandler(getClass(), InternalLogLevel.INFO, true);
 	
@@ -247,16 +282,26 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 		@Override
 		protected Object decode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
 			if(msg!=null && ChannelBuffer.class.isInstance(msg)) {
-				parserTracer.process((ChannelBuffer)msg);				
-				ctx.sendDownstream(
-						new DownstreamMessageEvent(
-								channel, 
-								Channels.future(channel), 
-								ChannelBuffers.wrappedBuffer("\n\tRequest Handled".getBytes()), 
-								channel.getRemoteAddress()));
+				parserTracer.process((ChannelBuffer)msg);
 			}
 			return null;
 		}
+		
+		/**
+		 * {@inheritDoc}
+		 * @see org.jboss.netty.handler.codec.oneone.OneToOneDecoder#handleUpstream(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.ChannelEvent)
+		 */
+		@Override
+		public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent evt) throws Exception {
+			if(evt instanceof ExceptionEvent) {
+				Throwable t = ((ExceptionEvent)evt).getCause();
+				error("SanStatsTCPListener upstream exception ", t);				
+			} else {
+				super.handleUpstream(ctx, evt);
+			}
+		}
+		
+		
 		
 	};
 	
@@ -281,7 +326,7 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 				if(ChannelBuffer.class.isInstance(message)) {
 					ChannelBuffer cb = (ChannelBuffer)message;
 					if(isGzip(cb)) {
-						ctx.getPipeline().addAfter("aggregator", "gzip", new ZlibDecoder(ZlibWrapper.GZIP) {
+						ctx.getPipeline().addBefore("executionHandler", "gzip", new ZlibDecoder(ZlibWrapper.GZIP) {
 							@Override
 							protected Object decode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
 								incr("ZlibDecoderCalls");
@@ -290,7 +335,7 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 						});					
 					} else if(isBzip2(cb)) {
 						
-						ctx.getPipeline().addAfter("aggregator", "bzip2", new BZip2Decoder()  {
+						ctx.getPipeline().addBefore("executionHandler", "bzip2", new BZip2Decoder()  {
 							@Override
 							protected Object decode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
 								incr("BZip2DecoderCalls");
@@ -556,6 +601,36 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 		return poolExecutor.getCompletedTaskCount();
 	}
 
+	/**
+	 * Indicates if the logging handler is enabled
+	 * @return true if enabled, false otherwise
+	 */
+	@ManagedAttribute(description="Indicates if the logging handler is enabled")
+	public boolean isLoggingHandlerEnabled() {
+		return loggingHandlerEnabled;
+	}
+
+	/**
+	 * Sets the enabled state of the logging handler
+	 * @param enable true to enable, false to disable
+	 */
+	@ManagedAttribute(description="Indicates if the logging handler is enabled")
+	public void setLoggingHandlerEnabled(boolean enable) {
+		loggingHandlerEnabled = enable;
+		Set<Channel> channels = new HashSet<Channel>(channelGroup);
+		for(Channel c: channels) {
+			ChannelPipeline pipeline = c.getPipeline();
+			if(enable) {
+				if(pipeline.getContext("logger")==null) {
+					pipeline.addFirst("logger", logHandler);
+				}
+			} else {
+				if(pipeline.getContext("logger")!=null) {
+					pipeline.remove(logHandler);
+				}
+			}
+		}
+	}
 
 	
 }

@@ -24,7 +24,8 @@
  */
 package org.helios.apmrouter.server.services.mtxml;
 
-import java.io.InputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.nio.ByteOrder;
 
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
@@ -32,7 +33,6 @@ import org.apache.log4j.Logger;
 import org.helios.apmrouter.util.ByteSequenceIndexFinder;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBufferFactory;
-import org.jboss.netty.buffer.ChannelBufferInputStream;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
 import org.jboss.netty.channel.Channel;
@@ -196,14 +196,21 @@ public class BZip2Decoder extends OneToOneDecoder {
 	private  volatile BZip2CompressorInputStream bzipStream;
 	/** Indicates if the stream is finished */
 	private volatile boolean finished;
-	/** The swappable input stream */
-	private final SwapableBufferInputStream swapIs = new SwapableBufferInputStream();
 	/** The decoded content channel buffer */
 	protected ChannelBuffer decoded = null;
 	
-	protected static final byte[] CLOSER = "</sample>".getBytes();
+	/** The piped input stream feeder to the bzip2 stream input stream */
+	protected PipedInputStream pIn = null;
+	/** The piped output stream feeder to the piped input stream */
+	protected PipedOutputStream pOut = null;
 	
-	protected final ByteSequenceIndexFinder finder = new ByteSequenceIndexFinder(CLOSER);
+	/** The closer byte signature indicating the full doc has been read in */
+	protected static final byte[] CLOSER = "</sample>".getBytes();
+	/** The size of the buffer to slice from the end of the decoded buffer to search for the close signature */
+	protected static final int CLOSER_LENGTH = CLOSER.length + 2;
+	/** The byte signature finder for the decoded buffer */
+	protected final ByteSequenceIndexFinder textFinder = new ByteSequenceIndexFinder(CLOSER);
+
 	/** The channel buffer factory */
 	protected static final ChannelBufferFactory chanelBufferFactory = new DirectChannelBufferFactory(ByteOrder.nativeOrder(), 1500000);
 
@@ -230,36 +237,53 @@ public class BZip2Decoder extends OneToOneDecoder {
 		}
 		ChannelBuffer buff = (ChannelBuffer)msg;		
 		final int readableBytes = buff.readableBytes();		
-		swapIs.swapBuffer(buff);
+		
 		if(bzipStream==null) {
 			synchronized(this) {
-				if(bzipStream==null) {					
-					bzipStream = new BZip2CompressorInputStream(swapIs, true);
-					decoded = ChannelBuffers.dynamicBuffer(readableBytes*10, chanelBufferFactory);
+				if(bzipStream==null) {
+					pIn = new PipedInputStream();
+					pOut = new PipedOutputStream(pIn);
+					byte[] bytes = new byte[readableBytes];
+					buff.readBytes(bytes);					
+					pOut.write(bytes);
+					bzipStream = new BZip2CompressorInputStream(pIn, false);
+					
+					decoded = ChannelBuffers.dynamicBuffer(buff.order(), readableBytes*10, chanelBufferFactory);
 				}
 			}
-		} 
+		}  else {
+			byte[] bytes = new byte[readableBytes];
+			buff.readBytes(bytes);					
+			pOut.write(bytes);
+		}
 		
 		
 		log.info("Reading [" + readableBytes + "] compressed bytes through BZIP2 input stream");
-		byte[] tbuff = new byte[9126];
-		int readBytes = 0, totalReadBytes = 0;
-		while(buff.readableBytes()>0) {
-			int b = bzipStream.read();
-			decoded.writeByte(b);
-			readBytes++;
-			if(b==-1) {
-				finished = true;
+
+		int readBytes = 0;
+		byte[] buf = new byte[1024];
+		while(true) {			
+			int b = bzipStream.read(buf);
+			if(b>0) {
+				decoded.writeBytes(buf, 0, b);
+				readBytes += b;
+			}						
+			if(b<1) {
+				if(b==-1) {
+					finished = true;
+				}
+				break;
 			}
 		}
 		log.info("Read [" + readBytes + "], Finished:" + finished );		
-		swapIs.close();
-		log.info("Decoded Channel Buffer: [" + decoded + "]");
 		
-//		byte[] decodedBytes = new byte[decoded.readableBytes()];
-//		decoded.readBytes(decodedBytes);
-//		decoded.resetReaderIndex();
-//		log.info("Decoded So Far:\n" + new String(decodedBytes));
+		
+		if(!finished) {
+			int decodedReadable = decoded.readableBytes();
+			if(decodedReadable>=CLOSER_LENGTH) {			
+				finished = textFinder.findIn(decoded.slice(decodedReadable-CLOSER_LENGTH, CLOSER_LENGTH))!=-1;
+			}
+		}
 		if(finished) {
 			log.info("Detected EOF in BZIP2 input stream");
 			bzipStream.close();
