@@ -34,16 +34,17 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.log4j.Appender;
+import org.apache.log4j.Category;
+import org.apache.log4j.spi.HierarchyEventListener;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.util.thread.ManagedThreadPool;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBufferFactory;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.buffer.CompositeChannelBuffer;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
 import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelDownstreamHandler;
 import org.jboss.netty.channel.ChannelEvent;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -52,7 +53,6 @@ import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.ChannelUpstreamHandler;
 import org.jboss.netty.channel.Channels;
-import org.jboss.netty.channel.DownstreamMessageEvent;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.jboss.netty.channel.group.ChannelGroup;
@@ -66,8 +66,6 @@ import org.jboss.netty.handler.execution.ExecutionHandler;
 import org.jboss.netty.handler.execution.OrderedMemoryAwareThreadPoolExecutor;
 import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLogLevel;
-import org.jboss.netty.logging.InternalLoggerFactory;
-import org.jboss.netty.logging.Log4JLoggerFactory;
 import org.jboss.netty.util.DefaultObjectSizeEstimator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -174,9 +172,8 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 		bootstrap.setPipelineFactory(this);
 		bootstrap.setOption("child.receiveBufferSize", receiveSocketSize);
 		
-		InternalLoggerFactory.setDefaultFactory(new Log4JLoggerFactory());
+		//InternalLoggerFactory.setDefaultFactory(new Log4JLoggerFactory());
 		sock = new InetSocketAddress("0.0.0.0", port);		
-		
 		super.doStart();
 	}
 	

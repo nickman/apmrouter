@@ -160,12 +160,6 @@ public class MetricRecorder extends NotificationBroadcasterSupport implements Me
 	
 	// -Dorg.helios.opentsdb.hbaseuri=njwUbuntu:2181
 	
-	static {		
-		BasicConfigurator.configure();
-//		((Logger)LoggerFactory.getLogger("org.hbase")).setLevel(Level.WARN);
-//		((Logger)LoggerFactory.getLogger("org.apache")).setLevel(Level.WARN);
-//		((Logger)LoggerFactory.getLogger("com.stumbleupon")).setLevel(Level.WARN);
-	}
 	
 	
 	public static void main(String[] args) {

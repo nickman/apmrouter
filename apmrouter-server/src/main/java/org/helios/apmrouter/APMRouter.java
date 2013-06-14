@@ -32,7 +32,10 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.apache.log4j.Appender;
+import org.apache.log4j.Category;
 import org.apache.log4j.Logger;
+import org.apache.log4j.spi.HierarchyEventListener;
 import org.apache.log4j.xml.DOMConfigurator;
 import org.helios.apmrouter.spring.ctx.ApplicationContextService;
 import org.helios.apmrouter.spring.ctx.NamedGenericXmlApplicationContext;
@@ -116,6 +119,19 @@ public class APMRouter {
 				System.out.println("Log4j Config Not Found. Yer on yer own");
 			}
 		}		
+//		Logger.getRootLogger().getLoggerRepository().addHierarchyEventListener(new HierarchyEventListener(){
+//			@Override
+//			public void addAppenderEvent(Category cat, Appender appender) {
+//				//LOG.info("***************  Added appender [" + appender.getName() + "(" + appender.toString() + ") ] for [" + cat.getName() + "]");
+//				cat.removeAppender(appender);
+//			}
+//
+//			@Override
+//			public void removeAppenderEvent(Category cat, Appender appender) {
+//				//LOG.info("***************  Removed appender [" + appender.getName() + "] for [" + cat.getName() + "]");
+//			}
+//		});
+
 	}
 	
 	/**
@@ -126,6 +142,7 @@ public class APMRouter {
 	 * @param args The spring xml configuration file directories, space separated
 	 */
 	public static void main(String[] args) {
+
 		LOG.info("\n\t\t*************************\n\t\tAPMRouter v. " + APMRouter.class.getPackage().getImplementationVersion() + "\n\t\t*************************\n");
 		if(args.length==0) {
 			loadDefaultConfiguration();

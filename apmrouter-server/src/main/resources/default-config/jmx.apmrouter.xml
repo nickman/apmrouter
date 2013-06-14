@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:util="http://www.springframework.org/schema/util"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+	">
+
+	
+	<bean id="MBeanServer" class="java.lang.management.ManagementFactory"
+		lazy-init="false" factory-method="getPlatformMBeanServer">
+	</bean>
+	
+	<bean id="ExtendedThreadManager" class="org.helios.apmrouter.jmx.threadinfo.ExtendedThreadManager" factory-method="install" >
+		<property name="maxDepth" value="50" />
+	</bean>
+
+	<bean id="MBeanServerJMXUrl" class="javax.management.remote.JMXServiceURL"
+		lazy-init="false" depends-on="systemProperties" >
+		<constructor-arg type="java.lang.String"
+			value="service:jmx:rmi://localhost:8002/jndi/rmi://localhost:8005/jmxrmi" />
+	</bean>
+	
+	<bean id="RMIRegistry" class="java.rmi.registry.LocateRegistry"
+		lazy-init="false" factory-method="createRegistry" >
+		<constructor-arg value="8005" />
+	</bean>
+	
+	<bean id="MBeanServerConnector" class="javax.management.remote.JMXConnectorServerFactory"
+		lazy-init="false" init-method="start" factory-method="newJMXConnectorServer"
+		depends-on="RMIRegistry">
+		<constructor-arg ref="MBeanServerJMXUrl" />
+		<constructor-arg>
+			<map />
+		</constructor-arg>
+		<constructor-arg ref="MBeanServer" />
+	</bean>
+	
+	
+	<bean id="liveBeansView" class="org.springframework.context.support.LiveBeansView"/>
+		
+	
+
+	 
+	<bean id="exporter" class="org.springframework.jmx.export.MBeanExporter">
+		<property name="beans">
+			<map>
+				<entry key="org.helios.jmx:service=JMXConnectorServer,protocol=rmi" value-ref="MBeanServerConnector" />				
+				<entry key="DefaultDomain:application=/APMRouterServer" value-ref="liveBeansView" />
+			</map>
+		</property>
+		<property name="server" ref="MBeanServer" />
+	</bean>	
+	
+	
+
+
+
+
+</beans>   

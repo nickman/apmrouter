@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:jms="http://www.springframework.org/schema/jms"
+
+       xmlns:lang="http://www.springframework.org/schema/lang"       
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/jms http://www.springframework.org/schema/jms/spring-jms.xsd
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+       http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+       
+       http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang.xsd
+       "  >
+	
+		
+	<import resource="dataservice.apmrouter.xml"/>
+	<import resource="groovy.apmrouter.xml"/>
+	<import resource="h2.apmrouter.xml"/>
+	<import resource="hibernate.apmrouter.xml"/>
+	<import resource="jmx.apmrouter.xml"/>
+	<import resource="log4j.apmrouter.xml"/>
+	<import resource="main.apmrouter.xml"/>
+	<import resource="sanstats.apmrouter.xml"/>	
+	
+</beans>
+

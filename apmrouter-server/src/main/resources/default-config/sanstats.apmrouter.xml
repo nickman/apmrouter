@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:util="http://www.springframework.org/schema/util"
+
+       xmlns:lang="http://www.springframework.org/schema/lang"       
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+       http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang.xsd
+       "  >
+	
+	<!-- 
+	<bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer" >
+		<property name="systemPropertiesMode" value="2" />
+		<property name="valueSeparator" value=":" />
+	</bean>
+	 -->
+	
+	<context:property-placeholder />
+	
+	
+	<bean id="sanStatsWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+		<constructor-arg>
+			<bean id="sanStatsWorkers" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+				<property name="corePoolSize" value="6" />
+				<property name="maximumPoolSize" value="12" />
+				<property name="coreThreadsStarted" value="6" />
+				<property name="queueSize" value="5000" />
+				<property name="daemonThreads" value="true" />								
+			</bean>
+		</constructor-arg>
+	</bean>
+	
+	
+	<bean id="sanStats" class="org.helios.apmrouter.server.services.mtxml.SanStatsParserTracer">
+		<constructor-arg value="resource=3par/sysname=%s/vvname=%s/hostname=%s/portnode=%s" />
+		<property name="threadPool" ref="sanStatsWorkers"/>
+	</bean>	
+	
+	<bean id="sanStatsListener" class="org.helios.apmrouter.server.services.mtxml.SanStatsTCPListener">
+		<property name="port" value="${san.stats.listener.port:1089}" />
+		<property name="receiveSocketSize" value="2048014" />
+	</bean>
+	
+	
+</beans>
+
+
+
+
+
+

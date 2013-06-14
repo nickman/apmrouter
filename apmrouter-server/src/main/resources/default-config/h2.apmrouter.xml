@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xsi:schemaLocation="       
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+	
+	  
+	 <bean id="txManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+	    <property name="dataSource" ref="DataSource"/>
+	  </bean>
+
+	  <!-- 
+05:37:42,364 WARN  [jolbox.bonecp.BoneCPConfig] Please use setIdleConnectionTestPeriodInMinutes in place of setIdleConnectionTestPeriod. This method has been deprecated.
+05:37:42,365 WARN  [jolbox.bonecp.BoneCPConfig] Please use setIdleMaxAgeInMinutes in place of setIdleMaxAge. This method has been deprecated.
+05:37:42,365 WARN  [jolbox.bonecp.BoneCPConfig] Please use setStatementsCacheSize in place of setPreparedStatementsCacheSize. This method has been deprecated.	  
+	   -->
+	 <bean id="DataSource" class="com.jolbox.bonecp.BoneCPDataSource" destroy-method="close" >
+	   <property name="driverClass" value="org.h2.Driver" />
+	   <property name="jdbcUrl" value="jdbc:h2:file:~/.apmrouter/h2/db;JMX=TRUE;MULTI_THREADED=TRUE;DB_CLOSE_DELAY=-1" />
+	   <property name="username" value="sa"/>
+	   <property name="password" value=""/>
+	   <property name="idleConnectionTestPeriodInMinutes" value="1"/>
+	   <property name="idleMaxAgeInMinutes" value="4"/>
+	   <property name="maxConnectionsPerPartition" value="30"/>
+	   <property name="minConnectionsPerPartition" value="5"/>
+	   <property name="partitionCount" value="3"/>
+	   <property name="acquireIncrement" value="5"/>
+	   <property name="statementsCacheSize" value="100"/>
+	   <property name="releaseHelperThreads" value="3"/>
+	   <property name="statisticsEnabled" value="true"/>
+	   <property name="disableJMX" value="false"/>
+	   <property name="poolName" value="Catalog"/>
+	   <property name="connectionTestStatement" value="SELECT SYSTIME"/>	   
+	</bean>
+	
+	 <bean id="OpenTSDBDataSource" class="com.jolbox.bonecp.BoneCPDataSource" destroy-method="close">
+	   <property name="driverClass" value="org.h2.Driver" />
+	   <property name="jdbcUrl" value="jdbc:h2:file:~/.apmrouter/h2/tsdb;JMX=TRUE;MULTI_THREADED=TRUE;DB_CLOSE_DELAY=-1" />
+	   <property name="username" value="TSDB"/>
+	   <property name="password" value=""/>
+	   <property name="idleConnectionTestPeriodInMinutes" value="1"/>
+	   <property name="idleMaxAgeInMinutes" value="4"/>
+	   <property name="maxConnectionsPerPartition" value="30"/>
+	   <property name="minConnectionsPerPartition" value="5"/>
+	   <property name="partitionCount" value="1"/>
+	   <property name="acquireIncrement" value="5"/>
+	   <property name="statementsCacheSize" value="100"/>	   
+	   <property name="releaseHelperThreads" value="3"/>
+	   <property name="statisticsEnabled" value="true"/>
+	   <property name="disableJMX" value="false"/>
+	   <property name="poolName" value="OpenTSDB"/>
+	   <property name="connectionTestStatement" value="SELECT SYSTIME"/>
+	</bean>
+	
+	
+	<!-- 
+	<bean id="DataSourceStats" class="com.jolbox.bonecp.Statistics">
+		<constructor-arg ref="DataSource" />
+	</bean>
+	-->
+
+	<bean id="h2exporter" class="org.springframework.jmx.export.MBeanExporter">
+		<property name="beans">
+			<map>
+				<entry key="org.h2:service=ConnectionPool,type=Catalog" value-ref="DataSource" />								
+				<!-- <entry key="org.h2:service=ConnectionPoolStats,type=Catalog" value-ref="DataSourceStats" /> -->				
+			</map>
+		</property>
+		<property name="server" ref="MBeanServer" />
+	</bean>	
+
+	    
+	    <bean id="H2WebServer" class="org.h2.tools.Server"
+	        factory-method="createWebServer" init-method="start">
+	        <constructor-arg value="-web,-webAllowOthers,-webPort,3082" />
+	    </bean>
+	    <bean id="H2TCPServer" class="org.h2.tools.Server"
+	        factory-method="createTcpServer" init-method="start">
+	        <constructor-arg value="-tcp,-tcpAllowOthers,-tcpPort,3083" />
+	    </bean>	   
+	
+		<!-- 
+			To connect remotely:   jdbc:h2:tcp://localhost:3083/file:~/.apmrouter/h2/db
+		 -->
+	
+	<bean id="H2DataSource" class="org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy" >
+		<qualifier value="H2DataSource" />
+		<property name="targetDataSource" ref="DataSource" />
+		<property name="reobtainTransactionalConnections" value="true" />
+	</bean>
+	
+	<bean id="CatalogService" class="org.helios.apmrouter.catalog.jdbc.h2.H2JDBCMetricCatalog" depends-on="dbInit" >
+		<property name="realtime" value="false" />
+		<property name="chronicleManager" ref="chronicleTs" />		
+	</bean>
+	
+	<bean id="TimeSeriesWorkerPool" class="org.helios.apmrouter.util.thread.ManagedThreadPool">
+		<qualifier value="TimeSeriesWorker"/>
+		<constructor-arg>
+			<bean id="TimeSeriesWorker" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+				<property name="corePoolSize" value="5" />
+				<property name="maximumPoolSize" value="10" />
+				<property name="coreThreadsStarted" value="3" />
+				<property name="daemonThreads" value="true" />
+				<property name="fairQueue" value="false" />
+				<property name="queueSize" value="10000" />
+				<property name="keepAliveTime" value="20000" />
+			</bean>
+		</constructor-arg>
+	</bean>
+	
+	<bean id="chronicleTs" class="org.helios.apmrouter.destination.chronicletimeseries.ChronicleTSManager">
+		<constructor-arg value="p=15s,t=5m" />
+		<property name="executorService" ref="TimeSeriesWorkerPool"/>
+	</bean>
+	
+
+	
+	<bean id="dbInit" class="org.helios.apmrouter.catalog.jdbc.h2.ScriptExecution" init-method="start">		
+		<constructor-arg ref="DataSource" />
+		<constructor-arg value="RUNSCRIPT FROM './src/test/resources/server/ddl/persistent-metric-catalog.sql'" />
+	</bean>
+	
+	<bean id="opentsdbInit" class="org.helios.apmrouter.catalog.jdbc.h2.ScriptExecution" init-method="start">
+		<constructor-arg ref="OpenTSDBDataSource" />
+		<constructor-arg value="RUNSCRIPT FROM './src/test/resources/server/ddl/opentsdb.sql'" />
+	</bean>
+	
+	
+	
+	 		
+		<bean id="H2DestinationWorkers" class="org.helios.apmrouter.util.thread.ManagedThreadPool">		
+			<constructor-arg>
+				<bean id="H2DestinationWorkersConfig" class="org.helios.apmrouter.util.thread.ThreadPoolConfig">
+					<property name="corePoolSize" value="1" />
+					<property name="maximumPoolSize" value="5" />
+					<property name="coreThreadsStarted" value="1" />
+				</bean>
+			</constructor-arg>
+		</bean>
+	
+	
+	<bean id="H2TimeSeriesDestination" class="org.helios.apmrouter.destination.h2timeseries.H2TimeSeriesDestination">
+ 		<property name="matchPatterns">
+	 		<util:set>
+				<value>LONG.*|DELTA.*</value>	 			
+	 		</util:set>
+ 		</property>	
+		<property name="dataSource" ref="DataSource"></property>
+		<property name="timeSeriesStep" value="15000"></property>
+		<property name="timeSeriesWidth" value="60"></property>
+		<property name="sizeTrigger" value="100"></property>
+		<property name="timeTrigger" value="15000"></property>
+		<property name="timeSeriesManager" ref="chronicleTs" />
+	</bean>
+	
+	
+	
+	
+<!-- 
+	
+	<bean id="dbInit" class="org.helios.apmrouter.catalog.jdbc.h2.ScriptExecution" init-method="start">
+		<constructor-arg ref="DataSource" />
+		<constructor-arg value="RUNSCRIPT FROM './src/test/resources/server/ddl/in-mem-metric-catalog.sql'" />
+	</bean>
+	
+
+ -->	
+	
+	
+
+</beans>
+
+
+
+<!-- 
+	<bean id="primaryDataSourceH2" class="org.h2.jdbcx.JdbcDataSource" >
+		<property name="uRL" value="jdbc:h2:mem:fx;DB_CLOSE_DELAY=-1;JMX=TRUE;TRACE_LEVEL_FILE=1" />
+		<property name="user" value="sa" />
+		<property name="password" value="" />
+		<property name="description" value="The primary data source" />		
+	</bean>
+
+
+	<bean id="H2ConnectionFactory" class="org.apache.commons.dbcp.managed.DataSourceConnectionFactory">
+		<constructor-arg ref="primaryDataSourceH2" />
+	</bean>
+	
+	<bean id="BasicManagedDataSource" class="org.apache.commons.dbcp.managed.BasicManagedDataSource" >
+		<property name="xaDataSourceInstance" ref="primaryDataSourceH2" />
+		<property name="transactionManager" ref="txManager" />
+	</bean>
+
+
+ -->
+ 
+		  <!--  Uncomment to enable remote access to the in-memory test database -->
+	  <!--
+	    <bean id="H2WebServer" class="org.h2.tools.Server"
+	        factory-method="createWebServer" init-method="start">
+	        <constructor-arg value="-web,-webAllowOthers,true,-webPort,3082" />
+	    </bean>
+	    <bean id="H2TCPServer" class="org.h2.tools.Server"
+	        factory-method="createTcpServer" init-method="start">
+	        <constructor-arg value="-tcp,-tcpAllowOthers,true,-tcpPort,3083" />
+	    </bean>	   
+	    -->	    
+ 

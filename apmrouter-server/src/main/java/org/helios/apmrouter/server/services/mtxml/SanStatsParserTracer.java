@@ -30,6 +30,7 @@ import java.lang.management.ManagementFactory;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -42,6 +43,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.log4j.Appender;
+import org.apache.log4j.Logger;
 import org.helios.apmrouter.collections.ConcurrentLongSlidingWindow;
 import org.helios.apmrouter.collections.LongSlidingWindow;
 import org.helios.apmrouter.server.ServerComponentBean;
@@ -374,6 +377,7 @@ public class SanStatsParserTracer extends ServerComponentBean {
 		ctx.traceStats(ServerTracerFactory.getInstance().getTracer());
 		long elapsed = System.nanoTime()-fileStart;
 		fileProcessingTimesNs.insert(elapsed);
+
 		info("Processed SanStats Buffer [", bufferSize, "] in [", TimeUnit.MILLISECONDS.convert(elapsed, TimeUnit.NANOSECONDS), "] ms.");
 	}
 	
