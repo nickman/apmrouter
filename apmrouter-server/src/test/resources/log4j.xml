@@ -11,12 +11,6 @@
       </layout>
    </appender>
 
-   <appender name="CONSOLET" class="org.apache.log4j.ConsoleAppender">
-      <param name="Target" value="System.err"/>
-      <layout class="org.apache.log4j.EnhancedPatternLayout">
-         <param name="ConversionPattern" value="[%c{3}] %m%n" />
-      </layout>
-   </appender>
 
 
 	<appender name="FILE" class="org.apache.log4j.RollingFileAppender">
@@ -125,7 +119,7 @@
    <root>
    	  <priority value="DEBUG"/>
    	  <appender-ref ref="CONSOLE"/>
-   	  <appender-ref ref="FILE"  />
+   	  
    </root>
 
 

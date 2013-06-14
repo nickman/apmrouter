@@ -33,6 +33,7 @@ import org.apache.log4j.Logger;
 import org.helios.apmrouter.util.ByteSequenceIndexFinder;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBufferFactory;
+import org.jboss.netty.buffer.ChannelBufferInputStream;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
 import org.jboss.netty.channel.Channel;
@@ -232,6 +233,7 @@ public class BZip2Decoder extends OneToOneDecoder {
 	 */
 	@Override
 	protected Object decode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
+		log.info("Decoding BZIP2 Buffer");
 		if (!(msg instanceof ChannelBuffer) || finished) {
 			return msg;
 		}
@@ -241,20 +243,23 @@ public class BZip2Decoder extends OneToOneDecoder {
 		if(bzipStream==null) {
 			synchronized(this) {
 				if(bzipStream==null) {
-					pIn = new PipedInputStream();
-					pOut = new PipedOutputStream(pIn);
-					byte[] bytes = new byte[readableBytes];
-					buff.readBytes(bytes);					
-					pOut.write(bytes);
-					bzipStream = new BZip2CompressorInputStream(pIn, false);
+//					pIn = new PipedInputStream();
+//					pOut = new PipedOutputStream(pIn);
+//					byte[] bytes = new byte[readableBytes];
+//					buff.readBytes(bytes);					
+//					pOut.write(bytes);
+					final ChannelBufferInputStream bis = new ChannelBufferInputStream(buff);
+					
+					bzipStream = new BZip2CompressorInputStream(bis, false);
 					
 					decoded = ChannelBuffers.dynamicBuffer(buff.order(), readableBytes*10, chanelBufferFactory);
 				}
 			}
 		}  else {
-			byte[] bytes = new byte[readableBytes];
-			buff.readBytes(bytes);					
-			pOut.write(bytes);
+			log.info("Unexpected second call to BZIP2 Decoder");
+//			byte[] bytes = new byte[readableBytes];
+//			buff.readBytes(bytes);					
+//			pOut.write(bytes);
 		}
 		
 		

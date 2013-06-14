@@ -152,7 +152,24 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 				return t;
 			}
 		});
-		executionHandler = new ExecutionHandler(poolExecutor);
+		executionHandler = new ExecutionHandler(poolExecutor) {
+			@Override
+			public void handleUpstream(ChannelHandlerContext context, ChannelEvent e) throws Exception {
+				if(e instanceof UpstreamMessageEvent) {
+					info("executionHandler Received Buffer:" + ((UpstreamMessageEvent)e).getMessage()); 
+					long start = System.currentTimeMillis();
+					try {
+						super.handleUpstream(context, e);
+						long elapsed = System.currentTimeMillis()-start;
+						info("executionHandler upstream handled in [" + elapsed + "] ms.");
+					} catch (Throwable t) {
+						error("executionHandler failed on upstream handle", t);
+					}
+				} else {
+					super.handleUpstream(context, e);
+				}
+			}
+		};
 		bootstrap = new ServerBootstrap(channelFactory);
 		bootstrap.setPipelineFactory(this);
 		bootstrap.setOption("child.receiveBufferSize", receiveSocketSize);
@@ -199,7 +216,6 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 			Object message = me.getMessage();
 			if(ChannelBuffer.class.isInstance(message)) {
 				ChannelBuffer cb = (ChannelBuffer)message;
-				@SuppressWarnings("unchecked")
 				List<ChannelBuffer> accumulator = (List<ChannelBuffer>)ctx.getAttachment();
 				if(accumulator==null) {
 					accumulator = new ArrayList<ChannelBuffer>();
@@ -312,22 +328,28 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 				if(ChannelBuffer.class.isInstance(message)) {
 					ChannelBuffer cb = (ChannelBuffer)message;
 					if(isGzip(cb)) {
-						ctx.getPipeline().addBefore("executionHandler", "gzip", new ZlibDecoder(ZlibWrapper.GZIP) {
+						ctx.getPipeline().addAfter("executionHandler", "gzip", new ZlibDecoder(ZlibWrapper.GZIP) {
 							@Override
 							protected Object decode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
 								incr("ZlibDecoderCalls");
-								return super.decode(ctx, channel, msg);
+								ChannelBuffer cb = (ChannelBuffer)super.decode(ctx, channel, msg);
+								info("ZLib Decoder Inflated to [" + cb.readableBytes() + "] Bytes");
+								return cb;
 							}
-						});					
+						});	
+						info("Added gzip handler to pipeline");
 					} else if(isBzip2(cb)) {
 						
-						ctx.getPipeline().addBefore("executionHandler", "bzip2", new BZip2Decoder()  {
+						ctx.getPipeline().addAfter("executionHandler", "bzip2", new BZip2Decoder()  {
 							@Override
 							protected Object decode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
 								incr("BZip2DecoderCalls");
-								return super.decode(ctx, channel, msg);
+								ChannelBuffer cb = (ChannelBuffer)super.decode(ctx, channel, msg);
+								info("BZip2 Decoder Inflated to [" + cb.readableBytes() + "] Bytes");
+								return cb;								
 							}
-						});					
+						});
+						info("Added bzip2 handler to pipeline");
 					}
 					ctx.getPipeline().remove(this);
 				}

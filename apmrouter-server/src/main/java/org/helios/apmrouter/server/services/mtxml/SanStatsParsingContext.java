@@ -286,18 +286,21 @@ the top two would be sum by host and sum by vv_name
 	 * @param nodeKey The node key of the target counter to update or create
 	 * @param value The value to add to the counter
 	 */
-	protected void addToMap(NonBlockingHashMap<String, Long> counterMap, String nodeKey, long value) {		
-		Counter current = counterMap.get(nodeKey);
-		if(current==null) {
-			synchronized(counterMap) {
-				current = counterMap.get(nodeKey);
-				if(current==null) {
-					current = new Counter();
-					counterMap.put(nodeKey, current);
+	protected void addToMap(NonBlockingHashMap<String, Long> counterMap, String nodeKey, long value) {
+		synchronized(counterMap) {
+			Long current = counterMap.get(nodeKey);
+			if(current==null) {
+				synchronized(counterMap) {
+					current = counterMap.get(nodeKey);
+					if(current==null) {						
+						counterMap.put(nodeKey, value);
+					}
 				}
+			} else {
+				counterMap.put(nodeKey, value + current);
 			}
 		}
-		current.add(value);
+		
 	}
 	
 	/**
@@ -356,32 +359,17 @@ the top two would be sum by host and sum by vv_name
 			}
 		}
 		NonBlockingHashMap<String, Counter> at = arrayTotals.get(nodeKey);
-		addToMap(at, QLENGTH, lvalues[1]);
-		addToMap(at, IOPS, calcIosPerSec(lvalues[0], at));
-		addToMap(at, BPS, calcBytesPerSec(lvalues[0], at));
-		addToMap(at, SVCTIME, calcServiceTime(at));
-		addToMap(at, IOSIZE, calcIoSize(at));
-		addToMap(at, BUSYTIME, calcBusyTime(lvalues[0], at));
-		addToMap(at, READERRORS, lvalues[5]);
-		addToMap(at, READDROPS, lvalues[6]);
-		addToMap(at, WRITEERRORS, lvalues[10]);
-		addToMap(at, WRITEDROPS, lvalues[11]);
+		addToMap(cm, QLENGTH, lvalues[1]);
+		addToMap(cm, IOPS, calcIosPerSec(lvalues[0], at));
+		addToMap(cm, BPS, calcBytesPerSec(lvalues[0], at));
+		addToMap(cm, SVCTIME, calcServiceTime(at));
+		addToMap(cm, IOSIZE, calcIoSize(at));
+		addToMap(cm, BUSYTIME, calcBusyTime(lvalues[0], at));
+		addToMap(cm, READERRORS, lvalues[5]);
+		addToMap(cm, READDROPS, lvalues[6]);
+		addToMap(cm, WRITEERRORS, lvalues[10]);
+		addToMap(cm, WRITEDROPS, lvalues[11]);
 
-		cm.put(QLENGTH, at.get(QUEUE_LENGTH).get());
-//		cm.put(IOPS, calcIosPerSec(lvalues[0], at));
-//		cm.put(BPS, calcBytesPerSec(lvalues[0], at));
-//		cm.put(SVCTIME, calcServiceTime(at));
-//		cm.put(IOSIZE, calcIoSize(at));
-//		cm.put(BUSYTIME, calcBusyTime(lvalues[0], at));
-//		cm.put(READERRORS, lvalues[5]);
-//		cm.put(READDROPS, lvalues[6]);
-//		cm.put(WRITEERRORS, lvalues[10]);
-//		cm.put(WRITEDROPS, lvalues[11]);
-		
-//		lvalues[seq++] = Long.parseLong(vlunstats.get(READ_ERRORS));	// 5
-//		lvalues[seq++] = Long.parseLong(vlunstats.get(READ_DROPS));		// 6		
-//		lvalues[seq++] = Long.parseLong(vlunstats.get(WRITE_ERRORS));	// 10
-//		lvalues[seq++] = Long.parseLong(vlunstats.get(WRITE_DROPS));	// 11
 		
 		
 		lunsParsed.incrementAndGet();
@@ -443,7 +431,7 @@ the top two would be sum by host and sum by vv_name
 				tracer.traceDeltaGauge(cm.get(WRITEDROPS), WRITEDROPS, metricNameSpaces.get(entry.getKey()));
 				
 			}
-			if(log.isInfoEnabled()) {
+			if(log.isDebugEnabled()) {
 				StringBuilder b = new StringBuilder("\n======= [").append(entry.getKey()).append("] =======");
 				b.append("\n\t").append(QLENGTH).append(":").append(cm.get(QLENGTH));
 				b.append("\n\t").append(IOPS).append(":").append(cm.get(IOPS));
@@ -456,7 +444,7 @@ the top two would be sum by host and sum by vv_name
 				b.append("\n\t").append(WRITEERRORS).append(":").append(cm.get(WRITEERRORS));
 				b.append("\n\t").append(WRITEDROPS).append(":").append(cm.get(WRITEDROPS));
 				
-				log.info(b);
+				log.debug(b);
 			}
 		}
 		
