@@ -26,7 +26,9 @@ package org.helios.apmrouter.server.services.mtxml;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
@@ -38,10 +40,13 @@ import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBufferFactory;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.buffer.CompositeChannelBuffer;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelDownstreamHandler;
 import org.jboss.netty.channel.ChannelEvent;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
@@ -122,6 +127,8 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 	/** The channel  group */
 	protected final ChannelGroup channelGroup = new DefaultChannelGroup();
 	
+	
+	
 	/**
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
@@ -172,48 +179,16 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 		}
 	}
 	
-//	/**
-//	 * {@inheritDoc}
-//	 * @see org.jboss.netty.channel.ChannelUpstreamHandler#handleUpstream(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.ChannelEvent)
-//	 */
-//	@Override
-//	public void handleUpstream(final ChannelHandlerContext ctx, ChannelEvent e) throws Exception {
-//		if(UpstreamMessageEvent.class.isInstance(e)) {
-//			UpstreamMessageEvent me = (UpstreamMessageEvent)e;
-//			Object message = me.getMessage();
-//			if(ChannelBuffer.class.isInstance(message)) {
-//				ChannelBuffer cb = (ChannelBuffer)message;
-//				List<ChannelBuffer> accumulator = (List<ChannelBuffer>)ctx.getAttachment();
-//				if(accumulator==null) {
-//					accumulator = new ArrayList<ChannelBuffer>();
-//					ctx.setAttachment(accumulator);					
-//					info("Adding close handler to invoke SAN Stats Processing");
-//					e.getChannel().getCloseFuture().addListener(new ChannelFutureListener() {
-//						@Override
-//						public void operationComplete(ChannelFuture future) throws Exception {
-//							List<ChannelBuffer> cbList = (List<ChannelBuffer>)ctx.getAttachment();							 
-//							if(cbList==null || cbList.isEmpty()) {
-//								warn("SAN Stats Channel Closed but no buffer found as attachment");
-//							} else {
-//								ChannelBuffer x = new CompositeChannelBuffer(cbList.get(0).order(), cbList, true);
-//								info("SAN Stats Channel Closed. Channel Buffers [", cbList.size(), "] Readable [", x.readableBytes(), "] bytes");
-//								ctx.setAttachment(null);
-//								Channel closedChannel = future.getChannel();
-//								ctx.sendUpstream(new UpstreamMessageEvent(closedChannel, x, closedChannel.getLocalAddress()));
-//							}
-//						}
-//					});									
-//				}
-//				accumulator.add(cb);
-//			}			
-//		} else {
-//			ctx.sendUpstream(e);
-//		}		
-//	}
-	
-	
-	
 	/**
+	 * <p>
+	 * This handler accumulates the full byte input of the payload submission.
+	 * Since there is no consistent way of determining when the submission stream is complete,
+	 * the only way we have to trigger a push of the accumulated content to the next handler
+	 * is to wait until the client closes the connection. 
+	 * i.e. the client blasts up whatever data it has and then disconnects. 
+	 * On the close evemr, we can assume the payload has been fully received and
+	 * the fully aggregated composite channel buffer can be sent upstream.
+	 * </p>
 	 * {@inheritDoc}
 	 * @see org.jboss.netty.channel.ChannelUpstreamHandler#handleUpstream(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.ChannelEvent)
 	 */
@@ -224,12 +199,37 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 			Object message = me.getMessage();
 			if(ChannelBuffer.class.isInstance(message)) {
 				ChannelBuffer cb = (ChannelBuffer)message;
-				
-			}
+				@SuppressWarnings("unchecked")
+				List<ChannelBuffer> accumulator = (List<ChannelBuffer>)ctx.getAttachment();
+				if(accumulator==null) {
+					accumulator = new ArrayList<ChannelBuffer>();
+					ctx.setAttachment(accumulator);					
+					debug("Adding close handler to invoke SAN Stats Processing");
+					e.getChannel().getCloseFuture().addListener(new ChannelFutureListener() {
+						@Override
+						public void operationComplete(ChannelFuture future) throws Exception {
+							List<ChannelBuffer> cbList = (List<ChannelBuffer>)ctx.getAttachment();							 
+							if(cbList==null || cbList.isEmpty()) {
+								warn("SAN Stats Channel Closed but no buffer found as attachment");
+							} else {
+								ChannelBuffer x = new CompositeChannelBuffer(cbList.get(0).order(), cbList, true);
+								info("SAN Stats Channel Closed. Channel Buffers [", cbList.size(), "] Readable [", x.readableBytes(), "] bytes");
+								ctx.setAttachment(null);
+								Channel closedChannel = future.getChannel();
+								ctx.sendUpstream(new UpstreamMessageEvent(closedChannel, x, closedChannel.getLocalAddress()));
+							}
+						}
+					});									
+				}
+				accumulator.add(cb);
+			}			
 		} else {
 			ctx.sendUpstream(e);
 		}		
 	}
+	
+	
+	
 	
 	
 	
@@ -243,35 +243,21 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 		ChannelPipeline pipeline = Channels.pipeline();
 		if(loggingHandlerEnabled) {
 			pipeline.addLast("logger", logHandler);			
-		}
-		pipeline.addLast("encoder", responseEncoder);
+		}		
 		pipeline.addLast("sniffer", sniffer);
+		pipeline.addLast("aggregator", this);
+		//===================================================================
+		// if a decompressor is required, it should be added here.
+		//===================================================================
 		pipeline.addLast("executionHandler", executionHandler);		
 		pipeline.addLast("statsHandler", statsParserHandler);
 		return pipeline;
 	}
 	
 	
-	protected final LoggingHandler logHandler = new LoggingHandler(getClass(), InternalLogLevel.INFO, true);
+	/** The optionally added logging handler */
+	protected static final LoggingHandler logHandler = new LoggingHandler(SanStatsTCPListener.class, InternalLogLevel.INFO, true);
 	
-	/** Downstream message handler to encode responses as simple string byte arrays */
-	protected final ChannelDownstreamHandler responseEncoder = new ChannelDownstreamHandler() {
-		
-		@Override
-		public void handleDownstream(ChannelHandlerContext ctx, ChannelEvent e) throws Exception {
-			if(e instanceof DownstreamMessageEvent) {
-				Channel channel = e.getChannel();
-				ctx.sendDownstream(
-						new DownstreamMessageEvent(
-								channel, 
-								Channels.future(channel), 
-								ChannelBuffers.wrappedBuffer(((DownstreamMessageEvent)e).getMessage().toString().getBytes()), 
-								channel.getRemoteAddress()));
-			} else {
-				ctx.sendDownstream(e);
-			}			
-		}
-	};
 	
 	/** The handler that delegates the decoded channel buffer to the parser/tracer */
 	protected final OneToOneDecoder statsParserHandler = new OneToOneDecoder() {
@@ -427,6 +413,16 @@ public class SanStatsTCPListener extends ServerComponentBean implements ChannelP
 	public void setPort(int port) {
 		this.port = port;
 	}
+	
+	/**
+	 * Returns the number of connected channels
+	 * @return the number of connected channels
+	 */
+	@ManagedMetric(category="SanStatsTCPListener", displayName="ConnectedChannels", metricType=MetricType.GAUGE, description="The number of connected channels")
+	public int getConnectedChannels() {
+		return channelGroup.size();
+	}
+	
 
 	/**
 	 * Returns the server socket receive buffer size

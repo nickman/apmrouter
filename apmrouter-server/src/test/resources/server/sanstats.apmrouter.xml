@@ -30,7 +30,7 @@
 				<property name="maximumPoolSize" value="12" />
 				<property name="coreThreadsStarted" value="6" />
 				<property name="queueSize" value="5000" />
-				<property name="daemonThreads" value="true" />				
+				<property name="daemonThreads" value="true" />								
 			</bean>
 		</constructor-arg>
 	</bean>
@@ -43,6 +43,7 @@
 	
 	<bean id="sanStatsListener" class="org.helios.apmrouter.server.services.mtxml.SanStatsTCPListener">
 		<property name="port" value="${san.stats.listener.port:1089}" />
+		<property name="receiveSocketSize" value="2048" />
 	</bean>
 	
 	

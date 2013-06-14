@@ -258,7 +258,7 @@ public class BZip2Decoder extends OneToOneDecoder {
 		}
 		
 		
-		log.info("Reading [" + readableBytes + "] compressed bytes through BZIP2 input stream");
+		if(log.isDebugEnabled()) log.debug("Reading [" + readableBytes + "] compressed bytes through BZIP2 input stream");
 
 		int readBytes = 0;
 		byte[] buf = new byte[1024];
@@ -275,7 +275,7 @@ public class BZip2Decoder extends OneToOneDecoder {
 				break;
 			}
 		}
-		log.info("Read [" + readBytes + "], Finished:" + finished );		
+		if(log.isDebugEnabled()) log.debug("Read [" + readBytes + "], Finished:" + finished );		
 		
 		
 		if(!finished) {
@@ -285,7 +285,7 @@ public class BZip2Decoder extends OneToOneDecoder {
 			}
 		}
 		if(finished) {
-			log.info("Detected EOF in BZIP2 input stream");
+			if(log.isDebugEnabled()) log.debug("Detected EOF in BZIP2 input stream");
 			bzipStream.close();
 			return decoded;
 		}

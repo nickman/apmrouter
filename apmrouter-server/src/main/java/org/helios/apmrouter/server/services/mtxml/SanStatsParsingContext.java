@@ -24,7 +24,11 @@
  */
 package org.helios.apmrouter.server.services.mtxml;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
@@ -120,9 +124,19 @@ the top two would be sum by host and sum by vv_name
 	public static final String IOSIZE = "IOSize";
 	/** The metric name for the busy time */
 	public static final String BUSYTIME = "BusyTime";
+	/** The metric name for the read drops */
+	public static final String READDROPS = "ReadDrops";
+	/** The metric name for the read errors */
+	public static final String READERRORS = "ReadErrors";
+	/** The metric name for the write drops */
+	public static final String WRITEDROPS = "WriteDrops";
+	/** The metric name for the write errors */
+	public static final String WRITEERRORS = "WriteErrors";
 	
 	/** The metric names to be recorded */
-	private static final String[] METRIC_NAMES = {QLENGTH, IOPS, BPS, SVCTIME, IOSIZE, BUSYTIME};
+	public static final Set<String> METRIC_NAMES = Collections.unmodifiableSet(new HashSet<String>(
+			Arrays.asList(QLENGTH, IOPS, BPS, SVCTIME, IOSIZE, BUSYTIME, READDROPS, READERRORS, WRITEDROPS, WRITEERRORS)
+	));
 	
 	
 	/** The tag name for the virtual vlun name */
@@ -150,7 +164,7 @@ the top two would be sum by host and sum by vv_name
 	protected static final MetricType[] COUNTER_METRIC_TYPES = new MetricType[]{
 		MetricType.LONG_GAUGE, MetricType.DELTA_GAUGE, 
 		MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, 
-		MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE
+		MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE, MetricType.DELTA_GAUGE,		
 	};
 	
 	/** The number of successfully parsed lun fragments */
@@ -267,6 +281,26 @@ the top two would be sum by host and sum by vv_name
 	}
 	
 	/**
+	 * Adds the passed value to the counter in the passed counter map keyed by the nodekey, creating a new counter if one does not exist
+	 * @param counterMap The counter map to update
+	 * @param nodeKey The node key of the target counter to update or create
+	 * @param value The value to add to the counter
+	 */
+	protected void addToMap(NonBlockingHashMap<String, Long> counterMap, String nodeKey, long value) {		
+		Counter current = counterMap.get(nodeKey);
+		if(current==null) {
+			synchronized(counterMap) {
+				current = counterMap.get(nodeKey);
+				if(current==null) {
+					current = new Counter();
+					counterMap.put(nodeKey, current);
+				}
+			}
+		}
+		current.add(value);
+	}
+	
+	/**
 	 * Adds a vlunstat sampling
 	 * @param vlunstats a vlunstat sampling
  
@@ -276,21 +310,21 @@ the top two would be sum by host and sum by vv_name
 		long[] lvalues = new long[13];
 		int seq = 0;
 		
-		lvalues[seq++] = Long.parseLong(vlunstats.get(NOW));		
-		lvalues[seq++] = Long.parseLong(vlunstats.get(QUEUE_LENGTH));			
-		lvalues[seq++] = Long.parseLong(vlunstats.get(BUSY_TIME));
+		lvalues[seq++] = Long.parseLong(vlunstats.get(NOW));			// 0		
+		lvalues[seq++] = Long.parseLong(vlunstats.get(QUEUE_LENGTH));	// 1	
+		lvalues[seq++] = Long.parseLong(vlunstats.get(BUSY_TIME));		// 2
 		
-		lvalues[seq++] = Long.parseLong(vlunstats.get(READ_COUNT));
-		lvalues[seq++] = Long.parseLong(vlunstats.get(READ_BYTES));
-		lvalues[seq++] = Long.parseLong(vlunstats.get(READ_ERRORS));
-		lvalues[seq++] = Long.parseLong(vlunstats.get(READ_DROPS));
-		lvalues[seq++] = Long.parseLong(vlunstats.get(READ_TICKS));
+		lvalues[seq++] = Long.parseLong(vlunstats.get(READ_COUNT));		// 3
+		lvalues[seq++] = Long.parseLong(vlunstats.get(READ_BYTES));		// 4
+		lvalues[seq++] = Long.parseLong(vlunstats.get(READ_ERRORS));	// 5
+		lvalues[seq++] = Long.parseLong(vlunstats.get(READ_DROPS));		// 6
+		lvalues[seq++] = Long.parseLong(vlunstats.get(READ_TICKS));		// 7
 		
-		lvalues[seq++] = Long.parseLong(vlunstats.get(WRITE_COUNT));
-		lvalues[seq++] = Long.parseLong(vlunstats.get(WRITE_BYTES));
-		lvalues[seq++] = Long.parseLong(vlunstats.get(WRITE_ERRORS));
-		lvalues[seq++] = Long.parseLong(vlunstats.get(WRITE_DROPS));
-		lvalues[seq++]= Long.parseLong(vlunstats.get(WRITE_TICKS));
+		lvalues[seq++] = Long.parseLong(vlunstats.get(WRITE_COUNT));	// 8
+		lvalues[seq++] = Long.parseLong(vlunstats.get(WRITE_BYTES));	// 9
+		lvalues[seq++] = Long.parseLong(vlunstats.get(WRITE_ERRORS));	// 10
+		lvalues[seq++] = Long.parseLong(vlunstats.get(WRITE_DROPS));	// 11
+		lvalues[seq++]= Long.parseLong(vlunstats.get(WRITE_TICKS));		// 12
 
 		
 		
@@ -322,12 +356,32 @@ the top two would be sum by host and sum by vv_name
 			}
 		}
 		NonBlockingHashMap<String, Counter> at = arrayTotals.get(nodeKey);
+		addToMap(at, QLENGTH, lvalues[1]);
+		addToMap(at, IOPS, calcIosPerSec(lvalues[0], at));
+		addToMap(at, BPS, calcBytesPerSec(lvalues[0], at));
+		addToMap(at, SVCTIME, calcServiceTime(at));
+		addToMap(at, IOSIZE, calcIoSize(at));
+		addToMap(at, BUSYTIME, calcBusyTime(lvalues[0], at));
+		addToMap(at, READERRORS, lvalues[5]);
+		addToMap(at, READDROPS, lvalues[6]);
+		addToMap(at, WRITEERRORS, lvalues[10]);
+		addToMap(at, WRITEDROPS, lvalues[11]);
+
 		cm.put(QLENGTH, at.get(QUEUE_LENGTH).get());
-		cm.put(IOPS, calcIosPerSec(lvalues[0], at));
-		cm.put(BPS, calcBytesPerSec(lvalues[0], at));
-		cm.put(SVCTIME, calcServiceTime(at));
-		cm.put(IOSIZE, calcIoSize(at));
-		cm.put(BUSYTIME, calcBusyTime(lvalues[0], at));
+//		cm.put(IOPS, calcIosPerSec(lvalues[0], at));
+//		cm.put(BPS, calcBytesPerSec(lvalues[0], at));
+//		cm.put(SVCTIME, calcServiceTime(at));
+//		cm.put(IOSIZE, calcIoSize(at));
+//		cm.put(BUSYTIME, calcBusyTime(lvalues[0], at));
+//		cm.put(READERRORS, lvalues[5]);
+//		cm.put(READDROPS, lvalues[6]);
+//		cm.put(WRITEERRORS, lvalues[10]);
+//		cm.put(WRITEDROPS, lvalues[11]);
+		
+//		lvalues[seq++] = Long.parseLong(vlunstats.get(READ_ERRORS));	// 5
+//		lvalues[seq++] = Long.parseLong(vlunstats.get(READ_DROPS));		// 6		
+//		lvalues[seq++] = Long.parseLong(vlunstats.get(WRITE_ERRORS));	// 10
+//		lvalues[seq++] = Long.parseLong(vlunstats.get(WRITE_DROPS));	// 11
 		
 		
 		lunsParsed.incrementAndGet();
@@ -372,6 +426,10 @@ the top two would be sum by host and sum by vv_name
 				tracer.traceGauge(cm.get(SVCTIME)+getTestValue(500000), SVCTIME, metricNameSpaces.get(entry.getKey()));
 				tracer.traceGauge(cm.get(IOSIZE)+getTestValue(2000000), IOSIZE, metricNameSpaces.get(entry.getKey()));
 				tracer.traceGauge(cm.get(BUSYTIME)+getTestValue(5), BUSYTIME, metricNameSpaces.get(entry.getKey()));
+				tracer.traceDeltaGauge(cm.get(READERRORS)+getTestValue(10), READERRORS, metricNameSpaces.get(entry.getKey()));
+				tracer.traceDeltaGauge(cm.get(READDROPS)+getTestValue(10), READDROPS, metricNameSpaces.get(entry.getKey()));
+				tracer.traceDeltaGauge(cm.get(WRITEERRORS)+getTestValue(10), WRITEERRORS, metricNameSpaces.get(entry.getKey()));
+				tracer.traceDeltaGauge(cm.get(WRITEDROPS)+getTestValue(10), WRITEDROPS, metricNameSpaces.get(entry.getKey()));				
 			} else {
 				tracer.traceGauge(cm.get(QLENGTH), QLENGTH, metricNameSpaces.get(entry.getKey()));
 				tracer.traceGauge(cm.get(IOPS), IOPS, metricNameSpaces.get(entry.getKey()));
@@ -379,8 +437,13 @@ the top two would be sum by host and sum by vv_name
 				tracer.traceGauge(cm.get(SVCTIME), SVCTIME, metricNameSpaces.get(entry.getKey()));
 				tracer.traceGauge(cm.get(IOSIZE), IOSIZE, metricNameSpaces.get(entry.getKey()));
 				tracer.traceGauge(cm.get(BUSYTIME), BUSYTIME, metricNameSpaces.get(entry.getKey()));				
+				tracer.traceDeltaGauge(cm.get(READERRORS), READERRORS, metricNameSpaces.get(entry.getKey()));
+				tracer.traceDeltaGauge(cm.get(READDROPS), READDROPS, metricNameSpaces.get(entry.getKey()));
+				tracer.traceDeltaGauge(cm.get(WRITEERRORS), WRITEERRORS, metricNameSpaces.get(entry.getKey()));
+				tracer.traceDeltaGauge(cm.get(WRITEDROPS), WRITEDROPS, metricNameSpaces.get(entry.getKey()));
+				
 			}
-			if(log.isDebugEnabled()) {
+			if(log.isInfoEnabled()) {
 				StringBuilder b = new StringBuilder("\n======= [").append(entry.getKey()).append("] =======");
 				b.append("\n\t").append(QLENGTH).append(":").append(cm.get(QLENGTH));
 				b.append("\n\t").append(IOPS).append(":").append(cm.get(IOPS));
@@ -388,6 +451,11 @@ the top two would be sum by host and sum by vv_name
 				b.append("\n\t").append(SVCTIME).append(":").append(cm.get(SVCTIME));
 				b.append("\n\t").append(IOSIZE).append(":").append(cm.get(IOSIZE));
 				b.append("\n\t").append(BUSYTIME).append(":").append(cm.get(BUSYTIME));
+				b.append("\n\t").append(READERRORS).append(":").append(cm.get(READERRORS));
+				b.append("\n\t").append(READDROPS).append(":").append(cm.get(READDROPS));
+				b.append("\n\t").append(WRITEERRORS).append(":").append(cm.get(WRITEERRORS));
+				b.append("\n\t").append(WRITEDROPS).append(":").append(cm.get(WRITEDROPS));
+				
 				log.info(b);
 			}
 		}

@@ -14,7 +14,7 @@
       <statvlun>
         <vv_name>ptdeesx_01</vv_name>
         <host_name>pdk-pt-deesx-01</host_name>
-        <port_node>0</port_node>
+        <port_node>1</port_node>
         <port_slot>1</port_slot>
         <port_port>1</port_port>
         <now>1298892751626</now>
@@ -32,23 +32,23 @@
         <wticks>2730795608</wticks>
       </statvlun>
       <statvlun>
-        <vv_name>ptdeesx_02</vv_name>
+        <vv_name>ptdeesx_01</vv_name>
         <host_name>pdk-pt-deesx-01</host_name>
-        <port_node>0</port_node>
-        <port_slot>1</port_slot>
+        <port_node>1</port_node>
+        <port_slot>2</port_slot>
         <port_port>1</port_port>
         <now>1298892751627</now>
         <qlen>0</qlen>
         <busy>1260013837</busy>
         <rcount>128415</rcount>
         <rbytes>1912912896</rbytes>
-        <rerror>0</rerror>
-        <rdrops>0</rdrops>
+        <rerror>5</rerror>
+        <rdrops>6</rdrops>
         <rticks>133027005</rticks>
         <wcount>3405405</wcount>
         <wbytes>19253437440</wbytes>
-        <werror>0</werror>
-        <wdrops>0</wdrops>
+        <werror>7</werror>
+        <wdrops>8</wdrops>
         <wticks>3209045958</wticks>
       </statvlun>
     </all_statvlun>
