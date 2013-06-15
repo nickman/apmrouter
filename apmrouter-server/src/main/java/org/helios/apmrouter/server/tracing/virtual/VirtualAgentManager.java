@@ -43,7 +43,6 @@ import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.helios.apmrouter.server.tracing.ServerTracerFactory;
 import org.helios.apmrouter.trace.MetricSubmitter;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.event.ContextStartedEvent;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.export.annotation.ManagedNotification;

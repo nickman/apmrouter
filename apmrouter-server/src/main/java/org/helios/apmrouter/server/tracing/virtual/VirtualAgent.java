@@ -349,6 +349,10 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 		}
 		tracerExpiryQueue.clear();
 	}
+	
+	void onStateChange(VirtualTracer tracer) {
+		
+	}
 
 	/**
 	 * {@inheritDoc}

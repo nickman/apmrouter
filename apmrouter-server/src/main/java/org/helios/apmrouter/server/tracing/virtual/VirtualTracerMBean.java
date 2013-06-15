@@ -119,15 +119,29 @@ public interface VirtualTracerMBean  {
 	public String getKey();
 	
 	/**
-	 * Returns the tracer's timeout period in ms. 
-	 * @return the tracer's timeout period in ms.
+	 * Returns the designated soft down period, 
+	 * meaning if there has been no activity for this period, the tracer is marked soft down
+	 * @return the softDownPeriod the designated soft down period 
 	 */
-	public long getTimeoutPeriod();
-	
+	public long getSoftDownPeriod();
+
 	/**
-	 * Indicates if this VT is in remove mode
-	 * @return true if this VT is in remove mode, false otherwise
+	 * Sets the designated soft down period,
+	 * @param softDownPeriod the softDownPeriod to set
 	 */
-	public boolean isRemoveMode();
+	public void setSoftDownPeriod(long softDownPeriod);
+
+	/**
+	 * Returns the designated hard down period, 
+	 * meaning if there has been no activity for this period, the tracer is marked hard down
+	 * @return the hardDownPeriod
+	 */
+	public long getHardDownPeriod();
+
+	/**
+	 * Sets the designated hard down period
+	 * @param hardDownPeriod the hardDownPeriod to set
+	 */
+	public void setHardDownPeriod(long hardDownPeriod);
 
 }

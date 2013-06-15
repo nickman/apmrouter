@@ -52,53 +52,44 @@ import org.helios.apmrouter.trace.TracerImpl;
  * <p><code>org.helios.apmrouter.server.tracing.virtual.VirtualTracer</code></p>
  */
 
-public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualAgent>, VirtualTracerMBean, MetricSubmitter {
+public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, MetricSubmitter, Comparable<VirtualTracer> {
 	/** The virtual tracer's state */
 	private final AtomicReference<VirtualState> tracerState = new AtomicReference<VirtualState>(INIT);
-	/** The delay change receiver */
-	protected VirtualAgent receiver = null;
 	/** the assigned virtual agent serial */
 	protected final long serial;
-	/** The last touch timestamp */
+	/** The last touch timestamp which is the timestamp of the last trace through this tracer */
 	protected final AtomicLong touched;
-	/** The last tracer tick */
-	protected final AtomicLong lastTick = new AtomicLong(System.currentTimeMillis()); 
+	/** The designated soft down period, meaning if there has been no activity for this period, the tracer is marked soft down */
+	protected long softDownPeriod = 30000;
+	/** The designated hard down period, meaning if there has been no activity for this period, the tracer is marked hard down */
+	protected long hardDownPeriod = softDownPeriod * 4;
 	
-	/** The timeout period in ms. */
-	protected final long timeoutPeriod;
 	/** The virtual tracer name */
 	protected final String name;
 	/** The delegate metric submitter */
 	protected final MetricSubmitter _submitter;
 	/** the availability name space */
 	protected final CharSequence[] avns;
+	/** The parent virtual agent */
+	protected final VirtualAgent vAgent;
 	
-	/** Indicates if remove mode is enabled */
-	protected final AtomicBoolean removeMode = new AtomicBoolean(false);
-	/** The remove id set when the VT is put in remove mode */
-	protected final AtomicLong removeId = new AtomicLong(0);
-	
-	/** Serial number generator for setting the tracer into remove mode */
-	private static final AtomicLong removeSerial = new AtomicLong(Long.MIN_VALUE);
-	
-	
-
-	/** The number of sent metrics */
-	protected final AtomicLong sentMetrics = new AtomicLong(0L);
+	/** The serial number factory for new tracers */
+	private static final AtomicLong serialFactory = new AtomicLong(0L);
+	/** A counter for the number of metrics sent through this tracer */
+	protected static final AtomicLong sentMetrics = new AtomicLong(0L);
 	
 	/**
 	 * Transitions the state of this tracer
 	 * @param state The state to transition to
+	 * @return the prior state
 	 */
-	protected void setState(final VirtualState state) {
-		if(state==null) throw new IllegalArgumentException("The passed state was null", new Throwable());
+	protected VirtualState setState(final VirtualState state) {
+		if(state==null) throw new IllegalArgumentException("The passed state was null", new Throwable());		
 		VirtualState priorState = tracerState.getAndSet(state);
 		if(priorState!=state) {
-			receiver.onTracerStateChange(name, state, priorState);
-			if(state.ordinal() >= VirtualState.SOFTDOWN.ordinal()) {
-				//traceAvailability(false);
-			}
+			vAgent.onTracerStateChange(name, state, priorState);
 		}
+		return priorState;
 	}
 	
 	/**
@@ -120,25 +111,27 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	}
 
 	
-	/** A serial number factory for virtual tracerExpiryQueue */
-	private static final AtomicLong serialFactory = new AtomicLong();
 
 	/**
 	 * Creates a new VirtualTracer
 	 * @param host The host of the virtual agent we're tracing for
 	 * @param agent The agent name of the virtual agent we're tracing for
 	 * @param tracerName The name assigned to this tracer
-	 * @param timeoutPeriod The timeout period in ms. for this tracer
+	 * @param softDownPeriod The designated soft down period, meaning if there has been no activity for this period, the tracer is marked soft down
+	 * @param touched The agent provided touch
 	 * @param submitter The physical metric submitter doing the submitting
+	 * @param vAgent The parent virtual agent
 	 */
-	public VirtualTracer(String host, String agent, String tracerName, long timeoutPeriod, MetricSubmitter submitter) {
+	public VirtualTracer(String host, String agent, String tracerName, long softDownPeriod, AtomicLong touched, MetricSubmitter submitter, VirtualAgent vAgent) {
 		super(host, agent, null);			
 		this.submitter = this;
+		this.vAgent = vAgent;
 		_submitter = submitter;
 		serial = serialFactory.incrementAndGet();
 		name = tracerName;		
 		avns = new CharSequence[]{TRACER_NAMESPACE, name};
-		this.timeoutPeriod = timeoutPeriod;
+		this.touched = touched;
+		this.softDownPeriod = softDownPeriod;
 		touched = new AtomicLong(System.currentTimeMillis());
 		traceAvailabilityX(true);
 	}
@@ -179,15 +172,36 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	public void touch() {
 		VirtualState state = tracerState.get(); 
 		if(!state.canTrace()) throw new InvalidatedVirtualTracerException("This virtual tracer [" + name + "] for VirtualAgent [" + host + ":" + agent + "] has been invalidated", new Throwable());		
-		//touched.set(System.currentTimeMillis());
+		touched.set(System.currentTimeMillis());
 		if(state==VirtualState.SOFTDOWN) {
 			setState(VirtualState.UP);			
 		} else if(state==VirtualState.INIT) {
 			setState(VirtualState.UP);
 		}
-		
-//		traceAvailability(true);
-		receiver.onDelayChange(this, System.currentTimeMillis());		
+	}
+	
+	/**
+	 * Checks the state of the tracer to see if a state change is required
+	 */
+	public void checkState() {
+		checkState(System.currentTimeMillis());
+	}
+	
+	
+	/**
+	 * Checks the state of the tracer to see if a state change is required
+	 * @param currentTime The current time, which will be brought up to date if equal to -1.
+	 */
+	public void checkState(long currentTime) { 
+		long age = currentTime - touched.get();
+		if(age < softDownPeriod) return;
+		if(age >= softDownPeriod && age < hardDownPeriod) {
+			// SOFTDOWN
+			setState(VirtualState.SOFTDOWN);
+		} else {
+			// HARDDOWN
+			setState(VirtualState.HARDDOWN);
+		}
 	}
 	
 	
@@ -200,7 +214,6 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	public void expire() {
 		touched.set(0);
 		setState(VirtualState.SOFTDOWN);
-		receiver.onDelayChange(this, 0L);
 	}
 	
 	/**
@@ -229,19 +242,9 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	public long getTimeToExpiry() {
 		if(isInvalidated()) return -1L;
 		long d = System.currentTimeMillis()-touched.get();			
-		return timeoutPeriod - d;			
+		return hardDownPeriod - d;			
 	}
 
-	/**
-	 * {@inheritDoc}
-	 * @see java.util.concurrent.Delayed#getDelay(java.util.concurrent.TimeUnit)
-	 */
-	@Override
-	public long getDelay(TimeUnit unit) {
-		if(isRemoveMode()) return removeId.get();
-		return unit.convert(getTimeToExpiry(), TimeUnit.MILLISECONDS);
-	}
-	
 
 	/**
 	 * Returns the state of this virtual tracer
@@ -258,56 +261,6 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	@Override
 	public String getStateName() {
 		return tracerState.get().name();
-	}
-	
-
-	
-
-	/**
-	 * {@inheritDoc}
-	 * @see java.lang.Comparable#compareTo(java.lang.Object)
-	 */
-	@Override
-	public int compareTo(Delayed otherDelayed) {
-		if(this==otherDelayed) return 0;
-		long myDelay = getTimeToExpiry();
-		long hisDelay = otherDelayed.getDelay(TimeUnit.MILLISECONDS);
-		if(myDelay > hisDelay) return 1;
-		if(myDelay < hisDelay) return -1;
-		if(otherDelayed instanceof VirtualTracer) {
-			return ((VirtualTracer)otherDelayed).serial > serial ? 1 : -1;
-		}
-		return 0;
-	}
-
-//	/**
-//	 * {@inheritDoc}
-//	 * @see org.helios.apmrouter.collections.delay.NotifyingDelay#setDelayChangeReceiver(org.helios.apmrouter.collections.delay.DelayChangeReceiver)
-//	 */
-//	@Override
-//	public void setDelayChangeReceiver(DelayChangeReceiver<? extends NotifyingDelay> receiver) {
-//		this.receiver = receiver;		
-//	}
-
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.collections.delay.NotifyingDelay#setDelayChangeReceiver(org.helios.apmrouter.collections.delay.DelayChangeReceiver)
-	 */
-	@Override
-	public void setDelayChangeReceiver(VirtualAgent receiver) {
-		this.receiver = receiver;
-		
-	}
-	
-	
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.collections.delay.NotifyingDelay#clearDelayChangeReceiver()
-	 */
-	@Override
-	public void clearDelayChangeReceiver() {
-		setState(VirtualState.SOFTDOWN);
-		receiver = null;		
 	}
 	
 	/**
@@ -340,7 +293,7 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 		lastTick.set(System.currentTimeMillis());
 		if(metric!=null) {
 			_submitter.submit(metric);
-			sentMetrics.incrementAndGet();
+//			sentMetrics.incrementAndGet();
 		}
 	}
 
@@ -356,7 +309,7 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 		lastTick.set(System.currentTimeMillis());
 		if(metrics!=null) {
 			_submitter.submit(metrics);
-			sentMetrics.addAndGet(metrics.size());
+//			sentMetrics.addAndGet(metrics.size());
 		}
 	}
 
@@ -372,7 +325,7 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 		lastTick.set(System.currentTimeMillis());
 		if(metrics!=null) {
 			_submitter.submit(metrics);
-			sentMetrics.addAndGet(metrics.length);
+//			sentMetrics.addAndGet(metrics.length);
 		}		
 	}
 	
@@ -408,95 +361,64 @@ public class VirtualTracer extends TracerImpl implements NotifyingDelay<VirtualA
 	public String getKey() {
 		return name;
 	}
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.collections.delay.NotifyingDelay#setUpdatedTimestamp(long)
-	 */
-	@Override
+
 	public void setUpdatedTimestamp(long timestamp) {
 		touched.set(timestamp);		
 	}
 
 
-	/**
-	 * {@inheritDoc}
-	 * @see java.lang.Object#hashCode()
-	 */
-	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + (int) (serial ^ (serial >>> 32));
-		return result;
-	}
 
 
 	/**
 	 * {@inheritDoc}
-	 * @see java.lang.Object#equals(java.lang.Object)
+	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualTracerMBean#getSoftDownPeriod()
 	 */
 	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		VirtualTracer other = (VirtualTracer) obj;
-		if (serial != other.serial)
-			return false;
-		return true;
+	public long getSoftDownPeriod() {
+		return softDownPeriod;
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualTracerMBean#getTimeoutPeriod()
+	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualTracerMBean#setSoftDownPeriod(long)
 	 */
 	@Override
-	public long getTimeoutPeriod() {
-		return timeoutPeriod;
+	public void setSoftDownPeriod(long softDownPeriod) {
+		this.softDownPeriod = softDownPeriod;
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualTracerMBean#isRemoveMode()
+	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualTracerMBean#getHardDownPeriod()
 	 */
 	@Override
-	public boolean isRemoveMode() {
-		return removeMode.get();
+	public long getHardDownPeriod() {
+		return hardDownPeriod;
 	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualTracerMBean#setHardDownPeriod(long)
+	 */
+	@Override
+	public void setHardDownPeriod(long hardDownPeriod) {
+		this.hardDownPeriod = hardDownPeriod;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see java.lang.Comparable#compareTo(java.lang.Object)
+	 */
+	@Override
+	public int compareTo(VirtualTracer otherVt) {
+		long myTouch = touched.get();
+		long otherTouch = touched.get();
+		if(myTouch < otherTouch) return -1;
+		if(otherTouch < myTouch) return 1;		
+		return serial < otherVt.serial ? -1 : 1;
+	}
+
 	
-	/**
-	 * Returns the next negative serial number, resetting the sequence if it has reached zero.
-	 * @return the next negative serial number
-	 */
-	long getRemoveSerial() {
-		long serial = removeSerial.incrementAndGet();
-		if(serial>=0) {
-			synchronized(removeSerial) {
-				removeSerial.set(Long.MIN_VALUE);
-				serial = removeSerial.incrementAndGet();
-			}
-		}
-		return serial;
-	}
-	
-	/**
-	 * Sets the remove state of this VT
-	 * @param enable true to enable, false to reset
-	 * @return true if the mode was changed, false otherwise
-	 */
-	boolean setRemoveMode(boolean enable) {
-		final boolean set = removeMode.compareAndSet(!enable, enable);
-		if(!set) return false;
-		if(enable) {
-			removeId.set(getRemoveSerial());
-		} else {
-			removeId.set(0);
-		}
-		return true;
-	}
 
 
 }
