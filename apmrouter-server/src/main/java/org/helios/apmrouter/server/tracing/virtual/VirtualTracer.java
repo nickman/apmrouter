@@ -28,15 +28,12 @@ import static org.helios.apmrouter.server.tracing.virtual.VirtualState.HARDDOWN;
 import static org.helios.apmrouter.server.tracing.virtual.VirtualState.INIT;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Date;
-import java.util.concurrent.Delayed;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.helios.apmrouter.collections.delay.NotifyingDelay;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
@@ -71,7 +68,7 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	/** the availability name space */
 	protected final CharSequence[] avns;
 	/** The parent virtual agent */
-	protected final VirtualAgent vAgent;
+	protected VirtualAgent vAgent;
 	
 	/** The serial number factory for new tracers */
 	private static final AtomicLong serialFactory = new AtomicLong(0L);
@@ -120,12 +117,11 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	 * @param softDownPeriod The designated soft down period, meaning if there has been no activity for this period, the tracer is marked soft down
 	 * @param touched The agent provided touch
 	 * @param submitter The physical metric submitter doing the submitting
-	 * @param vAgent The parent virtual agent
+
 	 */
-	public VirtualTracer(String host, String agent, String tracerName, long softDownPeriod, AtomicLong touched, MetricSubmitter submitter, VirtualAgent vAgent) {
+	public VirtualTracer(String host, String agent, String tracerName, long softDownPeriod, AtomicLong touched, MetricSubmitter submitter) {
 		super(host, agent, null);			
 		this.submitter = this;
-		this.vAgent = vAgent;
 		_submitter = submitter;
 		serial = serialFactory.incrementAndGet();
 		name = tracerName;		
@@ -133,7 +129,15 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 		this.touched = touched;
 		this.softDownPeriod = softDownPeriod;
 		touched = new AtomicLong(System.currentTimeMillis());
-		traceAvailabilityX(true);
+		traceAvailability(true);
+	}
+	
+	/**
+	 * Sets the virtual agent
+	 * @param vAgent the virtual agent
+	 */
+	void setAgent(VirtualAgent vAgent) {
+		this.vAgent = vAgent;
 	}
 	
 	
@@ -236,13 +240,22 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualTracerMBean#getTimeToExpiry()
+	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualTracerMBean#getTimeToSoftDown()
 	 */
 	@Override
-	public long getTimeToExpiry() {
-		if(isInvalidated()) return -1L;
-		long d = System.currentTimeMillis()-touched.get();			
-		return hardDownPeriod - d;			
+	public long getTimeToSoftDown() {
+		long t = System.currentTimeMillis() - touched.get() + softDownPeriod;
+		return t<0 ? -1L : t;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualTracerMBean#getTimeToHardDown()
+	 */
+	@Override
+	public long getTimeToHardDown() {
+		long t = System.currentTimeMillis() - touched.get() + hardDownPeriod;
+		return t<0 ? -1L : t;		
 	}
 
 
@@ -267,20 +280,26 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	 * Traces the virtual tracer availability, bypassing the virtual tracer's internal controls
 	 * @param up true to mark the virtual tracer up, false to mark it down
 	 */
-	protected void traceAvailabilityX(boolean up) {
-		//System.out.println("Tracing [" + (up ? 1 : 0) + "] for [" + host + "/" + agent + "/" + name);
+	protected void traceAvailability(boolean up) {
 		_submitter.submit(ICEMetric.trace(up ? 1L : 0L, host, agent, AVAIL_METRIC_NAME, MetricType.LONG_GAUGE, avns));
 	}
 	
 	/**
-	 * Traces the tracers availability
+	 * Traces the availability of this tracer as up if it's not down.
 	 */
-	void traceAvailability() {
-		if(System.currentTimeMillis()-lastTick.get() < timeoutPeriod) {
-			touch();
-		}
-		traceAvailabilityX(getState().ordinal() < VirtualState.SOFTDOWN.ordinal());
+	protected void traceAvailability() {
+		traceAvailability(getState().ordinal() < VirtualState.SOFTDOWN.ordinal());
 	}
+	
+//	/**
+//	 * Traces the tracers availability
+//	 */
+//	void traceAvailability() {
+//		if(System.currentTimeMillis()-lastTick.get() < timeoutPeriod) {
+//			touch();
+//		}
+//		traceAvailabilityX(getState().ordinal() < VirtualState.SOFTDOWN.ordinal());
+//	}
 	
 	/**
 	 * {@inheritDoc}
@@ -289,11 +308,11 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	 */
 	@Override
 	public void submitDirect(IMetric metric, long timeout) throws TimeoutException {
-		//touch();
-		lastTick.set(System.currentTimeMillis());
+		touch();		
 		if(metric!=null) {
+			touch();
 			_submitter.submit(metric);
-//			sentMetrics.incrementAndGet();
+			sentMetrics.incrementAndGet();
 		}
 	}
 
@@ -304,12 +323,10 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	 */
 	@Override
 	public void submit(Collection<IMetric> metrics) {
-		//touch();
-		
-		lastTick.set(System.currentTimeMillis());
-		if(metrics!=null) {
+		if(metrics!=null && !metrics.isEmpty()) {
+			touch();
 			_submitter.submit(metrics);
-//			sentMetrics.addAndGet(metrics.size());
+			sentMetrics.addAndGet(metrics.size());
 		}
 	}
 
@@ -320,13 +337,11 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	 */
 	@Override
 	public void submit(IMetric... metrics) {
-		//touch();
-		
-		lastTick.set(System.currentTimeMillis());
-		if(metrics!=null) {
+		if(metrics!=null && metrics.length!=0) {
+			touch();
 			_submitter.submit(metrics);
-//			sentMetrics.addAndGet(metrics.length);
-		}		
+			sentMetrics.addAndGet(metrics.length);
+		}
 	}
 	
 
@@ -338,9 +353,8 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	@Override
 	public String toString() {
 		return String
-				.format("VirtualTracer [serial:%s, timeoutPeriod:%s, name:%s, host:%s, agent:%s, getLastTouchDate():%s, getTimeToExpiry():%s, getState():%s]",
-						serial, timeoutPeriod, name, host, agent,
-						getLastTouchDate(), getTimeToExpiry(), getState());
+				.format("VirtualTracer [serial:%s, name:%s, host:%s, agent:%s, state:%s]",
+						serial, name, host, agent, getState());
 	}
 
 
@@ -361,12 +375,6 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	public String getKey() {
 		return name;
 	}
-
-	public void setUpdatedTimestamp(long timestamp) {
-		touched.set(timestamp);		
-	}
-
-
 
 
 	/**
@@ -417,8 +425,81 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 		if(otherTouch < myTouch) return 1;		
 		return serial < otherVt.serial ? -1 : 1;
 	}
-
+	
+	/**
+	 * <p>Title: LastTouchDescendingComparator</p>
+	 * <p>Description: A {@link VirtualTracer} comparator to sort virtual tracers by the descending last touch time </p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.server.tracing.virtual.VirtualTracer.LastTouchDescendingComparator</code></p>
+	 */
+	public static class LastTouchDescendingComparator implements Comparator<VirtualTracer> {
+		/**
+		 * {@inheritDoc}
+		 * @see java.util.Comparator#compare(java.lang.Object, java.lang.Object)
+		 */
+		@Override
+		public int compare(VirtualTracer vt1, VirtualTracer vt2) {
+			long vt1Time = vt1.touched.get();
+			long vt2Time = vt2.touched.get();		
+			if(vt1Time < vt2Time) return 1;
+			if(vt2Time < vt1Time) return -1;
+			return vt1.serial < vt2.serial ? -1 : 1;
+		}
+		
+	}
 	
 
+	
+	/**
+	 * <p>Title: SoftDownDescendingComparator</p>
+	 * <p>Description: A {@link VirtualTracer} comparator to sort virtual tracers by the descending time to soft down.</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.server.tracing.virtual.VirtualTracer.SoftDownDescendingComparator</code></p>
+	 */
+	public static class SoftDownDescendingComparator implements Comparator<VirtualTracer> {
+		/**
+		 * {@inheritDoc}
+		 * @see java.util.Comparator#compare(java.lang.Object, java.lang.Object)
+		 */
+		@Override
+		public int compare(VirtualTracer vt1, VirtualTracer vt2) {
+			long vt1Time = vt1.getTimeToSoftDown();
+			long vt2Time = vt2.getTimeToSoftDown();		
+			if(vt1Time<0) vt1Time = Long.MAX_VALUE;
+			if(vt2Time<0) vt2Time = Long.MAX_VALUE;
+			if(vt1Time < vt2Time) return 1;
+			if(vt2Time < vt1Time) return -1;
+			return vt1.serial < vt2.serial ? -1 : 1;
+		}
+		
+	}
+	
+	/**
+	 * <p>Title: HardDownDescendingComparator</p>
+	 * <p>Description: A {@link VirtualTracer} comparator to sort virtual tracers by the descending time to hard down.</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.server.tracing.virtual.VirtualTracer.HardDownDescendingComparator</code></p>
+	 */
+	public static class HardDownDescendingComparator implements Comparator<VirtualTracer> {
+		/**
+		 * {@inheritDoc}
+		 * @see java.util.Comparator#compare(java.lang.Object, java.lang.Object)
+		 */
+		@Override
+		public int compare(VirtualTracer vt1, VirtualTracer vt2) {
+			long vt1Time = vt1.getTimeToHardDown();
+			long vt2Time = vt2.getTimeToHardDown();
+			if(vt1Time<0) vt1Time = Long.MAX_VALUE;
+			if(vt2Time<0) vt2Time = Long.MAX_VALUE;			
+			if(vt1Time < vt2Time) return 1;
+			if(vt2Time < vt1Time) return -1;
+			return vt1.serial < vt2.serial ? -1 : 1;
+		}
+		
+	}
+	
 
 }

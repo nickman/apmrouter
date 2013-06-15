@@ -83,10 +83,17 @@ public interface VirtualTracerMBean  {
 	public void invalidate();	
 
 	/**
-	 * Returns the time until this virtual tracer expires, unless there is additional activity
-	 * @return the time until this virtual tracer expires, or -1 if it already expired
+	 * Returns the time until this virtual tracer transitions to {@link VirtualState#SOFTDOWN}, unless there is additional activity
+	 * @return the time until this virtual tracer tracer transitions to {@link VirtualState#SOFTDOWN}, or -1 if it is already DOWN.
 	 */
-	public long getTimeToExpiry();
+	public long getTimeToSoftDown();
+	
+	/**
+	 * Returns the time until this virtual tracer transitions to {@link VirtualState#HARDDOWN}, unless there is additional activity
+	 * @return the time until this virtual tracer tracer transitions to {@link VirtualState#HARDDOWN}, or -1 if it is already DOWN.
+	 */
+	public long getTimeToHardDown();
+	
 
 	/**
 	 * Returns the tracer's current state name

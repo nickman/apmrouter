@@ -24,7 +24,12 @@
  */
 package org.helios.apmrouter.server.tracing.virtual;
 
+import java.lang.ref.WeakReference;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -37,7 +42,7 @@ import javax.management.AttributeChangeNotification;
 
 import org.helios.apmrouter.catalog.DChannelEvent;
 import org.helios.apmrouter.catalog.MetricCatalogService;
-import org.helios.apmrouter.collections.delay.DynamicDelayQueue;
+import org.helios.apmrouter.ref.RunnableReferenceQueue;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
 import org.helios.apmrouter.server.tracing.ServerTracerFactory;
@@ -77,11 +82,9 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 	/** The notification type name for a virtual tracer state change */
 	public static final String TRACER_STATE_CHANGE_NOTIF = "virtual.statechange.tracer";
 	
-	/** A dynamic queue of decaying virtual agents */
-	protected final DynamicDelayQueue<VirtualAgent> expiryQueue = new DynamicDelayQueue<VirtualAgent>();
 	
 	/** A map of virtual agents keyed by host:agent */
-	protected final Map<String, VirtualAgent> virtualAgents = new ConcurrentHashMap<String, VirtualAgent>(); 
+	protected final Map<String, WeakReference<VirtualAgent>> virtualAgents = new ConcurrentHashMap<String, WeakReference<VirtualAgent>>(); 
 	/** A reference to the metric catalog service */
 	protected MetricCatalogService metricCatalogService = null;
 	/** The delegate metricSubmitter */
@@ -107,6 +110,10 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 	private static final AtomicLong vaserial = new AtomicLong();
 	/** A serial number factory for notifications */
 	private static final AtomicLong nserial = new AtomicLong();
+	
+	/** A reference to the ref cleaner */
+	protected final RunnableReferenceQueue rrq = RunnableReferenceQueue.getInstance();
+
 
 	/**
 	 * Acquires the virtual agent for the passed host and agent.
@@ -119,6 +126,63 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 	public VirtualAgent getVirtualAgent(String host, String agent) {
 		return getVirtualAgent(host, agent, null);
 	}
+	
+	/**
+	 * Returns a set of all the virtual agents
+	 * @return a set of all the virtual agents
+	 */
+	protected Set<VirtualAgent> getAllAgents() {
+		Set<VirtualAgent> allAgents = new HashSet<VirtualAgent>(virtualAgents.size());
+		for(Map.Entry<String, WeakReference<VirtualAgent>> entry: virtualAgents.entrySet()) {
+			WeakReference<VirtualAgent> vaRef = entry.getValue();
+			VirtualAgent va = vaRef.get();
+			if(va!=null) allAgents.add(va);			
+		}
+		return allAgents;
+	}
+	
+	/**
+	 * Inserts the passed virtual agent into the agent map
+	 * @param va the virtual agent to add
+	 */
+	protected void putAgent(final VirtualAgent va) {
+		if(va==null) throw new IllegalArgumentException("The passed virtual agent was null", new Throwable());
+		Runnable r = new Runnable() {
+			final String vaKey = va.getKey();			
+			@Override
+			public void run() {
+				log.info("Virtual Agent [" + vaKey + "] was evicted");
+				virtualAgents.remove(vaKey);
+			}
+		};		
+		virtualAgents.put(va.getKey(), rrq.buildWeakReference(va, r));
+	}
+	
+	/**
+	 * Retrieves an agent from the agent map
+	 * @param host The host part of the agent name
+	 * @param agent The agent part of the agent name 
+	 * @return the agent or null if it was not found
+	 */
+	protected VirtualAgent getAgent(String host, String agent) {
+		if(host==null || host.trim().isEmpty()) throw new IllegalArgumentException("The passed host was empty or null", new Throwable());
+		if(agent==null || agent.trim().isEmpty()) throw new IllegalArgumentException("The passed agent was empty or null", new Throwable());
+		return getAgent(host + ":" + agent);
+	}
+	
+	/**
+	 * Retrieves an agent from the agent map
+	 * @param agentKey The agent key
+	 * @return the agent or null if it was not found
+	 */
+	protected VirtualAgent getAgent(String agentKey) {
+		if(agentKey==null || agentKey.trim().isEmpty()) throw new IllegalArgumentException("The passed agentKey was empty or null", new Throwable());
+		WeakReference<VirtualAgent> ref = virtualAgents.get(agentKey);
+		if(ref==null) return null;
+		return ref.get();
+	}
+
+	
 	
 	
 	/**
@@ -133,10 +197,10 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 		if(host==null || host.trim().isEmpty()) throw new IllegalArgumentException("The passed host was null or empty", new Throwable());
 		if(agent==null || agent.trim().isEmpty()) throw new IllegalArgumentException("The passed agent was null or empty", new Throwable());
 		final String key = host + ":" + agent;
-		VirtualAgent va = virtualAgents.get(key);
+		VirtualAgent va = getAgent(key);
 		if(va==null) {
 			synchronized(virtualAgents) {
-				va = virtualAgents.get(key);
+				va = getAgent(key);
 				if(va==null) {
 					if(initialTracer==null) {
 						String msg = String.format("Attempted to acquire VirtualAgent [%s/%s] that had no VirtualTracers. This call must be preceeded by getVirtualTracer(<host>, <agent>, <tracer name>, <timeout>)", host, agent);
@@ -145,9 +209,8 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 					}
 					final String localURI = String.format(ServerTracerFactory.LOCAL_SENDER_URI, vaserial.incrementAndGet()); 
 					va = new VirtualAgent(host, agent, localURI, this);
-					virtualAgents.put(key, va);
-					va.addVirtualTracer(initialTracer);
-					expiryQueue.add(va);
+					putAgent(va);					
+					va.addVirtualTracer(initialTracer);					
 					//metricCatalogService.hostAgentState(true, host, "", agent, localURI);
 					markCatalogAgentState(true, va);
 					incr("InitializationEvents");
@@ -213,31 +276,28 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 	 */
 	public VirtualTracer getVirtualTracer(String host, String agent, String tracerName, long timeout) {
 		final String key = host + ":" + agent;
-		VirtualAgent va = virtualAgents.get(key);
+		VirtualAgent va = getAgent(key);
 		VirtualTracer vt = null;
 		if(va==null) {
 			synchronized(virtualAgents) {
-				va = virtualAgents.get(key);
+				va = getAgent(key);
 				if(va==null) {
 					// need to pre-create tracer
-					vt = new VirtualTracer(host, agent, tracerName, timeout, metricSubmitter);
+					//public VirtualTracer(String host, String agent, String tracerName, long softDownPeriod, AtomicLong touched, MetricSubmitter submitter) {
+					vt = new VirtualTracer(host, agent, tracerName, timeout, new AtomicLong(System.currentTimeMillis()), metricSubmitter);
 					va = getVirtualAgent(host, agent, vt);
+					vt.setAgent(va);
 				} else {
-					if(va.receiver==null) {
-						expiryQueue.add(va);
-					}
 					vt = va.getVirtualTracer(tracerName);
 					if(vt==null) {
 						synchronized(va) {
 							vt = va.getVirtualTracer(tracerName);
 							if(vt==null) {
-								vt = new VirtualTracer(host, agent, tracerName, timeout, metricSubmitter);
+								vt = new VirtualTracer(host, agent, tracerName, timeout, new AtomicLong(System.currentTimeMillis()), metricSubmitter);
+								vt.setAgent(va);
 								va.addVirtualTracer(vt);
 							}
 						}
-					} else {
-						// this horribly breaks the model, but if we don't touch the VT, the VA will expire immedialty
-						vt.touched.set(System.currentTimeMillis());						
 					}
 				}
 			}
@@ -247,7 +307,8 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 				synchronized(va) {
 					vt = va.getVirtualTracer(tracerName);
 					if(vt==null) {
-						vt = new VirtualTracer(host, agent, tracerName, timeout, metricSubmitter);
+						vt = new VirtualTracer(host, agent, tracerName, timeout, new AtomicLong(System.currentTimeMillis()), metricSubmitter);
+						vt.setAgent(va);
 						va.addVirtualTracer(vt);
 					} else {
 						// this horribly breaks the model, but if we don't touch the VT, the VA will expire immedialty
@@ -260,12 +321,6 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 				va.addVirtualTracer(vt);
 			}
 		}					
-		if(vt.receiver==null) {
-			vt.setDelayChangeReceiver(va);
-		}
-		if(va.receiver==null || !expiryQueue.contains(va)) {
-			expiryQueue.add(va);
-		}
 		return vt;
 	}
 	
@@ -287,7 +342,7 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 				while(isStarted()) {
 					try {			
 						Thread.currentThread().join(15000);
-						for(VirtualAgent va: virtualAgents.values()) {
+						for(VirtualAgent va: getAllAgents()) {
 							for(VirtualTracer vt: va) {
 								vt.traceAvailability();
 							}
@@ -328,7 +383,13 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 	 */
 	@ManagedMetric(category="VirtualAgents", displayName="ActiveVirtualAgentCount", metricType=MetricType.GAUGE, description="The number of active VirtualAgents")
 	public int getActiveVirtualAgentCount() {
-		return expiryQueue.size();
+		int active = 0;
+		for(VirtualAgent va: getAllAgents()) {
+			if(va.getState().ordinal() < VirtualState.SOFTDOWN.ordinal()) {
+				active++;
+			}
+		}
+		return active;
 	}
 	
 	/**
@@ -359,7 +420,9 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 		return getMetricValue("InitializationEvents");
 	}
 	
-	
+	/** A descending comparator for VirtualAgents by time to hard down */
+	public static final Comparator<VirtualAgent> DESCENDING_HARD_SORTER = new VirtualAgent.HardDownDescendingComparator();
+
 	/**
 	 * Returns the time in ms. until the next virtual agent expiry unless there is activity.
 	 * Will return -1 if there are no active virtual agents
@@ -367,9 +430,10 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 	 */
 	@ManagedAttribute(description="The time in ms. until the next virtual agent expiry unless there is activity")
 	public long getTimeToNextExpiry() {
-		VirtualAgent va = expiryQueue.peek();
-		if(va==null) return -1L;
-		return va.getTimeToExpiry();
+		TreeSet<VirtualAgent> sorter = new TreeSet<VirtualAgent>(DESCENDING_HARD_SORTER);
+		sorter.addAll(getAllAgents());
+		if(sorter.isEmpty()) return -1L;
+		return sorter.iterator().next().getTimeToHardDown();		
 	}
 	
 	/**
@@ -380,25 +444,9 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 	@Override
 	public void run() {
 		while(isStarted()) {
-			try {			
-				final VirtualAgent va = expiryQueue.poll(pollingPeriod, TimeUnit.MILLISECONDS);
-				if(va==null) continue;
-				info("Expired " + va);				
-				//metricCatalogService.hostAgentState(false, va.getHost(), "", va.getAgent(), va.getLocalURI());
-				markCatalogAgentState(false, va);
-				va.setPendingInvalidation(invalidationScheduler.schedule(new Runnable(){
-					@Override
-					public void run() {
-						info("Invalidated " + va);
-						virtualAgents.remove(va.getKey());
-						va.invalidate();						
-					}
-				}, invalidationPeriod, TimeUnit.MILLISECONDS));
-				incr("ExpirationEvents");			
-			} catch (Exception ex) {
-				if(!isStarted()) break;
-				Thread.interrupted();
-			}
+			// ===============
+			// Run checks on each agent
+			// that cascade into each of the tracers
 		}
 		info("\n\t------------------------------------------------\n\tVirtual Agent Expiration Thread Stopped\n\t------------------------------------------------\n");
 	}

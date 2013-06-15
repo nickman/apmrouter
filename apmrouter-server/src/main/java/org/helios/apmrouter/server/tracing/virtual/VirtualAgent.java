@@ -26,25 +26,24 @@ package org.helios.apmrouter.server.tracing.virtual;
 
 import static org.helios.apmrouter.server.tracing.virtual.VirtualState.INIT;
 
+import java.lang.ref.WeakReference;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.Delayed;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.management.ObjectName;
 
 import org.apache.log4j.Logger;
-import org.helios.apmrouter.collections.delay.DelayChangeReceiver;
-import org.helios.apmrouter.collections.delay.NotifyingDelay;
 import org.helios.apmrouter.jmx.JMXHelper;
+import org.helios.apmrouter.ref.RunnableReferenceQueue;
 
 
 /**
@@ -56,15 +55,11 @@ import org.helios.apmrouter.jmx.JMXHelper;
  * <p><code>org.helios.apmrouter.server.tracing.VirtualAgent</code></p>
  */
 
-public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayChangeReceiver<VirtualAgent>>, DelayChangeReceiver<VirtualTracer>, Runnable, Iterable<VirtualTracer> {
+public class VirtualAgent implements VirtualAgentMXBean, Runnable, Iterable<VirtualTracer> {
 	/** The virtual tracer's state */
 	private final AtomicReference<VirtualState> agentState = new AtomicReference<VirtualState>(INIT);
-	/** The receiver to notify when this agent's delay changes */
-	protected DelayChangeReceiver<VirtualAgent> receiver = null;
-	/** A dynamically sorting set of virtual tracerExpiryQueue, sorted by the expiry time of the tracerExpiryQueue */
-	protected final ConcurrentSkipListSet<VirtualTracer> tracerExpiryQueue = new ConcurrentSkipListSet<VirtualTracer>();
 	/** A map of virtual tracerExpiryQueue keyed by the tracer name */
-	protected final Map<String, VirtualTracer> tracers = new ConcurrentHashMap<String, VirtualTracer>(); 
+	protected final Map<String, WeakReference<VirtualTracer>> tracers = new ConcurrentHashMap<String, WeakReference<VirtualTracer>>(); 
 	/** The agent's host */
 	protected final String host;
 	/** The agent's name */
@@ -73,12 +68,14 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 	protected final String localURI;
 	/** The JMX ObjectName for this virtual agent */
 	protected final ObjectName objectName;
-	/** The schedule handle for this agent's pending invalidation */
-	protected final AtomicReference<ScheduledFuture<?>> pendingInvalidation = new AtomicReference<ScheduledFuture<?>>(null); 
 	/** A reference to the Virtual Agent Manager */
 	protected final VirtualAgentManager vaManager;
 	/** Instance logger */
 	protected final Logger log;
+	/** A reference to the ref cleaner */
+	protected final RunnableReferenceQueue rrq = RunnableReferenceQueue.getInstance();
+	
+
 	
 	/**
 	 * Creates a new VirtualAgent
@@ -96,6 +93,48 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 		objectName = JMXHelper.objectName(String.format(VA_OBJ_NAME, host, agent));
 		JMXHelper.registerMBean(objectName, this);
 		this.vaManager.sendAgentStateChangeNotification(this, VirtualState.INIT, null);
+	}
+	
+	/**
+	 * Returns a set of all the tracers in this agent
+	 * @return a set of all the tracers in this agent
+	 */
+	protected Set<VirtualTracer> getAllTracers() {
+		Set<VirtualTracer> allTracers = new HashSet<VirtualTracer>(tracers.size());
+		for(String tracerName: tracers.keySet()) {
+			VirtualTracer vt = getTracer(tracerName);
+			if(vt!=null) allTracers.add(vt);			
+		}
+		return allTracers;
+	}
+	
+	/**
+	 * Inserts the passed tracer into the tracer map
+	 * @param vt the tracer to add
+	 */
+	protected void putTracer(final VirtualTracer vt) {
+		if(vt==null) throw new IllegalArgumentException("The passed virtual tracer was null", new Throwable());
+		Runnable r = new Runnable() {
+			final String vtName = vt.getName();
+			final String id = getHost() + "/" + getAgent() + ":" + vtName;
+			@Override
+			public void run() {
+				log.info("Virtual Tracer [" + id + "] was evicted");
+				tracers.remove(vtName);
+			}
+		};		
+		tracers.put(vt.getName(), rrq.buildWeakReference(vt, r));
+	}
+	
+	/**
+	 * Retrieves a tracer from the tracer map
+	 * @param name The name of the tracer
+	 * @return the tracer or null if it was not found
+	 */
+	protected VirtualTracer getTracer(String name) {
+		WeakReference<VirtualTracer> ref = tracers.get(name);
+		if(ref==null) return null;
+		return ref.get();
 	}
 	
 	/**
@@ -129,7 +168,7 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 	 * @return the named virtual tracer
 	 */
 	public VirtualTracer getVirtualTracer(String name) {
-		return tracers.get(name);
+		return getTracer(name);
 	}
 	
 	
@@ -152,14 +191,10 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 			if(!tracers.containsKey(vt.getName())) {
 				synchronized(tracers) {
 					if(!tracers.containsKey(vt.getName())) {
-						tracers.put(vt.getName(), vt);
-						vt.setDelayChangeReceiver(this);
-						tracerExpiryQueue.add(vt);
+						putTracer(vt);
 					}					
 				}
 			}
-			tracerExpiryQueue.add(vt);
-			vt.setDelayChangeReceiver(this);
 		}		
 	}
 	
@@ -183,207 +218,46 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 	
 	
 	/**
-	 * <p>Delegates to the tracer with the longest time to expiry.</p>
 	 * {@inheritDoc}
-	 * @see java.util.concurrent.Delayed#getDelay(java.util.concurrent.TimeUnit)
+	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualAgentMXBean#getTimeToSoftDown()
 	 */
 	@Override
-	public long getDelay(TimeUnit unit) {
-		drainExpired();
-		if(tracerExpiryQueue.isEmpty()) return 0;		
-		try {						
-			boolean loop = true;
-			VirtualTracer vt = null;
-			while(loop) {
-				vt = tracerExpiryQueue.last();  
-				long delay = vt.getDelay(unit);
-				if(delay<1) {
-					vt.clearDelayChangeReceiver();
-					try {
-						vt.setRemoveMode(true);
-						boolean removed = tracerExpiryQueue.remove(vt);
-						if(!removed) {
-							log.error("Failed to remove VT on GetDelay:" + vt + "\n\tStarting Iterator Loop....");
-							for(Iterator<VirtualTracer> iter = tracerExpiryQueue.iterator(); iter.hasNext();) {
-								VirtualTracer ivt = iter.next();
-								log.error("Inspecting VT [" + ivt.getSerial() + "]  (target:[" + vt.getSerial() + "])");
-								if(ivt.getSerial()==vt.getSerial()) {
-									iter.remove();
-									log.error("Removed VT [" + ivt.getSerial() + "]");
-									break;
-								}
-							}
-						}
-					} finally {
-						vt.setRemoveMode(false);
-					}
-				} else {
-					return delay;
-				}
-			}
-			return 0;
-		} catch (NoSuchElementException nse) {
-			return 0;
-		}		
-	}
-	
-	/**
-	 * Drains the expired tracers from the tracer expiry queue
-	 */
-	protected void drainExpired() {
-		if(tracerExpiryQueue.isEmpty()) return;
-		VirtualTracer vt = null;
-		try {
-			while(true) {
-				if(log.isTraceEnabled()) log.trace("tracerExpiryQueue: size:" + tracerExpiryQueue.size() + "  last:" + tracerExpiryQueue.last().getTimeToExpiry() + "  first:" + tracerExpiryQueue.first().getTimeToExpiry());
-				vt = tracerExpiryQueue.first();  
-				long tte = vt.getTimeToExpiry();
-				if(tte<1) {
-					vt.clearDelayChangeReceiver();
-					try {
-						vt.setRemoveMode(true);
-						boolean removed = tracerExpiryQueue.remove(vt);
-						if(!removed) {
-							log.error("Failed to remove VT on DrainExpired:" + vt);
-							for(Iterator<VirtualTracer> iter = tracerExpiryQueue.iterator(); iter.hasNext();) {
-								VirtualTracer ivt = iter.next();
-								if(ivt.getSerial()==vt.getSerial()) {
-									iter.remove();
-									break;
-								}
-							}						
-						}
-					} finally {
-						vt.setRemoveMode(false);
-					}
-				} else {
-					break;
-				}
-				if(tracerExpiryQueue.isEmpty()) break;
-			}
-		} catch (Exception ex) {/* No Op */}		
-	}
-	
-	/**
-	 * Returns the time to expiry of the tracer with the longest expiry time in ms.
-	 * @return the time to expiry of the tracer with the longest expiry time
-	 */
-	@Override
-	public long getTimeToExpiry() {
-		try {			
-			return tracerExpiryQueue.last().getTimeToExpiry();
-		} catch (NoSuchElementException nse) {
-			return 0;
-		}				
+	public long getTimeToSoftDown() {
+		TreeSet<VirtualTracer> sorter = new TreeSet<VirtualTracer>(DESCENDING_SOFT_SORTER);
+		sorter.addAll(getAllTracers());
+		if(sorter.isEmpty()) return -1L;
+		return sorter.iterator().next().getTimeToSoftDown();
 	}
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualAgentMXBean#getTimeToNextTracerExpiry()
+	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualAgentMXBean#getTimeToHardDown()
 	 */
 	@Override
-	public long getTimeToNextTracerExpiry() {
-		try {			
-			return tracerExpiryQueue.first().getTimeToExpiry();
-		} catch (NoSuchElementException nse) {
-			return 0;
-		}				
+	public long getTimeToHardDown() {
+		TreeSet<VirtualTracer> sorter = new TreeSet<VirtualTracer>(DESCENDING_HARD_SORTER);
+		sorter.addAll(getAllTracers());
+		if(sorter.isEmpty()) return -1L;
+		return sorter.iterator().next().getTimeToHardDown();		
 	}
 	
-
-	/**
-	 * {@inheritDoc}
-	 * @see java.lang.Comparable#compareTo(java.lang.Object)
-	 */
-	@Override
-	public int compareTo(Delayed o) {
-		try {			
-			return tracerExpiryQueue.last().compareTo(o);
-		} catch (NoSuchElementException nse) {
-			return 0;
-		}		
-	}
-
-//	/**
-//	 * {@inheritDoc}
-//	 * @see org.helios.apmrouter.collections.delay.NotifyingDelay#setDelayChangeReceiver(org.helios.apmrouter.collections.delay.DelayChangeReceiver)
-//	 */
-//	@Override
-//	public void setDelayChangeReceiver(DelayChangeReceiver<NotifyingDelay> receiver) {
-//		
-//		
-//	}
+	/** A descending comparator for VirtualTracers by time to soft down */
+	public static final Comparator<VirtualTracer> DESCENDING_SOFT_SORTER = new VirtualTracer.SoftDownDescendingComparator();
+	/** A descending comparator for VirtualTracers by time to hard down */
+	public static final Comparator<VirtualTracer> DESCENDING_HARD_SORTER = new VirtualTracer.HardDownDescendingComparator();
+	/** A descending comparator for VirtualTracers by last touch time */
+	public static final Comparator<VirtualTracer> DESCENDING_LT_SORTER = new VirtualTracer.LastTouchDescendingComparator();
 	
-//	/**
-//	 * {@inheritDoc}
-//	 * @see org.helios.apmrouter.collections.delay.NotifyingDelay#setDelayChangeReceiver(org.helios.apmrouter.collections.delay.DelayChangeReceiver)
-//	 */
-//	@Override
-//	public void setDelayChangeReceiver(DelayChangeReceiver<NotifyingDelay<VirtualAgent>> receiver) {
-//		this.receiver = receiver;
-//		
-//	}
 	
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.collections.delay.NotifyingDelay#setDelayChangeReceiver(org.helios.apmrouter.collections.delay.DelayChangeReceiver)
-	 */
-	@Override
-	public void setDelayChangeReceiver(DelayChangeReceiver<VirtualAgent> receiver) {
-		this.receiver = receiver;		
-		cancelInvalidation();
-	}
-
-
-
-	/**
-	 * <p>Called when this virtual agent expires</p>
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.collections.delay.NotifyingDelay#clearDelayChangeReceiver()
-	 */
-	@Override
-	public void clearDelayChangeReceiver() {
-		this.receiver = null;
-		for(VirtualTracer vt: tracerExpiryQueue) {
-			vt.clearDelayChangeReceiver();
-		}
-		tracerExpiryQueue.clear();
-	}
 	
-	void onStateChange(VirtualTracer tracer) {
-		
-	}
-
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.collections.delay.DelayChangeReceiver#onDelayChange(org.helios.apmrouter.collections.delay.NotifyingDelay, long)
-	 */
-	@Override
-	public void onDelayChange(VirtualTracer virtualTracer, long updateTimestamp) {
-		if(virtualTracer==null) return;
-		virtualTracer.setRemoveMode(true);
-		if(tracerExpiryQueue.remove(virtualTracer)) {
-			virtualTracer.setRemoveMode(false);
-			tracerExpiryQueue.add(virtualTracer);			
-			receiver.onDelayChange(this, updateTimestamp);
-		} else {
-			tracerExpiryQueue.add(virtualTracer);			
-			receiver.onDelayChange(this, updateTimestamp);			
-		}
-		virtualTracer.setUpdatedTimestamp(updateTimestamp);
-		VirtualState priorState = setState(VirtualState.UP);
-		if(priorState==VirtualState.SOFTDOWN) {
-			vaManager.markCatalogAgentState(true, this);
-			tracerExpiryQueue.add(virtualTracer);
-		}
-	}
 	
+
 	/**
 	 * Touches all the agent's tracers
 	 */
 	@Override
 	public void touch() {
-		for(VirtualTracer vt: tracers.values()) {
+		for(VirtualTracer vt: getAllTracers()) {
 			vt.touch();
 		}
 	}
@@ -413,9 +287,8 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 	@Override
 	public void expire() {
 		setState(VirtualState.SOFTDOWN);
-		for(Iterator<VirtualTracer> iter = tracerExpiryQueue.iterator(); iter.hasNext();) {
-			iter.next().expire();
-			iter.remove();
+		for(VirtualTracer vt: getAllTracers()) {
+			vt.expire();
 		}		
 	}
 	
@@ -427,11 +300,10 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 	public void invalidate() {		
 		setState(VirtualState.HARDDOWN);
 		JMXHelper.unregisterMBean(objectName);
-		for(VirtualTracer vt: tracers.values()) {
+		for(VirtualTracer vt: getAllTracers()) {
 			vt.invalidate();
 		}
 		tracers.clear();
-		tracerExpiryQueue.clear();		
 	}
 	
 	/**
@@ -440,7 +312,11 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 	 */
 	@Override
 	public Map<String, VirtualTracerMBean> getVirtualTracers() {
-		return Collections.unmodifiableMap(new HashMap<String, VirtualTracerMBean>(tracers));
+		Map<String, VirtualTracerMBean> map = new HashMap<String, VirtualTracerMBean>(tracers.size());
+		for(VirtualTracer vt: getAllTracers()) {
+			map.put(vt.getName(), vt);
+		}
+		return Collections.unmodifiableMap(map);
 	}
 	
 
@@ -451,8 +327,11 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 	@Override
 	public long getLastTouchTimestamp() {
 		try {			
-			return tracerExpiryQueue.first().getLastTouchTimestamp();
-		} catch (NoSuchElementException nse) {
+			TreeSet<VirtualTracer> sorter = new TreeSet<VirtualTracer>(DESCENDING_LT_SORTER);
+			sorter.addAll(getAllTracers());
+			if(sorter.isEmpty()) return -1L;
+			return sorter.iterator().next().getLastTouchTimestamp();		
+		} catch (Exception nse) {
 			return 0;
 		}		
 	}
@@ -464,8 +343,8 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 	@Override
 	public Date getLastTouchDate() {
 		try {			
-			return tracerExpiryQueue.first().getLastTouchDate();
-		} catch (NoSuchElementException nse) {
+			return new Date(getLastTouchTimestamp());
+		} catch (Exception nse) {
 			return null;
 		}		
 	}
@@ -485,7 +364,7 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 	 */
 	@Override
 	public int getActiveTracerCount() {
-		return tracerExpiryQueue.size();
+		return tracers.size();
 	}
 
 	/**
@@ -533,7 +412,7 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 	 */
 	@Override
 	public String toString() {
-		return String.format("VirtualAgent [host:%s, agent:%s, uri:%s, tte:%s ms.]", host, agent, localURI, getTimeToExpiry());
+		return String.format("VirtualAgent [host:%s, agent:%s, uri:%s]", host, agent, localURI);
 	}
 
 	/**
@@ -554,51 +433,9 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 		log.info("Invalidating " + this);
 		for(VirtualTracer t: this) {
 			t.invalidate();
-		}
-		tracers.clear();
-		tracerExpiryQueue.clear();
-		pendingInvalidation.set(null);
+		}			
 	}
 	
-	/**
-	 * Cancels a pending invalidation
-	 */
-	void cancelInvalidation() {
-		ScheduledFuture<?> handle = pendingInvalidation.getAndSet(null);
-		if(handle!=null) {
-			handle.cancel(false);
-		}
-	}
-
-	/**
-	 * Returns the schedule handle for this agent's pending invalidation
-	 * @return the pendingInvalidation the invalidation handle
-	 */
-	ScheduledFuture<?> getPendingInvalidation() {
-		return pendingInvalidation.get();
-	}
-	
-	/**
-	 * Sets the invalidation handle for this agent
-	 * @param scheduleHandle the invalidation handle
-	 */
-	void setPendingInvalidation(ScheduledFuture<?> scheduleHandle) {
-		setState(VirtualState.SOFTDOWN);
-		pendingInvalidation.set(scheduleHandle);
-	}
-	
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualAgentMXBean#getTimeToInvalidation()
-	 */
-	@Override
-	public long getTimeToInvalidation() {
-		ScheduledFuture<?> scheduleHandle = pendingInvalidation.get();
-		if(scheduleHandle!=null) {
-			return scheduleHandle.getDelay(TimeUnit.MILLISECONDS);
-		} 
-		return -1L;
-	}
 
 	/**
 	 * {@inheritDoc}
@@ -606,17 +443,35 @@ public class VirtualAgent implements VirtualAgentMXBean, NotifyingDelay<DelayCha
 	 */
 	@Override
 	public Iterator<VirtualTracer> iterator() {
-		return Collections.unmodifiableCollection(tracers.values()).iterator();
+		return Collections.unmodifiableCollection(getAllTracers()).iterator();
 	}
 
 	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.collections.delay.NotifyingDelay#setUpdatedTimestamp(long)
+	 * <p>Title: HardDownDescendingComparator</p>
+	 * <p>Description: Hard down time descending based comparator for virtual agents</p> 
+	 * <p>Company: Helios Development Group LLC</p>
+	 * @author Whitehead (nwhitehead AT heliosdev DOT org)
+	 * <p><code>org.helios.apmrouter.server.tracing.virtual.VirtualAgent.HardDownDescendingComparator</code></p>
 	 */
-	@Override
-	public void setUpdatedTimestamp(long timestamp) {
-		// No Op		
+	public static class HardDownDescendingComparator implements Comparator<VirtualAgent> {
+		/**
+		 * {@inheritDoc}
+		 * @see java.util.Comparator#compare(java.lang.Object, java.lang.Object)
+		 */
+		@Override
+		public int compare(VirtualAgent vt1, VirtualAgent vt2) {
+			long vt1Time = vt1.getTimeToHardDown();
+			long vt2Time = vt2.getTimeToHardDown();
+			if(vt1Time<0) vt1Time = Long.MAX_VALUE;
+			if(vt2Time<0) vt2Time = Long.MAX_VALUE;			
+			if(vt1Time < vt2Time) return 1;
+			if(vt2Time < vt1Time) return -1;
+			return 1;
+		}
+		
 	}
+
+
 
 
 	

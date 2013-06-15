@@ -69,18 +69,20 @@ public interface VirtualAgentMXBean  {
 	 */
 	public void invalidate();
 	
+	/**
+	 * Returns the time until this virtual agent transitions to {@link VirtualState#SOFTDOWN}, unless there is additional activity
+	 * @return the time until this virtual agent tracer transitions to {@link VirtualState#SOFTDOWN}, or -1 if it is already DOWN.
+	 */
+	public long getTimeToSoftDown();
 	
 	/**
-	 * Returns the number of ms. until expiry
-	 * @return the imminent expiry time unless touched in ms.
+	 * Returns the time until this virtual agent transitions to {@link VirtualState#HARDDOWN}, unless there is additional activity
+	 * @return the time until this virtual agent tracer transitions to {@link VirtualState#HARDDOWN}, or -1 if it is already DOWN.
 	 */
-	public long getTimeToExpiry();
+	public long getTimeToHardDown();
 	
-	/**
-	 * Returns the number of ms. until the next virtual tracer expiry
-	 * @return the number of ms. until the next virtual tracer expiry
-	 */
-	public long getTimeToNextTracerExpiry();
+	
+	
 	
 	/**
 	 * Returns the last touch timestamp for this virtual agent
@@ -106,11 +108,6 @@ public interface VirtualAgentMXBean  {
 	 */
 	public int getActiveTracerCount();
 	
-	/**
-	 * Returns the time to invalidation in ms. or -1 if invalidation is not pending.
-	 * @return the time to invalidation in ms.
-	 */
-	public long getTimeToInvalidation();
 	
 	
 	/**
