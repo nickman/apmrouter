@@ -332,28 +332,28 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 	@Override
 	protected void doStart() throws Exception {		
 		//super.onApplicationContextStart(event);
-		expirationThread = new Thread(this, "VirtualAgentExpirationThread#" + serial.incrementAndGet());
-		expirationThread.setDaemon(true);
-		started.set(true);
-		expirationThread.start();
-		availabilityThread = new Thread(new Runnable(){
-			@Override
-			public void run() {
-				while(isStarted()) {
-					try {			
-						Thread.currentThread().join(15000);
-						for(VirtualAgent va: getAllAgents()) {
-							for(VirtualTracer vt: va) {
-								vt.traceAvailability();
-							}
-						}
-					} catch (Exception ex) {}
-				}
-			}
-		}, "VirtualTracerAvailabilityThread#" + serial.incrementAndGet());
-		availabilityThread.setDaemon(true);
-		availabilityThread.start();
-		info("Virtual Agent Expiration Thread Started");
+//		expirationThread = new Thread(this, "VirtualAgentExpirationThread#" + serial.incrementAndGet());
+//		expirationThread.setDaemon(true);
+//		started.set(true);
+//		expirationThread.start();
+//		availabilityThread = new Thread(new Runnable(){
+//			@Override
+//			public void run() {
+//				while(isStarted()) {
+//					try {			
+//						Thread.currentThread().join(15000);
+//						for(VirtualAgent va: getAllAgents()) {
+//							for(VirtualTracer vt: va) {
+//								vt.traceAvailability();
+//							}
+//						}
+//					} catch (Exception ex) {}
+//				}
+//			}
+//		}, "VirtualTracerAvailabilityThread#" + serial.incrementAndGet());
+//		availabilityThread.setDaemon(true);
+//		availabilityThread.start();
+//		info("Virtual Agent Expiration Thread Started");
 		
 	}
 	

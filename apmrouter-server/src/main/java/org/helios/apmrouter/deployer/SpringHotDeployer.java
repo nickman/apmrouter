@@ -188,7 +188,8 @@ public class SpringHotDeployer extends ServerComponentBean  {
 	 */
 	protected void initDefaultHotDir() {
 		if(!disableDefaultHotDir) {
-			File defaultHotDir = new File(System.getProperty("user.home") + File.separator + ".apmrouter" + File.separator + "hotdir");
+			String defaultHotDirName = System.getProperty(HOT_DIR_PROP, DEFAULT_HOT_DIR);
+			File defaultHotDir = new File(defaultHotDirName);
 			if(defaultHotDir.exists()) {
 				if(!defaultHotDir.isDirectory()) {
 					warn("\n\t###########################################\n\tProblem: The default hot deploy directory [", defaultHotDir, "] exists but it is a file\n\t###########################################\n");
