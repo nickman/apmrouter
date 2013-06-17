@@ -40,9 +40,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.AttributeChangeNotification;
+import javax.management.ObjectName;
 
 import org.helios.apmrouter.catalog.DChannelEvent;
 import org.helios.apmrouter.catalog.MetricCatalogService;
+import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.ref.RunnableReferenceQueue;
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.server.services.session.SharedChannelGroup;
@@ -53,6 +55,7 @@ import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.export.annotation.ManagedNotification;
 import org.springframework.jmx.export.annotation.ManagedNotifications;
+import org.springframework.jmx.export.annotation.ManagedResource;
 import org.springframework.jmx.support.MetricType;
 
 /**
@@ -66,6 +69,7 @@ import org.springframework.jmx.support.MetricType;
 	@ManagedNotification(description="Notification issued when a virtual agent changes state", name="javax.management.AttributeChangeNotification", notificationTypes={"jmx.attribute.change"}),
 	@ManagedNotification(description="Notification issued when a virtual tracer changes state", name="javax.management.AttributeChangeNotification", notificationTypes={"jmx.attribute.change"})
 })
+@ManagedResource(objectName="org.helios.apmrouter.agent:service=VirtualAgentManager", description="The VirtualAgent management service")
 public class VirtualAgentManager extends ServerComponentBean implements Runnable {
 	/** Invalidation scheduler */
 	protected static final ScheduledExecutorService invalidationScheduler = Executors.newScheduledThreadPool(1, new ThreadFactory(){
@@ -236,88 +240,100 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 		notif.setUserData(AGENT_STATE_CHANGE_NOTIF);
 		notificationPublisher.sendNotification(notif);
 		if(priorState!=null) {
-			switch(priorState) {
-			case HARDDOWN:
-				switch(newState) {
-				case INIT:
-					oddSateChange(newState, priorState);
-					break;
-				case SOFTDOWN:
-					oddSateChange(newState, priorState);
-					break;
-				case UP:
-					// =====================================================
-					// HARDDOWN  -->  UP
-					// Reregister MBean if not registered
-					// Cancel countdown
-					// =====================================================
-					break;
-				case HARDDOWN:
-					oddSateChange(newState, priorState);
-					break;			
-				}
-			case INIT:
-				switch(newState) {
-				case HARDDOWN:
-					oddSateChange(newState, priorState);
-					break;
-				case SOFTDOWN:
-					oddSateChange(newState, priorState);
-					break;
-				case UP:
-					// =====================================================
-					// INIT  -->  UP
-					// Nothing to do ?
-					// =====================================================					
-					break;
-				case INIT:
-					oddSateChange(newState, priorState);
-					break;			
-				}			
-			case SOFTDOWN:
-				switch(newState) {
-				case HARDDOWN:
-					// =====================================================
-					// SOFTDOWN  -->  HARDDOWN
-					// Start count-down to unregister MBean
-					// =====================================================					
-					break;
-				case INIT:
-					oddSateChange(newState, priorState);
-					break;
-				case UP:
-					// =====================================================
-					// SOFTDOWN  -->  UP
-					// Nothing to do ?
-					// =====================================================										
-					break;
-				case SOFTDOWN:
-					oddSateChange(newState, priorState);
-					break;			
-				}			
-			case UP:
-				switch(newState) {
-				case HARDDOWN:
-					// =====================================================
-					// UP  -->  HARDDOWN
-					// Start count-down to unregister MBean
-					// =====================================================					
-					break;
-				case INIT:
-					oddSateChange(newState, priorState);
-					break;
-				case SOFTDOWN:
-					// =====================================================
-					// UP  -->  SOFTDOWN
-					// Nothing to do ?
-					// =====================================================										
-					break;
-				case UP:
-					oddSateChange(newState, priorState);
-					break;
-				}						
-			}
+			testStateChange(priorState, newState);
 		}
+	}
+	
+	/**
+	 * Logs unexpected state changes
+	 * @param priorState The prior state
+	 * @param newState The new state
+	 */
+	void testStateChange(VirtualState priorState, VirtualState newState) {
+		switch(priorState) {
+		case HARDDOWN:
+			switch(newState) {
+			case INIT:
+				oddSateChange(newState, priorState);
+				break;
+			case SOFTDOWN:
+				oddSateChange(newState, priorState);
+				break;
+			case UP:
+				// =====================================================
+				// HARDDOWN  -->  UP
+				// Reregister MBean if not registered
+				// Cancel countdown
+				// =====================================================
+				break;
+			case HARDDOWN:
+				oddSateChange(newState, priorState);
+				break;			
+			}
+			break;
+		case INIT:
+			switch(newState) {
+			case HARDDOWN:
+				oddSateChange(newState, priorState);
+				break;
+			case SOFTDOWN:
+				oddSateChange(newState, priorState);
+				break;
+			case UP:
+				// =====================================================
+				// INIT  -->  UP
+				// Nothing to do ?
+				// =====================================================					
+				break;
+			case INIT:
+				oddSateChange(newState, priorState);
+				break;			
+			}			
+			break;
+		case SOFTDOWN:
+			switch(newState) {
+			case HARDDOWN:
+				// =====================================================
+				// SOFTDOWN  -->  HARDDOWN
+				// Start count-down to unregister MBean
+				// =====================================================					
+				break;
+			case INIT:
+				oddSateChange(newState, priorState);
+				break;
+			case UP:
+				// =====================================================
+				// SOFTDOWN  -->  UP
+				// Nothing to do ?
+				// =====================================================										
+				break;
+			case SOFTDOWN:
+				oddSateChange(newState, priorState);
+				break;			
+			}		
+			break;
+		case UP:
+			switch(newState) {
+			case HARDDOWN:
+				// =====================================================
+				// UP  -->  HARDDOWN
+				// Start count-down to unregister MBean
+				// =====================================================					
+				break;
+			case INIT:
+				oddSateChange(newState, priorState);
+				break;
+			case SOFTDOWN:
+				// =====================================================
+				// UP  -->  SOFTDOWN
+				// Nothing to do ?
+				// =====================================================										
+				break;
+			case UP:
+				oddSateChange(newState, priorState);
+				break;
+			}						
+		}		
 	}
 	
 	/**
@@ -528,6 +544,15 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 	}
 	
 	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#getComponentObjectName()
+	 */
+	@Override
+	public ObjectName getComponentObjectName() {
+		return JMXHelper.objectName("org.helios.apmrouter.agent:service=VirtualAgentManager");
+	}
+	
+	/**
 	 * <p>The runnable to pull from the virtual agent expiry queue</p>
 	 * {@inheritDoc}
 	 * @see java.lang.Runnable#run()
@@ -535,7 +560,8 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 	@Override
 	public void run() {
 		for(VirtualAgent va: getAllAgents()) {
-			
+			if(va.isInvalid()) continue;
+			va.check();
 		}
 //		while(isStarted()) {
 //			// ===============

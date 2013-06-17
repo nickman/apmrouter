@@ -516,13 +516,11 @@ public class JMXCollector2 extends AbstractCollector {
      * @param availability 0 for down, 1 for up
      */
     protected void traceAvailability(int availability) {
-    	if(tracer instanceof VirtualTracer) {
-    		if(availabilitySegment!=null) {
-    			((VirtualTracer)tracer).traceGauge(availability, defaultAvailabilityLabel, availabilitySegment);
-    		} else {
-    			((VirtualTracer)tracer).traceGauge(availability, defaultAvailabilityLabel, getTracingNameSpace());        			
-    		}
-    	}
+		if(availabilitySegment!=null) {
+			tracer.getDirectTracer().traceGauge(availability, defaultAvailabilityLabel, availabilitySegment);
+		} else {
+			tracer.getDirectTracer().traceGauge(availability, defaultAvailabilityLabel, getTracingNameSpace());        			
+		}
     }
 
 

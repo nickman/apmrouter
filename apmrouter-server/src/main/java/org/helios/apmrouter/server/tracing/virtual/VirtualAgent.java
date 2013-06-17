@@ -134,16 +134,23 @@ public class VirtualAgent implements VirtualAgentMXBean, Runnable, Iterable<Virt
 	 */
 	protected void putTracer(final VirtualTracer vt) {
 		if(vt==null) throw new IllegalArgumentException("The passed virtual tracer was null", new Throwable());
-		Runnable r = new Runnable() {
-			final String vtName = vt.getName();
-			final String id = getHost() + "/" + getAgent() + ":" + vtName;
-			@Override
-			public void run() {
-				log.info("Virtual Tracer [" + id + "] was evicted");
-				tracers.remove(vtName);
+		final String vtName = vt.getName();
+		if(!tracers.containsKey(vtName)) {
+			synchronized(tracers) {
+				if(!tracers.containsKey(vtName)) {
+					Runnable r = new Runnable() {			
+						final String id = getHost() + "/" + getAgent() + ":" + vtName;
+						@Override
+						public void run() {
+							log.info("Virtual Tracer [" + id + "] was evicted");
+							tracers.remove(vtName);
+						}
+					};
+					tracers.put(vt.getName(), rrq.buildWeakReference(vt, r));					
+				}
 			}
-		};		
-		tracers.put(vt.getName(), rrq.buildWeakReference(vt, r));
+		}
+		
 	}
 	
 	/**
@@ -166,7 +173,23 @@ public class VirtualAgent implements VirtualAgentMXBean, Runnable, Iterable<Virt
 		if(state==null) throw new IllegalArgumentException("The passed state was null", new Throwable());
 		VirtualState priorState = agentState.getAndSet(state);
 		if(priorState!=state) {
-			this.vaManager.sendAgentStateChangeNotification(this, state, priorState);
+			if(priorState!=state) {
+				// ================================================================
+				// Case statement for non-timestamp or state actions to fire
+				// on a valid state change
+				// ================================================================
+				switch(state) {
+					case HARDDOWN:
+						unregisterJmx();
+						break;
+					case SOFTDOWN:
+						break;
+					case UP:
+						registerJmx();
+						break;
+				}
+				this.vaManager.sendAgentStateChangeNotification(this, state, priorState);
+			}			
 		}
 		return priorState;
 	}
@@ -177,8 +200,11 @@ public class VirtualAgent implements VirtualAgentMXBean, Runnable, Iterable<Virt
 	 * @param state The state the tracer transitioned to
 	 * @param priorState The prior state of the tracer
 	 */
-	void onTracerStateChange(String tracerName, VirtualState state, VirtualState priorState) {
-		vaManager.sendTracerStateChangeNotification(this, tracerName, state, priorState);
+	void onTracerStateChange(VirtualTracer tracer, VirtualState state, VirtualState priorState) {
+		if(state==VirtualState.UP && priorState!=state) {
+			putTracer(tracer);			
+		}
+		vaManager.sendTracerStateChangeNotification(this, tracer.getName(), state, priorState);
 	}
 	
 
@@ -275,6 +301,7 @@ public class VirtualAgent implements VirtualAgentMXBean, Runnable, Iterable<Virt
 	public void check() {
 		long currentTime = System.currentTimeMillis();
 		for(VirtualTracer vt: getAllTracers()) {
+			if(vt.isInvalid()) continue;
 			vt.checkState(currentTime);
 		}
 		if(getTimeToHardDown()<1) {
@@ -345,8 +372,7 @@ public class VirtualAgent implements VirtualAgentMXBean, Runnable, Iterable<Virt
 		JMXHelper.unregisterMBean(objectName);
 		for(VirtualTracer vt: getAllTracers()) {
 			vt.invalidate();
-		}
-		tracers.clear();
+		}		
 	}
 	
 	/**
@@ -361,6 +387,24 @@ public class VirtualAgent implements VirtualAgentMXBean, Runnable, Iterable<Virt
 		}
 		return Collections.unmodifiableMap(map);
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualAgentMXBean#isInvalid()
+	 */
+	@Override
+	public boolean isInvalid() {
+		return getState()==VirtualState.HARDDOWN;
+	}
+	
+	/**
+	 * Determines if this virtual agent has been expired or invalidated
+	 * @return true if this virtual agent has been expired or invalidated, false otherwise
+	 */
+	public boolean isExpired() {
+		return getState().ordinal()>=VirtualState.SOFTDOWN.ordinal();
+	}
+	
 	
 
 	/**

@@ -47,6 +47,12 @@ public interface ITracer {
 	public void resetStats();
 	
 	/**
+	 * Returns the inner (un-intercepted) delegate tracer for this tracer, or if there is no inner, returns itself.
+	 * @return the innner tracer or this.
+	 */
+	public ITracer getDirectTracer();
+	
+	/**
 	 * Creates and sends an {@link ICEMetric} 
 	 * @param value The value of the metric
 	 * @param name The name of the metric

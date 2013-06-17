@@ -70,6 +70,18 @@ public interface VirtualAgentMXBean  {
 	public void invalidate();
 	
 	/**
+	 * Determines if this virtual agent has been invalidated
+	 * @return true if this virtual agent has been invalidated, false otherwise
+	 */
+	public boolean isInvalid();
+	
+	/**
+	 * Determines if this virtual agent has been expired or invalidated
+	 * @return true if this virtual agent has been expired or invalidated, false otherwise
+	 */
+	public boolean isExpired();
+	
+	/**
 	 * Returns the time until this virtual agent transitions to {@link VirtualState#SOFTDOWN}, unless there is additional activity
 	 * @return the time until this virtual agent tracer transitions to {@link VirtualState#SOFTDOWN}, or -1 if it is already DOWN.
 	 */

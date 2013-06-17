@@ -139,15 +139,11 @@ public abstract class AbstractProtocolInitiator extends ServerComponentBean impl
 	
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.unification.protocol.ProtocolInitiator#match(int, int)
+	 * @see org.helios.apmrouter.server.unification.protocol.ProtocolInitiator#requiredBytes()
 	 */
 	@Override
-	public boolean match(int magic1, int magic2) {
-		boolean match = (myMagic1==magic1 && myMagic2==magic2);
-		if(match) incr("ProtocolInitiates");
-		return match;
-	}
-	
+	public abstract int requiredBytes();
+
 	/**
 	 * <p>By default, returns false. Concrete impls should extend this if they cannot match 
 	 * on the magic ints but can match on the buffer.</p>
@@ -182,41 +178,8 @@ public abstract class AbstractProtocolInitiator extends ServerComponentBean impl
 		return metrics;
 	}
 
-	/**
-	 * Returns the protocol recognition magic int 1
-	 * @return the protocol recognition magic int 1
-	 */
-	@Override
-	@ManagedAttribute(description="The protocol recognition magic int 1")
-	public int getMyMagic1() {
-		return myMagic1;
-	}
 
-	/**
-	 * Sets the protocol recognition magic int 1
-	 * @param myMagic1 the protocol recognition magic int 1
-	 */
-	public void setMyMagic1(int myMagic1) {
-		this.myMagic1 = myMagic1;
-	}
 
-	/**
-	 * Returns the protocol recognition magic int 2
-	 * @return the protocol recognition magic int 2
-	 */
-	@Override
-	@ManagedAttribute(description="The protocol recognition magic int 1")
-	public int getMyMagic2() {
-		return myMagic2;
-	}
-
-	/**
-	 * Sets the protocol recognition magic int 2
-	 * @param myMagic2 the protocol recognition magic int 2
-	 */
-	public void setMyMagic2(int myMagic2) {
-		this.myMagic2 = myMagic2;
-	}
 
 	/**
 	 * Returns 

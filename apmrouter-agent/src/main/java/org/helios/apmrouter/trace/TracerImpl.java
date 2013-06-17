@@ -67,6 +67,15 @@ public class TracerImpl implements ITracer {
 	}
 	
 	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#getDirectTracer()
+	 */
+	@Override
+	public ITracer getDirectTracer() {
+		return this;
+	}
+	
+	/**
 	 * Coerces a long from an object
 	 * @param value The value to coerce
 	 * @return The coerced long

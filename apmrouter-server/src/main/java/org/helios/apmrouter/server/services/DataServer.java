@@ -40,6 +40,9 @@ public class DataServer extends TCPAgentListener  {
 	/** The data server pipeline factory */
 	protected ServerPipelineFactory pipelineFactory;
 	
+	/**
+	 * Creates a new DataServer
+	 */
 	protected DataServer() {
 		super();
 		channelOptions.put("child.keepAlive", true);

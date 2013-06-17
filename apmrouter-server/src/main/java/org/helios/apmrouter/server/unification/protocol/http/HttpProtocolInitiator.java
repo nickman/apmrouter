@@ -44,6 +44,15 @@ public class HttpProtocolInitiator extends AbstractProtocolInitiator {
 	protected HttpPipelineModifier pipelineModifier = null;
 	
 	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.unification.protocol.ProtocolInitiator#requiredBytes()
+	 */
+	@Override
+	public int requiredBytes() {
+		return 2;
+	}
+	
+	/**
 	 * Creates a new HttpProtocolInitiator
 	 */
 	protected HttpProtocolInitiator() {
@@ -58,14 +67,7 @@ public class HttpProtocolInitiator extends AbstractProtocolInitiator {
 		pipelineModifier.modifyPipeline(ctx, channel, buffer);
 	}
 	
-	/**
-	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.unification.protocol.ProtocolInitiator#match(int, int)
-	 */
-	@Override
-	public boolean match(int magic1, int magic2) {
-		return isHttp(magic1, magic2);
-	}	
+
 	
 	/**
 	 * {@inheritDoc}
@@ -73,7 +75,7 @@ public class HttpProtocolInitiator extends AbstractProtocolInitiator {
 	 */
 	@Override
 	public boolean match(ChannelBuffer buf) {
-		return false;
+		return isHttp(buf.getUnsignedByte(0), buf.getUnsignedByte(1));
 	}
 	
 	/**

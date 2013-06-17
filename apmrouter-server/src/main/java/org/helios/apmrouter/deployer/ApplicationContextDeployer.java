@@ -87,7 +87,7 @@ public class ApplicationContextDeployer {
 			if(!f.canRead()) throw new Exception("Cannot read file [" + fe + "]", new Throwable());
 			HotDeployerClassLoader cl = findClassLoader(f);
 			cl.init();
-			StringBuilder b = new StringBuilder("\nHotDeployerClassLoader URLs [");
+			StringBuilder b = new StringBuilder("\nHotDeployerClassLoader URLs for [").append(fe.getFileName()).append("]\t [");
 			for(URL url: cl.getURLs()) {
 				b.append("\n\t").append(url);
 			}

@@ -24,18 +24,23 @@
  */
 package org.helios.apmrouter.server.unification.protocol;
 
+import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBufferFactory;
+import org.jboss.netty.buffer.DirectChannelBufferFactory;
+import org.jboss.netty.buffer.DynamicChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelEvent;
 import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelPipeline;
+import org.jboss.netty.channel.ChannelLocal;
 import org.jboss.netty.channel.ChannelUpstreamHandler;
 import org.jboss.netty.channel.MessageEvent;
+import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 
@@ -50,8 +55,15 @@ public class ProtocolSwitch extends ServerComponentBean implements ChannelUpstre
 	
 	/** A map of {@link  ProtocolInitiator}s keyed by their bean name */
 	protected final Map<String, ProtocolInitiator> initiators = new ConcurrentHashMap<String, ProtocolInitiator>();
-	/** A map of {@link  ProtocolInitiator}s keyed by a magic long know to be a match */
-	protected final Map<Long, ProtocolInitiator> cachedMatchInitiators = new ConcurrentHashMap<Long, ProtocolInitiator>();
+//	/** A map of {@link  ProtocolInitiator}s keyed by a magic long know to be a match */
+//	protected final Map<Long, ProtocolInitiator> cachedMatchInitiators = new ConcurrentHashMap<Long, ProtocolInitiator>();
+	
+	/** A channel local to accumulate unclassified buffers */
+	protected final ChannelLocal<DynamicChannelBuffer> preSwitchedBuffer = new ChannelLocal<DynamicChannelBuffer>(true);
+	
+	/** The channel buffer factory */
+	protected final ChannelBufferFactory chanelBufferFactory = new DirectChannelBufferFactory(ByteOrder.nativeOrder(), 1024);
+
 	
 	/**
 	 * Creates a new ProtocolSwitch and adds {@link ProtocolInitiatorStarted} and {@link ProtocolInitiatorStopped} to
@@ -115,51 +127,73 @@ public class ProtocolSwitch extends ServerComponentBean implements ChannelUpstre
 		if(e instanceof MessageEvent) {
 			MessageEvent me = (MessageEvent) e;
 			if(me.getMessage() instanceof ChannelBuffer) {
-				protocolSwitch(ctx, e.getChannel(), (ChannelBuffer)me.getMessage(), e);
+				ChannelBuffer postDetectBuffer = protocolSwitch(ctx, e.getChannel(), (ChannelBuffer)me.getMessage(), e);
+				if(postDetectBuffer!=null) {	
+					ctx.getPipeline().remove(this);
+					ctx.sendUpstream(new UpstreamMessageEvent(e.getChannel(), postDetectBuffer, ((MessageEvent) e).getRemoteAddress()));					
+				}
 			}
+		} else {
+			ctx.sendUpstream(e);
 		}
-		ctx.sendUpstream(e);		
 	}	
 	
 
 	/**
-	 * Examines the first 2 unsigned bytes of the channel buffer and attempts to match the protocol of the request and invoke the matching {@link ProtocolInitiator}.
+	 * Examines the channel buffer and attempts to match the protocol of the request and invoke the matching {@link ProtocolInitiator}.
 	 * @param ctx The channel handler context
 	 * @param channel The channel
-	 * @param buffer The message buffer
+	 * @param bufferx The message buffer
 	 * @param e The channel event
+	 * @return The channel buffer to send upstream, or null if we need more bytes
 	 */
-	protected void protocolSwitch(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer, ChannelEvent e)  {
-		// Will use the first two bytes to detect a protocol.
-		if (buffer.readableBytes() < 2) {			
-			return;
-		}	
-		ChannelPipeline pipeline = ctx.getPipeline();
-		final int magic1 = buffer.getUnsignedByte(buffer.readerIndex());  // 22 and 3 for RMI/JMX
-		final int magic2 = buffer.getUnsignedByte(buffer.readerIndex() + 1);
-		final long magicLong = buffer.getLong(buffer.readerIndex());
+	protected ChannelBuffer protocolSwitch(ChannelHandlerContext ctx, Channel channel, ChannelBuffer bufferx, ChannelEvent e)  {		
+		ChannelBuffer cb = preSwitchedBuffer.get(channel);
+		if(cb!=null) {
+			cb.writeBytes(bufferx);
+			cb.resetReaderIndex();
+		} else {
+			cb = bufferx;
+		}
+		// this guy will be set with a matching initiator
+		ProtocolInitiator selectedInitiator = null;
+		// this guy will be set to false if at least 1 initiator had insufficient bytes to match
+		boolean sufficientBytes = true;
+		// ths guy has the total bytes available in the buffer
+		final int bytesAvailable = cb.readableBytes();
 		
-		if(!cachedMatchInitiators.isEmpty()) {
-			ProtocolInitiator pi  = cachedMatchInitiators.get(magicLong);
-			if(pi!=null) {
-				pi.modifyPipeline(ctx, channel, buffer);
-				ctx.getPipeline().remove(this);
-				return;
-			}
-		}
 		for(ProtocolInitiator pi : initiators.values()) {
-			if(pi.match(magic1, magic2)) {
-				cachedMatchInitiators.put(magicLong, pi);
-				pi.modifyPipeline(ctx, channel, buffer);
-				ctx.getPipeline().remove(this);
-				return;
-			}
-			if(pi.match(buffer)) {
-				pi.modifyPipeline(ctx, channel, buffer);
-				ctx.getPipeline().remove(this);
-				return;				
-			}
+			if(pi.requiredBytes() < bytesAvailable) {
+				sufficientBytes = false;
+			} else {
+				if(pi.match(cb)) {
+					selectedInitiator = pi;
+					break;
+				}
+			}			
 		}
+		
+		if(selectedInitiator==null) {
+			// we did not get a match
+			if(!sufficientBytes) {
+				// ok, we did not have enough bytes
+				DynamicChannelBuffer dcb = preSwitchedBuffer.get(channel);
+				if(dcb == null) {
+					dcb = new DynamicChannelBuffer(cb.order(), 1024, chanelBufferFactory);
+					preSwitchedBuffer.set(channel, dcb);
+				}
+				dcb.writeBytes(cb);
+				dcb.resetReaderIndex();
+				return null;
+			}
+			// darn, we have enough bytes for any of the inits,
+			// but none matched
+			throw new RuntimeException("Failed to match any protocol initiator");
+		}
+		preSwitchedBuffer.remove(channel);
+		selectedInitiator.modifyPipeline(ctx, channel, cb);
+		return cb;
+		
 		// if we get here, it means we did not find a protocol match
 		// so pass to the default protocol initiator.
 	}

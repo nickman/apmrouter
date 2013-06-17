@@ -40,6 +40,7 @@ import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.trace.ITracer;
 import org.helios.apmrouter.trace.MetricSubmitter;
 import org.helios.apmrouter.trace.TracerImpl;
 
@@ -62,12 +63,15 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	/** The designated soft down period, meaning if there has been no activity for this period, the tracer is marked soft down */
 	protected long softDownPeriod = 30000;
 	/** The designated hard down period, meaning if there has been no activity for this period, the tracer is marked hard down */
-	protected long hardDownPeriod = softDownPeriod * 4;
+	protected long hardDownPeriod;
 	
 	/** The virtual tracer name */
 	protected final String name;
 	/** The delegate metric submitter */
 	protected final MetricSubmitter _submitter;
+	/** The direct tracer */
+	protected final ITracer _directTracer;
+	
 	/** the availability name space */
 	protected final CharSequence[] avns;
 	/** The parent virtual agent */
@@ -88,7 +92,26 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 		if(state==null) throw new IllegalArgumentException("The passed state was null", new Throwable());		
 		VirtualState priorState = tracerState.getAndSet(state);
 		if(priorState!=state) {
-			vAgent.onTracerStateChange(name, state, priorState);
+			// ================================================================
+			// Case statement for non-timestamp or state actions to fire
+			// on a valid state change
+			// ================================================================
+			switch(state) {
+				case HARDDOWN:
+					unregisterJmx();
+					break;
+				case SOFTDOWN:
+					break;
+				case UP:
+					registerJmx();
+					break;
+			}
+			// ================================================================
+			// Notifies agent of state change.
+			// Agent forwards to vaMgr for JMX notification 
+			// and re-adds tracer if it has been unregisters
+			// ================================================================			
+			vAgent.onTracerStateChange(this, state, priorState);
 		}
 		return priorState;
 	}
@@ -126,7 +149,7 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	 */
 	void unregisterJmx() {
 		if(JMXHelper.getHeliosMBeanServer().isRegistered(objectName)) {
-			try { JMXHelper.unregisterMBean(objectName); } catch (Exception ex) {}
+			try { JMXHelper.unregisterMBean(objectName); } catch (Exception ex) {/* No Op */}
 		}		
 	}
 	
@@ -144,6 +167,7 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	public VirtualTracer(String host, String agent, String tracerName, long softDownPeriod, AtomicLong touched, MetricSubmitter submitter) {
 		super(host, agent, null);			
 		this.submitter = this;
+		_directTracer = new TracerImpl(host, agent, submitter);
 		objectName = JMXHelper.objectName(String.format(VT_OBJ_NAME, host, agent, tracerName));
 		_submitter = submitter;
 		serial = serialFactory.incrementAndGet();
@@ -151,8 +175,9 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 		avns = new CharSequence[]{TRACER_NAMESPACE, name};
 		this.touched = touched;
 		this.softDownPeriod = softDownPeriod;
+		hardDownPeriod = softDownPeriod * 4;
 		registerJmx();
-		touched = new AtomicLong(System.currentTimeMillis());
+		touched.set(System.currentTimeMillis());
 		traceAvailability(true);
 	}
 	
@@ -199,12 +224,9 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	@Override
 	public void touch() {
 		VirtualState state = tracerState.get(); 
-		if(!state.canTrace()) throw new InvalidatedVirtualTracerException("This virtual tracer [" + name + "] for VirtualAgent [" + host + ":" + agent + "] has been invalidated", new Throwable());		
 		touched.set(System.currentTimeMillis());
-		if(state==VirtualState.SOFTDOWN) {
+		if(state!=VirtualState.UP) {
 			setState(VirtualState.UP);			
-		} else if(state==VirtualState.INIT) {
-			setState(VirtualState.UP);
 		}
 	}
 	
@@ -240,8 +262,10 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	 */
 	@Override
 	public void expire() {
-		touched.set(0);
-		setState(VirtualState.SOFTDOWN);
+		if(getState().ordinal()<VirtualState.SOFTDOWN.ordinal()) {
+			touched.set(System.currentTimeMillis()-(softDownPeriod+1));
+			setState(VirtualState.SOFTDOWN);
+		}
 	}
 	
 	/**
@@ -249,17 +273,29 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	 */
 	@Override
 	public void invalidate() {
-		touched.set(0);
-		setState(VirtualState.HARDDOWN);
+		if(getState().ordinal()<VirtualState.HARDDOWN.ordinal()) {
+			touched.set(System.currentTimeMillis()-(hardDownPeriod+1));
+			setState(VirtualState.HARDDOWN);
+		}
 		JMXHelper.unregisterMBean(objectName);
 	}	
 	
 	/**
-	 * Indicates if this virtual tracer is expired
-	 * @return true if this virtual tracer is expired, false otherwise
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualTracerMBean#isInvalid()
 	 */
-	public boolean isInvalidated() {
-		return tracerState.get()==HARDDOWN;
+	@Override
+	public boolean isInvalid() {
+		return getState()==VirtualState.HARDDOWN;
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.tracing.virtual.VirtualTracerMBean#isExpired()
+	 */
+	@Override
+	public boolean isExpired() {
+		return getState().ordinal()>=VirtualState.SOFTDOWN.ordinal();
 	}
 	
 	/**
@@ -268,7 +304,7 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	 */
 	@Override
 	public long getTimeToSoftDown() {
-		long t = System.currentTimeMillis() - touched.get() + softDownPeriod;
+		long t = (touched.get() + softDownPeriod) - System.currentTimeMillis();
 		return t<0 ? -1L : t;
 	}
 	
@@ -278,7 +314,7 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	 */
 	@Override
 	public long getTimeToHardDown() {
-		long t = System.currentTimeMillis() - touched.get() + hardDownPeriod;
+		long t = (touched.get() + hardDownPeriod) - System.currentTimeMillis();
 		return t<0 ? -1L : t;		
 	}
 
@@ -524,6 +560,17 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 		}
 		
 	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#getDirectTracer()
+	 */
+	@Override
+	public ITracer getDirectTracer() {
+		return _directTracer;
+	}
+
+
 	
 
 }

@@ -642,13 +642,14 @@ public abstract class AbstractCollector extends ServerComponentBean implements
 						lastTimeCollectionCompleted=System.currentTimeMillis();
 						lastCollectionElapsedTime = lastTimeCollectionCompleted - lastTimeCollectionStarted;
 						debug("Last Collection Elapsed Time: " + lastCollectionElapsedTime + " milliseconds");
+						tracer.getDirectTracer().traceGauge(lastCollectionElapsedTime, "ElapsedTime", getTracingNameSpace());
 					}
 					if(logCollectionResult) 
 						logCollectionResultDetails(collectionResult);
 					if(collectorLock.isLocked())
 						collectorLock.unlock();
 					//numberOfCollectorsRunning.decrementAndGet();
-					tracer.traceGauge(lastCollectionElapsedTime, "ElapsedTime", getTracingNameSpace());
+					
 				} finally {
 					Thread.currentThread().setName(threadName);
 				}

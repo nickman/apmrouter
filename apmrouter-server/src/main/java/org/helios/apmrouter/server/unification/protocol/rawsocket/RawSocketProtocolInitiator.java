@@ -47,7 +47,7 @@ import org.jboss.netty.handler.execution.ExecutionHandler;
  * <p><code>org.helios.apmrouter.server.unification.protocol.rawsocket.RawSocketProtocolInitiator</code></p>
  */
 
-public class RawSocketProtocolInitiator extends AbstractProtocolInitiator {
+public class RawSocketProtocolInitiator  { 
 	/** The comma based string delimeter */
 	private static final ChannelBuffer COMMA_DELIM = ChannelBuffers.wrappedBuffer(new byte[] { ',' });
 	/** The semi-colon based string delimeter */
@@ -57,7 +57,7 @@ public class RawSocketProtocolInitiator extends AbstractProtocolInitiator {
 	 * Creates a new RawSocketProtocolInitiator
 	 */
 	protected RawSocketProtocolInitiator() {
-		super("raw");
+		//super("raw");
 	}
 	
 	/** The maximum frame size */
@@ -83,7 +83,7 @@ public class RawSocketProtocolInitiator extends AbstractProtocolInitiator {
 	 * {@inheritDoc}
 	 * @see org.helios.apmrouter.server.unification.protocol.ProtocolInitiator#modifyPipeline(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.Channel, org.jboss.netty.buffer.ChannelBuffer)
 	 */
-	@Override
+	//@Override
 	public void modifyPipeline(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer) {
 		
 	}

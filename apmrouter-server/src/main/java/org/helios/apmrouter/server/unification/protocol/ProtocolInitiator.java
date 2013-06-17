@@ -38,13 +38,13 @@ import org.jboss.netty.channel.ChannelHandlerContext;
  */
 
 public interface ProtocolInitiator {
+	
 	/**
-	 * Tests this initiator to see if the initiating connection is a protocol match.
-	 * @param magic1 The first unsigned byte in the channel buffer
-	 * @param magic2 The second unsigned byte in the channel buffer
-	 * @return true for match, false otherwise
+	 * Returns the number of bytes requires by this initiator to determine the stream type
+	 * @return the number of bytes requires by this initiator to determine the stream type
 	 */
-	public boolean match(int magic1, int magic2);
+	public int requiredBytes();
+	
 	
 	/**
 	 * Tests this initiator to see if the initiating connection is a protocol match.
@@ -69,18 +69,7 @@ public interface ProtocolInitiator {
 	 */
 	public String getBeanName();
 	
-	/**
-	 * Returns the protocol recognition magic int 1
-	 * @return the protocol recognition magic int 1
-	 */
-	public int getMyMagic1();
 	
-	
-	/**
-	 * Returns the protocol recognition magic int 2
-	 * @return the protocol recognition magic int 2
-	 */
-	public int getMyMagic2();
 	
 	/**
 	 * Returns the protocol implemented by this initiator.

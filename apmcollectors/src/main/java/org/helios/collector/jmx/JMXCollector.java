@@ -341,7 +341,7 @@ public class JMXCollector extends AbstractCollector {
                 long startMX = System.currentTimeMillis();
                 collectMXBeans();
                 //tracer.trace(System.currentTimeMillis()-startMX, "Elapsed Time for MXBeans", StringHelper.append(tracingNameSpace,true,mxBeanSegment));
-                tracer.traceGauge(System.currentTimeMillis()-startMX, "ElapsedTimeMXBeans", StringHelper.append(false, tracingNameSpace,mxBeanSegment));
+                tracer.getDirectTracer().traceGauge(System.currentTimeMillis()-startMX, "ElapsedTimeMXBeans", StringHelper.append(false, tracingNameSpace,mxBeanSegment));
             }
         } catch (Exception mxe) {
             anyFailure=true;
@@ -586,13 +586,11 @@ public class JMXCollector extends AbstractCollector {
      * @param availability 0 for down, 1 for up
      */
     protected void traceAvailability(int availability) {
-    	if(tracer instanceof VirtualTracer) {
-    		if(availabilitySegment!=null) {
-    			((VirtualTracer)tracer).traceGauge(availability, defaultAvailabilityLabel, availabilitySegment);
-    		} else {
-    			((VirtualTracer)tracer).traceGauge(availability, defaultAvailabilityLabel, getTracingNameSpace());        			
-    		}
-    	}
+		if(availabilitySegment!=null) {
+			tracer.getDirectTracer().traceGauge(availability, defaultAvailabilityLabel, availabilitySegment);
+		} else {
+			tracer.getDirectTracer().traceGauge(availability, defaultAvailabilityLabel, getTracingNameSpace());        			
+		}
     }
 
 

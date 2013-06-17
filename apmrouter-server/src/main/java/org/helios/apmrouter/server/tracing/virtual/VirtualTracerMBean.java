@@ -44,7 +44,17 @@ public interface VirtualTracerMBean  {
 	/** The ObjectName template for virtual tracers */
 	public static final String VT_OBJ_NAME = "org.helios.apmrouter.agent:type=VirtualTracer,host=%s,agent=%s,name=%s";
 
-
+	/**
+	 * Determines if this virtual tracer has been invalidated
+	 * @return true if this virtual tracer has been invalidated, false otherwise
+	 */
+	public boolean isInvalid();
+	
+	/**
+	 * Determines if this virtual tracer has been expired or invalidated
+	 * @return true if this virtual tracer has been expired or invalidated, false otherwise
+	 */
+	public boolean isExpired();
 
 	/**
 	 * Returns the activity highwater timestamp

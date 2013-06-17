@@ -109,6 +109,15 @@ public class APMAgentHelper extends Helper implements ITracer {
 			SimpleLogger.warn("Failed to unregister Rule MBean for [", ruleMBean, "]", ex);
 		}
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.trace.ITracer#getDirectTracer()
+	 */
+	@Override
+	public ITracer getDirectTracer() {
+		return this;
+	}
 
 	/**
 	 * {@inheritDoc}
