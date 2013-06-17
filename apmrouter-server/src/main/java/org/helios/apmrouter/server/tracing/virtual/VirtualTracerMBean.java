@@ -40,6 +40,10 @@ public interface VirtualTracerMBean  {
 	public static final CharSequence AVAIL_METRIC_NAME = "Availability";
 	/** The virtual tracer namespace prefix */
 	public static final CharSequence TRACER_NAMESPACE = "virtualtracers";
+	
+	/** The ObjectName template for virtual tracers */
+	public static final String VT_OBJ_NAME = "org.helios.apmrouter.agent:type=VirtualTracer,host=%s,agent=%s,name=%s";
+
 
 
 	/**

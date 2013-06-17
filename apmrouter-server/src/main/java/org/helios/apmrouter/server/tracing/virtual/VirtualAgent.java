@@ -91,9 +91,29 @@ public class VirtualAgent implements VirtualAgentMXBean, Runnable, Iterable<Virt
 		this.vaManager = vaManager;
 		log =  Logger.getLogger(String.format("%s.%s:%s", getClass().getName() ,host, agent));
 		objectName = JMXHelper.objectName(String.format(VA_OBJ_NAME, host, agent));
-		JMXHelper.registerMBean(objectName, this);
+		registerJmx();
 		this.vaManager.sendAgentStateChangeNotification(this, VirtualState.INIT, null);
 	}
+	
+	/**
+	 * Registers this tracer's management MBean
+	 */
+	void registerJmx() {
+		if(JMXHelper.getHeliosMBeanServer().isRegistered(objectName)) {
+			JMXHelper.unregisterMBean(objectName);
+		}
+		JMXHelper.registerMBean(this, objectName);
+	}
+
+	/**
+	 * Unegisters this tracer's management MBean
+	 */
+	void unregisterJmx() {
+		if(JMXHelper.getHeliosMBeanServer().isRegistered(objectName)) {
+			try { JMXHelper.unregisterMBean(objectName); } catch (Exception ex) {}
+		}		
+	}
+	
 	
 	/**
 	 * Returns a set of all the tracers in this agent
@@ -249,7 +269,30 @@ public class VirtualAgent implements VirtualAgentMXBean, Runnable, Iterable<Virt
 	public static final Comparator<VirtualTracer> DESCENDING_LT_SORTER = new VirtualTracer.LastTouchDescendingComparator();
 	
 	
-	
+	/**
+	 * Periodic check for expirations
+	 */
+	public void check() {
+		long currentTime = System.currentTimeMillis();
+		for(VirtualTracer vt: getAllTracers()) {
+			vt.checkState(currentTime);
+		}
+		if(getTimeToHardDown()<1) {
+			invalidate();
+		} else if(getTimeToSoftDown()<1) {
+			expire();
+		}
+//		long age = currentTime - touched.get();
+//		if(age < softDownPeriod) return;
+//		if(age >= softDownPeriod && age < hardDownPeriod) {
+//			// SOFTDOWN
+//			setState(VirtualState.SOFTDOWN);
+//		} else {
+//			// HARDDOWN
+//			setState(VirtualState.HARDDOWN);
+//		}
+		
+	}
 	
 
 	/**

@@ -34,6 +34,9 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import javax.management.ObjectName;
+
+import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.ICEMetric;
 import org.helios.apmrouter.metric.IMetric;
 import org.helios.apmrouter.metric.MetricType;
@@ -69,7 +72,8 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	protected final CharSequence[] avns;
 	/** The parent virtual agent */
 	protected VirtualAgent vAgent;
-	
+	/** The JMX object name for this tracer */
+	protected final ObjectName objectName;
 	/** The serial number factory for new tracers */
 	private static final AtomicLong serialFactory = new AtomicLong(0L);
 	/** A counter for the number of metrics sent through this tracer */
@@ -106,7 +110,25 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	public void resetStats() {
 		sentMetrics.set(0L);
 	}
+	
+	/**
+	 * Registers this tracer's management MBean
+	 */
+	void registerJmx() {
+		if(JMXHelper.getHeliosMBeanServer().isRegistered(objectName)) {
+			JMXHelper.unregisterMBean(objectName);
+		}
+		JMXHelper.registerMBean(this, objectName);
+	}
 
+	/**
+	 * Unegisters this tracer's management MBean
+	 */
+	void unregisterJmx() {
+		if(JMXHelper.getHeliosMBeanServer().isRegistered(objectName)) {
+			try { JMXHelper.unregisterMBean(objectName); } catch (Exception ex) {}
+		}		
+	}
 	
 
 	/**
@@ -122,12 +144,14 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	public VirtualTracer(String host, String agent, String tracerName, long softDownPeriod, AtomicLong touched, MetricSubmitter submitter) {
 		super(host, agent, null);			
 		this.submitter = this;
+		objectName = JMXHelper.objectName(String.format(VT_OBJ_NAME, host, agent, tracerName));
 		_submitter = submitter;
 		serial = serialFactory.incrementAndGet();
 		name = tracerName;		
 		avns = new CharSequence[]{TRACER_NAMESPACE, name};
 		this.touched = touched;
 		this.softDownPeriod = softDownPeriod;
+		registerJmx();
 		touched = new AtomicLong(System.currentTimeMillis());
 		traceAvailability(true);
 	}
@@ -227,7 +251,7 @@ public class VirtualTracer extends TracerImpl implements VirtualTracerMBean, Met
 	public void invalidate() {
 		touched.set(0);
 		setState(VirtualState.HARDDOWN);
-		//JMXHelper.unregisterMBean(objectName);
+		JMXHelper.unregisterMBean(objectName);
 	}	
 	
 	/**

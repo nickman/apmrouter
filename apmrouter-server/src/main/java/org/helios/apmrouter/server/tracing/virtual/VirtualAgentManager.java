@@ -33,6 +33,7 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -89,6 +90,10 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 	protected MetricCatalogService metricCatalogService = null;
 	/** The delegate metricSubmitter */
 	protected MetricSubmitter metricSubmitter = null;
+	/** The handle to the invalidation timer */
+	protected ScheduledFuture<?> invalidationSchedule = null;
+	
+	
 	/** The configured invalidation period for expired virtual agents in ms. */
 	protected long invalidationPeriod = DEFAULT_INVALIDATION_PERIOD;
 	/** The default invalidation period for expired virtual agents */
@@ -99,10 +104,6 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 	protected static final long POLLING_EXPIRATION_PERIOD = 1000; 
 	
 	
-	/** The expiration thread */
-	protected Thread expirationThread = null;
-	/** The availability thread */
-	protected Thread availabilityThread = null;
 	
 	/** A serial number factory for expiration threads */
 	private static final AtomicInteger serial = new AtomicInteger();
@@ -234,6 +235,100 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 		AttributeChangeNotification notif = new AttributeChangeNotification(new String[]{agent.getHost(), agent.getAgent()}, nserial.incrementAndGet(), System.currentTimeMillis(), message, "State", String.class.getName(), priorState==null ? null : priorState.name(), newState.name());
 		notif.setUserData(AGENT_STATE_CHANGE_NOTIF);
 		notificationPublisher.sendNotification(notif);
+		if(priorState!=null) {
+			switch(priorState) {
+			case HARDDOWN:
+				switch(newState) {
+				case INIT:
+					oddSateChange(newState, priorState);
+					break;
+				case SOFTDOWN:
+					oddSateChange(newState, priorState);
+					break;
+				case UP:
+					// =====================================================
+					// HARDDOWN  -->  UP
+					// Reregister MBean if not registered
+					// Cancel countdown
+					// =====================================================
+					break;
+				case HARDDOWN:
+					oddSateChange(newState, priorState);
+					break;			
+				}
+			case INIT:
+				switch(newState) {
+				case HARDDOWN:
+					oddSateChange(newState, priorState);
+					break;
+				case SOFTDOWN:
+					oddSateChange(newState, priorState);
+					break;
+				case UP:
+					// =====================================================
+					// INIT  -->  UP
+					// Nothing to do ?
+					// =====================================================					
+					break;
+				case INIT:
+					oddSateChange(newState, priorState);
+					break;			
+				}			
+			case SOFTDOWN:
+				switch(newState) {
+				case HARDDOWN:
+					// =====================================================
+					// SOFTDOWN  -->  HARDDOWN
+					// Start count-down to unregister MBean
+					// =====================================================					
+					break;
+				case INIT:
+					oddSateChange(newState, priorState);
+					break;
+				case UP:
+					// =====================================================
+					// SOFTDOWN  -->  UP
+					// Nothing to do ?
+					// =====================================================										
+					break;
+				case SOFTDOWN:
+					oddSateChange(newState, priorState);
+					break;			
+				}			
+			case UP:
+				switch(newState) {
+				case HARDDOWN:
+					// =====================================================
+					// UP  -->  HARDDOWN
+					// Start count-down to unregister MBean
+					// =====================================================					
+					break;
+				case INIT:
+					oddSateChange(newState, priorState);
+					break;
+				case SOFTDOWN:
+					// =====================================================
+					// UP  -->  SOFTDOWN
+					// Nothing to do ?
+					// =====================================================										
+					break;
+				case UP:
+					oddSateChange(newState, priorState);
+					break;
+				}						
+			}
+		}
+	}
+	
+	/**
+	 * Called when we see an unexpected state change. 
+	 * This would probably not be critical, but suggests there is a programmer error.
+	 * @param newState The new VA state
+	 * @param priorState The prior VA state
+	 */
+	protected void oddSateChange(VirtualState newState, VirtualState priorState) {		
+		if(log.isDebugEnabled()) warn("Unexpected VirtualAgent State Change (Programmer Error ?) [", priorState, "] --> [", newState, "] ", new Throwable());
+		else warn("Unexpected VirtualAgent State Change (Programmer Error ?) [", priorState, "] --> [", newState, "]");
 	}
 	
 	/**
@@ -330,7 +425,9 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 	 * @see org.helios.apmrouter.server.ServerComponentBean#doStart()
 	 */
 	@Override
-	protected void doStart() throws Exception {		
+	protected void doStart() throws Exception {
+		invalidationSchedule = invalidationScheduler.scheduleWithFixedDelay(this, 5, 5, TimeUnit.SECONDS);
+		
 		//super.onApplicationContextStart(event);
 //		expirationThread = new Thread(this, "VirtualAgentExpirationThread#" + serial.incrementAndGet());
 //		expirationThread.setDaemon(true);
@@ -358,23 +455,17 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 	}
 	
 	/**
-	 * Returns the expirationThread toString
-	 * @return the expirationThread toString
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.ServerComponentBean#doStop()
 	 */
-	@ManagedAttribute(description="The expirationThread toString")
-	public String getExpirationThread() {
-		return expirationThread==null ? null : expirationThread.toString();
+	@Override
+	protected void doStop() {
+		if(invalidationSchedule!=null && invalidationSchedule.isCancelled()) {
+			invalidationSchedule.cancel(true);
+			info("Stopped VirtualAgentManager Invalidation Schedule");
+		}
 	}
 	
-	/**
-	 * Returns the state of the expiration thread
-	 * @return the state of the expiration thread
-	 */
-	@ManagedAttribute(description="The expirationThread state")
-	public Thread.State getExpirationThreadState() {
-		return expirationThread==null ? null : expirationThread.getState();
-	}
-
 	
 	
 	/**
@@ -443,12 +534,15 @@ public class VirtualAgentManager extends ServerComponentBean implements Runnable
 	 */
 	@Override
 	public void run() {
-		while(isStarted()) {
-			// ===============
-			// Run checks on each agent
-			// that cascade into each of the tracers
+		for(VirtualAgent va: getAllAgents()) {
+			
 		}
-		info("\n\t------------------------------------------------\n\tVirtual Agent Expiration Thread Stopped\n\t------------------------------------------------\n");
+//		while(isStarted()) {
+//			// ===============
+//			// Run checks on each agent
+//			// that cascade into each of the tracers
+//		}
+//		info("\n\t------------------------------------------------\n\tVirtual Agent Expiration Thread Stopped\n\t------------------------------------------------\n");
 	}
 
 	/**
