@@ -24,9 +24,37 @@
  */
 package org.helios.collector.jmx;
 
+import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryUsage;
+import java.lang.management.ThreadInfo;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Properties;
+import java.util.Set;
+
+import javax.management.Attribute;
+import javax.management.AttributeList;
+import javax.management.InstanceNotFoundException;
+import javax.management.MBeanServerConnection;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
+import javax.management.ReflectionException;
+import javax.management.openmbean.CompositeData;
+import javax.management.openmbean.CompositeDataSupport;
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
+
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.MetricType;
-import org.helios.apmrouter.trace.ITracer;
+import org.helios.apmrouter.server.tracing.virtual.VirtualTracer;
 import org.helios.apmrouter.trace.TracerFactory;
 import org.helios.apmrouter.util.StringHelper;
 import org.helios.collector.core.AbstractCollector;
@@ -40,19 +68,6 @@ import org.helios.collector.jmx.tracers.JMXAttributeTrace;
 import org.helios.collector.jmx.tracers.JMXObject;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedResource;
-
-import javax.management.*;
-import javax.management.openmbean.CompositeData;
-import javax.management.openmbean.CompositeDataSupport;
-import javax.naming.Context;
-import javax.naming.InitialContext;
-import javax.naming.NamingException;
-import java.io.IOException;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryUsage;
-import java.lang.management.ThreadInfo;
-import java.util.*;
-import java.util.Map.Entry;
 
 
 /**
@@ -562,24 +577,22 @@ public class JMXCollector extends AbstractCollector {
     }
     
     // ==============================================================================================
-    // Turning off availability tracing.
-    // This is now done by the virtual tracer automatically.
-    // Also, if this is on, it incorrectly keeps the virtual tracer and agent alive
+    // Turning off availability tracing unless tracer is a VirtualTracer.
+    // Otherwise, when using a regular tracer, it incorrectly keeps the virtual tracer and agent alive
     // when it should be marked down.
-    // i.e. if the collector cannot comm with the target MBeanServer, it should not trace anything
-    // through the virtual tracer.  (any other tracer would be fine)
     // ==============================================================================================
     /**
-     *
+     * Traces the availability through the virtual tracer
+     * @param availability 0 for down, 1 for up
      */
     protected void traceAvailability(int availability) {
-        if(availabilitySegment!=null) {
-            //tracer.traceSticky(availability, defaultAvailabilityLabel, availabilitySegment);
-            //tracer.traceGauge(availability, defaultAvailabilityLabel, availabilitySegment);
-        }else{
-            //tracer.traceGauge(availability, defaultAvailabilityLabel, getTracingNameSpace());
-            //tracer.traceSticky(availability, defaultAvailabilityLabel, getTracingNameSpace());
-        }
+    	if(tracer instanceof VirtualTracer) {
+    		if(availabilitySegment!=null) {
+    			((VirtualTracer)tracer).traceGauge(availability, defaultAvailabilityLabel, availabilitySegment);
+    		} else {
+    			((VirtualTracer)tracer).traceGauge(availability, defaultAvailabilityLabel, getTracingNameSpace());        			
+    		}
+    	}
     }
 
 

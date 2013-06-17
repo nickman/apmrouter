@@ -26,6 +26,7 @@ package org.helios.collector.jmx;
 
 import org.helios.apmrouter.jmx.JMXHelper;
 import org.helios.apmrouter.metric.MetricType;
+import org.helios.apmrouter.server.tracing.virtual.VirtualTracer;
 import org.helios.apmrouter.util.StringHelper;
 import org.helios.collector.core.AbstractCollector;
 import org.helios.collector.core.CollectionResult;
@@ -506,24 +507,22 @@ public class JMXCollector2 extends AbstractCollector {
 
     
     // ==============================================================================================
-    // Turning off availability tracing.
-    // This is now done by the virtual tracer automatically.
-    // Also, if this is on, it incorrectly keeps the virtual tracer and agent alive
+    // Turning off availability tracing unless tracer is a VirtualTracer.
+    // Otherwise, when using a regular tracer, it incorrectly keeps the virtual tracer and agent alive
     // when it should be marked down.
-    // i.e. if the collector cannot comm with the target MBeanServer, it should not trace anything
-    // through the virtual tracer.  (any other tracer would be fine)
     // ==============================================================================================
     /**
-     *
+     * Traces the availability through the virtual tracer
+     * @param availability 0 for down, 1 for up
      */
     protected void traceAvailability(int availability) {
-        if(availabilitySegment!=null) {
-            //tracer.traceSticky(availability, defaultAvailabilityLabel, availabilitySegment);
-            //tracer.traceGauge(availability, defaultAvailabilityLabel, availabilitySegment);
-        }else{
-            //tracer.traceGauge(availability, defaultAvailabilityLabel, getTracingNameSpace());
-            //tracer.traceSticky(availability, defaultAvailabilityLabel, getTracingNameSpace());
-        }
+    	if(tracer instanceof VirtualTracer) {
+    		if(availabilitySegment!=null) {
+    			((VirtualTracer)tracer).traceGauge(availability, defaultAvailabilityLabel, availabilitySegment);
+    		} else {
+    			((VirtualTracer)tracer).traceGauge(availability, defaultAvailabilityLabel, getTracingNameSpace());        			
+    		}
+    	}
     }
 
 
