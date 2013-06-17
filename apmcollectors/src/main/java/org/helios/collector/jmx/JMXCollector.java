@@ -560,16 +560,24 @@ public class JMXCollector extends AbstractCollector {
             return false;
         }
     }
-
+    
+    // ==============================================================================================
+    // Turning off availability tracing.
+    // This is now done by the virtual tracer automatically.
+    // Also, if this is on, it incorrectly keeps the virtual tracer and agent alive
+    // when it should be marked down.
+    // i.e. if the collector cannot comm with the target MBeanServer, it should not trace anything
+    // through the virtual tracer.  (any other tracer would be fine)
+    // ==============================================================================================
     /**
      *
      */
     protected void traceAvailability(int availability) {
         if(availabilitySegment!=null) {
             //tracer.traceSticky(availability, defaultAvailabilityLabel, availabilitySegment);
-            tracer.traceGauge(availability, defaultAvailabilityLabel, availabilitySegment);
+            //tracer.traceGauge(availability, defaultAvailabilityLabel, availabilitySegment);
         }else{
-            tracer.traceGauge(availability, defaultAvailabilityLabel, getTracingNameSpace());
+            //tracer.traceGauge(availability, defaultAvailabilityLabel, getTracingNameSpace());
             //tracer.traceSticky(availability, defaultAvailabilityLabel, getTracingNameSpace());
         }
     }
