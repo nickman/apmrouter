@@ -29,11 +29,14 @@ import java.io.FileOutputStream;
 import java.net.URL;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.util.Arrays;
 
 import javax.sql.DataSource;
 
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.util.URLHelper;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 /**
  * <p>Title: ScriptExecution</p>
@@ -51,6 +54,13 @@ public class ScriptExecution {
 	/** Instance logger */
 	protected Logger log = Logger.getLogger(getClass());
 	
+	/** The relative resource root for DDL resources */
+	public static String DEFAULT_DDL_RESOURCE_ROOT = "/ddl/";
+	
+	/** The sysprop name defining the root config resource */
+	public static final String ROOT_CONFIG = "org.helios.apmrouter.root.config";
+
+	
 	/** The runscript template */
 	public static final String URL_SCRIPT_TEMPLATE = "RUNSCRIPT FROM '%s'";
 	
@@ -61,7 +71,43 @@ public class ScriptExecution {
 	 */
 	public ScriptExecution(DataSource dataSource, String scriptSource) {
 		this.dataSource = dataSource;
-		this.scriptSource = scriptSource;
+		this.scriptSource = resolveScriptSource(scriptSource);
+	}
+	
+	protected String resolveScriptSource(String src) {
+		if(src==null || src.trim().isEmpty()) throw new IllegalArgumentException("The passed source was null or empty", new Throwable());
+		src = src.trim();
+		if(src.toLowerCase().startsWith("runscript ")) {
+			return src.trim();
+		}
+		if(URLHelper.isValidURL(src)) {
+			File tmpFile = extractTempFile(URLHelper.toURL(src));
+			tmpFile.deleteOnExit();
+			return String.format(URL_SCRIPT_TEMPLATE, tmpFile.getAbsolutePath());
+		}
+		String configRoot = System.getProperty(ROOT_CONFIG);
+		if(configRoot==null) {
+			throw new RuntimeException("No root configs defined in [" + ROOT_CONFIG + "]", new Throwable());			
+		}
+		String[] configRoots = configRoot.indexOf(',')==-1 ? new String[]{configRoot.trim()} : configRoot.split(",");
+		PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+		for(String cr: configRoots) {
+			if(!URLHelper.isValidURL(cr)) {
+				cr = "classpath:" + cr + DEFAULT_DDL_RESOURCE_ROOT + src;			
+			} else {
+				cr = cr + DEFAULT_DDL_RESOURCE_ROOT + src;
+			}			
+			try {
+				Resource resource = resolver.getResource(cr);
+				File tmpFile = extractTempFile(resource.getURL());
+				tmpFile.deleteOnExit();
+				return String.format(URL_SCRIPT_TEMPLATE, tmpFile.getAbsolutePath());
+				
+			} catch (Exception e) {
+				log.debug("Script resource not found at [" + cr + "]");
+			}			
+		}
+		throw new RuntimeException("No script resources found in " + Arrays.toString(configRoots) + "]", new Throwable());
 	}
 	
 	/**
@@ -147,7 +193,7 @@ public class ScriptExecution {
 			conn = dataSource.getConnection();
 			ps = conn.prepareStatement(scriptSource);
 			ps.execute();
-			log.info("Executed Startup Script");
+			log.info("Executed Startup Script [" + scriptSource + "]");
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to execute script [" + scriptSource + "]", e);
 		} finally {

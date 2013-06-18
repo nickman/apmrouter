@@ -125,12 +125,14 @@
 	
 	<bean id="dbInit" class="org.helios.apmrouter.catalog.jdbc.h2.ScriptExecution" init-method="start">		
 		<constructor-arg ref="DataSource" />
-		<constructor-arg value="RUNSCRIPT FROM './src/test/resources/server/ddl/persistent-metric-catalog.sql'" />
+		<!-- <constructor-arg value="RUNSCRIPT FROM './src/test/resources/server/ddl/persistent-metric-catalog.sql'" /> -->
+		<constructor-arg value="persistent-metric-catalog.sql" />
 	</bean>
 	
 	<bean id="opentsdbInit" class="org.helios.apmrouter.catalog.jdbc.h2.ScriptExecution" init-method="start">
 		<constructor-arg ref="OpenTSDBDataSource" />
-		<constructor-arg value="RUNSCRIPT FROM './src/test/resources/server/ddl/opentsdb.sql'" />
+		<!-- <constructor-arg value="RUNSCRIPT FROM './src/test/resources/server/ddl/opentsdb.sql'" /> -->
+		<constructor-arg value="opentsdb.sql" />
 	</bean>
 	
 	

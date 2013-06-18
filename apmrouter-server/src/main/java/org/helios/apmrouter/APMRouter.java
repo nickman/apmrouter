@@ -30,12 +30,10 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
-import org.apache.log4j.Appender;
-import org.apache.log4j.Category;
 import org.apache.log4j.Logger;
-import org.apache.log4j.spi.HierarchyEventListener;
 import org.apache.log4j.xml.DOMConfigurator;
 import org.helios.apmrouter.spring.ctx.ApplicationContextService;
 import org.helios.apmrouter.spring.ctx.NamedGenericXmlApplicationContext;
@@ -60,6 +58,8 @@ public class APMRouter {
 	public static final String APM_FILE_FILTER = ".apmrouter.xml";
 	/** The root application context display name */
 	public static final String ROOT_DISPLAY_NAME = "APMRouterRootAppCtx";
+	/** The sysprop name defining the root config resource */
+	public static final String ROOT_CONFIG = "org.helios.apmrouter.root.config";
 	
 	/** The booted spring context */
 	private static NamedGenericXmlApplicationContext appContext = null;
@@ -69,7 +69,7 @@ public class APMRouter {
 	/** The URL root path for the default configuration */
 	public static final String DEFAULT_CONFIG_ROOT = "default-config/";
 	/** The URL root path for the default configuration spring config */
-	public static final String DEFAULT_SPRING_CONFIG = DEFAULT_CONFIG_ROOT + "main.apmrouter.xml";
+	public static final String DEFAULT_SPRING_CONFIG = DEFAULT_CONFIG_ROOT + "boot.apmrouter.xml";
 	
 	/**
 	 * Loads the default configuration from the classpath.
@@ -145,6 +145,7 @@ public class APMRouter {
 
 		LOG.info("\n\t\t*************************\n\t\tAPMRouter v. " + APMRouter.class.getPackage().getImplementationVersion() + "\n\t\t*************************\n");
 		if(args.length==0) {
+			System.setProperty(ROOT_CONFIG, "default-config");
 			loadDefaultConfiguration();
 		} else {
 			try {
@@ -154,6 +155,7 @@ public class APMRouter {
 				if(args.length<1) {
 					confDir = "./src/test/resources/server";
 					File dir = new File(confDir);
+					System.setProperty(ROOT_CONFIG, new File(dir.getAbsolutePath()).toURI().toURL().toString());
 					if(!dir.exists() || !dir.isDirectory()) {
 						LOG.error("No conf directory specified and DEV mode directory [" + confDir + "] does not exist. Exiting...");
 						return;
@@ -186,14 +188,24 @@ public class APMRouter {
 					return;
 				}
 				LOG.info("Located [" + configFiles.length + "] Configuration Files");
+				Set<URL> configRootUrls = new LinkedHashSet<URL>();
+				for(String s: configFiles) {
+					configRootUrls.add(new File(s).getParentFile().toURI().toURL());
+				}
+				StringBuilder configRoots = new StringBuilder();
+				for(URL url: configRootUrls) {
+					configRoots.append(url.toString()).append(",");
+				}
+				configRoots.deleteCharAt(configRoots.length()-1);
+				System.setProperty(ROOT_CONFIG, configRoots.toString());
 				if(LOG.isDebugEnabled()) {
-					StringBuilder b = new StringBuilder();
+					StringBuilder b = new StringBuilder();					
 					for(String s: configFiles) {
 						b.append("\n\t").append(s);
 					}
 					LOG.debug("Config Files:" + b.toString());
 				}
-				LOG.info("Starting...");
+				LOG.info("Starting with config roots [" + System.getProperty(ROOT_CONFIG) + "]");
 				appContext = new NamedGenericXmlApplicationContext();
 				appContext.setDisplayName(ROOT_DISPLAY_NAME);
 				appContext.setApplicationName("APMRouterServer");
