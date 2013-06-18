@@ -30,6 +30,9 @@ import java.net.URL;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
 
 import javax.sql.DataSource;
 
@@ -53,6 +56,9 @@ public class ScriptExecution {
 	protected String scriptSource;
 	/** Instance logger */
 	protected Logger log = Logger.getLogger(getClass());
+	
+	/** File to delete after start */
+	protected final Set<File> toDelete = new HashSet<File>();
 	
 	/** The relative resource root for DDL resources */
 	public static String DEFAULT_DDL_RESOURCE_ROOT = "/ddl/";
@@ -82,7 +88,6 @@ public class ScriptExecution {
 		}
 		if(URLHelper.isValidURL(src)) {
 			File tmpFile = extractTempFile(URLHelper.toURL(src));
-			tmpFile.deleteOnExit();
 			return String.format(URL_SCRIPT_TEMPLATE, tmpFile.getAbsolutePath());
 		}
 		String configRoot = System.getProperty(ROOT_CONFIG);
@@ -96,6 +101,9 @@ public class ScriptExecution {
 				cr = "classpath:" + cr + DEFAULT_DDL_RESOURCE_ROOT + src;			
 			} else {
 				cr = cr + DEFAULT_DDL_RESOURCE_ROOT + src;
+				File tmpFile = extractTempFile(URLHelper.toURL(cr));
+				tmpFile.deleteOnExit();
+				return String.format(URL_SCRIPT_TEMPLATE, tmpFile.getAbsolutePath());				
 			}			
 			try {
 				Resource resource = resolver.getResource(cr);
@@ -121,26 +129,13 @@ public class ScriptExecution {
 		this.scriptSource = scriptFile.getAbsolutePath();
 	}	
 	
-	/**
-	 * Runs a script in the passed URL
-	 * @param dataSource the data source to acquire the connection from
-	 * @param urlSource The URL path of the script
-	 */
-	public static void runScript(DataSource dataSource, String urlSource) {
-		final File tmpFile = extractTempFile(urlSource);
-		try {
-			new ScriptExecution(dataSource, String.format(URL_SCRIPT_TEMPLATE, tmpFile.getAbsolutePath())).start();
-		} finally {
-			tmpFile.delete();
-		}
-	}
 	
 	/**
 	 * Extracts the content from the passed URL and writes it to a temp file
 	 * @param urlResource The URL to read the content from
 	 * @return the temp file
 	 */
-	protected static File extractTempFile(String urlResource) {
+	protected File extractTempFile(String urlResource) {
 		return extractTempFile(URLHelper.toURL(urlResource));
 	}
 	
@@ -149,7 +144,7 @@ public class ScriptExecution {
 	 * @param url The URL to read the content from
 	 * @return the temp file
 	 */
-	protected static File extractTempFile(URL url) {
+	protected File extractTempFile(URL url) {
 		FileOutputStream fos = null;
 		try {
 			byte[] content = URLHelper.getBytesFromURL(url);
@@ -157,10 +152,12 @@ public class ScriptExecution {
 			String fileName = frags[frags.length-1].split("\\.")[0];
 			File tmpFile = File.createTempFile("apmrouter-ddl-" + fileName, ".sql");
 			tmpFile.deleteOnExit();
+			toDelete.add(tmpFile);
 			fos = new FileOutputStream(tmpFile);
 			fos.write(content);
 			fos.flush();
 			fos.close();
+			
 			return tmpFile;
 		} catch (Exception ex) {
 			throw new RuntimeException("Failed to load DDL from URL [" + url + "]", ex);
@@ -199,6 +196,11 @@ public class ScriptExecution {
 		} finally {
 			if(ps!=null) try { ps.close(); } catch (Exception e) {}
 			if(conn!=null) try { conn.close(); } catch (Exception e) {}
+			for(Iterator<File> fiter = toDelete.iterator(); fiter.hasNext();) {
+				File f = fiter.next();
+				f.delete();
+				fiter.remove();
+			}
 		}
 	}
 	

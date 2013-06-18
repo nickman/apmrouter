@@ -190,7 +190,11 @@ public class APMRouter {
 				LOG.info("Located [" + configFiles.length + "] Configuration Files");
 				Set<URL> configRootUrls = new LinkedHashSet<URL>();
 				for(String s: configFiles) {
-					configRootUrls.add(new File(s).getParentFile().toURI().toURL());
+					if(URLHelper.isValidURL(s)) {
+						configRootUrls.add(new File(URLHelper.toURL(s).getFile()).getParentFile().toURI().toURL());
+					} else {
+						configRootUrls.add(new File(s).getParentFile().toURI().toURL());
+					}
 				}
 				StringBuilder configRoots = new StringBuilder();
 				for(URL url: configRootUrls) {
