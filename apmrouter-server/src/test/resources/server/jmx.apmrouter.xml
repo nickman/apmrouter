@@ -20,12 +20,12 @@
 	<bean id="MBeanServerJMXUrl" class="javax.management.remote.JMXServiceURL"
 		lazy-init="false" depends-on="systemProperties" >
 		<constructor-arg type="java.lang.String"
-			value="service:jmx:rmi://localhost:8002/jndi/rmi://localhost:8005/jmxrmi" />
+			value="service:jmx:rmi://localhost:${org.helios.apmrouter.jmxrmi.service.port:8002}/jndi/rmi://localhost:${org.helios.apmrouter.jmxrmi.registry.port:8005}/jmxrmi" />
 	</bean>
 	
 	<bean id="RMIRegistry" class="java.rmi.registry.LocateRegistry"
 		lazy-init="false" factory-method="createRegistry" >
-		<constructor-arg value="8005" />
+		<constructor-arg value="${org.helios.apmrouter.jmxrmi.registry.port:8005}" />
 	</bean>
 	
 	<bean id="MBeanServerConnector" class="javax.management.remote.JMXConnectorServerFactory"

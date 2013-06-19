@@ -28,12 +28,17 @@ import org.helios.apmrouter.server.unification.pipeline2.Initiator;
 
 /**
  * <p>Title: EncodingInitiator</p>
- * <p>Description: </p> 
+ * <p>Description: A netty channel handler that attempts to determine if the incoming traffic is encoded in a way that this initiator can supply a decoder for.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.unification.pipeline2.encoding.EncodingInitiator</code></p>
  */
 
 public interface EncodingInitiator extends Initiator {
-
+	/**
+	 * This is true if the decoder requires the full payload to start decoding (e.g. the bzip2 decoder) or false if partial buffers can be streamed in to the decoder.
+	 * When true, the switch decoder will aggregate all the incomng traffic and then send upstream.
+	 * @return true for the full payload, false otherwise.
+	 */
+	public boolean requiresFullPayload();
 }

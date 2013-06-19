@@ -38,18 +38,16 @@ import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelLocal;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.handler.codec.replay.ReplayingDecoder;
-import org.jboss.netty.handler.logging.LoggingHandler;
-import org.jboss.netty.logging.InternalLogLevel;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
+
 
 /**
  * <p>Title: ProtocolSwitchDecoder</p>
- * <p>Description: A {@link ReplayingDecoder} implementation that manages the port unification protocol switch</p> 
+ * <p>Description: A {@link ReplayingDecoder} implementation that manages the port unification protocol switch</p>
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>org.helios.apmrouter.server.unification.protocol.ProtocolSwitchDecoder</code></p>
+ * <p><code>org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchDecoder</code></p>
  */
-
 public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 	// JO NESB0
 	// protocol initiators:   http / gzip / bzip
@@ -60,10 +58,6 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 	protected final ChannelLocal<ProtocolSwitchContext> context = new ChannelLocal<ProtocolSwitchContext>(true);
 	/** Instance logger */
 	protected final Logger log = Logger.getLogger(getClass());
-	/** Non hex logging handler */
-	protected final LoggingHandler nonHexLoggingHandler = new LoggingHandler(getClass(), InternalLogLevel.INFO, false);
-	/** Hex logging handler */
-	protected final LoggingHandler hexLoggingHandler = new LoggingHandler(getClass(), InternalLogLevel.INFO, true);
 	/** The logger level */
 	protected APMLogLevel level = APMLogLevel.pCode(log.getEffectiveLevel().toInt());
 	/** The registered protocol initiators */
@@ -73,6 +67,10 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 	/** The registered content classifiers */
 	protected final Set<ContentClassifier> classifiers = new CopyOnWriteArraySet<ContentClassifier>();
 	
+	
+	
+	/** The name of this decoder in the pipeline */
+	public static final String PIPE_NAME = "psd";
 	/**
 	 * Creates a new ProtocolSwitchDecoder
 	 */
@@ -113,7 +111,8 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 			case ERROR:
 				break;
 		}
-		return null;
+		throw new RuntimeException();
+		//return null;
 	}
 	
 	/**
@@ -135,6 +134,8 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 		log.setLevel(level.getLevel());
 		log.info("Set Logger to level [" + log.getLevel().toString() + "]");
 	}
+
+
 	
 
 }

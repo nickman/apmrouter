@@ -63,18 +63,12 @@ public interface Initiator {
 	
 	
 	/**
-	 * Returns the bean name
-	 * @return the bean name
+	 * Returns the initiator's name
+	 * @return the initiator's name
 	 */
-	public String getBeanName();
+	public String getName();
 	
 	
 	
-	/**
-	 * Returns the protocol implemented by this initiator.
-	 * This protocol should match up with a {@link PipelineModifier}.
-	 * @return the protocol name
-	 */
-	public String getProtocol();
 
 }

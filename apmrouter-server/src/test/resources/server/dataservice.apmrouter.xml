@@ -98,9 +98,19 @@
  	 
  	 <bean id="JsonResponseDownstreamHandler" class="org.helios.apmrouter.server.net.listener.netty.handlers.JsonResponseDownstreamHandler" />
  	 
- 	 <bean id="ProtocolSwitch" class="org.helios.apmrouter.server.unification.protocol.ProtocolSwitch" />
+ 	 <bean id="ProtocolSwitch" class="org.helios.apmrouter.server.unification.protocol.ProtocolSwitch" >
+ 	 	
+ 	 </bean>
  	 
- 	 <bean id="ServerPipelineFactory" class="org.helios.apmrouter.server.unification.ServerPipelineFactory" />
+ 	 <bean id="protocolSwitchDecoder" class="org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchDecoder" >
+ 	 	
+ 	 </bean>
+ 	 
+ 	 
+ 	 
+ 	 <bean id="ServerPipelineFactory" class="org.helios.apmrouter.server.unification.ServerPipelineFactory" >
+ 	 	<property name="installedLogger" value="hex" />
+ 	 </bean>
  	 
  	 <bean id="HttpProtocol" class="org.helios.apmrouter.server.unification.protocol.http.HttpProtocolInitiator" />
  	 
