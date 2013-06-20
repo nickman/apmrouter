@@ -24,10 +24,7 @@
  */
 package org.helios.apmrouter.server.unification.pipeline2;
 
-import org.helios.apmrouter.server.unification.pipeline.PipelineModifier;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelHandlerContext;
 
 /**
  * <p>Title: Initiator</p>
@@ -38,6 +35,10 @@ import org.jboss.netty.channel.ChannelHandlerContext;
  */
 
 public interface Initiator {
+	
+	/** The pipeline name for the execution handler */
+	public static final String EXEC_HANDLER_NAME = "exec";
+	
 	/**
 	 * Returns the number of bytes requires by this initiator to determine the stream type
 	 * @return the number of bytes requires by this initiator to determine the stream type
@@ -55,12 +56,17 @@ public interface Initiator {
 
 	/**
 	 * Modifies the passed pipeline to provide specific functionality after a successful protocol match
-	 * @param ctx The channel handler context
-	 * @param channel The current channel
-	 * @param buffer  The initiating buffer
+	 * @param context The context representing the state of protocol switching in the decoder
 	 * @return The switch phase the protocol switch should transition to after this pipeline modification
 	 */
-	public SwitchPhase modifyPipeline(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer);
+	public SwitchPhase process(ProtocolSwitchContext context);
+	
+	/**
+	 * This is true if the decoder requires the full payload to start decoding (e.g. the bzip2 decoder) or false if partial buffers can be streamed in to the decoder.
+	 * When true, the switch decoder will aggregate all the incomng traffic and then send upstream.
+	 * @return true for the full payload, false otherwise.
+	 */
+	public boolean requiresFullPayload();	
 	
 	
 	/**

@@ -29,8 +29,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.logging.APMLogLevel;
-import org.helios.apmrouter.server.unification.pipeline2.content.ContentClassifier;
-import org.helios.apmrouter.server.unification.pipeline2.encoding.EncodingInitiator;
+
+
 import org.helios.apmrouter.server.unification.pipeline2.protocol.ProtocolInitiator;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -64,31 +64,7 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 	protected APMLogLevel level = APMLogLevel.pCode(log.getEffectiveLevel().toInt());
 	/** The registered protocol initiators */
 	protected final Set<ProtocolInitiator> pInitiators = new CopyOnWriteArraySet<ProtocolInitiator>();
-	/** The registered encoding initiators */
-	protected final Set<EncodingInitiator> encInitiators = new CopyOnWriteArraySet<EncodingInitiator>();
-	/** The registered content classifiers */
-	protected final Set<ContentClassifier> classifiers = new CopyOnWriteArraySet<ContentClassifier>();
 
-	/**
-	 * Adds a set of {@link ContentClassifier}s to be considered in the protocol switch
-	 * @param classifiers a set of {@link ContentClassifier}s
-	 */
-	public void setContentClassifiers(Set<ContentClassifier> classifiers) {
-		if(classifiers!=null) {
-			this.classifiers.addAll(classifiers);
-		}
-	}
-	
-	
-	/**
-	 * Adds a set of {@link EncodingInitiator}s to be considered in the protocol switch
-	 * @param initiators a set of {@link EncodingInitiator}s
-	 */
-	public void setEncodingInitiators(Set<EncodingInitiator> initiators) {
-		if(initiators!=null) {
-			encInitiators.addAll(initiators);
-		}
-	}
 	
 	
 	/**
@@ -123,13 +99,15 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 			}
 			return buffer;
 		}
+		final int bytesAvailable = super.actualReadableBytes();
 		ProtocolSwitchContext portContext = context.get(channel);
 		if(portContext==null) {
-			portContext = new ProtocolSwitchContext();
+			portContext = new ProtocolSwitchContext(ctx, channel, buffer, bytesAvailable, state);
 			context.set(channel, portContext);
+		} else {
+			portContext.update(ctx, buffer, bytesAvailable, state);
 		}
-		final long bytesAvailable = actualReadableBytes();
-		final ChannelPipeline pipeline = ctx.getPipeline();
+				
 		switch(state) {
 			case INIT:
 				boolean found = false;
@@ -142,16 +120,9 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 						} else {
 							log.info("PI [" + pi.getName() + "] MATCHED");
 							found = true;
-							SwitchPhase phase = pi.modifyPipeline(ctx, channel, buffer);
+							SwitchPhase phase = pi.process(portContext);
 							if(phase!=null) {
 								checkpoint(phase);
-								if(phase==SwitchPhase.COMPLETE) {
-									//pipeline.getContext(pipeline.getNames().get(pipeline.getNames().indexOf("exec")+1)).sendUpstream(
-									pipeline.getContext(pipeline.getFirst()).sendUpstream(									
-											new UpstreamMessageEvent(channel, buffer.copy(0, super.actualReadableBytes()), channel.getRemoteAddress())
-									);
-
-								}
 							} else {
 								buffer.getByte(Integer.MAX_VALUE);
 							}							

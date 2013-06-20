@@ -120,9 +120,9 @@ public class ServerPipelineFactory extends ServerComponentBean implements Channe
 	public ChannelPipeline getPipeline() throws Exception {
 		ChannelPipeline pipeline = Channels.pipeline();
 		LoggingHandler lh = decode(installedLogger);
-		if(lh!=null) pipeline.addLast("logging", lh);
-		pipeline.addLast("exec", executionHandler);
+		if(lh!=null) pipeline.addLast("logging", lh);		
 		pipeline.addLast(ProtocolSwitchDecoder.PIPE_NAME, applicationContext.getBean("protocolSwitchDecoder", ProtocolSwitchDecoder.class));
+		pipeline.addLast("exec", executionHandler);
 		return pipeline;
 	}
 

@@ -35,6 +35,10 @@ package org.helios.apmrouter.server.unification.pipeline2;
 public enum SwitchPhase {
 	/** Negotiation just started */
 	INIT,
+	/** Read more data phase 1 */
+	READ_MORE_1,
+	/** Read more data phase 2 */
+	READ_MORE_2,
 	/** Detected compression (or some other encoding) */
 	COMPDETECT,
 	/** Decompress (or decode) */

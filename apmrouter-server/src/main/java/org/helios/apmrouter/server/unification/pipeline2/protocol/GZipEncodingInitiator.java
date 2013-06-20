@@ -22,13 +22,12 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package org.helios.apmrouter.server.unification.pipeline2.encoding;
+package org.helios.apmrouter.server.unification.pipeline2.protocol;
 
 import org.helios.apmrouter.server.unification.pipeline2.AbstractInitiator;
+import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext;
 import org.helios.apmrouter.server.unification.pipeline2.SwitchPhase;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelHandlerContext;
 
 /**
  * <p>Title: GZipEncodingInitiator</p>
@@ -38,7 +37,7 @@ import org.jboss.netty.channel.ChannelHandlerContext;
  * <p><code>org.helios.apmrouter.server.unification.pipeline2.encoding.GZipEncodingInitiator</code></p>
  */
 
-public class GZipEncodingInitiator extends AbstractInitiator implements EncodingInitiator {
+public class GZipEncodingInitiator extends AbstractInitiator  {
 
 	/**
 	 * Creates a new GZipEncodingInitiator
@@ -58,10 +57,10 @@ public class GZipEncodingInitiator extends AbstractInitiator implements Encoding
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#modifyPipeline(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.Channel, org.jboss.netty.buffer.ChannelBuffer)
+	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#process(org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext)
 	 */
 	@Override
-	public SwitchPhase modifyPipeline(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer) {
+	public SwitchPhase process(ProtocolSwitchContext ctx) {
 		return SwitchPhase.CONTENTDETECT;
 	}
 

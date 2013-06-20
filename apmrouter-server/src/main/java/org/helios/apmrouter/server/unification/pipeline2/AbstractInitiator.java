@@ -24,6 +24,8 @@
  */
 package org.helios.apmrouter.server.unification.pipeline2;
 
+import org.apache.log4j.Logger;
+
 
 /**
  * <p>Title: AbstractInitiator</p>
@@ -39,6 +41,8 @@ public abstract class AbstractInitiator implements Initiator {
 	/** The name of this Initiator */
 	protected final String name;
 	
+	/** Instance logger */
+	protected final Logger log = Logger.getLogger(getClass());
 	
 	/**
 	 * Creates a new AbstractInitiator
@@ -58,6 +62,15 @@ public abstract class AbstractInitiator implements Initiator {
 	public int requiredBytes() {
 		return requiredBytes;
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#requiresFullPayload()
+	 */
+	@Override
+	public boolean requiresFullPayload() {	
+		return false;
+	}	
 
 	/**
 	 * {@inheritDoc}

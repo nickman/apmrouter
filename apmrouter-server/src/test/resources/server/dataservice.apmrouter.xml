@@ -119,6 +119,9 @@
  	 	</property>
  	 	<property name="contentClassifiers">
  	 		<set>
+ 	 			<bean id="xmlContentClassifier" class="org.helios.apmrouter.server.unification.pipeline2.content.XMLContentClassifier">
+					<constructor-arg value="XMLClassifier" /> 	 			
+ 	 			</bean>
  	 		</set>
  	 	</property>
  	 	

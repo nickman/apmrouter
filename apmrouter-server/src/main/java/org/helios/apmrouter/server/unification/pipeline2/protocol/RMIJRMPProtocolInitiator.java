@@ -27,6 +27,7 @@ package org.helios.apmrouter.server.unification.pipeline2.protocol;
 import java.rmi.registry.Registry;
 
 import org.helios.apmrouter.server.unification.pipeline2.AbstractInitiator;
+import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext;
 import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchDecoder;
 import org.helios.apmrouter.server.unification.pipeline2.SwitchPhase;
 import org.jboss.netty.buffer.ChannelBuffer;
@@ -65,7 +66,7 @@ The seemingly repeating part:
          +-------------------------------------------------+
          |  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f |
 +--------+-------------------------------------------------+----------------+
-|00000000| 16 03 01 00 95 01 00 00 91 03 01 51 c2          |...........Q..D&|
+|00000000| 16 03 01 00 95 01 00 00 91 03 01 51             |...........Q..D&|
 +--------+-------------------------------------------------+----------------+
 <br>
  * </pre>
@@ -87,7 +88,7 @@ public class RMIJRMPProtocolInitiator extends AbstractInitiator implements Proto
 		this.registry = registry;
 	}
 	
-	private static final int[] BYTE_SIG = new int[]{22, 3, 1, 0, 149, 1, 0, 0, 145, 3, 1, 81, 194};
+	private static final int[] BYTE_SIG = new int[]{22, 3, 1, 0, 149, 1, 0, 0, 145, 3, 1, 81};
 
 	/**
 	 * {@inheritDoc}
@@ -113,22 +114,21 @@ public class RMIJRMPProtocolInitiator extends AbstractInitiator implements Proto
 		}
 		return false;
 	}
+	
+
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#modifyPipeline(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.Channel, org.jboss.netty.buffer.ChannelBuffer)
+	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#process(org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext)
 	 */
 	@Override
-	public SwitchPhase modifyPipeline(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer) {
+	public SwitchPhase process(ProtocolSwitchContext ctx) {
 		ChannelPipeline pipeline = ctx.getPipeline();
 		if(pipeline.getContext("objectEncoder")==null) {
 			pipeline.addLast("objectEncoder", new CompatibleObjectEncoder());
 		}
 		pipeline.remove(ProtocolSwitchDecoder.PIPE_NAME);
-		while(buffer.readableBytes()>0) {
-			buffer.readByte();
-		}
-		channel.write(stub);
+		ctx.getChannel().write(stub);
 		return SwitchPhase.COMPLETE;
 	}
 

@@ -26,11 +26,10 @@ package org.helios.apmrouter.server.unification.pipeline2.protocol;
 
 import org.helios.apmrouter.server.unification.pipeline.http.HttpRequestRouter;
 import org.helios.apmrouter.server.unification.pipeline2.AbstractInitiator;
+import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext;
 import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchDecoder;
 import org.helios.apmrouter.server.unification.pipeline2.SwitchPhase;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
@@ -82,17 +81,26 @@ public class HttpProtocolInitiator extends AbstractInitiator implements Protocol
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#modifyPipeline(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.Channel, org.jboss.netty.buffer.ChannelBuffer)
+	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#process(org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext)
 	 */
 	@Override
-	public SwitchPhase modifyPipeline(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer) {
-		ChannelPipeline pipeline = ctx.getPipeline();		
-		pipeline.addLast("http-decoder", new HttpRequestDecoder());
-		pipeline.addLast("http-aggregator", new HttpChunkAggregator(65536));
-		pipeline.addLast("http-encoder", new HttpResponseEncoder());       
-		pipeline.addLast("http-chunkedWriter", new ChunkedWriteHandler());
-		pipeline.addLast("router", router);		
+	public SwitchPhase process(ProtocolSwitchContext ctx) {
+		ChannelPipeline pipeline = ctx.getPipeline();
 		pipeline.remove(ProtocolSwitchDecoder.PIPE_NAME);
+		pipeline.addBefore(EXEC_HANDLER_NAME, "http-decoder", new HttpRequestDecoder());
+		pipeline.addBefore(EXEC_HANDLER_NAME, "http-aggregator", new HttpChunkAggregator(65536));
+		pipeline.addBefore(EXEC_HANDLER_NAME, "http-encoder", new HttpResponseEncoder());
+		pipeline.addBefore(EXEC_HANDLER_NAME, "http-chunkedWriter", new ChunkedWriteHandler());
+		pipeline.addAfter(EXEC_HANDLER_NAME, "router", router);
+		
+//		pipeline.addLast("http-decoder", new HttpRequestDecoder());
+//		pipeline.addLast("http-aggregator", new HttpChunkAggregator(65536));
+//		pipeline.addLast("http-encoder", new HttpResponseEncoder());       
+//		pipeline.addLast("http-chunkedWriter", new ChunkedWriteHandler());
+//		pipeline.addLast("router", router);				
+		pipeline.getContext(pipeline.getFirst()).sendUpstream(									
+				new UpstreamMessageEvent(ctx.getChannel(), ctx.getBuffer().copy(0, ctx.getActualReadableBytes()), ctx.getChannel().getRemoteAddress())
+		);		
 		return SwitchPhase.COMPLETE;
 	}
 	
