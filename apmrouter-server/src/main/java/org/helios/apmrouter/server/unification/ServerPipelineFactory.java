@@ -122,7 +122,7 @@ public class ServerPipelineFactory extends ServerComponentBean implements Channe
 		LoggingHandler lh = decode(installedLogger);
 		if(lh!=null) pipeline.addLast("logging", lh);
 		pipeline.addLast("exec", executionHandler);
-		pipeline.addLast("protocolSwitch", ps);
+		pipeline.addLast(ProtocolSwitchDecoder.PIPE_NAME, applicationContext.getBean("protocolSwitchDecoder", ProtocolSwitchDecoder.class));
 		return pipeline;
 	}
 

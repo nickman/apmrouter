@@ -25,7 +25,7 @@
 package org.helios.apmrouter.server.unification.pipeline2.encoding;
 
 import org.helios.apmrouter.server.unification.pipeline2.AbstractInitiator;
-import org.helios.apmrouter.server.unification.pipeline2.Initiator;
+import org.helios.apmrouter.server.unification.pipeline2.SwitchPhase;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -53,8 +53,7 @@ public class GZipEncodingInitiator extends AbstractInitiator implements Encoding
 	 */
 	@Override
 	public boolean match(ChannelBuffer buff) {
-
-		return false;
+		return isGzip(buff);
 	}
 
 	/**
@@ -62,9 +61,8 @@ public class GZipEncodingInitiator extends AbstractInitiator implements Encoding
 	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#modifyPipeline(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.Channel, org.jboss.netty.buffer.ChannelBuffer)
 	 */
 	@Override
-	public void modifyPipeline(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer) {
-		// TODO Auto-generated method stub
-
+	public SwitchPhase modifyPipeline(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer) {
+		return SwitchPhase.CONTENTDETECT;
 	}
 
 	/**

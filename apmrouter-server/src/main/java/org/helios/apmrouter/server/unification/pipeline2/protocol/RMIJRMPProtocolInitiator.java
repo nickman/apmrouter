@@ -27,9 +27,15 @@ package org.helios.apmrouter.server.unification.pipeline2.protocol;
 import java.rmi.registry.Registry;
 
 import org.helios.apmrouter.server.unification.pipeline2.AbstractInitiator;
+import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchDecoder;
+import org.helios.apmrouter.server.unification.pipeline2.SwitchPhase;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.ChannelPipeline;
+import org.jboss.netty.handler.codec.serialization.CompatibleObjectEncoder;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * <p>Title: RMIJRMPProtocolInitiator</p>
@@ -66,10 +72,12 @@ The seemingly repeating part:
  * 
  */
 
-public class RMIJRMPProtocolInitiator extends AbstractInitiator implements ProtocolInitiator {
+public class RMIJRMPProtocolInitiator extends AbstractInitiator implements ProtocolInitiator, InitializingBean {
 	/** The RMI registry */
+	@Autowired(required=true)
 	protected final Registry registry;
-	
+	/** JRMP stub */
+	protected Object stub = null;
 	/**
 	 * Creates a new RMIJRMPProtocolInitiator
 	 * @param registry The RMI registry
@@ -81,6 +89,15 @@ public class RMIJRMPProtocolInitiator extends AbstractInitiator implements Proto
 	
 	private static final int[] BYTE_SIG = new int[]{22, 3, 1, 0, 149, 1, 0, 0, 145, 3, 1, 81, 194};
 
+	/**
+	 * {@inheritDoc}
+	 * @see org.springframework.beans.factory.InitializingBean#afterPropertiesSet()
+	 */
+	@Override
+	public void afterPropertiesSet() throws Exception {
+		stub = registry.lookup("jmxrmi");		
+	}
+	
 
 	/**
 	 * {@inheritDoc}
@@ -102,10 +119,18 @@ public class RMIJRMPProtocolInitiator extends AbstractInitiator implements Proto
 	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#modifyPipeline(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.Channel, org.jboss.netty.buffer.ChannelBuffer)
 	 */
 	@Override
-	public void modifyPipeline(ChannelHandlerContext ctx, Channel channel,
-			ChannelBuffer buffer) {
-		// TODO Auto-generated method stub
-
+	public SwitchPhase modifyPipeline(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer) {
+		ChannelPipeline pipeline = ctx.getPipeline();
+		if(pipeline.getContext("objectEncoder")==null) {
+			pipeline.addLast("objectEncoder", new CompatibleObjectEncoder());
+		}
+		pipeline.remove(ProtocolSwitchDecoder.PIPE_NAME);
+		while(buffer.readableBytes()>0) {
+			buffer.readByte();
+		}
+		channel.write(stub);
+		return SwitchPhase.COMPLETE;
 	}
+
 
 }

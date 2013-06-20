@@ -58,8 +58,9 @@ public interface Initiator {
 	 * @param ctx The channel handler context
 	 * @param channel The current channel
 	 * @param buffer  The initiating buffer
+	 * @return The switch phase the protocol switch should transition to after this pipeline modification
 	 */
-	public void modifyPipeline(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer);
+	public SwitchPhase modifyPipeline(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer);
 	
 	
 	/**

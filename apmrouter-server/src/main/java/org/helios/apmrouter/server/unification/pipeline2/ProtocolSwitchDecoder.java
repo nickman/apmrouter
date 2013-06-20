@@ -33,10 +33,12 @@ import org.helios.apmrouter.server.unification.pipeline2.content.ContentClassifi
 import org.helios.apmrouter.server.unification.pipeline2.encoding.EncodingInitiator;
 import org.helios.apmrouter.server.unification.pipeline2.protocol.ProtocolInitiator;
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelLocal;
 import org.jboss.netty.channel.ChannelPipeline;
+import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.jboss.netty.handler.codec.replay.ReplayingDecoder;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 
@@ -66,8 +68,38 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 	protected final Set<EncodingInitiator> encInitiators = new CopyOnWriteArraySet<EncodingInitiator>();
 	/** The registered content classifiers */
 	protected final Set<ContentClassifier> classifiers = new CopyOnWriteArraySet<ContentClassifier>();
+
+	/**
+	 * Adds a set of {@link ContentClassifier}s to be considered in the protocol switch
+	 * @param classifiers a set of {@link ContentClassifier}s
+	 */
+	public void setContentClassifiers(Set<ContentClassifier> classifiers) {
+		if(classifiers!=null) {
+			this.classifiers.addAll(classifiers);
+		}
+	}
 	
 	
+	/**
+	 * Adds a set of {@link EncodingInitiator}s to be considered in the protocol switch
+	 * @param initiators a set of {@link EncodingInitiator}s
+	 */
+	public void setEncodingInitiators(Set<EncodingInitiator> initiators) {
+		if(initiators!=null) {
+			encInitiators.addAll(initiators);
+		}
+	}
+	
+	
+	/**
+	 * Adds a set of {@link ProtocolInitiator}s to be considered in the protocol switch
+	 * @param initiators a set of {@link ProtocolInitiator}s
+	 */
+	public void setProtocolInitiators(Set<ProtocolInitiator> initiators) {
+		if(initiators!=null) {
+			pInitiators.addAll(initiators);
+		}
+	}
 	
 	/** The name of this decoder in the pipeline */
 	public static final String PIPE_NAME = "psd";
@@ -85,17 +117,47 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 	 */
 	@Override
 	protected Object decode(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer, SwitchPhase state) throws Exception {
+		if(state==SwitchPhase.COMPLETE) {
+			while(buffer.readableBytes()>0) {
+				buffer.readByte();
+			}
+			return buffer;
+		}
 		ProtocolSwitchContext portContext = context.get(channel);
 		if(portContext==null) {
 			portContext = new ProtocolSwitchContext();
 			context.set(channel, portContext);
 		}
-		final long bytesAvailable = buffer.readableBytes();
+		final long bytesAvailable = actualReadableBytes();
 		final ChannelPipeline pipeline = ctx.getPipeline();
 		switch(state) {
 			case INIT:
+				boolean found = false;
+				boolean insufBytes = false;
 				for(ProtocolInitiator pi: pInitiators) {
-					
+					if(!portContext.hasProtocolInitiatorFailed(pi)) {
+						if(!pi.match(buffer)) {
+							portContext.failProtocolInitiator(pi);
+							log.info("PI [" + pi.getName() + "] failed");
+						} else {
+							log.info("PI [" + pi.getName() + "] MATCHED");
+							found = true;
+							SwitchPhase phase = pi.modifyPipeline(ctx, channel, buffer);
+							if(phase!=null) {
+								checkpoint(phase);
+								if(phase==SwitchPhase.COMPLETE) {
+									//pipeline.getContext(pipeline.getNames().get(pipeline.getNames().indexOf("exec")+1)).sendUpstream(
+									pipeline.getContext(pipeline.getFirst()).sendUpstream(									
+											new UpstreamMessageEvent(channel, buffer.copy(0, super.actualReadableBytes()), channel.getRemoteAddress())
+									);
+
+								}
+							} else {
+								buffer.getByte(Integer.MAX_VALUE);
+							}							
+							return null;
+						}
+					}
 				}
 				break;		
 			case COMPDETECT:

@@ -27,10 +27,12 @@ package org.helios.apmrouter.server.unification.pipeline2.protocol;
 import org.helios.apmrouter.server.unification.pipeline.http.HttpRequestRouter;
 import org.helios.apmrouter.server.unification.pipeline2.AbstractInitiator;
 import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchDecoder;
+import org.helios.apmrouter.server.unification.pipeline2.SwitchPhase;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
+import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
@@ -83,14 +85,15 @@ public class HttpProtocolInitiator extends AbstractInitiator implements Protocol
 	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#modifyPipeline(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.Channel, org.jboss.netty.buffer.ChannelBuffer)
 	 */
 	@Override
-	public void modifyPipeline(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer) {
+	public SwitchPhase modifyPipeline(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer) {
 		ChannelPipeline pipeline = ctx.getPipeline();		
 		pipeline.addLast("http-decoder", new HttpRequestDecoder());
 		pipeline.addLast("http-aggregator", new HttpChunkAggregator(65536));
 		pipeline.addLast("http-encoder", new HttpResponseEncoder());       
 		pipeline.addLast("http-chunkedWriter", new ChunkedWriteHandler());
-		pipeline.addLast("router", router);
+		pipeline.addLast("router", router);		
 		pipeline.remove(ProtocolSwitchDecoder.PIPE_NAME);
+		return SwitchPhase.COMPLETE;
 	}
 	
 	/**
