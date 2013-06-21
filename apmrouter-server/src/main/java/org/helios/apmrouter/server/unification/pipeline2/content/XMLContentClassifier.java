@@ -88,7 +88,6 @@ public abstract class XMLContentClassifier extends AbstractInitiator {
 	 */
 	@Override
 	public int requiredBytes() {
-		// TODO Auto-generated method stub
 		return 0;
 	}
 
@@ -98,8 +97,7 @@ public abstract class XMLContentClassifier extends AbstractInitiator {
 	 */
 	@Override
 	public String getName() {
-		// TODO Auto-generated method stub
-		return null;
+		return name;
 	}
 
 }

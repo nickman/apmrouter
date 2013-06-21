@@ -108,9 +108,6 @@
  	 			<bean id="HttpProtocolInitiator" class="org.helios.apmrouter.server.unification.pipeline2.protocol.HttpProtocolInitiator">
  	 				<constructor-arg ref="HttpRequestRouter" />
  	 			</bean>
- 	 			<bean id="RMIJRMPProtocolInitiator" class="org.helios.apmrouter.server.unification.pipeline2.protocol.RMIJRMPProtocolInitiator">
- 	 				<constructor-arg ref="RMIRegistry"/>
- 	 			</bean>
  	 		</set>
  	 	</property>
  	 	<property name="encodingInitiators">
