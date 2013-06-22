@@ -63,7 +63,16 @@ public class ProtocolSwitchContext {
 	protected int priorReadBytes = 0;
 	/** The current initiator to be called for a given state */
 	protected final Map<SwitchPhase, Initiator> nextInitiators = new EnumMap<SwitchPhase, Initiator>(SwitchPhase.class);
+	/** Indicates if aggregation has taken place within the scope of this context */
+	protected boolean aggregationHasOccured = false;
 	
+	
+	public void sendCurrentBufferUpstream() {
+		if(buffer.getClass().getSimpleName().equals("ReplayingDecoderBuffer")) {
+
+		}
+	}
+
 	/**
 	 * Clears the nextInitiators map
 	 * @return this context
@@ -253,6 +262,20 @@ public class ProtocolSwitchContext {
 		this.phase = state;
 	}
 
+	/**
+	 * Indicates if aggregation has taken place within the scope of this context
+	 * @return true if aggregation has taken place within the scope of this context, false otherwise
+	 */
+	public boolean aggregationHasOccured() {
+		return aggregationHasOccured;
+	}
+
+	/**
+	 * Sets the aggregation-has-occured flag to true
+	 */
+	public void setAggregationHasOccured() {
+		this.aggregationHasOccured = true;
+	}
 	
 	
 	

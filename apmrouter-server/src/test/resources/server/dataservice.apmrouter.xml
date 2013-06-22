@@ -102,26 +102,17 @@
  	 	
  	 </bean>
  	 
+ 	 <bean id="aggregatingHandler" class="org.helios.apmrouter.server.unification.pipeline2.FlushOnCloseBufferAggregator" factory-method="getInstance" />
+ 	 
  	 <bean id="protocolSwitchDecoder" class="org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchDecoder" scope="prototype" >
- 	 	<property name="protocolInitiators">
+ 	 	<property name="initiators">
  	 		<set>
  	 			<bean id="HttpProtocolInitiator" class="org.helios.apmrouter.server.unification.pipeline2.protocol.HttpProtocolInitiator">
  	 				<constructor-arg ref="HttpRequestRouter" />
  	 			</bean>
+ 	 			<bean id="SanStatsContentClassifier" class="org.helios.apmrouter.server.services.mtxml.SanStatsContentClassifier" />
  	 		</set>
  	 	</property>
- 	 	<property name="encodingInitiators">
- 	 		<set>
- 	 		</set>
- 	 	</property>
- 	 	<property name="contentClassifiers">
- 	 		<set>
- 	 			<bean id="xmlContentClassifier" class="org.helios.apmrouter.server.unification.pipeline2.content.XMLContentClassifier">
-					<constructor-arg value="XMLClassifier" /> 	 			
- 	 			</bean>
- 	 		</set>
- 	 	</property>
- 	 	
  	 </bean>
  	 
  	 

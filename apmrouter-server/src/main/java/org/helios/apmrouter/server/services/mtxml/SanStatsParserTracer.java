@@ -50,6 +50,10 @@ import org.helios.apmrouter.util.ByteSequenceIndexFinder;
 import org.helios.apmrouter.util.SystemClock;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.ChannelEvent;
+import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.ChannelUpstreamHandler;
+import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedMetric;
 import org.springframework.jmx.export.annotation.ManagedOperation;
@@ -64,7 +68,7 @@ import org.springframework.jmx.support.MetricType;
  * <p><code>org.helios.apmrouter.server.services.mtxml.SanStatsParserTracer</code></p>
  */
 
-public class SanStatsParserTracer extends ServerComponentBean {
+public class SanStatsParserTracer extends ServerComponentBean implements ChannelUpstreamHandler {
 	/** The worker thread pool that XML segments are assigned to for parsing by a worker */
 	protected ExecutorService threadPool;
 	/** The segment parsing thread pool queue size */
@@ -112,7 +116,9 @@ public class SanStatsParserTracer extends ServerComponentBean {
 		this.gformat = gformat;
 	}
 	
-	
+	/** The name of this decoder in the pipeline */
+	public static final String PIPE_NAME = "SanStatsParserTracer";
+
 	
 	/**
 	 * Creates a new SanStatsParserTracer
@@ -124,7 +130,22 @@ public class SanStatsParserTracer extends ServerComponentBean {
 		this.threadPool = threadPool;
 	}
 
-
+	/**
+	 * <p>If the passed event is a {@link UpstreamMessageEvent} and the message is an instance of {@link ChannelBuffer},
+	 * we believe this is a decoded san stats XML submission, so we process it.</p> 
+	 * {@inheritDoc}
+	 * @see org.jboss.netty.channel.ChannelUpstreamHandler#handleUpstream(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.ChannelEvent)
+	 */
+	@Override
+	public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent e) {
+		if(e instanceof UpstreamMessageEvent) {
+			Object msg = ((UpstreamMessageEvent)e).getMessage();
+			if(msg instanceof ChannelBuffer) {
+				process((ChannelBuffer)msg);
+			}
+		}
+		ctx.sendUpstream(e);
+	}
 
 	/**
 	 * Static tester

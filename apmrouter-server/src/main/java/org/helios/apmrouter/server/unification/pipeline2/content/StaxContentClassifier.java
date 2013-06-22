@@ -82,7 +82,10 @@ public abstract class StaxContentClassifier extends XMLContentClassifier {
 				if(type==XMLStreamConstants.START_ELEMENT) {
 					tags++; if(tags > maxTags) return null;
 					Object matchKey = isMatch(type, xReader, state);
-					if(matchKey!=null) return matchKey;
+					if(matchKey!=null) {
+						log.info("Matched content on [" + matchKey + "]");
+						return matchKey;
+					}
 				}
 			}
 			return null;
@@ -99,13 +102,13 @@ public abstract class StaxContentClassifier extends XMLContentClassifier {
 	/**
 	 * Concrete classes should implement this method to test each event supplied by the main {@link #match(ChannelBuffer)} method loop.
 	 * When and if a match is made, the method should return the match key.
-	 * @param evenType The event type id of the current event
+	 * @param eventType The event type id of the current event
 	 * @param streamReader The stream reader from which the remaining details of the event can be read
 	 * @param state A map supplied by the caller to allow the inner match to maintain state. The map will be the same instance
 	 * across multiple sequential calls for the same stream reader.
 	 * @return the match key, or null if one was not found
 	 */
-	protected abstract Object isMatch(int evenType, XMLStreamReader streamReader, Map<Object, Object> state);
+	protected abstract Object isMatch(int eventType, XMLStreamReader streamReader, Map<Object, Object> state);
 
 
 	/**
