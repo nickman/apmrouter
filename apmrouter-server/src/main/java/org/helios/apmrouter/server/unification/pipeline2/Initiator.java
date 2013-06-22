@@ -40,7 +40,10 @@ public interface Initiator {
 	public static final String EXEC_HANDLER_NAME = "exec";
 	
 	/**
-	 * Returns the number of bytes requires by this initiator to determine the stream type
+	 * Returns the number of bytes requires by this initiator to determine the stream type.
+	 * Returning a value of <b><code>0</code></b> or less means this value is undetermined,
+	 * meaning that the initiator will be attempted in each protocol negotiation loop until
+	 * a match is made or the maximum number of negotiation bytes has been exceeded.
 	 * @return the number of bytes requires by this initiator to determine the stream type
 	 */
 	public int requiredBytes();
@@ -49,17 +52,21 @@ public interface Initiator {
 	/**
 	 * Tests this initiator to see if the initiating connection is a protocol match.
 	 * @param buff The initial channel buffer passed on connect
-	 * @return true for match, false otherwise
+	 * @return The object representing the match key, or null if no match was found.
+	 * Note that the key does not necessarilly need to have any special significance,
+	 * except for a null value which means no match was found.
 	 */
-	public boolean match(ChannelBuffer buff);
+	public Object match(ChannelBuffer buff);
 	
 
 	/**
 	 * Modifies the passed pipeline to provide specific functionality after a successful protocol match
 	 * @param context The context representing the state of protocol switching in the decoder
+	 * @param matchKey An arbitrary key provided when the {@link #match(ChannelBuffer)} method matched the content.
+	 * The object may have specific significance, except that it should not be null, since that would imply a match miss.
 	 * @return The switch phase the protocol switch should transition to after this pipeline modification
 	 */
-	public SwitchPhase process(ProtocolSwitchContext context);
+	public SwitchPhase process(ProtocolSwitchContext context, Object matchKey);
 	
 	/**
 	 * This is true if the decoder requires the full payload to start decoding (e.g. the bzip2 decoder) or false if partial buffers can be streamed in to the decoder.

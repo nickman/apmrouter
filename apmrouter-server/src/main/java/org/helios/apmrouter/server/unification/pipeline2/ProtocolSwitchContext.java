@@ -29,7 +29,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.helios.apmrouter.server.unification.pipeline2.protocol.ProtocolInitiator;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -45,7 +44,7 @@ import org.jboss.netty.channel.ChannelPipeline;
 
 public class ProtocolSwitchContext {
 	/** A set of protocol initiators which have definitively failed matching for this context */
-	protected final Set<ProtocolInitiator> pInitiators = new HashSet<ProtocolInitiator>();
+	protected final Set<Initiator> pInitiators = new HashSet<Initiator>();
 
 	/** The channel this context is created for */
 	protected final Channel channel;
@@ -166,27 +165,27 @@ public class ProtocolSwitchContext {
 	 * Resets the failed protocol initiators
 	 * @return this context
 	 */
-	ProtocolSwitchContext resetProtocolInitiators() {
+	ProtocolSwitchContext resetInitiators() {
 		pInitiators.clear();
 		return this;		
 	}
 	
 	/**
-	 * Fails the passed {@link ProtocolInitiator} and returns this context
-	 * @param pi the failed ProtocolInitiator
+	 * Fails the passed {@link Initiator} and returns this context
+	 * @param pi the failed Initiator
 	 * @return this context
 	 */
-	ProtocolSwitchContext failProtocolInitiator(ProtocolInitiator pi) {
+	ProtocolSwitchContext failInitiator(Initiator pi) {
 		pInitiators.add(pi);
 		return this;
 	}
 	
 	/**
-	 * Determines if this context has failed the passed {@link ProtocolInitiator} 
-	 * @param pi the {@link ProtocolInitiator} to test
+	 * Determines if this context has failed the passed {@link Initiator} 
+	 * @param pi the {@link Initiator} to test
 	 * @return true if failed, false otherwise
 	 */
-	boolean hasProtocolInitiatorFailed(ProtocolInitiator pi) {
+	boolean hasInitiatorFailed(Initiator pi) {
 		return pInitiators.contains(pi); 
 	}
 

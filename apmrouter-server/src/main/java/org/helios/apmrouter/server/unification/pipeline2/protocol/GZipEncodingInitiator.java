@@ -31,7 +31,7 @@ import org.jboss.netty.buffer.ChannelBuffer;
 
 /**
  * <p>Title: GZipEncodingInitiator</p>
- * <p>Description: </p> 
+ * <p>Description: An initiator that detects a GZip encoded stream of data</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.unification.pipeline2.encoding.GZipEncodingInitiator</code></p>
@@ -51,16 +51,16 @@ public class GZipEncodingInitiator extends AbstractInitiator  {
 	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#match(org.jboss.netty.buffer.ChannelBuffer)
 	 */
 	@Override
-	public boolean match(ChannelBuffer buff) {
-		return isGzip(buff);
+	public Object match(ChannelBuffer buff) {
+		return isGzip(buff) ? true : null;
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#process(org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext)
+	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#process(org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext, java.lang.Object)
 	 */
 	@Override
-	public SwitchPhase process(ProtocolSwitchContext ctx) {
+	public SwitchPhase process(ProtocolSwitchContext ctx, Object matchKey) {
 		return SwitchPhase.CONTENTDETECT;
 	}
 

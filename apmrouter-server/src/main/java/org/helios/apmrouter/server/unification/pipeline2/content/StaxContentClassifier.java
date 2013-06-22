@@ -24,7 +24,12 @@
  */
 package org.helios.apmrouter.server.unification.pipeline2.content;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamReader;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBufferInputStream;
@@ -49,7 +54,7 @@ public abstract class StaxContentClassifier extends XMLContentClassifier {
 	
 	/**
 	 * Creates a new StaxContentClassifier
-	 * @param name
+	 * @param name The name of the XML content this classifier identifies
 	 */
 	public StaxContentClassifier(String name) {
 		super(name);
@@ -61,23 +66,46 @@ public abstract class StaxContentClassifier extends XMLContentClassifier {
 	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#match(org.jboss.netty.buffer.ChannelBuffer)
 	 */
 	@Override
-	public boolean match(ChannelBuffer buff) {
-		if(!super.match(buff)) return false;
+	public Object match(ChannelBuffer buff) {
+		if(super.match(buff)==null) return null;
+		int events = 0, tags = 0;
 		ChannelBufferInputStream cbis = null;
+		XMLStreamReader xReader = null;
 		buff.resetReaderIndex();
 		try {
 			cbis = new ChannelBufferInputStream(buff);
-			
-			return true;
+			xReader = xmlInputFactory.createXMLStreamReader(cbis);
+			Map<Object, Object> state = new HashMap<Object, Object>();
+			while(xReader.hasNext()) {
+				events++; if(events > maxEvents) return null;
+				int type = xReader.next();
+				if(type==XMLStreamConstants.START_ELEMENT) {
+					tags++; if(tags > maxTags) return null;
+					Object matchKey = isMatch(type, xReader, state);
+					if(matchKey!=null) return matchKey;
+				}
+			}
+			return null;
 		} catch (Exception ex) {
-			return false;
+			return null;
 		} finally {
+			if(xReader!=null) try { xReader.close(); } catch (Exception x) { /* No Op */ }
 			if(cbis!=null) try { cbis.close(); } catch (Exception x) { /* No Op */ }
 			buff.resetReaderIndex();
 		}
-		
-		
 	}
+	
+	
+	/**
+	 * Concrete classes should implement this method to test each event supplied by the main {@link #match(ChannelBuffer)} method loop.
+	 * When and if a match is made, the method should return the match key.
+	 * @param evenType The event type id of the current event
+	 * @param streamReader The stream reader from which the remaining details of the event can be read
+	 * @param state A map supplied by the caller to allow the inner match to maintain state. The map will be the same instance
+	 * across multiple sequential calls for the same stream reader.
+	 * @return the match key, or null if one was not found
+	 */
+	protected abstract Object isMatch(int evenType, XMLStreamReader streamReader, Map<Object, Object> state);
 
 
 	/**

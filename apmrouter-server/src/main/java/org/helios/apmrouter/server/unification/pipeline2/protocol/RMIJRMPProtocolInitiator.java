@@ -31,8 +31,6 @@ import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext;
 import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchDecoder;
 import org.helios.apmrouter.server.unification.pipeline2.SwitchPhase;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.handler.codec.serialization.CompatibleObjectEncoder;
 import org.springframework.beans.factory.InitializingBean;
@@ -73,7 +71,7 @@ The seemingly repeating part:
  * 
  */
 
-public class RMIJRMPProtocolInitiator extends AbstractInitiator implements ProtocolInitiator, InitializingBean {
+public class RMIJRMPProtocolInitiator extends AbstractInitiator implements InitializingBean {
 	/** The RMI registry */
 	@Autowired(required=true)
 	protected final Registry registry;
@@ -105,24 +103,24 @@ public class RMIJRMPProtocolInitiator extends AbstractInitiator implements Proto
 	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#match(org.jboss.netty.buffer.ChannelBuffer)
 	 */
 	@Override
-	public boolean match(ChannelBuffer buff) {
+	public Object match(ChannelBuffer buff) {
 		if(buff.readableBytes()>=BYTE_SIG.length) {
 			for(int i = 0; i < BYTE_SIG.length; i++) {
-				if(BYTE_SIG[i] != buff.getUnsignedByte(i)) return false;
+				if(BYTE_SIG[i] != buff.getUnsignedByte(i)) return null;
 			}
 			return true;
 		}
-		return false;
+		return null;
 	}
 	
 
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#process(org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext)
+	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#process(org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext, java.lang.Object)
 	 */
 	@Override
-	public SwitchPhase process(ProtocolSwitchContext ctx) {
+	public SwitchPhase process(ProtocolSwitchContext ctx, Object matchKey) {
 		ChannelPipeline pipeline = ctx.getPipeline();
 		if(pipeline.getContext("objectEncoder")==null) {
 			pipeline.addLast("objectEncoder", new CompatibleObjectEncoder());

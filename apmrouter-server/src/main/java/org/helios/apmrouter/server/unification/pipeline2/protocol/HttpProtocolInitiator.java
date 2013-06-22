@@ -53,7 +53,7 @@ import org.jboss.netty.handler.stream.ChunkedWriteHandler;
  * </pre>
  */
 
-public class HttpProtocolInitiator extends AbstractInitiator implements ProtocolInitiator {
+public class HttpProtocolInitiator extends AbstractInitiator {
 	/** The http request router */
 	protected final HttpRequestRouter router;
 	
@@ -72,19 +72,19 @@ public class HttpProtocolInitiator extends AbstractInitiator implements Protocol
 	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#match(org.jboss.netty.buffer.ChannelBuffer)
 	 */
 	@Override
-	public boolean match(ChannelBuffer buff) {
+	public Object match(ChannelBuffer buff) {
 		if(buff.readableBytes()>=2) {
-			return isHttp(buff.getUnsignedByte(0), buff.getUnsignedByte(1));
+			return isHttp(buff.getUnsignedByte(0), buff.getUnsignedByte(1)) ? true : null;
 		}
-		return false;
+		return null;
 	}
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#process(org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext)
+	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#process(org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext, java.lang.Object)
 	 */
 	@Override
-	public SwitchPhase process(ProtocolSwitchContext ctx) {
+	public SwitchPhase process(ProtocolSwitchContext ctx, Object matchKey) {
 		ChannelPipeline pipeline = ctx.getPipeline();
 		pipeline.remove(ProtocolSwitchDecoder.PIPE_NAME);
 		pipeline.addBefore(EXEC_HANDLER_NAME, "http-decoder", new HttpRequestDecoder());

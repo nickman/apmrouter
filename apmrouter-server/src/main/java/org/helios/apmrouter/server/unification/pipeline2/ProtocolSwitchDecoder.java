@@ -29,16 +29,10 @@ import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.logging.APMLogLevel;
-
-
-import org.helios.apmrouter.server.unification.pipeline2.protocol.ProtocolInitiator;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelLocal;
-import org.jboss.netty.channel.ChannelPipeline;
-import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.jboss.netty.handler.codec.replay.ReplayingDecoder;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 
@@ -63,15 +57,18 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 	/** The logger level */
 	protected APMLogLevel level = APMLogLevel.pCode(log.getEffectiveLevel().toInt());
 	/** The registered protocol initiators */
-	protected final Set<ProtocolInitiator> pInitiators = new CopyOnWriteArraySet<ProtocolInitiator>();
+	protected final Set<Initiator> pInitiators = new CopyOnWriteArraySet<Initiator>();
+	
+	/** The maximum number of bytes allowed for protocol/content negotiation */
+	protected int maxInitiatorBytes = 1024;
 
 	
 	
 	/**
-	 * Adds a set of {@link ProtocolInitiator}s to be considered in the protocol switch
-	 * @param initiators a set of {@link ProtocolInitiator}s
+	 * Adds a set of {@link Initiator}s to be considered in the protocol switch
+	 * @param initiators a set of {@link Initiator}s
 	 */
-	public void setProtocolInitiators(Set<ProtocolInitiator> initiators) {
+	public void setInitiators(Set<Initiator> initiators) {
 		if(initiators!=null) {
 			pInitiators.addAll(initiators);
 		}
@@ -112,23 +109,44 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 			case INIT:
 				boolean found = false;
 				boolean insufBytes = false;
-				for(ProtocolInitiator pi: pInitiators) {
-					if(!portContext.hasProtocolInitiatorFailed(pi)) {
-						if(!pi.match(buffer)) {
-							portContext.failProtocolInitiator(pi);
-							log.info("PI [" + pi.getName() + "] failed");
-						} else {
+				for(Initiator pi: pInitiators) {
+					int requiredBytes = pi.requiredBytes();
+					if(bytesAvailable < requiredBytes && requiredBytes > 0) {
+						insufBytes = true;
+						portContext.failInitiator(pi);
+						continue;
+					}
+					
+					if(!portContext.hasInitiatorFailed(pi)) {
+						try {
+							Object matchKey = pi.match(buffer); 
+							if(matchKey==null) {
+								portContext.failInitiator(pi);
+								log.info("PI [" + pi.getName() + "] failed");
+								continue;
+							}
 							log.info("PI [" + pi.getName() + "] MATCHED");
 							found = true;
-							SwitchPhase phase = pi.process(portContext);
+							SwitchPhase phase = pi.process(portContext, matchKey);
 							if(phase!=null) {
 								checkpoint(phase);
 							} else {
 								buffer.getByte(Integer.MAX_VALUE);
 							}							
 							return null;
+						} catch (Exception ex) {
+							portContext.failInitiator(pi);
+							log.info("PI [" + pi.getName() + "] failed");
+							continue;							
 						}
 					}
+				}
+				if(insufBytes) {
+					// this means that no initiator matched, but at least 1 initiator
+					// reported insufficient bytes to declare a match or miss.
+					// therefore we need to try to keep reading bytes until we get a match,
+					// or, if we determine that the max number of bytes [or all of the bytes]
+					// have been read, we throw a content not recognized error
 				}
 				break;		
 			case COMPDETECT:
@@ -166,6 +184,26 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 		level = APMLogLevel.valueOfName(levelName);
 		log.setLevel(level.getLevel());
 		log.info("Set Logger to level [" + log.getLevel().toString() + "]");
+	}
+
+
+	/**
+	 * Returns the maximum number of bytes allowed for protocol/content negotiation
+	 * @return the maximum number of bytes allowed for protocol/content negotiation
+	 */
+	@ManagedAttribute(description="The maximum number of bytes allowed for protocol/content negotiation")
+	public int getMaxInitiatorBytes() {
+		return maxInitiatorBytes;
+	}
+
+
+	/**
+	 * Sets the maximum number of bytes allowed for protocol/content negotiation
+	 * @param maxInitiatorBytes the maximum number of bytes allowed for protocol/content negotiation
+	 */
+	@ManagedAttribute(description="The maximum number of bytes allowed for protocol/content negotiation")
+	public void setMaxInitiatorBytes(int maxInitiatorBytes) {
+		this.maxInitiatorBytes = maxInitiatorBytes;
 	}
 
 

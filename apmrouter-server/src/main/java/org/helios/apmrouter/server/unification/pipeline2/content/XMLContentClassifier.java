@@ -65,7 +65,7 @@ public abstract class XMLContentClassifier extends AbstractInitiator {
 	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#match(org.jboss.netty.buffer.ChannelBuffer)
 	 */
 	@Override
-	public boolean match(ChannelBuffer buff) {
+	public Object match(ChannelBuffer buff) {
 		// read out the white space
 		while(true) {
 			int readByte = buff.readUnsignedByte();
@@ -74,7 +74,7 @@ public abstract class XMLContentClassifier extends AbstractInitiator {
 			}			
 		}
 		for(int i = 0; i < XML_HEADER_SIG.length; i++) {
-			if(buff.getUnsignedByte(i) != XML_HEADER_SIG[i]) return false;
+			if(buff.getUnsignedByte(i) != XML_HEADER_SIG[i]) return null;
 		}
 		return true;
 	}
