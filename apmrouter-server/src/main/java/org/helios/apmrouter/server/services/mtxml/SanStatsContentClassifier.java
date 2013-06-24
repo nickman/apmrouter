@@ -28,8 +28,11 @@ import java.util.List;
 
 import org.helios.apmrouter.server.unification.pipeline2.FlushOnCloseBufferAggregator;
 import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext;
+import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchDecoder;
 import org.helios.apmrouter.server.unification.pipeline2.SwitchPhase;
 import org.helios.apmrouter.server.unification.pipeline2.content.ConfigurableStaxContentClassifier;
+import org.helios.apmrouter.util.ByteSequenceIndexFinder;
+import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
@@ -50,12 +53,22 @@ public class SanStatsContentClassifier extends ConfigurableStaxContentClassifier
 	@Autowired(required=true)
 	protected SanStatsParserTracer sanStatsParserTracer = null;
 	
+	/** A byte sequence finder for <b><code>&lt;sample&gt></code></b> */
+	private static final ByteSequenceIndexFinder SAMPLE_FINDER = new ByteSequenceIndexFinder("<sample>".getBytes());
+	
 	/**
 	 * Creates a new SanStatsContentClassifier
 	 */
 	public SanStatsContentClassifier() {
 		super("SanStatsXml");
 		this.targetTags.put("sample", "sample");
+	}
+	
+	public Object match(ChannelBuffer buff) {
+		int rb = buff.readableBytes();
+		int maxLength = 100 > rb ? rb : 100; 
+		if(SAMPLE_FINDER.findIn(0, maxLength, buff)!=-1) return true;
+		return super.match(buff);
 	}
 	
 	/** The name of this decoder in the pipeline */
@@ -70,18 +83,22 @@ public class SanStatsContentClassifier extends ConfigurableStaxContentClassifier
 	public SwitchPhase process(final ProtocolSwitchContext context, Object matchKey) {
 		log.info("Classifier identified content as [" + name + "]");
 		ChannelPipeline pipeline = context.getPipeline();
-		// ===============================================================
-		//   Remove all the pipelines handlers except the executor and me
-		// ===============================================================
-		StringBuilder b = new StringBuilder("\n\t========\n\tRemoved Handlers\n\t========");
-		List<String> names = pipeline.getNames();		
-		for(String handlerName: names) {
-			if("exec".equals(handlerName) || PIPE_NAME.equals(handlerName)) continue;
-			ChannelHandler ch = pipeline.remove(handlerName);
-			b.append("\n\t").append(handlerName).append("  [").append(ch.getClass().getSimpleName()).append("]");
-		}
-		b.append("\n\t========");
-		log.info(b);
+		// ========================================================================
+		//   Remove the logging and protocol switch handlers from the pipeline
+		// ========================================================================
+		try { pipeline.remove("logging"); } catch (Exception ex) {/* No Op */}
+		try { pipeline.remove(ProtocolSwitchDecoder.PIPE_NAME); } catch (Exception ex) {/* No Op */}
+		
+		
+//		StringBuilder b = new StringBuilder("\n\t========\n\tRemoved Handlers\n\t========");
+//		List<String> names = pipeline.getNames();		
+//		for(String handlerName: names) {
+//			if("exec".equals(handlerName) || PIPE_NAME.equals(handlerName)) continue;
+//			ChannelHandler ch = pipeline.remove(handlerName);
+//			b.append("\n\t").append(handlerName).append("  [").append(ch.getClass().getSimpleName()).append("]");
+//		}
+//		b.append("\n\t========");
+//		log.info(b);
 		// ===============================================================
 		if(!context.aggregationHasOccured()) {
 			// ----> send to aggregator, then SanStatsParserTracer

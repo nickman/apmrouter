@@ -25,9 +25,18 @@
 package org.helios.apmrouter.server.unification.pipeline2.protocol;
 
 import org.helios.apmrouter.server.unification.pipeline2.AbstractInitiator;
+import org.helios.apmrouter.server.unification.pipeline2.FlushOnCloseBufferAggregator;
 import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext;
+import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchDecoder;
 import org.helios.apmrouter.server.unification.pipeline2.SwitchPhase;
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.channel.ChannelHandler;
+import org.jboss.netty.channel.ChannelHandlerContext;
+import org.jboss.netty.channel.ChannelPipeline;
+import org.jboss.netty.channel.MessageEvent;
+import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.handler.codec.compression.ZlibDecoder;
+import org.jboss.netty.handler.codec.compression.ZlibWrapper;
 
 /**
  * <p>Title: GZipEncodingInitiator</p>
@@ -37,6 +46,13 @@ import org.jboss.netty.buffer.ChannelBuffer;
  * <p><code>org.helios.apmrouter.server.unification.pipeline2.encoding.GZipEncodingInitiator</code></p>
  */
 
+/**
+ * <p>Title: GZipEncodingInitiator</p>
+ * <p>Description: </p> 
+ * <p>Company: Helios Development Group LLC</p>
+ * @author Whitehead (nwhitehead AT heliosdev DOT org)
+ * <p><code>org.helios.apmrouter.server.unification.pipeline2.protocol.GZipEncodingInitiator</code></p>
+ */
 public class GZipEncodingInitiator extends AbstractInitiator  {
 
 	/**
@@ -52,7 +68,8 @@ public class GZipEncodingInitiator extends AbstractInitiator  {
 	 */
 	@Override
 	public Object match(ChannelBuffer buff) {
-		return isGzip(buff) ? true : null;
+		boolean match =  isGzip(buff) ? true : null;
+		return match;
 	}
 
 	/**
@@ -60,8 +77,39 @@ public class GZipEncodingInitiator extends AbstractInitiator  {
 	 * @see org.helios.apmrouter.server.unification.pipeline2.Initiator#process(org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext, java.lang.Object)
 	 */
 	@Override
-	public SwitchPhase process(ProtocolSwitchContext ctx, Object matchKey) {
-		return SwitchPhase.CONTENTDETECT;
+	public SwitchPhase process(final ProtocolSwitchContext context, Object matchKey) {
+		log.info("Switching Protocols");
+//		LoggingHandler lh = decode(installedLogger);
+//		if(lh!=null) pipeline.addLast("logging", lh);		
+//		pipeline.addLast(ProtocolSwitchDecoder.PIPE_NAME, applicationContext.getBean("protocolSwitchDecoder", ProtocolSwitchDecoder.class));
+//		pipeline.addLast("exec", executionHandler);
+		final ChannelPipeline pipeline = context.getPipeline();		
+		try { pipeline.remove("logging"); } catch (Exception ex) {/* No Op*/}
+		
+		
+		pipeline.addBefore(ProtocolSwitchDecoder.PIPE_NAME, "gzip", new ZlibDecoder(ZlibWrapper.GZIP));
+		final ChannelHandler pSwitch = pipeline.remove(ProtocolSwitchDecoder.PIPE_NAME);
+		pipeline.addLast(FlushOnCloseBufferAggregator.PIPE_NAME, FlushOnCloseBufferAggregator.getInstance());
+		pipeline.addLast(FlushOnCloseBufferAggregator.PIPE_NAME + "-Complete", new SimpleChannelUpstreamHandler(){
+			@Override
+		 	public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
+				log.info("[" + FlushOnCloseBufferAggregator.PIPE_NAME + "-Complete] FlushOnCloseBufferAggregator Complete Event - [" + ((ChannelBuffer)e.getMessage()).readableBytes() + "] Bytes");
+		 		context.setAggregationHasOccured();		 	
+		 		pipeline.addBefore(EXEC_HANDLER_NAME, ProtocolSwitchDecoder.PIPE_NAME, pSwitch);
+		 		try { pipeline.remove("gzip"); } catch (Exception ex) {/* No Op*/}
+		 		try { pipeline.remove(FlushOnCloseBufferAggregator.PIPE_NAME); } catch (Exception ex) {/* No Op*/}
+		 		try { pipeline.remove(FlushOnCloseBufferAggregator.PIPE_NAME + "-Complete"); } catch (Exception ex) {/* No Op*/}
+		 		//ChannelHandlerContext targetCtx = pipeline.getContext(ctx.getPipeline().getFirst());
+		 		ChannelHandlerContext targetCtx = pipeline.getContext("anchor");
+		 		
+		 		log.info("Sending ungzipped payload back to switch decoder at [" + targetCtx.getName() + "]");
+		 		targetCtx.sendUpstream(e);
+				
+		 	}
+		});
+		
+		context.sendCurrentBufferUpstream(pipeline.getContext(pipeline.getFirst()).getName());
+		return SwitchPhase.INIT;
 	}
 
 	/**
@@ -86,11 +134,10 @@ public class GZipEncodingInitiator extends AbstractInitiator  {
 
 	/**
 	 * {@inheritDoc}
-	 * @see org.helios.apmrouter.server.unification.pipeline2.encoding.EncodingInitiator#requiresFullPayload()
+	 * @see org.helios.apmrouter.server.unification.pipeline2.AbstractInitiator#requiresFullPayload()
 	 */
 	@Override
 	public boolean requiresFullPayload() {
-		// TODO Auto-generated method stub
 		return false;
 	}
 

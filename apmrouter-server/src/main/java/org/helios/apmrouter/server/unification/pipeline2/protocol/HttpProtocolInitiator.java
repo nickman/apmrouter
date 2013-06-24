@@ -36,6 +36,7 @@ import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 import org.jboss.netty.handler.stream.ChunkedWriteHandler;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * <p>Title: HttpProtocolInitiator</p>
@@ -55,17 +56,16 @@ import org.jboss.netty.handler.stream.ChunkedWriteHandler;
 
 public class HttpProtocolInitiator extends AbstractInitiator {
 	/** The http request router */
-	protected final HttpRequestRouter router;
+	@Autowired(required=true)
+	protected HttpRequestRouter router = null;
 	
-
 	/**
 	 * Creates a new HttpProtocolInitiator
-	 * @param router The http request router 
 	 */
-	public HttpProtocolInitiator(HttpRequestRouter router) {
+	public HttpProtocolInitiator() {
 		super(2, "http");
-		this.router = router;
 	}
+
 
 	/**
 	 * {@inheritDoc}

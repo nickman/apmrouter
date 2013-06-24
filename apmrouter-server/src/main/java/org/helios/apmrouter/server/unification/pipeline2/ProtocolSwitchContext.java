@@ -24,12 +24,14 @@
  */
 package org.helios.apmrouter.server.unification.pipeline2;
 
+import java.lang.reflect.Field;
 import java.util.Date;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.log4j.Logger;
 import org.helios.apmrouter.ref.RunnableReferenceQueue;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -50,12 +52,20 @@ public class ProtocolSwitchContext {
 	/** A set of protocol initiators which have definitively failed matching for this context */
 	protected final Set<Initiator> pInitiators = new HashSet<Initiator>();
 	
+	/** Static class logger */
+	protected static final Logger LOG = Logger.getLogger(ProtocolSwitchContext.class);
+	
 	/** The ReplayingDecoderBuffer class */
 	protected static final Class<?> REPLAY_BUFFER_CLASS;
+	/** The replay decoeer buffer replay error instance */
+	protected static final Error REPLAY_ERROR;
 	
 	static {
 		try {
-			REPLAY_BUFFER_CLASS = Class.forName("org.jboss.netty.handler.codec.replay.ReplayingDecoderBuffer");
+			REPLAY_BUFFER_CLASS = Class.forName("org.jboss.netty.handler.codec.replay.ReplayingDecoderBuffer", true, Channel.class.getClassLoader());
+			Field f = REPLAY_BUFFER_CLASS.getDeclaredField("REPLAY");
+			f.setAccessible(true);
+			REPLAY_ERROR = (Error)f.get(null);
 		} catch (Exception ex) {
 			throw new RuntimeException(ex);
 		}
@@ -82,13 +92,21 @@ public class ProtocolSwitchContext {
 	protected boolean aggregationHasOccured = false;
 	
 	
+	/**
+	 * Sends the current buffer upstream
+	 * @param handlerName the name of the handler to which the upstream event should be targetted
+	 */
 	public void sendCurrentBufferUpstream(String handlerName) {
 		ChannelBuffer cb = unReplayChannelBuffer();
-		System.out.println("Unreplayed Buffer Readable:[ " + cb.readableBytes() + "] -->" + cb.toString());
+		LOG.info("Unreplayed Buffer Readable:[ " + cb.readableBytes() + "] -->" + cb.toString() + " ----> to handler [" + handlerName + "]");
 		UpstreamMessageEvent evt = new UpstreamMessageEvent(channel, cb, channel.getRemoteAddress());
 		pipeline.getContext(handlerName).sendUpstream(evt);		
 	}
 	
+	/**
+	 * Converts a replay channel buffer to a regular direct buffer
+	 * @return a regular direct buffer
+	 */
 	public ChannelBuffer unReplayChannelBuffer() {
 		ChannelBuffer cb = null;
 		if(REPLAY_BUFFER_CLASS.isInstance(buffer)) {
@@ -99,6 +117,13 @@ public class ProtocolSwitchContext {
 			cb = buffer;
 		}
 		return cb;
+	}
+	
+	/**
+	 * Throws the replay exception causing the replay decoder to re-submit
+	 */
+	public void replay() {
+		throw REPLAY_ERROR;
 	}
 	
 	
@@ -161,7 +186,7 @@ public class ProtocolSwitchContext {
 		RunnableReferenceQueue.getInstance().buildWeakReference(this, new Runnable(){
 			@Override
 			public void run() {
-				System.err.println("\n\t*********************\n\t[" + new Date() + "] Enqueued ProtocolSwitchContext for Channel [" + channelId + "]\n\t*********************\n");
+				LOG.info("\n\t*********************\n\t[" + new Date() + "] Enqueued ProtocolSwitchContext for Channel [" + channelId + "]\n\t*********************\n");
 			}
 		});
 	}

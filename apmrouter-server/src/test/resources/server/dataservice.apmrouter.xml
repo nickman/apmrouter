@@ -107,9 +107,8 @@
  	 <bean id="protocolSwitchDecoder" class="org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchDecoder" scope="prototype" >
  	 	<property name="initiators">
  	 		<set>
- 	 			<bean id="HttpProtocolInitiator" class="org.helios.apmrouter.server.unification.pipeline2.protocol.HttpProtocolInitiator">
- 	 				<constructor-arg ref="HttpRequestRouter" />
- 	 			</bean>
+ 	 			<bean id="HttpProtocolInitiator" class="org.helios.apmrouter.server.unification.pipeline2.protocol.HttpProtocolInitiator" />
+ 	 			<bean id="gzip" class="org.helios.apmrouter.server.unification.pipeline2.protocol.GZipEncodingInitiator" />
  	 			<bean id="SanStatsContentClassifier" class="org.helios.apmrouter.server.services.mtxml.SanStatsContentClassifier" />
  	 		</set>
  	 	</property>
@@ -118,7 +117,7 @@
  	 
  	 
  	 <bean id="ServerPipelineFactory" class="org.helios.apmrouter.server.unification.ServerPipelineFactory" >
- 	 	<property name="installedLogger" value="nohex" />
+ 	 	<property name="installedLogger" value="hex" />
  	 </bean>
  	 
  	 <bean id="HttpProtocol" class="org.helios.apmrouter.server.unification.protocol.http.HttpProtocolInitiator" />

@@ -26,10 +26,15 @@ package org.helios.apmrouter.server.unification;
 
 import org.helios.apmrouter.server.ServerComponentBean;
 import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchDecoder;
-import org.helios.apmrouter.server.unification.protocol.ProtocolSwitch;
+import org.jboss.netty.channel.ChannelEvent;
+import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
+import org.jboss.netty.channel.ChannelState;
+import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.Channels;
+import org.jboss.netty.channel.DefaultChannelPipeline;
+import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.handler.execution.ExecutionHandler;
 import org.jboss.netty.handler.execution.OrderedMemoryAwareThreadPoolExecutor;
 import org.jboss.netty.handler.logging.LoggingHandler;
@@ -81,6 +86,9 @@ public class ServerPipelineFactory extends ServerComponentBean implements Channe
 		throw new IllegalArgumentException("Invalid logger code [" + code + "]", new Throwable());
 	}
 	
+	/** The anchor handler */
+	protected final SimpleChannelUpstreamHandler anchor = new SimpleChannelUpstreamHandler();
+	
 	
 	/**
 	 * Returns the installed logging handler code
@@ -119,6 +127,21 @@ public class ServerPipelineFactory extends ServerComponentBean implements Channe
 	@Override
 	public ChannelPipeline getPipeline() throws Exception {
 		ChannelPipeline pipeline = Channels.pipeline();
+		pipeline.addFirst("anchor", anchor);
+//		DefaultChannelPipeline pipeline = new DefaultChannelPipeline() {
+//			@Override
+//			public void sendUpstream(ChannelEvent e) {
+//				if(e instanceof ChannelStateEvent) {
+//					ChannelStateEvent stateEvent = (ChannelStateEvent)e;
+//					if(stateEvent.getState()==ChannelState.OPEN && stateEvent.getValue()==Boolean.FALSE) {
+//						log.info("Deferred Close....");
+//						return;
+//					}
+//				}
+//				super.sendUpstream(e);
+//			}
+//		};
+//		pipeline.addFirst("closeDefer", closeDeferred);
 		LoggingHandler lh = decode(installedLogger);
 		if(lh!=null) pipeline.addLast("logging", lh);		
 		pipeline.addLast(ProtocolSwitchDecoder.PIPE_NAME, applicationContext.getBean("protocolSwitchDecoder", ProtocolSwitchDecoder.class));

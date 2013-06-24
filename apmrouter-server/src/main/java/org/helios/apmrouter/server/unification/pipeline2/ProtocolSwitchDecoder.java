@@ -34,7 +34,7 @@ import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelLocal;
+import org.jboss.netty.channel.LifeCycleAwareChannelHandler;
 import org.jboss.netty.handler.codec.replay.ReplayingDecoder;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 
@@ -221,7 +221,28 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 		this.maxInitiatorBytes = maxInitiatorBytes;
 	}
 
-
+	public void afterAdd(ChannelHandlerContext ctx) throws Exception  {
+		log.info("HANDLER EVENT: AfterAdd [" + ctx.getName() + "]");
+		super.afterAdd(ctx);
+	}
+	
+	public void beforeAdd(ChannelHandlerContext ctx) throws Exception  {
+		log.info("HANDLER EVENT: BeforeAdd [" + ctx.getName() + "]");
+		super.beforeAdd(ctx);
+	}
+	
+	public void afterRemove(ChannelHandlerContext ctx) throws Exception  {
+		log.info("HANDLER EVENT: AfterRemove[" + ctx.getName() + "]");
+		super.afterRemove(ctx);
+	}
+	
+	public void beforeRemove(ChannelHandlerContext ctx) throws Exception  {
+		log.info("HANDLER EVENT: beforeRemove[" + ctx.getName() + "]");
+		super.beforeRemove(ctx);
+	}
+	
+	
+	
 	
 
 }
