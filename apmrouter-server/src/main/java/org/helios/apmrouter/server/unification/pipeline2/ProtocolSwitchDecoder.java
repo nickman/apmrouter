@@ -31,6 +31,8 @@ import org.apache.log4j.Logger;
 import org.helios.apmrouter.logging.APMLogLevel;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelLocal;
 import org.jboss.netty.handler.codec.replay.ReplayingDecoder;
@@ -50,8 +52,8 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 	// protocol decoders:   gzip / bzip
 	// content classifiers:  this xml handler, or that binary fluff handler
 	
-	/** The port protocol switch context */
-	protected final ChannelLocal<ProtocolSwitchContext> context = new ChannelLocal<ProtocolSwitchContext>(true);
+//	/** The port protocol switch context */
+//	protected final ChannelLocal<ProtocolSwitchContext> context = new ChannelLocal<ProtocolSwitchContext>(true);
 	/** Instance logger */
 	protected final Logger log = Logger.getLogger(getClass());
 	/** The logger level */
@@ -90,21 +92,32 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 	 */
 	@Override
 	protected Object decode(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer, SwitchPhase state) throws Exception {
-		if(state==SwitchPhase.COMPLETE) {
+		if(state==SwitchPhase.COMPLETE) {			
 			while(buffer.readableBytes()>0) {
 				buffer.readByte();
 			}
 			return buffer;
 		}
 		final int bytesAvailable = super.actualReadableBytes();
-		ProtocolSwitchContext portContext = context.get(channel);
+		
+		//ProtocolSwitchContext portContext = context.get(channel);
+		ProtocolSwitchContext portContext = (ProtocolSwitchContext)ctx.getAttachment();
 		if(portContext==null) {
 			portContext = new ProtocolSwitchContext(ctx, channel, buffer, bytesAvailable, state);
-			context.set(channel, portContext);
+			//context.set(channel, portContext);
+			ctx.setAttachment(portContext);
+			channel.getCloseFuture().addListener(new ChannelFutureListener() {				
+				@Override
+				public void operationComplete(ChannelFuture future) throws Exception {
+					log.info("\n\t*****************\n\tChannel Closed\n\t*****************");
+				}
+			});
 		} else {
 			portContext.update(ctx, buffer, bytesAvailable, state);
-		}
-				
+		}		
+		
+		log.info("Prior Bytes: Now:" + bytesAvailable + "  Prior:" + portContext.getPriorReadBytes());
+		log.info("");
 		switch(state) {
 			case INIT:
 				boolean found = false;
@@ -119,7 +132,8 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 					
 					if(!portContext.hasInitiatorFailed(pi)) {
 						try {
-							Object matchKey = pi.match(buffer); 
+							ChannelBuffer copiedBuffer = buffer.copy(0, bytesAvailable);
+							Object matchKey = pi.match(copiedBuffer); 
 							if(matchKey==null) {
 								portContext.failInitiator(pi);
 								log.info("PI [" + pi.getName() + "] failed");
@@ -127,6 +141,7 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 							}
 							log.info("PI [" + pi.getName() + "] MATCHED");
 							found = true;
+							portContext.update(ctx, copiedBuffer, bytesAvailable, state);
 							SwitchPhase phase = pi.process(portContext, matchKey);
 							if(phase!=null) {
 								checkpoint(phase);

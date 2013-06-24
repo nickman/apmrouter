@@ -30,7 +30,7 @@ import org.helios.apmrouter.server.unification.pipeline2.FlushOnCloseBufferAggre
 import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext;
 import org.helios.apmrouter.server.unification.pipeline2.SwitchPhase;
 import org.helios.apmrouter.server.unification.pipeline2.content.ConfigurableStaxContentClassifier;
-import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.MessageEvent;
@@ -73,22 +73,23 @@ public class SanStatsContentClassifier extends ConfigurableStaxContentClassifier
 		// ===============================================================
 		//   Remove all the pipelines handlers except the executor and me
 		// ===============================================================
+		StringBuilder b = new StringBuilder("\n\t========\n\tRemoved Handlers\n\t========");
 		List<String> names = pipeline.getNames();		
 		for(String handlerName: names) {
 			if("exec".equals(handlerName) || PIPE_NAME.equals(handlerName)) continue;
-			pipeline.remove(handlerName);
+			ChannelHandler ch = pipeline.remove(handlerName);
+			b.append("\n\t").append(handlerName).append("  [").append(ch.getClass().getSimpleName()).append("]");
 		}
+		b.append("\n\t========");
+		log.info(b);
 		// ===============================================================
 		if(!context.aggregationHasOccured()) {
 			// ----> send to aggregator, then SanStatsParserTracer
-			ChannelBuffer currentBuffer = context.getBuffer();
-			if(currentBuffer.getClass().getSimpleName().equals("ReplayingDecoderBuffer")) {
-				
-			}
 			pipeline.addLast(FlushOnCloseBufferAggregator.PIPE_NAME, FlushOnCloseBufferAggregator.getInstance());
 			pipeline.addLast(FlushOnCloseBufferAggregator.PIPE_NAME + "-Complete", new SimpleChannelUpstreamHandler(){
 				@Override
 			 	public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
+					log.info("[" + FlushOnCloseBufferAggregator.PIPE_NAME + "-Complete] FlushOnCloseBufferAggregator Complete Event");
 			 		context.setAggregationHasOccured();
 					super.messageReceived(ctx, e);
 			 	}
@@ -96,6 +97,13 @@ public class SanStatsContentClassifier extends ConfigurableStaxContentClassifier
 			// what if the channel is already closed ?
 		} 
 		pipeline.addLast(SanStatsParserTracer.PIPE_NAME, sanStatsParserTracer);
+		if(!context.getChannel().isOpen()) {
+			System.err.println("\n\t=================\n\tChannel Already Closed\n\t=================\n");
+		}
+		
+//		context.sendCurrentBufferUpstream(FlushOnCloseBufferAggregator.PIPE_NAME);
+		context.sendCurrentBufferUpstream(context.getPipeline().getNames().get(0));
+		
 		return SwitchPhase.COMPLETE;
 	}
 

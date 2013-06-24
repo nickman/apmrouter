@@ -98,12 +98,16 @@ public class FlushOnCloseBufferAggregator extends ServerComponent implements Cha
 	public void handleUpstream(final ChannelHandlerContext ctx, ChannelEvent e) throws Exception {
 		if(e instanceof UpstreamMessageEvent) {
 			Object msg = ((UpstreamMessageEvent)e).getMessage();
-			if(msg instanceof ChannelBuffer) {
+			if(msg instanceof ChannelBuffer) {				
 				incr("ChannelBuffersProcessed");
 				final ChannelBuffer buff = (ChannelBuffer)msg;
 				final Channel channel = e.getChannel();
 				List<ChannelBuffer> aggBuffs = aggregation.get(channel);
+				buff.readerIndex(0);
 				if(aggBuffs==null) {
+					byte[] bytes = new byte[100];
+					buff.getBytes(0, bytes);
+					//log.info("Starting aggregation with content:\n" + new String(bytes));
 					inflight.incrementAndGet();
 					aggBuffs = new ArrayList<ChannelBuffer>();
 					writeBufferToAggregation(buff, aggBuffs);
@@ -113,11 +117,11 @@ public class FlushOnCloseBufferAggregator extends ServerComponent implements Cha
 						@Override
 						public void operationComplete(ChannelFuture future) throws Exception {
 							try {
-								List<ChannelBuffer> aggregatedChannelBuffers = aggregation.get(channel);
-								log.info("Preparing Aggregated CompositeChannelBuffer from [" + aggregatedChannelBuffers.size() + "] aggregated buffers");
+								List<ChannelBuffer> aggregatedChannelBuffers = aggregation.get(channel);								
 								ChannelBuffer totalAggregate = new CompositeChannelBuffer(buff.order(), aggregatedChannelBuffers,true);
-								log.info("Aggregated CompositeChannelBuffer has [" + totalAggregate.readableBytes() + "] readable bytes");
+								log.info("Aggregated CompositeChannelBuffer from [" + aggregatedChannelBuffers.size() + "] buffers to [" +  totalAggregate.readableBytes() + "] readable bytes");
 								ctx.sendUpstream(new UpstreamMessageEvent(channel, totalAggregate, channel.getRemoteAddress()));
+								incr("CompletedAggregations");
 							} finally {								
 								inflight.decrementAndGet();
 								aggregation.remove(channel);
@@ -139,11 +143,9 @@ public class FlushOnCloseBufferAggregator extends ServerComponent implements Cha
 	 * @param target The target aggregate to add the newly allocated buffer to
 	 */
 	protected void writeBufferToAggregation(ChannelBuffer incoming, List<ChannelBuffer> target) {
-		log.info("Readable bytes of target before aggregate:" + incoming.readableBytes());
 		ChannelBuffer dbuff = channelBufferFactory.getBuffer(incoming.order(), incoming.readableBytes());
 		dbuff.writeBytes(incoming);
-		target.add(dbuff);					
-		log.info("Readable bytes of target after aggregate:" + incoming.readableBytes());		
+		target.add(dbuff);									
 	}
 	
 	/** The name of this decoder in the pipeline */

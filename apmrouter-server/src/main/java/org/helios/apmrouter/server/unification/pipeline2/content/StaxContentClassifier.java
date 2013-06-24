@@ -84,16 +84,21 @@ public abstract class StaxContentClassifier extends XMLContentClassifier {
 					Object matchKey = isMatch(type, xReader, state);
 					if(matchKey!=null) {
 						log.info("Matched content on [" + matchKey + "]");
+						log.info("CBIS Read Bytes:" + cbis.readBytes());
 						return matchKey;
 					}
 				}
-			}
+			}	
+			log.info("CBIS Read Bytes:" + cbis.readBytes());
 			return null;
 		} catch (Exception ex) {
 			return null;
 		} finally {
 			if(xReader!=null) try { xReader.close(); } catch (Exception x) { /* No Op */ }
-			if(cbis!=null) try { cbis.close(); } catch (Exception x) { /* No Op */ }
+			if(cbis!=null) {
+				try { cbis.reset(); } catch (Exception x) { /* No Op */ }
+				try { cbis.close(); } catch (Exception x) { /* No Op */ }
+			}
 			buff.resetReaderIndex();
 		}
 	}

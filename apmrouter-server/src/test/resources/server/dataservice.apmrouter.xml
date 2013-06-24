@@ -118,7 +118,7 @@
  	 
  	 
  	 <bean id="ServerPipelineFactory" class="org.helios.apmrouter.server.unification.ServerPipelineFactory" >
- 	 	<property name="installedLogger" value="hex" />
+ 	 	<property name="installedLogger" value="nohex" />
  	 </bean>
  	 
  	 <bean id="HttpProtocol" class="org.helios.apmrouter.server.unification.protocol.http.HttpProtocolInitiator" />

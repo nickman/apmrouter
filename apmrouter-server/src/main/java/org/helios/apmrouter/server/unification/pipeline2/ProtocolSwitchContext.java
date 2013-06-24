@@ -24,15 +24,19 @@
  */
 package org.helios.apmrouter.server.unification.pipeline2;
 
+import java.util.Date;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.helios.apmrouter.ref.RunnableReferenceQueue;
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
+import org.jboss.netty.channel.UpstreamMessageEvent;
 
 /**
  * <p>Title: ProtocolSwitchContext</p>
@@ -45,6 +49,17 @@ import org.jboss.netty.channel.ChannelPipeline;
 public class ProtocolSwitchContext {
 	/** A set of protocol initiators which have definitively failed matching for this context */
 	protected final Set<Initiator> pInitiators = new HashSet<Initiator>();
+	
+	/** The ReplayingDecoderBuffer class */
+	protected static final Class<?> REPLAY_BUFFER_CLASS;
+	
+	static {
+		try {
+			REPLAY_BUFFER_CLASS = Class.forName("org.jboss.netty.handler.codec.replay.ReplayingDecoderBuffer");
+		} catch (Exception ex) {
+			throw new RuntimeException(ex);
+		}
+	}
 
 	/** The channel this context is created for */
 	protected final Channel channel;
@@ -67,11 +82,26 @@ public class ProtocolSwitchContext {
 	protected boolean aggregationHasOccured = false;
 	
 	
-	public void sendCurrentBufferUpstream() {
-		if(buffer.getClass().getSimpleName().equals("ReplayingDecoderBuffer")) {
-
-		}
+	public void sendCurrentBufferUpstream(String handlerName) {
+		ChannelBuffer cb = unReplayChannelBuffer();
+		System.out.println("Unreplayed Buffer Readable:[ " + cb.readableBytes() + "] -->" + cb.toString());
+		UpstreamMessageEvent evt = new UpstreamMessageEvent(channel, cb, channel.getRemoteAddress());
+		pipeline.getContext(handlerName).sendUpstream(evt);		
 	}
+	
+	public ChannelBuffer unReplayChannelBuffer() {
+		ChannelBuffer cb = null;
+		if(REPLAY_BUFFER_CLASS.isInstance(buffer)) {
+			cb = ChannelBuffers.directBuffer(buffer.order(), readableBytes);
+			cb.writeBytes(buffer);
+			this.buffer = cb;
+		} else {
+			cb = buffer;
+		}
+		return cb;
+	}
+	
+	
 
 	/**
 	 * Clears the nextInitiators map
@@ -127,6 +157,13 @@ public class ProtocolSwitchContext {
 		this.phase = state;
 		this.readableBytes = readableBytes;
 		this.ctx = ctx;		
+		final int channelId = channel.getId();
+		RunnableReferenceQueue.getInstance().buildWeakReference(this, new Runnable(){
+			@Override
+			public void run() {
+				System.err.println("\n\t*********************\n\t[" + new Date() + "] Enqueued ProtocolSwitchContext for Channel [" + channelId + "]\n\t*********************\n");
+			}
+		});
 	}
 	
 	/**

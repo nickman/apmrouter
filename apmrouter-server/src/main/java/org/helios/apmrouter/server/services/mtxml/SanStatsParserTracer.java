@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadFactory;
@@ -343,6 +344,21 @@ public class SanStatsParserTracer extends ServerComponentBean implements Channel
 		}					
 	}
 	
+	private static final AtomicInteger concurrency = new AtomicInteger(0);
+	static {
+		Thread t = new Thread("nextLun Concurrency Thread") {
+			public void run() {
+				while(true) {
+					System.err.println("nextLun Concurrency [" + concurrency + "]");
+					try { Thread.currentThread().join(3000); } catch (Exception ex) {}					
+				}
+			}
+		};
+		t.setDaemon(true);
+		//t.start();		
+	}
+
+	
 	
 	/**
 	 * Processes a SAN stats xml file
@@ -354,43 +370,100 @@ public class SanStatsParserTracer extends ServerComponentBean implements Channel
 			runTestData.set(true);
 		}
 		final int bufferSize = b.readableBytes();
-		info("Processing SanStats Buffer [", bufferSize, "]. Test Data:", runTestData.get());
 		
 		final SanStatsParsingContext ctx = new SanStatsParsingContext(gformat, runTestData.get());
 		long fileStart = System.nanoTime();
-		ctx.setSysInfo(getSystemInfo(b));
-		fastForwardToStartOf(b, ALL_STAT_OPENER);		
+		try {
+			ctx.setSysInfo(getSystemInfo(b));
+		} catch (Throwable ex) {
+			error("Failed to parse SysInfo ", ex);
+			throw new RuntimeException(ex);
+		}
+		try {
+			fastForwardToStartOf(b, ALL_STAT_OPENER);
+		} catch (Throwable ex) {
+			error("Failed to fast forward to [", ALL_STAT_OPENER, "] ", ex);
+			throw new RuntimeException(ex);
+		}
 		final AtomicInteger parseQueueTasks = new AtomicInteger(0);
 		final long _parseQueueTimeout = parseQueueTimeout;
 		final TimeUnit _parseQueueTimeoutUnit = parseQueueTimeoutUnit;
 		int c = 0;
+		final CountDownLatch latch = new CountDownLatch(Short.MAX_VALUE);
+		
+			StringBuilder startMessage = new StringBuilder("\n\t=====================\n\tStarting SanStats Processing\n\t=====================");
+			startMessage.append("\n\tBuffer Size:").append(bufferSize);
+			startMessage.append("\n\tTimeout:").append(_parseQueueTimeout);
+			startMessage.append("\n\tTimeout Unit:").append(_parseQueueTimeoutUnit);
+			startMessage.append("\n\tTest Data:").append(runTestData.get());
+			startMessage.append("\n\tData Header:  [");
+			byte[] headerBytes = new byte[100];
+			b.getBytes(0, headerBytes);
+			String header = new String(headerBytes);
+			startMessage.append("\n").append(header);
+			startMessage.append("\n\t]");		
+			startMessage.append("\n\t=====================");
+			info(startMessage);
 		while(true) {
-			final ChannelBuffer vlunBuffer = nextVlun(b);
-			if(vlunBuffer==null) break;
+			final ChannelBuffer vlunBuffer;
+			try {
+				concurrency.incrementAndGet();
+				vlunBuffer = nextVlun(b);
+			} finally {
+				concurrency.decrementAndGet();
+			}
+			if(vlunBuffer==null) {
+				info("Submitted a total of [", c, "] parsing tasks");
+				break;
+			}
 			try {
 				threadPool.execute(new Runnable() {
 					@Override
 					public void run() {
-						long segmentStart = System.nanoTime();						
-						Map<String, String> vlinnfo = getVlunInfo(vlunBuffer);
-						ctx.addVLun(vlinnfo);
-						parseQueueTasks.incrementAndGet();
-						segmentProcessingTimesNs.insert(System.nanoTime()-segmentStart);
+						try {
+							long segmentStart = System.nanoTime();						
+							Map<String, String> vlinnfo = getVlunInfo(vlunBuffer);
+							ctx.addVLun(vlinnfo);
+							parseQueueTasks.incrementAndGet();
+							segmentProcessingTimesNs.insert(System.nanoTime()-segmentStart);
+						} finally {
+							latch.countDown();
+						}
 					}
 				});
 				c++;
+				if(c%100==0) {
+					info("Submitted [", c, "] parsing tasks so far");
+				}
 			} catch (Exception ex) {
 				warn("ParseQueue Task Rejection [", ex.toString(), "]");
 				rejectedParseQueueExecutions.incrementAndGet();
 			}
 		}
-		while(c!=0) {
-			if(!ctx.countdown(_parseQueueTimeout, _parseQueueTimeoutUnit)) {
-				error("Timeout waiting [", _parseQueueTimeout, " ", _parseQueueTimeoutUnit.name(), "] for parse queue completion", new Throwable());
-				return;				
-			}
-			c--;
+		info("Parsing loop complete");
+		int diff = Short.MAX_VALUE - c;
+		for(int x = 0; x < diff; x++) {
+			latch.countDown();
 		}
+		try {
+			if(!latch.await(_parseQueueTimeout, _parseQueueTimeoutUnit)) {
+				error("Timeout waiting [", _parseQueueTimeout, " ", _parseQueueTimeoutUnit.name(), "] for parse queue completion", new Throwable());
+			}
+		} catch (InterruptedException e) {
+			e.printStackTrace(System.err);
+			e.printStackTrace();
+		} finally {
+			int remaining = ctx.completionQueue.size();
+			info("Clearing completion queue with [", remaining, "] completions");
+			ctx.completionQueue.clear();
+		}
+//		while(c!=0) {
+//			if(!ctx.countdown(_parseQueueTimeout, _parseQueueTimeoutUnit)) {
+//				error("Timeout waiting [", _parseQueueTimeout, " ", _parseQueueTimeoutUnit.name(), "] for parse queue completion", new Throwable());
+//				return;				
+//			}
+//			c--;
+//		}
 		processedFiles.incrementAndGet();
 		ctx.traceStats(ServerTracerFactory.getInstance().getTracer());
 		long elapsed = System.nanoTime()-fileStart;

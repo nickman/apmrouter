@@ -170,7 +170,7 @@ the top two would be sum by host and sum by vv_name
 	/** The number of successfully parsed lun fragments */
 	private final AtomicInteger lunsParsed = new AtomicInteger(0);
 	/** The completion queue */
-	private final BlockingQueue<Map<String, String>> completionQueue = new ArrayBlockingQueue<Map<String, String>>(3000, false);
+	final BlockingQueue<Map<String, String>> completionQueue = new ArrayBlockingQueue<Map<String, String>>(Short.MAX_VALUE, false);
 	
 	
 	// ================================================================================================
@@ -405,31 +405,52 @@ the top two would be sum by host and sum by vv_name
 	 */
 	public void traceStats(ITracer tracer) {
 		// {QLENGTH, IOPS, BPS, SVCTIME, IOSIZE, BUSYTIME};
+		log.info("TRACING........");
+		int cntr = 0;
 		for(Map.Entry<String, NonBlockingHashMap<String, Long>> entry: arrayCalcedTotals.entrySet()) {
 			NonBlockingHashMap<String, Long> cm = entry.getValue();
 			if(testValues) {
 				tracer.traceGauge(cm.get(QLENGTH)+getTestValue(10), QLENGTH, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 				tracer.traceGauge(cm.get(IOPS)+getTestValue(100), IOPS, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 				tracer.traceGauge(cm.get(BPS)+getTestValue(10000), BPS, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 				tracer.traceGauge(cm.get(SVCTIME)+getTestValue(500000), SVCTIME, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 				tracer.traceGauge(cm.get(IOSIZE)+getTestValue(2000000), IOSIZE, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 				tracer.traceGauge(cm.get(BUSYTIME)+getTestValue(5), BUSYTIME, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 				tracer.traceDeltaGauge(cm.get(READERRORS)+getTestValue(10), READERRORS, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 				tracer.traceDeltaGauge(cm.get(READDROPS)+getTestValue(10), READDROPS, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 				tracer.traceDeltaGauge(cm.get(WRITEERRORS)+getTestValue(10), WRITEERRORS, metricNameSpaces.get(entry.getKey()));
-				tracer.traceDeltaGauge(cm.get(WRITEDROPS)+getTestValue(10), WRITEDROPS, metricNameSpaces.get(entry.getKey()));				
+				cntr++;
+				tracer.traceDeltaGauge(cm.get(WRITEDROPS)+getTestValue(10), WRITEDROPS, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 			} else {
 				tracer.traceGauge(cm.get(QLENGTH), QLENGTH, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 				tracer.traceGauge(cm.get(IOPS), IOPS, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 				tracer.traceGauge(cm.get(BPS), BPS, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 				tracer.traceGauge(cm.get(SVCTIME), SVCTIME, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 				tracer.traceGauge(cm.get(IOSIZE), IOSIZE, metricNameSpaces.get(entry.getKey()));
-				tracer.traceGauge(cm.get(BUSYTIME), BUSYTIME, metricNameSpaces.get(entry.getKey()));				
+				cntr++;
+				tracer.traceGauge(cm.get(BUSYTIME), BUSYTIME, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 				tracer.traceDeltaGauge(cm.get(READERRORS), READERRORS, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 				tracer.traceDeltaGauge(cm.get(READDROPS), READDROPS, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 				tracer.traceDeltaGauge(cm.get(WRITEERRORS), WRITEERRORS, metricNameSpaces.get(entry.getKey()));
+				cntr++;
 				tracer.traceDeltaGauge(cm.get(WRITEDROPS), WRITEDROPS, metricNameSpaces.get(entry.getKey()));
-				
+				cntr++;				
 			}
 			if(log.isDebugEnabled()) {
 				StringBuilder b = new StringBuilder("\n======= [").append(entry.getKey()).append("] =======");
@@ -446,6 +467,7 @@ the top two would be sum by host and sum by vv_name
 				
 				log.debug(b);
 			}
+			//log.info("Traced [" + cntr + "] metrics");
 		}
 		
 //		increment(nodeKey, QUEUE_LENGTH, rawValues[seq++]);
