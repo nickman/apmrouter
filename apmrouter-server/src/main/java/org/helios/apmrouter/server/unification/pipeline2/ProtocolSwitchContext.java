@@ -103,6 +103,7 @@ public class ProtocolSwitchContext {
 		pipeline.getContext(handlerName).sendUpstream(evt);		
 	}
 	
+	
 	/**
 	 * Converts a replay channel buffer to a regular direct buffer
 	 * @return a regular direct buffer
@@ -189,6 +190,19 @@ public class ProtocolSwitchContext {
 				LOG.info("\n\t*********************\n\t[" + new Date() + "] Enqueued ProtocolSwitchContext for Channel [" + channelId + "]\n\t*********************\n");
 			}
 		});
+		ctx.setAttachment(this);
+	}
+	
+	/**
+	 * Clears this context from the channel handler context where it was attached, unless it no longer attached there.
+	 */
+	public void clear() {
+		Object attachment = ctx.getAttachment();
+		if(attachment!=null) {
+			if(attachment==this) {
+				ctx.setAttachment(null);
+			}
+		}
 	}
 	
 	/**

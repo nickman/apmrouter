@@ -29,12 +29,14 @@ import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.logging.APMLogLevel;
+import org.helios.apmrouter.util.NettyUtil;
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.buffer.ReadOnlyChannelBuffer;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.LifeCycleAwareChannelHandler;
 import org.jboss.netty.handler.codec.replay.ReplayingDecoder;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 
@@ -64,7 +66,8 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 	/** The maximum number of bytes allowed for protocol/content negotiation */
 	protected int maxInitiatorBytes = 1024;
 
-	
+	/** An empty buffer */
+	protected static final ChannelBuffer EMPTY_BUFFER = new ReadOnlyChannelBuffer(ChannelBuffers.buffer(0));
 	
 	/**
 	 * Adds a set of {@link Initiator}s to be considered in the protocol switch
@@ -140,13 +143,16 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 								continue;
 							}
 							log.info("PI [" + pi.getName() + "] MATCHED");
+							log.info(NettyUtil.formatBuffer(copiedBuffer, 2048));
 							found = true;
 							portContext.update(ctx, copiedBuffer, bytesAvailable, state);
 							SwitchPhase phase = pi.process(portContext, matchKey);
 							if(phase!=null) {
+								if(phase==state) buffer.readByte();
 								checkpoint(phase);
 							} else {
-								buffer.getByte(Integer.MAX_VALUE);
+								//buffer.getByte(Integer.MAX_VALUE);
+								return EMPTY_BUFFER;
 							}							
 							return null;
 						} catch (Exception ex) {
@@ -177,7 +183,8 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 			case ERROR:
 				break;
 		}
-		throw new RuntimeException();
+		//throw new RuntimeException();
+		return 0;
 		//return null;
 	}
 	
@@ -199,6 +206,17 @@ public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 		level = APMLogLevel.valueOfName(levelName);
 		log.setLevel(level.getLevel());
 		log.info("Set Logger to level [" + log.getLevel().toString() + "]");
+	}
+	
+	public static String toString(ChannelBuffer buffer) {
+		return toString(buffer, 100);
+	}
+	
+	public static String toString(ChannelBuffer buffer, int maxLength) {
+		if(buffer==null || buffer.readableBytes()<1) return "";
+		byte[] bytes = new byte[buffer.readableBytes()>maxLength ? maxLength : buffer.readableBytes()];
+		buffer.getBytes(0, bytes);
+		return new String(bytes); 
 	}
 
 
