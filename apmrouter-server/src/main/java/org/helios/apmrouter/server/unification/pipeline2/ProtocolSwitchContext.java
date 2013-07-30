@@ -98,10 +98,28 @@ public class ProtocolSwitchContext {
 	 */
 	public void sendCurrentBufferUpstream(String handlerName) {
 		ChannelBuffer cb = unReplayChannelBuffer();
-		LOG.info("Unreplayed Buffer Readable:[ " + cb.readableBytes() + "] -->" + cb.toString() + " ----> to handler [" + handlerName + "]");
 		UpstreamMessageEvent evt = new UpstreamMessageEvent(channel, cb, channel.getRemoteAddress());
 		pipeline.getContext(handlerName).sendUpstream(evt);		
 	}
+	
+	/**
+	 * Sends the current buffer upstream
+	 */
+	public void sendCurrentBufferUpstream() {
+		ChannelBuffer cb = unReplayChannelBuffer();		
+		UpstreamMessageEvent evt = new UpstreamMessageEvent(channel, cb, channel.getRemoteAddress());
+		pipeline.sendUpstream(evt);		
+	}
+	
+	/**
+	 * Returns the current buffer in an upstream message event
+	 * @return an upstream message event
+	 */
+	public UpstreamMessageEvent getUpstreamEvent() {
+		ChannelBuffer cb = unReplayChannelBuffer();		
+		return new UpstreamMessageEvent(channel, cb, channel.getRemoteAddress());		
+	}
+	
 	
 	
 	/**
@@ -174,13 +192,13 @@ public class ProtocolSwitchContext {
 	 * @param channel The channel this context is created for
 	 * @param buffer The currently processing buffer
 	 * @param readableBytes The current buffer's currently readable bytes
-	 * @param state the initial switch phase
+//	 * @param state the initial switch phase
 	 */
-	public ProtocolSwitchContext(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer, int readableBytes, SwitchPhase state) {
+	public ProtocolSwitchContext(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer, int readableBytes) {
 		this.channel = channel;
 		this.pipeline = channel.getPipeline();
 		this.buffer = buffer;
-		this.phase = state;
+//		this.phase = state;
 		this.readableBytes = readableBytes;
 		this.ctx = ctx;		
 		final int channelId = channel.getId();
@@ -210,13 +228,12 @@ public class ProtocolSwitchContext {
 	 * @param ctx The current channel handler context
 	 * @param buffer The currently processing buffer
 	 * @param readableBytes The current buffer's currently readable bytes
-	 * @param state the initial switch phase
+//	 * @param state the initial switch phase
 	 * @return this context
 	 */
-	public ProtocolSwitchContext update(ChannelHandlerContext ctx, ChannelBuffer buffer, int readableBytes, SwitchPhase state) {
+	public ProtocolSwitchContext update(ChannelHandlerContext ctx, ChannelBuffer buffer, int readableBytes) {
 		this.ctx = ctx;
 		this.buffer = buffer;
-		this.phase = state;
 		this.priorReadBytes = this.readableBytes; 
 		this.readableBytes = readableBytes;		
 		return this;

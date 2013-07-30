@@ -156,11 +156,14 @@ public class VirtualAgent implements VirtualAgentMXBean, Runnable, Iterable<Virt
 	/**
 	 * Retrieves a tracer from the tracer map
 	 * @param name The name of the tracer
-	 * @return the tracer or null if it was not found
+	 * @return the tracer
 	 */
 	protected VirtualTracer getTracer(String name) {
 		WeakReference<VirtualTracer> ref = tracers.get(name);
-		if(ref==null) return null;
+		if(ref==null) {
+			
+			return null;
+		}
 		return ref.get();
 	}
 	
@@ -215,6 +218,17 @@ public class VirtualAgent implements VirtualAgentMXBean, Runnable, Iterable<Virt
 	 */
 	public VirtualTracer getVirtualTracer(String name) {
 		return getTracer(name);
+	}
+	
+	/**
+	 * Returns the named virtual tracer
+	 * @param name The name of the virtual tracer to retrieve
+	 * @param timeout The timeout for this tracer in ms.
+	 * @return the named virtual tracer
+	 * @FIXME
+	 */
+	public VirtualTracer getVirtualTracer(String name, long timeout) {
+		return getTracer(name); 
 	}
 	
 	

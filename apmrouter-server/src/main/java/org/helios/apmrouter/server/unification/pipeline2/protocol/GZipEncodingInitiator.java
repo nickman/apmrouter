@@ -30,6 +30,7 @@ import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchContext;
 import org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchDecoder;
 import org.helios.apmrouter.server.unification.pipeline2.SwitchPhase;
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelEvent;
 import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -81,7 +82,7 @@ public class GZipEncodingInitiator extends AbstractInitiator  {
 		log.info("Protocol Switch:  Prepending ZlibDecoder");
 		final ChannelPipeline pipeline = context.getPipeline();
 		pipeline.remove("logging");
-		pipeline.addBefore(ProtocolSwitchDecoder.PIPE_NAME, "gzip", new ZlibDecoder(ZlibWrapper.GZIP){
+		ZlibDecoder zdecoder = new ZlibDecoder(ZlibWrapper.GZIP){
 			@Override
 			public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent evt) throws Exception {
 				if(evt instanceof MessageEvent) {
@@ -90,10 +91,23 @@ public class GZipEncodingInitiator extends AbstractInitiator  {
 				}
 				super.handleUpstream(ctx, evt);
 			}
-		});
-		context.unReplayChannelBuffer();
-		//context.clear();
-		context.sendCurrentBufferUpstream("anchor");
+			@Override
+			protected Object decode(ChannelHandlerContext ctx, Channel channel, Object msg) throws Exception {
+				Object result = super.decode(ctx, channel, msg);
+				if(result!=null) log.info("ZLibDecoder returning [" + result + "]");
+				return result;
+			}
+		};
+		pipeline.addBefore(ProtocolSwitchDecoder.PIPE_NAME, "gzip", zdecoder);
+
+		context.sendCurrentBufferUpstream();
+//		try {
+//			zdecoder.handleUpstream(context.getCtx(), context.getUpstreamEvent());
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+		
+		//context.getCtx().sendUpstream(context.getBuffer());
 		return null;
 	}
 //	/**

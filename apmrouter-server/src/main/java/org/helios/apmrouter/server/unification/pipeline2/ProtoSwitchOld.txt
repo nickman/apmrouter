@@ -24,13 +24,11 @@
  */
 package org.helios.apmrouter.server.unification.pipeline2;
 
-import java.net.SocketAddress;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.apache.log4j.Logger;
 import org.helios.apmrouter.logging.APMLogLevel;
-import org.helios.apmrouter.server.unification.protocol.ProtocolInitiator;
 import org.helios.apmrouter.util.NettyUtil;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -39,10 +37,6 @@ import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.LifeCycleAwareChannelHandler;
-import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
-import org.jboss.netty.channel.UpstreamMessageEvent;
 import org.jboss.netty.handler.codec.replay.ReplayingDecoder;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 
@@ -54,7 +48,7 @@ import org.springframework.jmx.export.annotation.ManagedAttribute;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.apmrouter.server.unification.pipeline2.ProtocolSwitchDecoder</code></p>
  */
-public class ProtocolSwitchDecoder extends SimpleChannelUpstreamHandler implements LifeCycleAwareChannelHandler {
+public class ProtocolSwitchDecoder extends ReplayingDecoder<SwitchPhase> {
 	// JO NESB0
 	// protocol initiators:   http / gzip / bzip
 	// protocol decoders:   gzip / bzip
@@ -91,76 +85,107 @@ public class ProtocolSwitchDecoder extends SimpleChannelUpstreamHandler implemen
 	 * Creates a new ProtocolSwitchDecoder
 	 */
 	public ProtocolSwitchDecoder() {
-		super();
+		super(SwitchPhase.INIT);
 	}
 
-	
+
 	/**
 	 * {@inheritDoc}
-	 * @see org.jboss.netty.channel.SimpleChannelUpstreamHandler#messageReceived(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.MessageEvent)
+	 * @see org.jboss.netty.handler.codec.replay.ReplayingDecoder#decode(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.Channel, org.jboss.netty.buffer.ChannelBuffer, java.lang.Enum)
 	 */
 	@Override
-	public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) throws Exception {
-		Object msg = e.getMessage();
-		if(msg instanceof ChannelBuffer) {
-			ChannelBuffer buffer = (ChannelBuffer)msg;
-			processChannel(ctx, buffer, (UpstreamMessageEvent)e);
+	protected Object decode(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer, SwitchPhase state) throws Exception {
+		if(state==SwitchPhase.COMPLETE) {			
+			while(buffer.readableBytes()>0) {
+				buffer.readByte();
+			}
+			return buffer;
 		}
-		super.messageReceived(ctx, e);
-	}
-	
-	/**
-	 * Processes incoming channel buffers and delegates to the correct {@link ProtocolInitiator}s to interpret the protocol.
-	 * @param ctx The channel handler context
-	 * @param buffer The incoming buffer
-	 * @param event the original message event
-	 */
-	protected void processChannel(ChannelHandlerContext ctx, final ChannelBuffer buffer, final UpstreamMessageEvent event) {
-		final int bytesAvailable = buffer.readableBytes();
-		final Channel channel = ctx.getChannel();
+		final int bytesAvailable = super.actualReadableBytes();
+		
+		//ProtocolSwitchContext portContext = context.get(channel);
 		ProtocolSwitchContext portContext = (ProtocolSwitchContext)ctx.getAttachment();
 		if(portContext==null) {
-			portContext = new ProtocolSwitchContext(ctx, channel, buffer, bytesAvailable);
+			portContext = new ProtocolSwitchContext(ctx, channel, buffer, bytesAvailable, state);
+			//context.set(channel, portContext);
+			ctx.setAttachment(portContext);
+			channel.getCloseFuture().addListener(new ChannelFutureListener() {				
+				@Override
+				public void operationComplete(ChannelFuture future) throws Exception {
+					log.info("\n\t*****************\n\tChannel Closed\n\t*****************");
+				}
+			});
 		} else {
-			portContext.update(ctx, buffer, bytesAvailable);
+			portContext.update(ctx, buffer, bytesAvailable, state);
 		}		
 		
-		boolean insufBytes = false;
-		for(Initiator pi: pInitiators) {
-			int requiredBytes = pi.requiredBytes();
-			if(bytesAvailable < requiredBytes && requiredBytes > 0) {
-				insufBytes = true;
-				portContext.failInitiator(pi);
-				continue;
-			}
-			
-			if(!portContext.hasInitiatorFailed(pi)) {
-				try {					
-					Object matchKey = pi.match(buffer); 
-					if(matchKey==null) {
+		log.info("Prior Bytes: Now:" + bytesAvailable + "  Prior:" + portContext.getPriorReadBytes());
+		log.info("");
+		switch(state) {
+			case INIT:
+				boolean found = false;
+				boolean insufBytes = false;
+				for(Initiator pi: pInitiators) {
+					int requiredBytes = pi.requiredBytes();
+					if(bytesAvailable < requiredBytes && requiredBytes > 0) {
+						insufBytes = true;
 						portContext.failInitiator(pi);
-						log.info("PI [" + pi.getName() + "] failed");
 						continue;
 					}
-					log.info("PI [" + pi.getName() + "] MATCHED");
-					log.info(NettyUtil.formatBuffer(buffer, 100));
-					pi.process(portContext, matchKey);
-					return;
-				} catch (Exception ex) {
-					portContext.failInitiator(pi);
-					log.info("PI [" + pi.getName() + "] failed");
-					continue;							
+					
+					if(!portContext.hasInitiatorFailed(pi)) {
+						try {
+							ChannelBuffer copiedBuffer = buffer.copy(0, bytesAvailable);
+							Object matchKey = pi.match(copiedBuffer); 
+							if(matchKey==null) {
+								portContext.failInitiator(pi);
+								log.info("PI [" + pi.getName() + "] failed");
+								continue;
+							}
+							log.info("PI [" + pi.getName() + "] MATCHED");
+							log.info(NettyUtil.formatBuffer(copiedBuffer, 2048));
+							found = true;
+							portContext.update(ctx, copiedBuffer, bytesAvailable, state);
+							SwitchPhase phase = pi.process(portContext, matchKey);
+							if(phase!=null) {
+								if(phase==state) buffer.readByte();
+								checkpoint(phase);
+							} else {
+								//buffer.getByte(Integer.MAX_VALUE);
+								return EMPTY_BUFFER;
+							}							
+							return null;
+						} catch (Exception ex) {
+							portContext.failInitiator(pi);
+							log.info("PI [" + pi.getName() + "] failed");
+							continue;							
+						}
+					}
 				}
-			}
+				if(insufBytes) {
+					// this means that no initiator matched, but at least 1 initiator
+					// reported insufficient bytes to declare a match or miss.
+					// therefore we need to try to keep reading bytes until we get a match,
+					// or, if we determine that the max number of bytes [or all of the bytes]
+					// have been read, we throw a content not recognized error
+				}
+				break;		
+			case COMPDETECT:
+				break;
+			case COMPLETE:
+				break;
+			case CONTENT:
+				break;
+			case CONTENTDETECT:
+				break;
+			case DECOMP:
+				break;
+			case ERROR:
+				break;
 		}
-		if(insufBytes) {
-			// this means that no initiator matched, but at least 1 initiator
-			// reported insufficient bytes to declare a match or miss.
-			// therefore we need to try to keep reading bytes until we get a match,
-			// or, if we determine that the max number of bytes [or all of the bytes]
-			// have been read, we throw a content not recognized error
-		}
-		
+		//throw new RuntimeException();
+		return 0;
+		//return null;
 	}
 	
 	/**
@@ -216,18 +241,22 @@ public class ProtocolSwitchDecoder extends SimpleChannelUpstreamHandler implemen
 
 	public void afterAdd(ChannelHandlerContext ctx) throws Exception  {
 		log.info("HANDLER EVENT: AfterAdd [" + ctx.getName() + "]");
+		super.afterAdd(ctx);
 	}
 	
 	public void beforeAdd(ChannelHandlerContext ctx) throws Exception  {
 		log.info("HANDLER EVENT: BeforeAdd [" + ctx.getName() + "]");
+		super.beforeAdd(ctx);
 	}
 	
 	public void afterRemove(ChannelHandlerContext ctx) throws Exception  {
 		log.info("HANDLER EVENT: AfterRemove[" + ctx.getName() + "]");
+		super.afterRemove(ctx);
 	}
 	
 	public void beforeRemove(ChannelHandlerContext ctx) throws Exception  {
 		log.info("HANDLER EVENT: beforeRemove[" + ctx.getName() + "]");
+		super.beforeRemove(ctx);
 	}
 	
 	

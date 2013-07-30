@@ -119,7 +119,13 @@ public class SanStatsContentClassifier extends ConfigurableStaxContentClassifier
 		}
 		
 //		context.sendCurrentBufferUpstream(FlushOnCloseBufferAggregator.PIPE_NAME);
-		context.sendCurrentBufferUpstream(context.getPipeline().getNames().get(0));
+//		context.sendCurrentBufferUpstream(context.getPipeline().getNames().get(0));
+		
+		try {
+			FlushOnCloseBufferAggregator.getInstance().handleUpstream(context.getCtx(), context.getUpstreamEvent());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		
 		return SwitchPhase.COMPLETE;
 	}

@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.helios.apmrouter.server.ServerComponent;
+import org.helios.apmrouter.util.NettyUtil;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.CompositeChannelBuffer;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
@@ -105,9 +106,7 @@ public class FlushOnCloseBufferAggregator extends ServerComponent implements Cha
 				List<ChannelBuffer> aggBuffs = aggregation.get(channel);
 				buff.readerIndex(0);
 				if(aggBuffs==null) {
-					byte[] bytes = new byte[100];
-					buff.getBytes(0, bytes);
-					//log.info("Starting aggregation with content:\n" + new String(bytes));
+					log.info("Starting aggregation with content:\n" + NettyUtil.formatBuffer(buff, 100));
 					inflight.incrementAndGet();
 					aggBuffs = new ArrayList<ChannelBuffer>();
 					writeBufferToAggregation(buff, aggBuffs);
@@ -116,16 +115,29 @@ public class FlushOnCloseBufferAggregator extends ServerComponent implements Cha
 					channel.getCloseFuture().addListener(new ChannelFutureListener() {
 						@Override
 						public void operationComplete(ChannelFuture future) throws Exception {
-							try {
-								List<ChannelBuffer> aggregatedChannelBuffers = aggregation.get(channel);								
-								ChannelBuffer totalAggregate = new CompositeChannelBuffer(buff.order(), aggregatedChannelBuffers,true);
-								log.info("Aggregated CompositeChannelBuffer from [" + aggregatedChannelBuffers.size() + "] buffers to [" +  totalAggregate.readableBytes() + "] readable bytes");
-								ctx.sendUpstream(new UpstreamMessageEvent(channel, totalAggregate, channel.getRemoteAddress()));
-								incr("CompletedAggregations");
-							} finally {								
-								inflight.decrementAndGet();
-								aggregation.remove(channel);
-							}
+							Thread t = new Thread("OnCloseFlushThread") {
+								@Override
+								public void run() {
+									try {
+										try {
+											log.info("Pausing to allow buffers to complete");
+											Thread.currentThread().join(3000);
+										} catch (Exception ex) {											
+										}
+										log.info("Flushing aggregation....");
+										List<ChannelBuffer> aggregatedChannelBuffers = aggregation.get(channel);								
+										ChannelBuffer totalAggregate = new CompositeChannelBuffer(buff.order(), aggregatedChannelBuffers,true);
+										log.info("Aggregated CompositeChannelBuffer from [" + aggregatedChannelBuffers.size() + "] buffers to [" +  totalAggregate.readableBytes() + "] readable bytes");
+										ctx.sendUpstream(new UpstreamMessageEvent(channel, totalAggregate, channel.getRemoteAddress()));
+										incr("CompletedAggregations");
+									} finally {								
+										inflight.decrementAndGet();
+										aggregation.remove(channel);
+									}									
+								}
+							};
+							t.setDaemon(true);
+							t.start();
 						}
 					});
 				} else {

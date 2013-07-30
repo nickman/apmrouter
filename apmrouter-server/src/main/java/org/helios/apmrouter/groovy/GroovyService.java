@@ -25,12 +25,13 @@
 package org.helios.apmrouter.groovy;
 
 import groovy.lang.Binding;
+import groovy.lang.Closure;
 import groovy.lang.GroovyClassLoader;
 import groovy.lang.GroovyShell;
 import groovy.lang.GroovySystem;
-import groovy.lang.MissingPropertyException;
 import groovy.lang.Script;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -49,7 +50,13 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
+import javax.management.MBeanServer;
+import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
+import javax.management.QueryExp;
+import javax.management.remote.JMXConnector;
+import javax.management.remote.JMXConnectorFactory;
+import javax.management.remote.JMXServiceURL;
 
 import org.codehaus.groovy.control.CompilerConfiguration;
 import org.codehaus.groovy.control.customizers.ImportCustomizer;
@@ -103,7 +110,7 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 	protected String consoleSource = null;
 	
 	/** A set of implicit imports for the compiler configuration */
-	protected final Set<String> imports = new CopyOnWriteArraySet<String>();
+	protected final Set<String> imports = new CopyOnWriteArraySet<String>(Arrays.asList("import static " + getClass().getName() + ".*"));
 	/** The initial and default imports customizer for the compiler configuration */
 	protected final ImportCustomizer importCustomizer = new ImportCustomizer(); 
 	
@@ -966,5 +973,151 @@ public class GroovyService extends ServerComponentBean implements GroovyLoadedSc
 		if(key==null || key.trim().isEmpty()) throw new IllegalArgumentException("The passed key was null or empty", new Throwable());
 		return globalVariables.get(key);
 	}
+	
+	
+	// ============================================================================================
+	// Static JMX Groovy Helper Functions
+	// ============================================================================================
+	
+	/**
+	 * Connects to the MBeanServer listening on the specified jmx service url and passes the {@link MBeanServerConnection} to the passed closure.
+	 * If the closure has max parameters more than 1, the {@link JMXConnector} will be passed as the second parameter and the closure is responsible
+	 * for closing the connection, unless the closure throws an exception in which the connection will be automatically closed. Othwerwise, only the
+	 * {@link MBeanServerConnection} will be passed to the closure and the connection will be automatically closed on closure completion.
+	 * @param jmxServiceUrl The JMXServiceURL string
+	 * @param username The username credentials
+	 * @param password The password credentials
+	 * @param closure The groovy closure that will handle the {@link MBeanServerConnection}
+	 */
+	public static void mbeanserver(String jmxServiceUrl, String username, String password, Closure<MBeanServerConnection> closure) {
+		try {
+			Map<String, ?> environment = null;
+			if(username!=null) {
+				environment = Collections.singletonMap(JMXConnector.CREDENTIALS, new String[]{username, password});
+			}			
+			JMXServiceURL svcUrl = new JMXServiceURL(jmxServiceUrl);
+			int maxParams = closure.getMaximumNumberOfParameters();
+			JMXConnector connector = JMXConnectorFactory.connect(svcUrl, environment);
+			try {
+				if(maxParams>1) {
+					closure.call(connector.getMBeanServerConnection(), connector);
+				} else {
+					closure.call(connector.getMBeanServerConnection());
+				}
+			} catch (Exception ex) {
+				try { connector.close(); } catch (Exception e) {}
+				throw new RuntimeException(ex);
+			} finally {
+				if(maxParams==1) {
+					try { connector.close(); } catch (Exception e) {}
+				}
+			}
+		} catch (Exception ex) {
+			throw new RuntimeException(ex);
+		}
+	}
+
+	/**
+	 * Connects to the MBeanServer listening on the specified jmx service url and passes the {@link MBeanServerConnection} to the passed closure.
+	 * If the closure has max parameters more than 1, the {@link JMXConnector} will be passed as the second parameter and the closure is responsible
+	 * for closing the connection, unless the closure throws an exception in which the connection will be automatically closed. Othwerwise, only the
+	 * {@link MBeanServerConnection} will be passed to the closure and the connection will be automatically closed on closure completion. 
+	 * @param jmxServiceUrl The JMXServiceURL string
+	 * @param closure The groovy closure that will handle the {@link MBeanServerConnection}
+	 */
+	public static void mbeanserver(String jmxServiceUrl, Closure<MBeanServerConnection> closure) {
+		mbeanserver(jmxServiceUrl, null, null, closure);
+	}
+	
+	/**
+	 * Passes the Helios {@link MBeanServer} to the passed closure.
+	 * @param closure The groovy closure that will handle the {@link MBeanServer}
+	 */
+	public static void mbeanserver(Closure<MBeanServer> closure) {
+		closure.call(JMXHelper.getHeliosMBeanServer());
+	}
+	
+	/**
+	 * Executes a name query against the passed mbeanserver and passes each found {@link ObjectName} to the passed closure.
+	 * If the closure has 1 parameter, only the located {@link ObjectName}s will be passed to the closure.
+	 * Otherwise the the located {@link ObjectName}s and the {@link MBeanServerConnection} will be passed to the closure. 
+	 * @param connection The mbeanserver to query
+	 * @param filter The object name filter which can be an actual {@link ObjectName}, or one will be built from the parameter's {@link #toString()}. 
+	 * @param qe The option query expression. Ignored if null.
+	 * @param closure The closure to pass the located {@link ObjectName}s to.
+	 */
+	public static void querymbeans(MBeanServerConnection connection, Object filter, QueryExp qe, Closure<ObjectName> closure) {
+		try {
+			ObjectName on = null;
+			if(filter instanceof ObjectName) {
+				on = (ObjectName)filter;
+			} else {
+				on = JMXHelper.objectName(filter);
+			}
+			for(ObjectName o: connection.queryNames(on, qe)) {
+				if(closure.getMaximumNumberOfParameters()>1) {
+					closure.call(o, connection);
+				} else {
+					closure.call(o);
+				}				
+			}
+		} catch (Exception ex) {
+			throw new RuntimeException(ex);
+		}
+	}
+
+	/**
+	 * Executes a name query against the passed mbeanserver and passes each found {@link ObjectName} to the passed closure.
+	 * If the closure has 1 parameter, only the located {@link ObjectName}s will be passed to the closure.
+	 * Otherwise the the located {@link ObjectName}s and the {@link MBeanServerConnection} will be passed to the closure. 
+	 * @param connection The mbeanserver to query
+	 * @param filter The object name filter which can be an actual {@link ObjectName}, or one will be built from the parameter's {@link #toString()}. 
+	 * @param closure The closure to pass the located {@link ObjectName}s to.
+	 */
+	public static void querymbeans(MBeanServerConnection connection, Object filter, Closure<ObjectName> closure) {
+		querymbeans(connection, filter, closure);
+	}
+	
+	/**
+	 * Creates a JMX notification subscription
+	 * @param connection The mbean server to subscribe to
+	 * @param objectName The object name to subscribe to
+	 * @param listener A listener closure
+	 * @param filter A filter closure
+	 * @return the subscription closer
+	 */
+	public static Closeable subscribe(MBeanServerConnection connection, String objectName, Closure<Void> listener, Closure<Boolean> filter) {
+		ObjectName on = JMXHelper.objectName(objectName);
+		return GroovyNotificationListenerControl.builder(on, listener)			
+			.filter(filter)
+			.connection(connection)
+			.finalSub(on.isPattern())
+			.build();
+	}
+	
+	/**
+	 * Creates a JMX notification subscription to the local helios mbean server
+	 * @param objectName The object name to subscribe to
+	 * @param listener A listener closure
+	 * @param filter A filter closure
+	 * @return the subscription closer
+	 */
+	public static Closeable subscribe(String objectName, Closure<Void> listener, Closure<Boolean> filter) {
+		return subscribe(JMXHelper.getHeliosMBeanServer(), objectName, listener, filter);
+	}
+	
+	/**
+	 * Creates a JMX notification subscription to the local helios mbean server
+	 * @param objectName The object name to subscribe to
+	 * @param listener A listener closure
+	 * @return the subscription closer
+	 */
+	public static Closeable subscribe(String objectName, Closure<Void> listener) {
+		return subscribe(JMXHelper.getHeliosMBeanServer(), objectName, listener, null);
+	}
+	
+	
+	
+	
 	
 }
