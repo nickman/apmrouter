@@ -53,7 +53,7 @@
 		<javax-validation.version>1.0.0.GA</javax-validation.version>
 		<bonecp.version>0.7.1.RELEASE</bonecp.version>
 		<jansi.version>1.9</jansi.version>
-		<commons-compress.version>1.9.0</commons-compress.version>
+		<commons-compress.version>[1.18,)</commons-compress.version>
 		<webappDirectory>${project.build.directory}/${project.build.finalName}</webappDirectory>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
